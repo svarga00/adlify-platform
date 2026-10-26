@@ -1459,7 +1459,7 @@
             <button type="submit" class="btn btn-primary">Pridať doklad</button>
           </div>
         </form>`;
-      UI.modal('Nový doklad', body);
+      UI.modal('Nový doklad', body, { wide: true });
     },
 
     async saveDoc(workerId) {

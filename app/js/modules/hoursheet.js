@@ -359,16 +359,18 @@
       if (s.empty && !await UI.confirm('Vo výkaze nie je ani hodina. Naozaj ho označiť ako podpísaný?')) return;
       UI.modal('Výkaz podpísaný', `
         <form id="hs-sign" onsubmit="event.preventDefault();HS.sign()">
-          ${UI.field('signed_by_name', 'Kto ho podpísal (Name in Druckbuchstaben)',
-            { required: true, placeholder: 'napr. Klaus Vogel' })}
-          ${UI.field('signed_on', 'Kedy', { type: 'date',
-            value: new Date().toISOString().slice(0, 10) })}
+          <div class="form-grid">
+            ${UI.field('signed_by_name', 'Kto ho podpísal (Name in Druckbuchstaben)',
+              { required: true, placeholder: 'napr. Klaus Vogel' })}
+            ${UI.field('signed_on', 'Kedy', { type: 'date',
+              value: new Date().toISOString().slice(0, 10) })}
+          </div>
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
           <div class="regimebox">Uloží sa aj to, čo bolo na papieri v čase podpisu.
             Neskoršia oprava hodín ho neprepíše — odberateľ podpísal to, čo tam
             vtedy bolo. Sken papiera sa dá doplniť neskôr.</div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Označiť ako podpísaný</button>
           </div>
         </form>`);

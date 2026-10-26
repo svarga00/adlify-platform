@@ -212,18 +212,18 @@
       };
 
       const body = `
-        <div class="regimebox" style="margin:0 0 12px;">
+        <div class="regimebox">
           Úlohy nevznikajú náhodne — každá má pravidlo, ktoré ju vytvorilo.
           Pravidlo sa dá vypnúť a prestane úlohy robiť; tie, čo už vznikli,
           zostanú. Nové pravidlá pribúdajú ako riadky, nie ako nová verzia
           aplikácie.</div>
         ${this.rules.length ? this.rules.map(row).join('')
-          : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne pravidlá.</div>'}
+          : '<div class="js-empty">Zatiaľ žiadne pravidlá.</div>'}
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-          <button class="btn btn-outline btn-sm" onclick="Tsk.runRules()">
+          <button class="btn btn-outline" onclick="Tsk.runRules()">
             ${Icon('repeat', 14)} Spustiť teraz</button>
-          ${Danubra.isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="Tsk.ruleForm()">
+          ${Danubra.isAdmin() ? `<button class="btn btn-primary" onclick="Tsk.ruleForm()">
             ${Icon('plus', 14)} Nové pravidlo</button>` : ''}
         </div>`;
       UI.modal('Pravidlá, z ktorých vznikajú úlohy', body, { wide: true });
@@ -264,7 +264,7 @@
       UI.modal(id ? 'Upraviť pravidlo' : 'Nové pravidlo', `
         <form id="rule-form" onsubmit="event.preventDefault();Tsk.saveRule('${id || ''}')"
               oninput="Tsk.ruleChanged()" onchange="Tsk.ruleChanged()">
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Pravidlo sleduje jeden dátum v jednej tabuľke a pred jeho dosiahnutím
             vytvorí úlohu. Tabuľky aj stĺpce ponúka databáza — nedá sa tu napísať
             niečo, čo neexistuje.</div>
@@ -293,14 +293,16 @@
           </div>
 
           <div class="form-section">Akú úlohu vytvorí</div>
-          ${UI.field('task_title_template', 'Text úlohy', {
-            value: r.task_title_template, required: true,
-            placeholder: 'Vybaviť nové A1 pre {label} — končí {date}' })}
-          <div style="font-size:12px;color:var(--ink-mute);margin:-4px 0 10px;">
-            ${DanubraTasks.RULE_VARS.map(([v, t]) =>
-              `<div><code>${v}</code> — ${UI.esc(t)}</div>`).join('')}
-          </div>
           <div class="form-grid">
+            <div class="fld fld-full">
+              ${UI.field('task_title_template', 'Text úlohy', {
+                value: r.task_title_template, required: true,
+                placeholder: 'Vybaviť nové A1 pre {label} — končí {date}' })}
+              <div class="muted-sm">
+                ${DanubraTasks.RULE_VARS.map(([v, t]) =>
+                  `<div><code>${v}</code> — ${UI.esc(t)}</div>`).join('')}
+              </div>
+            </div>
             ${UI.field('priority', 'Dôležitosť', { value: r.priority || 'normal',
               options: [['low', 'Nízka'], ['normal', 'Bežná'], ['high', 'Vysoká'],
                 ['urgent', 'Súrne']] })}
@@ -312,17 +314,19 @@
 
           <div class="form-section">Skúška naprázdno</div>
           <div id="rule-try">
-            <p style="font-size:13px;color:var(--ink-sub);margin:0;">
+            <div class="muted">
               Klepnite na <strong>Skúsiť</strong> a appka spočíta, koľko úloh by
-              z tohto pravidla dnes vzniklo — bez toho, aby čokoľvek zapísala.</p>
+              z tohto pravidla dnes vzniklo — bez toho, aby čokoľvek zapísala.</div>
           </div>
-          <button type="button" class="btn btn-outline btn-sm" style="margin-top:8px;"
-            onclick="Tsk.tryRule()">${Icon('search', 14)} Skúsiť</button>
+          <div class="btn-row">
+            <button type="button" class="btn btn-outline btn-sm"
+              onclick="Tsk.tryRule()">${Icon('search', 14)} Skúsiť</button>
+          </div>
 
           <div id="rule-problems" style="margin-top:12px;"></div>
 
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Tsk.rulesView()">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="Tsk.rulesView()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať pravidlo'}</button>
           </div>
         </form>`, { wide: true });
@@ -510,7 +514,7 @@
 
         ${t.description ? `<p class="t-desc">${UI.esc(t.description)}</p>` : ''}
 
-        <div class="kv" style="margin:12px 0;">
+        <div class="kv">
           ${fact('Termín', t.due_date ? UI.date(t.due_date) : 'bez termínu')}
           ${fact('Má na starosti', t.assigned_name || 'nikto')}
           ${fact('Založené', t.created_at ? UI.date(t.created_at) : '')}
@@ -541,7 +545,8 @@
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-ghost btn-sm" onclick="Tsk.snooze('${t.id}')">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Tsk.snooze('${t.id}')">
             ${Icon('clock', 14)} Odložiť o týždeň</button>
           <button class="btn btn-outline" onclick="Tsk.form('${t.id}')">
             ${Icon('edit', 14)} Upraviť</button>
@@ -602,7 +607,9 @@
       const t = id ? this.items.find(x => x.id === id) || {} : {};
       const body = `
         <form id="tsk-form" onsubmit="event.preventDefault();Tsk.save('${id || ''}')">
-          ${UI.field('title', 'Čo treba spraviť', { value: t.title, required: true })}
+          <div class="form-grid">
+            <div class="fld-full">${UI.field('title', 'Čo treba spraviť', { value: t.title, required: true })}</div>
+          </div>
           ${UI.field('description', 'Podrobnosti', { type: 'textarea', rows: 2, value: t.description })}
           <div class="form-grid">
             ${UI.field('due_date', 'Termín', { type: 'date', value: t.due_date })}
@@ -615,7 +622,7 @@
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
         </form>`;
-      UI.modal(id ? 'Upraviť úlohu' : 'Nová úloha', body);
+      UI.modal(id ? 'Upraviť úlohu' : 'Nová úloha', body, { wide: true });
     },
 
     async save(id) {

@@ -1011,6 +1011,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .modal-body > .form-section:first-child,
 .modal-body > form > .form-section:first-child { margin-top: 0; }
 .modal-body .js-empty { padding: 10px 0; }
+/* Bloky polí pod sebou (mriežka, samostatné pole, zaškrtávačky) majú
+   medzi sebou vždy rovnakú medzeru — inak sa mriežka lepila na textové pole. */
+.modal-body > :is(.form-grid, .chk-grid, .tpl-row, .fld) + :is(.form-grid, .chk-grid, .fld),
+.modal-body > form > :is(.form-grid, .chk-grid, .tpl-row, .fld) + :is(.form-grid, .chk-grid, .fld) { margin-top: 12px; }
+.mc-docs { display: grid; gap: 8px; }
+.mf-row.is-static { cursor: default; }
 /* Výber z možností (dlaždice) — rovnaký vo všetkých oknách. */
 .pick-list { display: grid; gap: 8px; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }

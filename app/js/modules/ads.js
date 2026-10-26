@@ -145,11 +145,11 @@
       UI.modal(x.title, `
         <div class="detail-head">
           ${A().isRunning(x) ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}
-          <span style="color:var(--ink-mute);font-size:12.5px;">
+          <span class="muted-sm">
             ${UI.esc(A().subtitle(x))}</span>
         </div>
 
-        <div class="kv" style="margin:12px 0;">
+        <div class="kv">
           <div><span>Ozvalo sa</span><strong>${p.candidates}</strong></div>
           <div><span>Ozvali sme sa</span><strong>${p.contacted}${
             p.contactRate != null ? ` (${p.contactRate} %)` : ''}</strong></div>
@@ -160,20 +160,21 @@
 
         ${promise.length ? `<div class="form-section">Čo sme sľúbili</div>
           <div class="ad-promise">${promise.map(t => `<span>${UI.esc(t)}</span>`).join('')}</div>
-          <p style="font-size:12px;color:var(--ink-mute);margin:6px 0 0;">
+          <p class="card-note">
             Toto je vidieť počas celého hovoru. Nesľubujte nič, čo tu nie je.</p>` : ''}
 
         ${x.body ? `<div class="form-section">Znenie inzerátu</div>
           <pre class="ad-body">${UI.esc(x.body)}</pre>` : ''}
         ${x.url ? `<p style="margin:10px 0 0;"><a href="${UI.esc(x.url)}"
           target="_blank" rel="noopener noreferrer">${Icon('chevron', 13)} Otvoriť inzerát</a></p>` : ''}
-        ${x.note ? `<p style="margin:10px 0 0;color:var(--ink-sub);font-size:13px;">${UI.esc(x.note)}</p>` : ''}
+        ${x.note ? `<div class="notebox">${UI.esc(x.note)}</div>` : ''}
         ${x.web_published ? `<div class="form-section">Web punds.sk</div>
           <p style="margin:0;font-size:13px;">${Icon('check', 13)} Zverejnené ako <strong>${UI.esc(x.web_title || x.title)}</strong>
             ${x.web_slug ? ` · <a href="${UI.esc(this.webUrl(x))}" target="_blank" rel="noopener">otvoriť na webe</a>` : ''}</p>` : ''}
 
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="Ads.toggle('${x.id}')">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Ads.toggle('${x.id}')">
             ${Icon(x.active ? 'x' : 'check', 14)} ${x.active ? 'Ukončiť inzerát' : 'Znova spustiť'}</button>
           <button class="btn btn-primary" onclick="Ads.form('${x.id}')">
             ${Icon('edit', 14)} Upraviť</button>
@@ -207,7 +208,7 @@
           </div>
 
           <div class="form-section">Čo inzerát sľubuje</div>
-          <p style="font-size:12.5px;color:var(--ink-mute);margin:0 0 8px;">
+          <p class="muted-sm" style="margin:0 0 8px;">
             Jeden sľub na riadok. Počas hovoru je to vpravo na očiach, aby sa
             nesľúbilo niečo iné, než čo bolo v inzeráte.</p>
           ${UI.field('promise', '', { type: 'textarea', rows: 4,
@@ -273,7 +274,7 @@
       this._i18n = JSON.parse(JSON.stringify(x.i18n || {}));
       const tr = W.translated(this._i18n);
       return `<div class="form-section">Web punds.sk</div>
-        <div class="regimebox" style="margin:0 0 10px;">Zverejnená ponuka je na punds.sk do pár minút po uložení.
+        <div class="regimebox">Zverejnená ponuka je na punds.sk do pár minút po uložení.
           Prihlášky z nej prídu do Kandidátov pri tomto inzeráte.</div>
         ${UI.field('web_published', 'Zverejniť na punds.sk', { type: 'checkbox', value: !!x.web_published })}
         <div class="form-grid">
@@ -304,7 +305,7 @@
           ${UI.field('image_url', 'Fotka (adresa)', { value: x.image_url || '', placeholder: 'prázdne = fotka podľa profesie' })}
           <label class="fld"><span>Nahrať fotku</span><input type="file" accept="image/jpeg,image/png,image/webp" onchange="Ads.uploadImage(this)"></label>
         </div>
-        <div class="js-acts" style="align-items:center;">
+        <div class="btn-row">
           <button type="button" class="btn btn-outline btn-sm" id="ad-tr-btn" onclick="Ads.translate()">${Icon('repeat', 14)} Preložiť do CZ, HU, DE, EN</button>
           <span class="card-note" id="ad-tr-st">${tr.length ? `Preložené: ${tr.map(l => l.toUpperCase()).join(', ')}` : 'Bez prekladu — v ostatných jazykoch sa ukáže slovenský text.'}</span>
           ${x.web_published && x.web_slug ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${UI.esc(this.webUrl(x))}">${Icon('chevron', 14)} Otvoriť na webe</a>` : ''}

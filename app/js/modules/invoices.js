@@ -657,15 +657,23 @@
         // Schváliť sa nedá, kým niečo blokuje — okrem toho, čo je povolené
         // zapísanou výnimkou.
         if (to === 'approved' && !revV.ok) {
-          return `<button class="btn btn-primary btn-sm" disabled title="${
+          return `<button class="btn btn-primary" disabled title="${
             UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>`;
         }
         const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
           : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
           : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
           : `Inv.setStatusV2('${x.id}','${to}')`;
-        return `<button class="btn ${map[1]} btn-sm" onclick="${fn}">${map[0]}</button>`;
+        return `<button class="btn ${map[1]}" onclick="${fn}">${map[0]}</button>`;
       };
+      // Päta okna: tiché kroky pred hlavnými, hlavné tlačidlo je posledné.
+      const RANK = { 'btn-ghost': 0, 'btn-outline': 1, 'btn-primary': 2 };
+      const rank = (to) => {
+        const cls = { pending_approval: 'btn-outline', approved: 'btn-primary', draft: 'btn-ghost',
+          issued: 'btn-primary', sent: 'btn-primary', paid: 'btn-outline', overdue: 'btn-ghost' }[to];
+        return RANK[cls] ?? 1;
+      };
+      const kroky = steps.slice().sort((a, b) => rank(a) - rank(b));
 
       const rows = [
         ['Odberateľ', ctx.partner.name],
@@ -685,24 +693,20 @@
       const body = `
         <div class="detail-head">
           ${this.badge(x.status)}
-          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
+          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>
         </div>
 
         ${x.sf_error ? `<div class="warnbox">${Icon('alert', 14)}
           Posledný pokus zlyhal: ${UI.esc(x.sf_error)}</div>` : ''}
 
-        <div class="inv-top-acts">
-          <button class="btn btn-primary btn-sm" onclick="Inv.openDocV2('${x.id}')">${Icon('doc', 14)} Zobraziť faktúru (PDF)</button>
+        <div class="btn-row">
+          <button class="btn btn-outline btn-sm" onclick="Inv.openDocV2('${x.id}')">${Icon('doc', 14)} Zobraziť faktúru (PDF)</button>
           ${upravit ? `<button class="btn btn-outline btn-sm" onclick="Inv.freeForm('${x.id}')">${Icon('edit', 14)} Upraviť návrh</button>` : ''}
         </div>
-        ${upravit ? '' : '<div class="card-note" style="margin:0 0 8px;">Schválená faktúra sa už nemení — opravuje sa dobropisom.</div>'}
+        ${upravit ? '' : '<p class="muted-sm">Schválená faktúra sa už nemení — opravuje sa dobropisom.</p>'}
 
         <div class="form-section">Položky</div>
-        ${riadky.map(i => `<div class="list-row" style="cursor:default;">
-          <span style="flex:1;font-size:13px;">${UI.esc(i.description)}
-            <span style="color:var(--ink-mute);font-size:12px;display:block;">
-              ${Number(i.quantity || 0).toLocaleString('sk-SK')} ${UI.esc(i.unit || '')} × ${UI.money(i.unit_price)}</span></span>
-          <strong>${UI.money(i.total)}</strong></div>`).join('') || '<div class="js-empty">Bez položiek.</div>'}
+        ${riadky.map(i => this.lineRow(i)).join('') || '<div class="js-empty">Bez položiek.</div>'}
 
         <div class="form-section">Suma</div>
         ${Shell.sums({
@@ -726,19 +730,20 @@
           inputId: 'inv-ovr-reason',
           noOvrNote: 'Rozdiel voči podkladu smie povoliť len administrátor — '
             + 'je to to isté právo ako schválenie faktúry.',
-          okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+          okHtml: '<p class="muted">'
             + 'Suma sedí s podkladom a odberateľ má všetko, čo treba.</p>',
         })}
         ${this.overridesHtml(x.id)}
 
-        <div class="kv" style="margin-top:14px;">
+        <div class="kv">
           ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
         </div>
 
         ${this.dunningHtml ? this.dunningHtml(x) : ''}
 
-        <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
-          ${steps.map(act).join('')}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          ${kroky.map(act).join('')}
         </div>`;
       UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
     },
@@ -754,13 +759,12 @@
       const row = (o) => {
         const m = DanubraOverrides.meta(o.rule_key);
         const dead = !!o.revoked_at;
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
-          <span class="dot ${dead ? '' : 'amber'}" style="margin-top:6px;"></span>
-          <span style="flex:1;font-size:13px;${dead ? 'opacity:.55;' : ''}">
+        return `<div class="list-row is-static is-top">
+          <span class="dot ${dead ? '' : 'amber'}"></span>
+          <span class="lr-main${dead ? ' is-dead' : ''}">
             <strong>${UI.esc(m?.label || o.rule_key)}</strong>
             ${dead ? UI.badge('zrušená', 'gray') : ''}
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${o.granted_at ? UI.date(o.granted_at) : ''} · ${UI.esc(o.reason || '')}</span>
+            <span class="lr-sub">${o.granted_at ? UI.date(o.granted_at) : ''} · ${UI.esc(o.reason || '')}</span>
           </span>
           ${dead || !Danubra.isAdmin() ? '' : `<button class="btn btn-ghost btn-sm"
             onclick="Inv.revokeOverride('${o.id}','${invoiceId}')">Zrušiť</button>`}
@@ -768,9 +772,9 @@
       };
       return `<div class="form-section">Zapísané výnimky</div>
         ${all.map(row).join('')}
-        <div style="font-size:12px;color:var(--ink-mute);margin-top:4px;">
+        <p class="muted-sm">
           Výnimka sa nemaže. Zrušenie ju len prestane uplatňovať — záznam
-          zostane aj s dôvodom.</div>`;
+          zostane aj s dôvodom.</p>`;
     },
 
     async grantOverride(invoiceId) {
@@ -863,19 +867,17 @@
       const cand = this.v2.periods.filter(p => p.status === 'closed' && !fakt.has(p.id))
         .sort((a, b) => String(b.period_to || '').localeCompare(String(a.period_to || '')));
       if (!cand.length) {
-        return UI.modal('Zo zákazky', `<div class="regimebox" style="margin:0;">
+        return UI.modal('Zo zákazky', `<div class="regimebox">
           Žiadne uzavreté obdobie nečaká na faktúru. Obdobie sa uzatvára v zákazke —
           <b>krok 7 · Hodiny a faktúra</b>: schváľte hodiny a kliknite „Uzavrieť obdobie".</div>
           <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('subcontracts')">${Icon('site', 14)} Otvoriť zákazky</button></div>`);
       }
       const sc = (id) => this.v2.subcontracts.find(x => x.id === id) || {};
-      UI.modal('Z ktorého obdobia?', `<div class="pick-list">${cand.map(p => `
-        <button class="pick-tile" onclick="UI.closeModal();Inv.fromPeriod('${p.id}')">
-          <span class="pick-ico">${Icon('clock', 20)}</span>
-          <span class="pick-txt"><b>${UI.esc(sc(p.subcontract_id).title || 'Zákazka')}</b>
-            <em>${UI.dateRange(p.period_from, p.period_to)}${p.amount_charged != null ? ` · ${UI.money(p.amount_charged)}` : ''}</em></span>
-          <span class="pick-go">${Icon('chevron', 16)}</span></button>`).join('')}</div>`, { wide: true });
+      UI.modal('Z ktorého obdobia?', `<div class="pick-list">${cand.map(p => pickTile({ ico: 'clock',
+        title: UI.esc(sc(p.subcontract_id).title || 'Zákazka'),
+        sub: `${UI.dateRange(p.period_from, p.period_to)}${p.amount_charged != null ? ` · ${UI.money(p.amount_charged)}` : ''}`,
+        action: `UI.closeModal();Inv.fromPeriod('${p.id}')` })).join('')}</div>`, { wide: true });
     },
 
     async selfBill() {

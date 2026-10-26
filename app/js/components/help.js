@@ -16,6 +16,11 @@
     return `<p>${safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`;
   }
 
+  /** Jeden riadok s `**tučným**` bez obalu `<p>` (úvod, riadok registra). */
+  function inline(s) {
+    return UI.esc(String(s || '')).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
+
   function section(icon, heading, items) {
     if (!items || !items.length) return '';
     return `<section class="hx-sec">
@@ -47,7 +52,7 @@
 
       UI.modal(t.title, `
         <div class="hx">
-          <p class="hx-lead">${UI.esc(t.lead)}</p>
+          <p class="hx-lead">${inline(t.lead)}</p>
           ${t.steps && t.steps.length ? `<section class="hx-sec">
             <h4>${Icon('check', 14)} Krok za krokom</h4>
             <ol class="hx-steps">${t.steps.map(x => `<li>${para(x).slice(3, -4)}</li>`).join('')}</ol>
@@ -99,7 +104,7 @@
               const t = E().get(k);
               return `<button class="hx-item" onclick="Help.open('${k}')">
                 <strong>${UI.esc(t.title)}</strong>
-                <span>${UI.esc(t.lead)}</span>
+                <span>${inline(t.lead)}</span>
               </button>`;
             }).join('')}
           </div>

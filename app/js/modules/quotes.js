@@ -109,13 +109,15 @@
         const label = { sent: 'Označiť ako odoslanú', accepted: 'Odberateľ prijal',
           rejected: 'Odberateľ odmietol', expired: 'Prepadla' }[to];
         const kind = to === 'accepted' ? 'btn-primary' : 'btn-outline';
-        return `<button class="btn ${kind} btn-sm" onclick="Quo.setStatus('${q.id}','${to}')">${label}</button>`;
+        return `<button class="btn ${kind}" onclick="Quo.setStatus('${q.id}','${to}')">${label}</button>`;
       };
+      // Hlavný krok (prijatie) je v päte posledný, ostatné pred ním.
+      const kroky = nextStates.slice().sort((a, b) => (a === 'accepted') - (b === 'accepted'));
 
       const body = `
         <div class="detail-head">
           ${UI.badge(Enums.label('quote_status', q.status), this.statusKind(q.status))}
-          ${q.quote_number ? `<span class="mono" style="color:var(--ink-mute);">${UI.esc(q.quote_number)}</span>` : ''}
+          ${q.quote_number ? `<span class="mono doc-no">${UI.esc(q.quote_number)}</span>` : ''}
         </div>
 
         <div class="form-section">Marža</div>
@@ -132,10 +134,10 @@
         ${(rev.reasons.length || rev.warnings.length) ? `
           <div class="form-section">Pred odoslaním</div>
           ${Shell.blocker({ reasons: [...rev.reasons, ...rev.warnings] })}`
-          : `<div class="regimebox" style="margin-top:12px;">Ponuka je v poriadku — marža sedí
+          : `<div class="regimebox">Ponuka je v poriadku — marža sedí
              a sadzba je nad minimálnou mzdou.</div>`}
 
-        <div class="kv" style="margin-top:14px;">
+        <div class="kv">
           <div><span>Odberateľ</span><strong>${UI.esc(this.partnerName(q.partner_id))}</strong></div>
           ${q.trade_key ? `<div><span>Remeslo</span><strong>${UI.esc(Wrk.professionLabel(q.trade_key))}</strong></div>` : ''}
           <div><span>Ľudí</span><strong>${q.headcount || 1}</strong></div>
@@ -145,16 +147,17 @@
           ${q.valid_until ? `<div><span>Platí do</span><strong>${UI.date(q.valid_until)}</strong></div>` : ''}
         </div>
         ${q.notes ? `<div class="notebox">${UI.esc(q.notes)}</div>` : ''}
-        ${q.reject_reason ? `<div class="warnbox" style="margin-top:10px;">
+        ${q.reject_reason ? `<div class="warnbox">
           ${Icon('alert', 14)} Odmietnuté: ${UI.esc(q.reject_reason)}</div>` : ''}
 
-        <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
-          <button class="btn btn-outline btn-sm" onclick="Quo.document('${q.id}')">
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Quo.document('${q.id}')">
             ${Icon('doc', 14)} Angebot (PDF)</button>
-          <button class="btn btn-outline btn-sm" onclick="Quo.form('${q.id}')">Upraviť</button>
-          ${nextStates.map(actionBtn).join('')}
+          <button class="btn btn-outline" onclick="Quo.form('${q.id}')">Upraviť</button>
+          ${kroky.map(actionBtn).join('')}
           ${q.status === 'accepted' ? `
-            <button class="btn btn-primary btn-sm" onclick="Quo.toContract('${q.id}')">
+            <button class="btn btn-primary" onclick="Quo.toContract('${q.id}')">
               ${Icon('note', 14)} Spraviť zmluvu</button>` : ''}
         </div>`;
       UI.modal(q.title, body, { wide: true });
@@ -242,7 +245,7 @@
           </div>
 
           <div class="form-section">Peniaze</div>
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Réžia je ubytovanie, doprava a všetko ostatné prepočítané na hodinu.
             Keď ju necháte na nule, marža bude vyzerať lepšie, než je.</div>
           <div class="form-grid">

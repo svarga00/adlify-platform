@@ -426,13 +426,13 @@
           <form id="br-form" onsubmit="event.preventDefault();Cost.confirmReview('${b.id}')">
             ${b.extract_status === 'error' ? `<div class="warnbox br-warn">
               <div>${Icon('alert', 14)}<span>${UI.esc(b.extract_error || 'Faktúru sa nepodarilo prečítať.')}</span></div>
-              <div style="font-weight:400;">Doplňte údaje ručne podľa dokladu, alebo
+              <div class="br-warn-sub">Doplňte údaje ručne podľa dokladu, alebo
               <a href="#" onclick="event.preventDefault();Cost.rereadBill('${b.id}')">skúste to znova</a>.</div></div>` : ''}
             ${warn.length ? `<div class="warnbox br-warn">
               ${warn.map(t => `<div>${Icon('alert', 13)}<span>${UI.esc(t)}</span></div>`).join('')}</div>` : ''}
-            ${x.note ? `<div class="notebox" style="margin:0 0 12px;">${UI.esc(x.note)}</div>` : ''}
+            ${x.note ? `<div class="notebox">${UI.esc(x.note)}</div>` : ''}
 
-            <div class="form-section" style="margin-top:0;">Od koho</div>
+            <div class="form-section">Od koho</div>
             <div class="form-grid">
               ${UI.field('worker_id', `Živnostník${how && b.worker_id ? ` (${how})` : ''}`, { value: b.worker_id || '', add: 'worker',
                 options: [['', '— nie je živnostník (iný dodávateľ) —'], ...this.workers.map(w => [w.id, w.full_name])] })}
@@ -465,13 +465,12 @@
               <span><b>Už zaplatené</b> — bloček, karta alebo hotovosť. Nepôjde do „Zaplatiť".</span>
             </label>
             ${UI.field('note', 'Poznámka', { type: 'textarea', value: b.note || '' })}
-            <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
-              <button type="button" class="btn btn-ghost" style="color:var(--red);margin-right:auto;"
-                onclick="Cost.discardBill('${b.id}')">Zahodiť</button>
-              <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
-              <button type="submit" class="btn btn-primary">${Icon('check')} Potvrdiť faktúru</button>
-            </div>
           </form>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-danger" onclick="Cost.discardBill('${b.id}')">Zahodiť</button>
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <button type="submit" form="br-form" class="btn btn-primary">${Icon('check')} Potvrdiť faktúru</button>
         </div>`;
       UI.modal(`Skontrolovať ${this.isReceipt(b) ? 'bloček' : 'faktúru'}${x._file ? ` · ${x._file}` : ''}`, body, { wide: true });
       // Doklad a formulár vedľa seba — na to je bežné okno úzke.
@@ -596,19 +595,19 @@
       this._selfList = list;
       if (!this.selfWorkers().length) {
         return UI.modal('Faktúry za živnostníkov', `
-          <div class="regimebox" style="margin:0;">Zatiaľ nemáte žiadneho živnostníka, za ktorého
+          <div class="regimebox">Zatiaľ nemáte žiadneho živnostníka, za ktorého
             vystavujeme faktúry. Zapína sa na jeho karte (Upraviť → „Faktúry zaňho vystavujeme my")
             a platí od podpisu rámcovej zmluvy s touto dohodou.</div>
           <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button></div>`);
       }
       if (!list.length) {
         return UI.modal('Faktúry za živnostníkov', `
-          <div class="regimebox" style="margin:0;">Nie je z čoho — v uzavretých obdobiach nemá nikto
+          <div class="regimebox">Nie je z čoho — v uzavretých obdobiach nemá nikto
             zo živnostníkov, za ktorých fakturujeme, schválené hodiny bez faktúry.</div>
           <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button></div>`);
       }
       UI.modal('Pripraviť faktúry za živnostníkov', `
-        <div class="regimebox" style="margin:0 0 12px;">Appka pripraví návrh faktúry v mene živnostníka
+        <div class="regimebox">Appka pripraví návrh faktúry v mene živnostníka
           zo <b>schválených hodín</b> uzavretého obdobia. Vystaví ho až administrátor; potom sa pošle
           živnostníkovi na potvrdenie.</div>
         <div class="pay-list">${list.map((c, i) => `
@@ -709,19 +708,19 @@
         <b>${Money.format(Money.toCents(l.total))}</b></div>`).join('');
       let stav = '';
       if (b.status === 'self_draft') {
-        stav = `<div class="regimebox" style="margin:0 0 12px;">Návrh zo schválených hodín. Po schválení
+        stav = `<div class="regimebox">Návrh zo schválených hodín. Po schválení
           dostane číslo z radu živnostníka a pošlete mu ho na potvrdenie.</div>`;
       } else if (b.status === 'self_sent') {
-        stav = `<div class="regimebox" style="margin:0 0 12px;">${b.sent_to_worker_at
+        stav = `<div class="regimebox">${b.sent_to_worker_at
           ? `Poslané ${UI.date(b.sent_to_worker_at)} — čaká, kým ju ${UI.esc(w.full_name || 'živnostník')} potvrdí.`
           : `Vystavená. <b>Pošlite ju živnostníkovi na potvrdenie</b> — bez potvrdenia sa neplatí.`}
-          <div class="self-send">
+          <div class="btn-row">
             <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','wa')">${Icon('whatsapp', 14)} WhatsApp</button>
             <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','sms')">${Icon('phone', 14)} SMS</button>
             <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','copy')">${Icon('copy', 14)} Kopírovať odkaz</button>
           </div></div>`;
       } else if (b.worker_confirmed_at) {
-        stav = `<div class="regimebox" style="margin:0 0 12px;">${Icon('check', 14)} Živnostník ju potvrdil
+        stav = `<div class="regimebox">${Icon('check', 14)} Živnostník ju potvrdil
           ${UI.date(b.worker_confirmed_at)}.</div>`;
       } else if (b.worker_note) {
         stav = `<div class="warnbox br-warn"><div>${Icon('alert', 14)}<span>Živnostník nesúhlasí:
@@ -749,7 +748,7 @@
       const body = `
         <div class="detail-head">
           ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}
-          ${b.bill_number ? `<span class="mono" style="color:var(--ink-mute);">${UI.esc(b.bill_number)}</span>` : ''}
+          ${b.bill_number ? `<span class="mono doc-no">${UI.esc(b.bill_number)}</span>` : ''}
         </div>
 
         ${self ? `<div class="form-section">Faktúra, ktorú vystavujeme za živnostníka</div>${this.selfHtml(b)}` : ''}
@@ -765,9 +764,9 @@
 
         ${(rev.reasons.length || rev.warnings.length)
           ? Shell.blocker({ reasons: [...rev.reasons, ...rev.warnings] })
-          : '<div class="regimebox" style="margin-top:12px;">Faktúra sedí a má všetko, čo treba.</div>'}
+          : '<div class="regimebox">Faktúra sedí a má všetko, čo treba.</div>'}
 
-        <div class="kv" style="margin-top:14px;">
+        <div class="kv">
           ${b.worker_id ? `<div><span>Živnostník</span><strong>${UI.esc(w.full_name || '—')}</strong></div>`
             : `<div><span>Dodávateľ</span><strong>${UI.esc(b.supplier_name || '—')}</strong></div>`}
           ${(w.company_id || b.supplier_ico) ? `<div><span>IČO</span><strong>${UI.esc(w.company_id || b.supplier_ico)}</strong></div>` : ''}
@@ -781,15 +780,16 @@
         </div>
         ${b.note ? `<div class="notebox">${UI.esc(b.note)}</div>` : ''}
 
-        <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
-          ${b.storage_path ? `<button class="btn btn-outline btn-sm" onclick="Cost.openDoc('${b.id}')">${Icon('doc')} Doklad</button>` : ''}
-          ${self ? `<button class="btn btn-outline btn-sm" onclick="Cost.selfDoc('${b.id}')">${Icon('doc')} ${b.bill_number ? 'Faktúra' : 'Náhľad návrhu'}</button>` : ''}
+        <div class="modal-actions">
           ${self && ['self_draft', 'self_sent', 'disputed'].includes(b.status)
-            ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Cost.discardBill('${b.id}')">Zahodiť</button>` : ''}
-          ${self ? '' : `<button class="btn btn-outline btn-sm" onclick="Cost.billForm('${b.id}')">Upraviť</button>`}
+            ? `<button class="btn btn-danger" onclick="Cost.discardBill('${b.id}')">Zahodiť</button>` : ''}
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          ${b.storage_path ? `<button class="btn btn-outline" onclick="Cost.openDoc('${b.id}')">${Icon('doc')} Doklad</button>` : ''}
+          ${self ? `<button class="btn btn-outline" onclick="Cost.selfDoc('${b.id}')">${Icon('doc')} ${b.bill_number ? 'Faktúra' : 'Náhľad návrhu'}</button>` : ''}
+          ${self ? '' : `<button class="btn ${next ? 'btn-outline' : 'btn-primary'}" onclick="Cost.billForm('${b.id}')">Upraviť</button>`}
           ${self && b.status === 'self_draft'
-            ? `<button class="btn btn-primary btn-sm" onclick="Cost.selfIssue('${b.id}')">${Icon('check')} Schváliť a vystaviť</button>` : ''}
-          ${next ? `<button class="btn btn-primary btn-sm" onclick="Cost.setBillStatus('${b.id}','${next}')">${nextLabel}</button>` : ''}
+            ? `<button class="btn btn-primary" onclick="Cost.selfIssue('${b.id}')">${Icon('check')} Schváliť a vystaviť</button>` : ''}
+          ${next ? `<button class="btn btn-primary" onclick="Cost.setBillStatus('${b.id}','${next}')">${nextLabel}</button>` : ''}
         </div>`;
       UI.modal(`Faktúra od ${w.full_name || b.supplier_name || 'dodávateľa'}`, body, { wide: true });
     },
@@ -831,7 +831,7 @@
 
       const body = `
         <form id="bill-form" onsubmit="event.preventDefault();Cost.saveBill('${id || ''}')">
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Keď faktúru naviažete na uzavreté obdobie, appka ju hneď porovná
             so schválenými hodinami. Bez obdobia sa schvaľuje naslepo.</div>
           <div class="form-grid">
@@ -848,7 +848,7 @@
             ${UI.field('issue_date', 'Vystavená', { type: 'date', value: b.issue_date })}
             ${UI.field('due_date', 'Splatnosť', { type: 'date', value: b.due_date })}
           </div>
-          <div id="bill-live"></div>
+          <div id="bill-live" hidden></div>
           ${UI.field('note', 'Poznámka', { type: 'textarea', value: b.note })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -871,16 +871,21 @@
       const box = document.getElementById('bill-live');
       if (!box) return;
       const d = UI.formData(document.getElementById('bill-form'));
-      if (!d.worker_id || !d.period_id) { box.innerHTML = ''; return; }
+      const hide = () => { box.hidden = true; box.className = ''; box.innerHTML = ''; };
+      if (!d.worker_id || !d.period_id) return hide();
       const c = DanubraBills.check(d, this.ctx(d));
-      if (c.expected == null) { box.innerHTML = ''; return; }
+      if (c.expected == null) return hide();
       const off = Math.abs(c.variance) > DanubraBills.TOLERANCE;
-      box.innerHTML = `<div class="${off ? 'warnbox' : 'regimebox'}" style="margin:0 0 12px;">
+      // Rámček je sám `#bill-live` — priamo vo formulári, takže medzery mu dá
+      // stavebnica okna ako každému inému rámčeku.
+      box.hidden = false;
+      box.className = off ? 'warnbox' : 'regimebox';
+      box.innerHTML = `
         ${off ? Icon('alert', 14) : Icon('check', 14)}
         Podľa ${c.hours} ${DanubraBills.plural(c.hours, 'schválenej hodiny', 'schválených hodín', 'schválených hodín')}
         by malo prísť <strong>${Money.format(c.expected)}</strong>.
         ${off ? `Rozdiel <strong>${Money.format(c.variance)}</strong> — faktúra pôjde do sporu.`
-          : 'Sedí.'}</div>`;
+          : 'Sedí.'}`;
     },
 
     async saveBill(id) {
@@ -978,7 +983,7 @@
           </div>
           ${UI.field('description', 'Popis', { value: c.description })}
           <div class="form-section">Opakovanie</div>
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Mesačné ubytovanie sa nezadáva dvanásťkrát. Zapnite opakovanie a
             ďalšie mesiace vzniknú samy — vždy k tomu istému dňu.</div>
           <div class="chk-row">
