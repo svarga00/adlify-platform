@@ -117,7 +117,7 @@
         + Shell.list({
           rows, total: this.items.length, render: card, layout: 'cards',
           emptyIcon: 'marketing', emptyTitle: 'Zatiaľ žiadny inzerát',
-          emptySub: 'Založ inzerát skôr, než ho vyvesíš — hovor sa potom začína tým, '
+          emptySub: 'Založte inzerát skôr, než ho vyvesíte — hovor sa potom začína tým, '
             + 'na čo človek volá, nie otázkou „a čo hľadáte?".',
           emptyHtml: null,
           filter: {
@@ -161,7 +161,7 @@
         ${promise.length ? `<div class="form-section">Čo sme sľúbili</div>
           <div class="ad-promise">${promise.map(t => `<span>${UI.esc(t)}</span>`).join('')}</div>
           <p style="font-size:12px;color:var(--ink-mute);margin:6px 0 0;">
-            Toto je vidieť počas celého hovoru. Nesľubuj nič, čo tu nie je.</p>` : ''}
+            Toto je vidieť počas celého hovoru. Nesľubujte nič, čo tu nie je.</p>` : ''}
 
         ${x.body ? `<div class="form-section">Znenie inzerátu</div>
           <pre class="ad-body">${UI.esc(x.body)}</pre>` : ''}
@@ -216,7 +216,7 @@
 
           <div class="form-section">Presné znenie</div>
           ${UI.field('body', '', { type: 'textarea', rows: 6, value: x.body,
-            placeholder: 'Skopíruj sem text inzerátu tak, ako beží.' })}
+            placeholder: 'Skopírujte sem text inzerátu tak, ako beží.' })}
           ${UI.field('note', 'Interná poznámka', { type: 'textarea', rows: 2, value: x.note })}
 
           ${this.webSection(x)}

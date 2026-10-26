@@ -18,6 +18,8 @@
   const BILLING = [['hourly', 'Po hodinách'], ['unit', 'Za jednotku'], ['fixed', 'Pevná cena']];
 
   const Sub = {
+    /** Stav zákazky slovom — aj pre iné obrazovky (odberateľ). */
+    statusLabel(k) { const s = STATUS.find(x => x[0] === k); return s ? s[1] : (k || ''); },
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [], invoices: [],
     periods: [], crews: [], stays: [], occupancy: [], overrides: [],
     assignmentChecks: [],
@@ -235,7 +237,7 @@
           <span class="fb-count">${rows.length} ${Shell.plural(rows.length, 'zákazka', 'zákazky', 'zákaziek')}</span>
         </div>
         ${rows.length === 0
-          ? UI.empty('site', 'Žiadne zákazky', 'Začni dielenskou zákazkou — má najnižšiu reguláciu.',
+          ? UI.empty('site', 'Žiadne zákazky', 'Začnite dielenskou zákazkou — má najnižšiu reguláciu.',
               `<button class="btn btn-primary" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>`)
           : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
     },
@@ -423,7 +425,7 @@
         </details>
 
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.del('${sc.id}')">Zmazať zákazku</button>
+          <button class="btn btn-ghost btn-sm btn-text-danger" onclick="Sub.del('${sc.id}')">Zmazať zákazku</button>
         </div>`;
 
       el.innerHTML = Danubra.header(sc.title,
@@ -522,7 +524,7 @@
                 ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
             </span>
             <button class="btn btn-outline btn-sm" title="Záloha alebo platba pre neho" onclick="Sub.viaWrk('payMenu','${a.worker_id}')">${Icon('wallet', 14)} Záloha</button>
-            <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Zrušiť nasadenie" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
+            <button class="btn btn-ghost btn-sm btn-text-danger" title="Zrušiť nasadenie" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
           </div>`;
         }).join('') || '<div class="js-empty">Zatiaľ nikto nie je nasadený.</div>'}
           ${acts(b('btn-primary', `Sub.addAsg('${sc.id}')`, 'plus', 'Nasadiť človeka'),
@@ -890,7 +892,7 @@
           </div>
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
           <div class="regimebox">Jeden človek nemôže bývať na dvoch miestach naraz —
-            databáza to nepustí. Keď sa presúva, najprv ukonči predchádzajúci pobyt.
+            databáza to nepustí. Keď sa presúva, najprv ukončite predchádzajúci pobyt.
             ${l?.capacity ? `Tu je ${l.free_beds} ${Shell.plural(l.free_beds, 'voľné lôžko', 'voľné lôžka', 'voľných lôžok')}.` : ''}</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
@@ -901,7 +903,7 @@
 
     async saveStay(lodgingId) {
       const d = UI.formData(document.getElementById('stay-form'));
-      if (!d.worker_id) return UI.toast('Vyber človeka', 'err');
+      if (!d.worker_id) return UI.toast('Vyberte človeka', 'err');
       const { error } = await DB.insert('stays', {
         worker_id: d.worker_id, lodging_id: lodgingId,
         date_from: d.date_from || new Date().toISOString().slice(0, 10),
@@ -927,7 +929,7 @@
       if (answer == null) return;
       const date = String(answer).trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        return UI.toast('Dátum zapíš v tvare RRRR-MM-DD.', 'err');
+        return UI.toast('Dátum zapíšte v tvare RRRR-MM-DD.', 'err');
       }
       const { error } = await DB.update('stays', stayId, { date_to: date });
       if (error) return UI.toast(error.message, 'err');
@@ -971,14 +973,14 @@
 
     async _askCoords(what) {
       const text = await UI.ask(
-        `Vlož odkaz z máp na miesto ${what} — alebo rovno súradnice.\n\n`
+        `Vložte odkaz z máp na miesto ${what} — alebo rovno súradnice.\n\n`
         + 'Rozumie odkazom z Google Máp aj OpenStreetMap a dvojici čísel\n'
         + 'ako 48.7758, 9.1829.');
       if (text == null) return null;
       const c = DanubraGeo.parseCoords(text);
       if (!c) {
         UI.toast('V tom odkaze som súradnice nenašiel. Skrátené odkazy '
-          + '(maps.app.goo.gl) ich neobsahujú — otvor ich a skopíruj adresu z prehliadača.', 'err');
+          + '(maps.app.goo.gl) ich neobsahujú — otvorte ich a skopírujte adresu z prehliadača.', 'err');
         return null;
       }
       return c;
@@ -1019,7 +1021,7 @@
     anuCheck(id) {
       const body = `
         <p style="font-size:13px;color:var(--ink-sub);margin-top:0;">
-          Zaškrtni, čo na zákazke reálne platí. Rozhoduje skutočný výkon prác, nie znenie zmluvy.</p>
+          Zaškrtnite, čo na zákazke reálne platí. Rozhoduje skutočný výkon prác, nie znenie zmluvy.</p>
         <form id="anu-form" oninput="Sub.anuUpdate()">
           ${DanubraCompliance.ANU_SIGNALS.map(([k, label]) =>
             `<label class="chk" style="padding:8px 0;border-bottom:1px solid var(--border-soft);">
@@ -1122,7 +1124,7 @@
         return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov`, 'err');
       }
       const r = this.asgReadiness(scId, d.worker_id, d.date_from);
-      if (!r) return UI.toast('Najprv vyber pracovníka', 'err');
+      if (!r) return UI.toast('Najprv vyberte pracovníka', 'err');
 
       const open = Shell.evaluate([...r.ready.reasons, ...r.ready.warnings],
         this.overridesOf(d.worker_id), d.date_from || undefined).open;
@@ -1148,7 +1150,7 @@
     addAsg(scId) {
       const sc = this.items.find(x => x.id === scId);
       const free = this.workers.filter(w => ['ready', 'deployed'].includes(w.status));
-      if (!free.length) return UI.toast('Žiadni pripravení pracovníci — najprv ich pridaj a nastav stav', 'err');
+      if (!free.length) return UI.toast('Žiadni pripravení pracovníci — najprv ich pridajte a nastavte stav', 'err');
       this._asgKey = `${free[0].id}|${sc?.date_from || ''}`;
       const body = `
         <form id="asg-form" oninput="Sub.asgReady('${scId}')"
@@ -1195,12 +1197,12 @@
             options: [['', '— zapíšem ručne —'], ...sorted.map(a => [a.id,
               `${a.name}${a.city ? ` · ${a.city}` : ''}${a.max_persons ? ` · ${a.max_persons} os.` : ''}`])] })}
           <div class="regimebox" style="margin:10px 0;">Ubytovanie sa berie z tej istej databázy ako
-          v ubytovacej agende — čo si zháňal pre klientov, môžeš použiť aj pre vlastných ľudí.</div>
+          v ubytovacej agende — čo ste zháňali pre klientov, môžete použiť aj pre vlastných ľudí.</div>
           <div class="form-grid">
             ${UI.field('name', 'Názov (ak nie je v databáze)', {})}
             ${UI.field('city', 'Mesto', { value: city })}
             ${UI.field('address', 'Adresa', {})}
-            ${UI.field('maps_url', 'Odkaz z máp', { placeholder: 'sem vlož odkaz — vytiahnem z neho polohu' })}
+            ${UI.field('maps_url', 'Odkaz z máp', { placeholder: 'sem vložte odkaz — poloha sa z neho vytiahne' })}
             ${UI.field('capacity', 'Lôžok', { type: 'number' })}
             ${UI.field('price_monthly', 'Cena €/mes', { type: 'number' })}
             ${UI.field('date_from', 'Od', { type: 'date', value: sc?.date_from })}
@@ -1208,7 +1210,7 @@
           </div>
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
           <div class="regimebox" style="margin-top:10px;">Obsadenosť sa nevypisuje ručne —
-            počíta sa z toho, koho tam zapíšeš. Ručné číslo sa rozišlo s realitou
+            počíta sa z toho, koho tam zapíšete. Ručné číslo sa rozišlo s realitou
             hneď, ako niekto odišiel.</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
@@ -1220,7 +1222,7 @@
     async saveLodging(scId) {
       const d = UI.formData(document.getElementById('lodg-form'));
       const acc = this.accommodations.find(a => a.id === d.accommodation_id);
-      if (!acc && !d.name && !d.address) return UI.toast('Vyber ubytovanie alebo zapíš názov', 'err');
+      if (!acc && !d.name && !d.address) return UI.toast('Vyberte ubytovanie alebo zapíšte názov', 'err');
       const payload = {
         subcontract_id: scId,
         accommodation_id: d.accommodation_id || null,
@@ -1351,7 +1353,7 @@
       const kde = {
         doc: 'Číta sa z kartotéky živnostníka — z dokladov a ich platnosti.',
         subcontract: 'Číta sa zo zákazky.',
-        stay: 'Číta sa z pobytov, teda z toho, koho si zapísal na ubytovanie.',
+        stay: 'Číta sa z pobytov, teda z toho, koho ste zapísali na ubytovanie.',
         transport: 'Číta sa zo zákazky, zo sekcie Doprava.',
         manual: 'Toto appka vedieť nemôže, preto sa odškrtáva rukou.',
       }[c.source];
@@ -1477,7 +1479,7 @@
         <form id="sub-form" onsubmit="event.preventDefault();Sub.save('${id || ''}')">
           <div class="form-grid">
             ${UI.field('title', 'Názov zákazky', { value: sc.title, required: true })}
-            ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, add: 'partner', options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
+            ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, add: 'partner', options: [['', '— vyberte —'], ...this.partners.map(p => [p.id, p.name])] })}
             ${UI.field('work_type', 'Typ prác', { value: sc.work_type || 'workshop', options: WORK_TYPE,
               hint: 'Stavba znamená A1, SOKA-BAU, Bau-Mindestlohn a zrážku §48b. '
                 + 'Dielňa nič z toho — preto sa to nedá prepnúť „aby to prešlo".' })}
@@ -1493,7 +1495,7 @@
             ${UI.field('map_link', 'Odkaz z máp', {
               value: DanubraGeo.valid(Number(sc.lat), Number(sc.lng))
                 ? DanubraGeo.format(sc.lat, sc.lng) : '',
-              placeholder: 'vlož odkaz — vytiahnem z neho polohu' })}
+              placeholder: 'vložte odkaz — poloha sa z neho vytiahne' })}
             ${UI.field('site_postal_code', 'PSČ', { value: sc.site_postal_code })}
           </div>
           <div class="form-section">Odmena</div>
@@ -1552,7 +1554,7 @@
           if (error) throw error;
           payload.contract_number = num;
         } catch (e) {
-          return UI.toast('Číselný rad zákaziek nie je dostupný — spusti migráciu 003. ' + (e.message || ''), 'err');
+          return UI.toast('Číselný rad zákaziek nie je dostupný — spustite migráciu 003. ' + (e.message || ''), 'err');
         }
         res = await DB.insert('subcontracts', payload);
       }
@@ -1721,7 +1723,7 @@
             pribudne. <strong>Fakturovať bude každý sám za seba.</strong></div>
           <div class="form-grid">
             ${UI.field('crew_id', 'Partia', { value: '', required: true, add: 'crew',
-              options: [['', '— vyber —'], ...active.map(c => [c.id, c.name])] })}
+              options: [['', '— vyberte —'], ...active.map(c => [c.id, c.name])] })}
             ${UI.field('date_from', 'Od', { type: 'date',
               value: sc?.date_from || new Date().toISOString().slice(0, 10),
               hint: 'Doklady sa posudzujú k tomuto dňu, nie k dnešku. Kto nastupuje '
@@ -1731,7 +1733,7 @@
               hint: 'Prázdne znamená sadzbu zo zákazky.' })}
             ${UI.field('worker_rate', 'Živnostníkom €/h', { type: 'number', value: '',
               placeholder: 'prázdne = sadzba z kartotéky',
-              hint: 'Platí pre celú partiu naraz. Komu treba inú, oprav mu ju potom '
+              hint: 'Platí pre celú partiu naraz. Komu treba inú, opravte mu ju potom '
                 + 'v jeho nasadení.' })}
             ${UI.field('overhead', 'Réžia €/h', { type: 'number', value: 0,
               hint: 'Ubytovanie a doprava prepočítané na hodinu. Na nule vyjde marža '
@@ -1747,7 +1749,7 @@
 
     async assignCrew(scId) {
       const d = UI.formData(document.getElementById('ac-form'));
-      if (!d.crew_id) return UI.toast('Vyber partiu', 'err');
+      if (!d.crew_id) return UI.toast('Vyberte partiu', 'err');
       const num = (v) => (v === '' || v == null ? null : Number(v));
       const { data, error } = await DB.rpc('assign_crew', {
         p_crew_id: d.crew_id,

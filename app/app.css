@@ -163,6 +163,9 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   margin-right: auto; background: #fff; color: var(--red); border: 1px solid #F1C4C4;
 }
 .modal-actions .btn-danger:hover { background: var(--red-50); }
+/* Tiché tlačidlo, ktoré niečo ruší alebo maže (červený text, bez výplne). */
+.btn-text-danger { color: var(--red) !important; }
+.btn-text-danger:hover { background: var(--red-50) !important; }
 .btn-sm { padding: 7px 12px; font-size: 12.5px; }
 /* Tlačidlá majú `white-space: nowrap`, aby sa krátky popis nezlomil na dva
    riadky. Pri tlačidle cez celú šírku to ale znamená, že dlhý text vytečie

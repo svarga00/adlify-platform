@@ -1429,7 +1429,7 @@
       links: [['costs', 'Náklady'], ['timesheets', 'Odpracované hodiny']],
     },
     'card.worker.steps': {
-      title: 'Čo treba, aby mohol ísť na stavbu',
+      title: 'Papiere od nás — GDPR, zmluva, objednávka',
       lead: 'Kroky 4, 5 a 6 z reťazca — pre tohto jedného človeka a v tomto poradí.',
       what: [
         '**Súhlas GDPR** — vytlačíte, on podpíše, zapíšete dátum podpisu.',

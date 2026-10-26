@@ -312,7 +312,7 @@
       UI.modal('Kandidát nastúpil', `
         <form id="hire-form" onsubmit="event.preventDefault();CandProc.hire()">
           ${check.reasons.length ? `<div class="warnbox">${Icon('alert', 14)}
-            ${check.reasons.map(r => UI.esc(r)).join(' ')} Môžeš pokračovať, ale over si to.</div>` : ''}
+            ${check.reasons.map(r => UI.esc(r)).join(' ')} Môžete pokračovať, ale overte si to.</div>` : ''}
           ${check.flagCount ? `<div class="warnbox">${Icon('alert', 14)}
             Kandidát má ${check.flagCount} ${check.flagCount === 1 ? 'červenú vlajku' : 'červené vlajky'}.</div>` : ''}
           ${UI.field('subcontract_id', 'Na ktorú zákazku nastupuje', { required: true,
@@ -332,7 +332,7 @@
 
     async hire() {
       const d = UI.formData(document.getElementById('hire-form'));
-      if (!d.subcontract_id) return UI.toast('Vyber zákazku', 'err');
+      if (!d.subcontract_id) return UI.toast('Vyberte zákazku', 'err');
       const cand = Cand.items.find(c => c.id === this.candidateId);
 
       const patch = {

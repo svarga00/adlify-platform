@@ -246,7 +246,7 @@
         <div class="form-section">Zákazky (${subs.length})</div>
         ${subs.map(s => `<button class="list-row" onclick="UI.closeModal();Danubra.go('subcontracts');setTimeout(()=>Sub.detail('${s.id}'),300)">
           <span style="flex:1;font-size:13px;"><strong>${UI.esc(s.title)}</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12px;">${s.status}${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
+            <span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(window.Sub && Sub.statusLabel ? Sub.statusLabel(s.status) : s.status)}${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
           <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`).join('')
           || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne zákazky.</div>'}
 

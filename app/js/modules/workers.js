@@ -119,7 +119,7 @@
     async uploadPhoto(workerId, input) {
       const file = input && input.files && input.files[0];
       if (!file) return;
-      if (!/^image\//.test(file.type)) return UI.toast('Vyber obrázok.', 'err');
+      if (!/^image\//.test(file.type)) return UI.toast('Vyberte obrázok.', 'err');
       if (file.size > 8 * 1024 * 1024) {
         return UI.toast('Fotka má viac než 8 MB — stačí menšia.', 'err');
       }
@@ -307,7 +307,7 @@
           ? (this.items.length
               ? UI.empty('search', 'Filtru nič nesedí',
                   `V databáze je ${this.items.length} ľudí, ale ani jeden nevyhovuje.`)
-              : UI.empty('workers', 'Žiadni pracovníci', 'Pridaj prvého pracovníka do databázy.',
+              : UI.empty('workers', 'Žiadni pracovníci', 'Pridajte prvého pracovníka do databázy.',
                   `<button class="btn btn-primary" onclick="Wrk.form()">${Icon('plus')} Pridať pracovníka</button>`))
           : `<div class="cards">${rows.map(w => this.card(w)).join('')}</div>`}`;
     },
@@ -430,7 +430,7 @@
       if (st.done) {
         return `<details class="card card-pad ps ps-done">
           <summary class="card-head">
-            <div class="card-title">${Icon('briefcase', 15)} Môže ísť na stavbu — papiere sú v poriadku</div>
+            <div class="card-title">${Icon('briefcase', 15)} Papiere od nás sú hotové — GDPR, zmluva, objednávka</div>
             ${UI.badge('všetko hotové', 'green')}
           </summary>
           ${this.stepsHtml(w)}
@@ -438,7 +438,7 @@
       }
       return `<div class="card card-pad ps">
         <div class="card-head">
-          <div class="card-title">${Icon('briefcase', 15)} Čo treba, aby mohol ísť na stavbu${
+          <div class="card-title">${Icon('briefcase', 15)} Papiere od nás — GDPR, zmluva, objednávka${
             Help.btn('card.worker.steps', { size: 13 })}</div>
           ${UI.badge(`${st.left === 1 ? 'chýba 1 vec' : `chýbajú ${st.left} veci`}`, 'amber')}
         </div>
@@ -805,7 +805,7 @@
                 title="${UI.esc(this.docLabel(d.kind))}"></iframe>`
           : `<div class="doc-view doc-view-none">${Icon('doc', 28)}
                <span>Tento typ súboru sa v prehliadači nedá zobraziť.
-                 Stiahni ho a otvor v počítači.</span></div>`;
+                 Stiahnite ho a otvorte v počítači.</span></div>`;
 
       UI.modal(this.docLabel(d.kind), `
         <div class="doc-meta">
@@ -1172,7 +1172,7 @@
       // inak by reťazec tvrdil, že súhlas máme, a pritom leží na stole.
       const uz = this.docsOf(workerId).some(d => d.kind === 'gdpr');
       if (!uz) {
-        UI.toast('Keď ho podpíše, zapíš to cez „Zapísať podpísaný súhlas"', 'warn');
+        UI.toast('Keď ho podpíše, zapíšte to cez „Zapísať podpísaný súhlas"', 'warn');
       }
     },
 
@@ -1212,7 +1212,7 @@
         number: zmluva && zmluva.number, who: w.full_name, lang: 'sk', worker_id: w.id });
 
       if (chyba.length) {
-        UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
+        UI.toast(`Pred podpisom doplňte: ${chyba.map(c => c.title).join(', ')}`, 'warn');
       }
     },
 
@@ -1268,7 +1268,7 @@
       const patch = {};
       for (const k of d.keys) {
         const v = String(f[k] || '').trim();
-        if (!v) return UI.toast('Vyplň všetky polia', 'err');
+        if (!v) return UI.toast('Vyplňte všetky polia', 'err');
         patch[k] = v;
       }
       const w = this.items.find(x => x.id === d.id);
@@ -1298,7 +1298,7 @@
       if (!w) return;
       const it = this.stepsOf(w).items.find(i => i.key === 'objednavka');
       if (it.needs === 'assign') {
-        UI.toast(`${w.full_name} ešte nie je na žiadnej zákazke. Objednávka sa viaže na zákazku — najprv ho nasaď.`, 'warn');
+        UI.toast(`${w.full_name} ešte nie je na žiadnej zákazke. Objednávka sa viaže na zákazku — najprv ho nasaďte.`, 'warn');
         return Danubra.routeAvailable('subcontracts') && Danubra.go('subcontracts');
       }
       if (it.needs === 'order') return Ord.newFor(it.assignmentId);
@@ -1370,7 +1370,7 @@
 
     async saveZmluva(workerId) {
       const d = UI.formData(document.getElementById('zml-form'));
-      if (!d.valid_from) return UI.toast('Zadaj dátum podpisu', 'err');
+      if (!d.valid_from) return UI.toast('Zadajte dátum podpisu', 'err');
       const { error } = await DB.insert('worker_documents', {
         worker_id: workerId, kind: 'contract', reference: d.reference || null,
         valid_from: d.valid_from, valid_to: d.valid_to || null,
@@ -1421,7 +1421,7 @@
 
     async saveGdpr(workerId) {
       const d = UI.formData(document.getElementById('gdpr-form'));
-      if (!d.valid_from) return UI.toast('Zadaj dátum podpisu', 'err');
+      if (!d.valid_from) return UI.toast('Zadajte dátum podpisu', 'err');
       // Súhlas nemá platnosť „do" — platí, kým ho človek neodvolá.
       const { error } = await DB.insert('worker_documents', {
         worker_id: workerId, kind: 'gdpr', valid_from: d.valid_from,
@@ -1495,7 +1495,7 @@
       // Prah drží aj bucket (25 MB), ale povedať to treba skôr, než sa
       // súbor začne posielať cez mobilné dáta.
       if (file.size > 25 * 1024 * 1024) {
-        return UI.toast('Súbor má viac než 25 MB — zmenši ho alebo odfoť nanovo.', 'err');
+        return UI.toast('Súbor má viac než 25 MB — zmenšite ho alebo ho odfoťte nanovo.', 'err');
       }
       UI.toast('Nahrávam…');
       const { path, error } = await DB.uploadDoc(file, { folder: 'worker', entityId: doc.worker_id });

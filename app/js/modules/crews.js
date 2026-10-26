@@ -208,7 +208,7 @@
             ${id ? UI.field('leader_worker_id', 'Predák', { add: false,
               value: c.leader_worker_id, options: leaderOptions }) : ''}
           </div>
-          ${id ? '' : `<div class="regimebox">Predáka vyberieš, keď budú v partii členovia —
+          ${id ? '' : `<div class="regimebox">Predáka vyberiete, keď budú v partii členovia —
             predák musí byť zároveň členom.</div>`}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: c.notes })}
           <div class="modal-actions">
@@ -267,7 +267,7 @@
 
     async addMember(crewId) {
       const d = UI.formData(document.getElementById('cm-form'));
-      if (!d.worker_id) return UI.toast('Vyber človeka', 'err');
+      if (!d.worker_id) return UI.toast('Vyberte človeka', 'err');
       const { error } = await DB.insert('crew_members', {
         crew_id: crewId, worker_id: d.worker_id,
         joined_at: d.joined_at || new Date().toISOString().slice(0, 10),

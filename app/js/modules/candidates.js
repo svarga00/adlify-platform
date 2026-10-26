@@ -151,7 +151,7 @@
         </div>
 
         ${rows.length === 0
-          ? UI.empty('workers', 'Žiadni kandidáti', 'Pridaj prvého kandidáta do pipeline.',
+          ? UI.empty('workers', 'Žiadni kandidáti', 'Pridajte prvého kandidáta do pipeline.',
               `<button class="btn btn-primary" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`)
           : this.viewMode() === 'kanban' ? this.kanban(rows) : this.table(rows)}
 
@@ -439,7 +439,7 @@
     chipsHtml() {
       const ticked = this.candChips || [];
       if (!ticked.length) {
-        return `<div style="font-size:13px;color:var(--ink-mute);">Zatiaľ nič — spusti hovor.</div>`;
+        return `<div style="font-size:13px;color:var(--ink-mute);">Zatiaľ nič — spustite hovor.</div>`;
       }
       const s = DanubraChips.summarize(ticked);
       const col = (title, items, cls) => items.length ? `<div>
