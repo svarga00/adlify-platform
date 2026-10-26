@@ -142,7 +142,7 @@
         el.innerHTML = UI.empty('orders',
           this.q ? 'Nič také tu nie je' : 'Zatiaľ žiadna objednávka',
           this.kind === 'customer'
-            ? 'Keď odberateľ pošle objednávku, zapíš ju aj s jeho číslom — to potom ide na faktúru.'
+            ? 'Keď odberateľ pošle objednávku, zapíšte ju aj s jeho číslom — to potom ide na faktúru.'
             : 'Objednávka živnostníkovi vzniká k nasadeniu. Je to doklad, ktorý obháji Werkvertrag.',
           `<button class="btn btn-primary" onclick="Ord.form()">${Icon('plus')} Objednávka</button>`);
         return;
@@ -211,7 +211,7 @@
 
       const strana = k === 'customer'
         ? `${UI.field('partner_id', 'Odberateľ', { value: o.partner_id, required: true,
-             add: 'partner', options: [['', '— vyber —'],
+             add: 'partner', options: [['', '— vyberte —'],
                ...this.partners.map(p => [p.id, p.name])] })}
            ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: o.subcontract_id,
              add: 'subcontract', options: [['', '— zatiaľ žiadna —'],
@@ -223,7 +223,7 @@
            ${UI.field('received_at', 'Kedy prišla', { type: 'date', value: o.received_at })}`
         : `${UI.field('assignment_id', 'Na ktoré nasadenie', { value: o.assignment_id,
              required: true, add: false,
-             options: [['', '— vyber —'], ...voľné.map((a) => {
+             options: [['', '— vyberte —'], ...voľné.map((a) => {
                const w = this.workerOf(a.worker_id), s = this.subOf(a.subcontract_id);
                return [a.id, `${w.full_name || '?'} · ${s.title || s.contract_number || '?'}`];
              })],
@@ -245,8 +245,8 @@
           ${UI.field('scope', 'Popis diela', { type: 'textarea', rows: 4, value: o.scope,
             hint: k === 'worker'
               ? 'Toto je to, na čo sa pýta kontrola. „Robil, čo bolo treba" je zlá '
-                + 'odpoveď — napíš, čo presne má byť hotové.'
-              : 'Čo presne si objednal. Podľa toho sa potom kontroluje faktúra.' })}
+                + 'odpoveď — napíšte, čo presne má byť hotové.'
+              : 'Čo presne si odberateľ objednal. Podľa toho sa potom kontroluje faktúra.' })}
           <div class="form-grid">
             ${UI.field('date_from', 'Od', { type: 'date', value: o.date_from })}
             ${UI.field('date_to', 'Do', { type: 'date', value: o.date_to })}
@@ -290,7 +290,7 @@
         payload.worker_id = null; payload.assignment_id = null;
       } else {
         const a = this.assignments.find(x => x.id === v.assignment_id);
-        if (!a) return UI.toast('Vyber nasadenie.', 'err');
+        if (!a) return UI.toast('Vyberte nasadenie.', 'err');
         payload.assignment_id = a.id;
         payload.worker_id = a.worker_id;
         payload.subcontract_id = a.subcontract_id;

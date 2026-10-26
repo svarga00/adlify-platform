@@ -112,7 +112,7 @@
         el.innerHTML = Danubra.header(Danubra.labelOf('hoursheet'),
           'Týždenný výkaz pre odberateľa — jeden týždeň, jedna partia')
           + UI.empty('workers', 'Zatiaľ žiadna partia',
-            'Výkaz sa robí za partiu. Najprv ju založ.',
+            'Výkaz sa robí za partiu. Najprv ju založte.',
             `<button class="btn btn-primary" onclick="Danubra.go('crews')">Partie</button>`);
         return;
       }
@@ -311,7 +311,7 @@
     async setHours(workerId, date, value) {
       const hours = Number(String(value).replace(',', '.'));
       if (!Number.isFinite(hours) || hours < 0 || hours > 24) {
-        return UI.toast('Hodiny zapíš ako číslo od 0 do 24.', 'err');
+        return UI.toast('Hodiny zapíšte ako číslo od 0 do 24.', 'err');
       }
       const existing = this.timesheets.find(t =>
         t.worker_id === workerId && String(t.work_date).slice(0, 10) === date);
@@ -332,7 +332,7 @@
         const asg = this.assignmentFor(workerId, date);
         if (!asg) {
           return UI.toast('Tento človek nemá na ten deň nasadenie — najprv ho '
-            + 'nasaď na zákazku.', 'err');
+            + 'nasaďte na zákazku.', 'err');
         }
         ({ error } = await DB.insert('timesheets', {
           worker_id: workerId, assignment_id: asg.id, work_date: date,

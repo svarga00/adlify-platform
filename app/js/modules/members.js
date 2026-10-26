@@ -78,14 +78,14 @@
         'Kto smie do appky a na čo')
         + (prvy ? `<div class="warnbox" style="margin-bottom:14px;">
             ${Icon('alert', 14)} Zatiaľ tu nie je nikto, takže <strong>každý prihlásený
-            má všetko</strong>. Hneď ako pridáš prvého človeka, začnú platiť práva —
-            nezabudni pridať aj seba ako administrátora.</div>` : '')
+            má všetko</strong>. Hneď ako pridáte prvého človeka, začnú platiť práva —
+            nezabudnite pridať aj seba ako administrátora.</div>` : '')
         + (!admin ? `<div class="regimebox" style="margin-bottom:14px;">
             Práva mení len administrátor. Toto je na pozretie, kto čo má.</div>` : '')
         + Shell.list({
           rows, total: this.items.length, render: card, layout: 'cards',
           emptyIcon: 'clients', emptyTitle: 'Zatiaľ žiadny používateľ',
-          emptySub: 'Pridaj seba ako administrátora a potom ostatných.',
+          emptySub: 'Pridajte seba ako administrátora a potom ostatných.',
           filter: {
             search: { value: this.filters.q, placeholder: 'Hľadať meno alebo e-mail…',
               oninput: 'Mem.setF("q", this.value)' },
@@ -143,14 +143,14 @@
 
           <div class="form-section">Na čo má</div>
           <p class="card-note" style="margin:0 0 10px;">Zaškrtnuté je to, čo dáva rola.
-            Keď to zmeníš, uloží sa presne tento zoznam a rola zostane len ako poznámka,
+            Keď to zmeníte, uloží sa presne tento zoznam a rola zostane len ako poznámka,
             z čoho sa vychádzalo.</p>
           <div class="mem-modules">${groups}</div>
 
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2, value: m.note })}
 
           ${id ? '' : `<div class="regimebox">Človek sa musí do appky prihlásiť tým istým
-            e-mailom. Účet mu vytvor v Supabase → Authentication; tu sa nastavuje len to,
+            e-mailom. Účet mu vytvorte v Supabase → Authentication; tu sa nastavuje len to,
             na čo má.</div>`}
 
           <div class="modal-actions">

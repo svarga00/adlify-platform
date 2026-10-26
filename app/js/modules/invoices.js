@@ -155,7 +155,7 @@
       if (!hore.length) return `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`;
 
       return `
-        <div class="form-section">Čaká na teba (${hore.length})</div>
+        <div class="form-section">Čaká na Vás (${hore.length})</div>
         <div class="cards">${hore.map(x => this.card(x)).join('')}</div>
         ${zvysok.length ? `<div class="form-section">Ostatné (${zvysok.length})</div>
           <div class="cards">${zvysok.map(x => this.card(x)).join('')}</div>` : ''}`;
@@ -253,7 +253,7 @@
           <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
         </div>
         ${x.status === 'draft_pending_approval' ? `<div class="warnbox">
-          ${Icon('alert', 14)} Toto je návrh — pred odoslaním klientovi ho musíš schváliť.</div>` : ''}
+          ${Icon('alert', 14)} Toto je návrh — pred odoslaním klientovi ho musíte schváliť.</div>` : ''}
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'client', id: c.id } }) : ''}
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
 
@@ -378,7 +378,7 @@
             <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>` : ''}
           <button class="list-row" onclick="Inv.manual(null,'${orderId}')">
             <span style="flex:1;"><strong>Vlastné položky</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Faktúra naviazaná na objednávku, obsah si určíš sám</span></span>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Faktúra naviazaná na objednávku, obsah si určíte sami</span></span>
             <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>
         </div>`);
     },
@@ -431,7 +431,7 @@
         openBySub.set(sid, (openBySub.get(sid) || 0) + Number(t.hours || 0));
       }
       const cand = (subs || []).filter(s => openBySub.has(s.id));
-      if (!cand.length) return UI.toast('Žiadne potvrdené nefakturované hodiny — najprv potvrď hodiny', 'err');
+      if (!cand.length) return UI.toast('Žiadne potvrdené nefakturované hodiny — najprv potvrďte hodiny', 'err');
 
       this._subs = subs; this._allTs = ts; this._asgMap = asgMap;
       UI.modal('Z ktorej zákazky?', `
@@ -472,7 +472,7 @@
         <form id="man-form" onsubmit="event.preventDefault();Inv.saveManual()">
           <div class="form-grid">
             ${UI.field('client_id', 'Klient', { value: c, required: true,
-              options: [['', '— vyber klienta —'], ...this.clients.map(x => [x.id, x.name])] })}
+              options: [['', '— vyberte klienta —'], ...this.clients.map(x => [x.id, x.name])] })}
             ${UI.field('type', 'Typ', { value: 'other', options: [
               ['other', 'Iné'], ['service_fee', 'Sprostredkovanie'],
               ['ongoing_service', 'Priebežná služba'], ['retainer', 'Retainer']] })}
@@ -537,7 +537,7 @@
       const el = document.getElementById('regime-hint');
       if (!sel || !el) return;
       const c = this.clientOf(sel.value);
-      if (!c) { el.textContent = 'Vyber klienta — podľa jeho krajiny a IČ DPH sa určí režim.'; return; }
+      if (!c) { el.textContent = 'Vyberte klienta — podľa jeho krajiny a IČ DPH sa určí režim.'; return; }
       const r = Invoicing.regimeFor(c);
       el.innerHTML = `Režim: <strong>${REGIME[r.regime] || r.regime}</strong> — ${UI.esc(r.note || '')}`
         + (r.warning ? ` <span style="color:var(--amber);">${UI.esc(r.warning)}</span>` : '');
@@ -555,7 +555,7 @@
       this.syncRows();
       const d = UI.formData(document.getElementById('man-form'));
       const client = this.clientOf(d.client_id);
-      if (!client) return UI.toast('Vyber klienta', 'err');
+      if (!client) return UI.toast('Vyberte klienta', 'err');
       let order = null;
       if (this._srcOrder) { const { data } = await DB.getById('orders', this._srcOrder); order = data; }
       try {

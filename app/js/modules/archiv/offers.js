@@ -47,7 +47,7 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('offers', 'Žiadne ponuky', 'Ponuku vytvoríš z dopytu.',
+          ? UI.empty('offers', 'Žiadne ponuky', 'Ponuku vytvoríte z dopytu.',
               `<button class="btn btn-primary" onclick="Offers.pickInquiry()">${Icon('plus')} Nová ponuka</button>`)
           : `<div class="cards">${rows.map(o => this.card(o)).join('')}</div>`}`;
     },
@@ -79,7 +79,7 @@
     async pickInquiry() {
       if (!this.loaded) await this.load();
       const open = this.inquiries.filter(i => !['lost', 'closed'].includes(i.status));
-      if (!open.length) return UI.toast('Žiadne otvorené dopyty — najprv pridaj dopyt', 'err');
+      if (!open.length) return UI.toast('Žiadne otvorené dopyty — najprv pridajte dopyt', 'err');
       UI.modal('Ponuka z ktorého dopytu?', `
         <div style="display:flex;flex-direction:column;gap:2px;">
           ${open.map(i => {
@@ -112,7 +112,7 @@
           <strong>${UI.esc(inq.target_city || '—')}</strong> · ${inq.persons || '?'} osôb ·
           ${inq.date_from ? UI.dateRange(inq.date_from, inq.date_to) : 'termín neurčený'}${nights ? ` (${nights} nocí)` : ''}
         </div>
-        <div class="form-section">Vyber ubytovania do ponuky (1–3)</div>
+        <div class="form-section">Vyberte ubytovania do ponuky (1–3)</div>
         ${matches.length ? `<div id="wz-list">${matches.map(m => this._wizardRow(m, nights, inq)).join('')}</div>`
           : `<div style="color:var(--ink-mute);font-size:13px;">Žiadne vhodné ubytovania v databáze.</div>`}
         <div class="form-section">Podmienky</div>
@@ -174,7 +174,7 @@
     async saveWizard() {
       const w = this._wizard;
       if (!w) return;
-      if (w.selected.size === 0) return UI.toast('Vyber aspoň jedno ubytovanie', 'err');
+      if (w.selected.size === 0) return UI.toast('Vyberte aspoň jedno ubytovanie', 'err');
       const d = UI.formData(document.getElementById('offer-form'));
 
       const offerPayload = {
@@ -316,7 +316,7 @@
       t.select();
       navigator.clipboard?.writeText(t.value).then(
         () => UI.toast('Text skopírovaný', 'ok'),
-        () => UI.toast('Skopíruj ručne (Ctrl+C)', 'err'));
+        () => UI.toast('Skopírujte ručne (Ctrl+C)', 'err'));
     },
 
     async setStatus(id, status) {
@@ -345,7 +345,7 @@
         if (error) throw error;
         number = data;
       } catch (e) {
-        return UI.toast('Nepodarilo sa prideliť číslo objednávky — spusti migráciu 002. ' + (e.message || ''), 'err');
+        return UI.toast('Nepodarilo sa prideliť číslo objednávky — spustite migráciu 002. ' + (e.message || ''), 'err');
       }
 
       const persons = inq?.persons || 1;
@@ -366,7 +366,7 @@
         accepted_at: new Date().toISOString(),
       };
       if (!payload.date_from || !payload.date_to) {
-        return UI.toast('Dopyt nemá termín — doplň dátumy pred akceptáciou', 'err');
+        return UI.toast('Dopyt nemá termín — doplňte dátumy pred akceptáciou', 'err');
       }
       const { data: order, error } = await DB.insert('orders', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');

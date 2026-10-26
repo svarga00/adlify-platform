@@ -171,7 +171,7 @@
           </div>
           ${UI.field('file_url', 'Odkaz na dokument', { type: 'url', value: i.file_url })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2, value: i.notes })}
-          <div class="regimebox">Pri položkách s obmedzenou platnosťou žiadaj o predĺženie
+          <div class="regimebox">Pri položkách s obmedzenou platnosťou žiadajte o predĺženie
           s predstihom — §48b sa vybavuje 4 až 8 týždňov, A1 až 45 dní.</div>
           <div class="modal-actions">
             ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Cmp.del('${id}')">Zmazať</button>` : ''}

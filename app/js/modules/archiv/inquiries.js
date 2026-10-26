@@ -66,7 +66,7 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('inquiries', 'Žiadne dopyty', 'Pridaj prvý dopyt alebo počkaj na webový formulár.',
+          ? UI.empty('inquiries', 'Žiadne dopyty', 'Pridajte prvý dopyt alebo počkajte na webový formulár.',
               `<button class="btn btn-primary" onclick="Inq.form()">${Icon('plus')} Nový dopyt</button>`)
           : `<div class="cards">${rows.map(i => this.card(i)).join('')}</div>`}`;
     },
@@ -121,7 +121,7 @@
             ${STATUS.map(s => `<option value="${s[0]}" ${(i.status || 'new') === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
         </div>
-        ${!i.first_response_at ? `<div class="warnbox">${Icon('clock', 14)} Dopyt zatiaľ nemá zaznamenanú prvú reakciu — kontaktuj klienta.</div>` : ''}
+        ${!i.first_response_at ? `<div class="warnbox">${Icon('clock', 14)} Dopyt zatiaľ nemá zaznamenanú prvú reakciu — kontaktujte klienta.</div>` : ''}
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'inquiry', id: i.id } }) : ''}
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${reqLabels.length ? `<div class="chips">${reqLabels.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}

@@ -622,7 +622,7 @@ console.log('Prehliadač');
         })();
       });
 
-      ok(out.vyzva.includes('Si tu prvýkrát'),
+      ok(out.vyzva.includes('Ste tu prvýkrát'),
         'nábor ponúkne zaškolenie tomu, kto ním neprešiel', out.vyzva.slice(0, 160));
       ok(out.vyzva.includes('Hodina'), 'a povie, koľko to zaberie');
       ok(out.krokov === 5, 'zaškolenie má päť krokov', `${out.krokov}`);
@@ -719,7 +719,7 @@ console.log('Prehliadač');
       // Appka má povedať jednu vec, ktorá sa má spraviť teraz — veľkým
       // písmom a s jedným veľkým tlačidlom. Nie zoznam, z ktorého si človek
       // vyberá sám.
-      ok(out.text.includes('Zavolaj — Róbert Slávik'),
+      ok(out.text.includes('Zavolajte — Róbert Slávik'),
         'navrchu je jedna vec, ktorá sa má spraviť teraz', out.text.slice(0, 200));
       ok(out.text.includes('Čaká už 45 min'), 'a ako dlho ten človek čaká');
       ok(out.text.includes('Cieľ je ozvať sa do desiatich minút'),
@@ -1050,10 +1050,10 @@ console.log('Prehliadač');
       ok(out.zoznamText.includes('15,90'), 'sadzba má desatinnú čiarku, nie bodku',
         out.zoznamText.slice(0, 160));
 
-      const cakane = ['Čo to je', 'Deň na stavbe', 'Slovíčka, ktoré budeš počuť',
+      const cakane = ['Čo to je', 'Deň na stavbe', 'Slovíčka, ktoré budete počuť',
         'Čo na stavbe robí', 'S čím pracuje', 'Čím pracuje — vlastné náradie',
         'Podľa čoho sa to meria', 'Koľko toho za deň spraví', 'Čo musí doložiť',
-        'Podľa čoho spoznáš, že to nerobil', 'Peniaze'];
+        'Podľa čoho spoznáte, že to nerobil', 'Peniaze'];
       ok(out.nadpisy.join('|') === cakane.join('|'),
         'lekcia ide v poradí na čítanie a peniaze sú na konci',
         out.nadpisy.join(', '));

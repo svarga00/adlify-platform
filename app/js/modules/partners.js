@@ -83,7 +83,7 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('clients', 'Žiadni odberatelia', 'Pridaj prvého nemeckého odberateľa.',
+          ? UI.empty('clients', 'Žiadni odberatelia', 'Pridajte prvého nemeckého odberateľa.',
               `<button class="btn btn-primary" onclick="Prt.form()">${Icon('plus')} Pridať odberateľa</button>`)
           : `<div class="cards">${rows.map(p => this.card(p)).join('')}</div>`}`;
     },
@@ -180,7 +180,7 @@
         number: zmluva && zmluva.number, who: p.name, lang: 'de', partner_id: p.id });
 
       if (chyba.length) {
-        UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
+        UI.toast(`Pred podpisom doplňte: ${chyba.map(c => c.title).join(', ')}`, 'warn');
       }
     },
 

@@ -66,7 +66,7 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('bed', 'Žiadne ubytovania', 'Pridaj prvé alebo importuj CSV.',
+          ? UI.empty('bed', 'Žiadne ubytovania', 'Pridajte prvé alebo importujte CSV.',
               `<button class="btn btn-primary" onclick="Acc.form()">${Icon('plus')} Pridať ubytovanie</button>`)
           : `<div class="cards">${rows.map(a => this.card(a)).join('')}</div>`}`;
     },
