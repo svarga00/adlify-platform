@@ -1066,6 +1066,29 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   background: var(--navy); color: #fff; padding: 12px 18px; border-radius: var(--radius-lg);
   font-size: 13.5px; box-shadow: var(--shadow-md); max-width: calc(100vw - 32px);
 }
+/* Hodiny zo Stundennachweisu (components/hourentry.js) */
+.he-week { display: flex; align-items: center; gap: 8px; min-height: 42px; }
+.he-week b { font-size: 14px; color: var(--navy); }
+.he-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0;
+  padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-lg); background: var(--bg); }
+.he-wrap { overflow-x: auto; margin: 4px 0 10px; }
+.he-grid { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
+.he-grid th, .he-grid td { border-bottom: 1px solid var(--border-soft, var(--border)); padding: 6px 5px; text-align: center; }
+.he-grid th { font-weight: 600; color: var(--ink-sub); }
+.he-grid th b { display: block; color: var(--navy); }
+.he-grid th em { display: block; font-style: normal; font-size: 11px; color: var(--ink-mute); font-weight: 500; }
+.he-grid .he-name { text-align: left; min-width: 170px; }
+.he-grid .he-name em { display: block; font-style: normal; font-size: 11px; color: var(--ink-mute); }
+.he-grid input { width: 100%; min-width: 56px; padding: 8px 6px; text-align: center; font-size: 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field); }
+.he-grid input:focus { outline: none; border-color: var(--brand); background: #fff; }
+.he-grid .he-meta input { font-size: 12px; padding: 6px 4px; }
+.he-grid .he-sum { font-weight: 700; white-space: nowrap; }
+.he-grid .he-total { color: var(--brand-dark); }
+.he-grid tfoot td { border-top: 2px solid var(--border); border-bottom: 0; }
+.he-grid .he-unk { background: var(--amber-50); }
+.he-grid .he-unk select { margin-top: 4px; width: 100%; padding: 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.he-add { padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--field); }
 /* Balík pre živnostníka (components/bundle.js) */
 .bdl-list { display: grid; gap: 8px; }
 @media (min-width: 861px) { .bdl-list { grid-template-columns: 1fr 1fr; } }

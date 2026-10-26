@@ -607,7 +607,8 @@
         const ts = this.timesheetsOf(sc.id);
         const neschv = ts.filter(t => !t.approved && !t.period_id);
         return `${neschv.length ? `<div class="js-row">${mark(false, `${neschv.length} ${Shell.plural(neschv.length, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')} na schválenie`)}</div>` : ''}
-          ${acts(Danubra.routeAvailable('timesheets') ? b('btn-primary', "Danubra.go('timesheets')", 'clock', 'Zapísať / schváliť hodiny') : '',
+          ${acts(window.HourEntry ? b('btn-primary', `HourEntry.open({ subcontractId: '${sc.id}' })`, 'upload', 'Zapísať Stundennachweis') : '',
+            Danubra.routeAvailable('timesheets') ? b('btn-outline', "Danubra.go('timesheets')", 'clock', 'Zapísať / schváliť hodiny') : '',
             Danubra.routeAvailable('hoursheet') ? b('btn-outline', "Danubra.go('hoursheet')", 'doc', 'Výkaz pre odberateľa') : '')}
           <div class="form-section" id="sub-periods">Obdobia a faktúry</div>
           ${this.periodsHtml(sc)}

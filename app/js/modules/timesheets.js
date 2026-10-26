@@ -77,8 +77,11 @@
     async view(el) {
       // Týždeň je prvý, pretože to je ten bežný prípad: človek odrobí šesť
       // dní a predtým sa to zapisovalo šesťkrát otvorením okna.
+      // Stundennachweis je 99 % prípadov: list s hodinami celej partie alebo
+      // jedného človeka za týždeň, podpísaný majstrom (components/hourentry.js).
       Danubra.setActions(`
-        <button class="btn btn-primary btn-sm" onclick="Tms.weekForm()">${Icon('calendar', 14)} Zapísať týždeň</button>
+        ${window.HourEntry ? `<button class="btn btn-primary btn-sm" onclick="HourEntry.open()">${Icon('upload', 14)} Stundennachweis</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="Tms.weekForm()">${Icon('calendar', 14)} Zapísať týždeň</button>
         <button class="btn btn-outline btn-sm" onclick="Tms.form()">${Icon('plus')} Jeden deň</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
@@ -175,7 +178,8 @@
             + 'nevšimne, nie je s čím porovnať.',
         }, {
           help: 'card.hours.approve',
-          action: { label: 'Zapísať týždeň', ico: 'calendar', onclick: 'Tms.weekForm()' },
+          action: window.HourEntry ? { label: 'Zapísať Stundennachweis', ico: 'upload', onclick: 'HourEntry.open()' }
+            : { label: 'Zapísať týždeň', ico: 'calendar', onclick: 'Tms.weekForm()' },
         });
       }
       const h = Math.round(rows.reduce((s, t) => s + Number(t.hours || 0), 0));

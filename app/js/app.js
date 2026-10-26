@@ -2124,7 +2124,7 @@ window.Danubra = {
       ${this._cardHead('zap', 'Rýchle akcie', '', '', '', 'card.actions')}
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${act('Guide.startCall()', 'phone', 'Zdvihol som telefón', true)}
-        ${act("Danubra.go('timesheets')", 'clock', 'Zapísať hodiny')}
+        ${act(window.HourEntry ? 'HourEntry.open()' : "Danubra.go('timesheets')", 'clock', 'Zapísať hodiny (Stundennachweis)')}
         ${act("Danubra.go('quotes')", 'offers', 'Nová ponuka odberateľovi')}
         ${act("Danubra.go('bank')", 'upload', 'Načítať výpis z účtu')}
         ${act('Hire.wizard()', 'zap', 'Nový nábor')}
