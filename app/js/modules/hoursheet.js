@@ -197,12 +197,17 @@
         <div class="hs-head">
           <div class="hs-brandrow">
             ${window.DanubraPapers ? DanubraPapers.mark() : ''}
-            <div>
-              ${sup.name ? `<div class="hs-brand">${UI.esc(sup.name)}</div>` : ''}
-              <div class="hs-title">Stundennachweis</div>
-            </div>
+            ${(() => {
+              const b = window.DanubraPapers ? DanubraPapers.brand(sup) : { brand: '', name: sup.name || '' };
+              return b.brand
+                ? `<div><div class="hs-brand">${UI.esc(b.brand)}</div>${b.sub ? `<div class="hs-brand-sub">${UI.esc(b.sub)}</div>` : ''}</div>`
+                : (b.name ? `<div class="hs-brand is-name">${UI.esc(b.name)}</div>` : '');
+            })()}
           </div>
-          <div class="hs-kw">KW<strong>${s.week}</strong><span>${s.year}</span></div>
+          <div class="hs-titlebox">
+            <div class="hs-title">Stundennachweis</div>
+            <div class="hs-kw">KW <strong>${s.week} / ${s.year}</strong></div>
+          </div>
         </div>
 
         <div class="hs-meta">
@@ -282,13 +287,7 @@
              „Steuernummer: wird nachgereicht" sa netlačí — na doklade, ktorý
              ide odberateľovi, je priznanie, že niečo chýba, horšie než mlčanie;
              a dovtedy to pole nešlo ani nikde vyplniť. -->
-        <div class="hs-foot">
-          ${sup.name ? `<strong>${UI.esc(sup.name)}</strong>` : ''}
-          ${sup.address ? UI.esc(sup.address) : ''}
-          ${sup.company_id ? ` · IČO ${UI.esc(sup.company_id)}` : ''}
-          ${sup.vat_id ? ` · USt-IdNr. ${UI.esc(sup.vat_id)}` : ''}
-          ${sup.tax_number_de ? ` · Steuernummer ${UI.esc(sup.tax_number_de)}` : ''}
-        </div>
+        ${window.DanubraPapers ? DanubraPapers.runFoot(sup, 'de') : ''}
       </div>`;
     },
 

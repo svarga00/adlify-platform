@@ -76,13 +76,63 @@
       // Strany A4 sa poskladajú vopred (lib/documents/paginate.js) a do PDF sa
       // kreslí každá zvlášť: nič sa nekrája cez riadok a ani dlhý dokument
       // neprekročí strop veľkosti obrázka v prehliadači na iPhone.
-      const MARGIN = 14;
-      const box = DanubraPaginate.pageBox(MARGIN);
-      const { pages, stage } = DanubraPaginate.paginate(d, el, box);
+      //
+      // Každá strana je celý list A4 ako hlavičkový papier: obsah, pod ním
+      // päta s údajmi firmy, oranžový pruh na spodnom okraji a pri viacerých
+      // stranách aj „Strana 1 / 3". Päta sa preto z toku dokumentu vyberie
+      // a na každú stranu sa pridá zvlášť.
+      const MM = 96 / 25.4;
+      const SW = Math.floor(210 * MM);                    // šírka listu v px
+      const SH = Math.floor(SW * 297 / 210) - 1;          // výška listu (o bod menej, nech nevznikne prázdna strana)
+      const SIDE = Math.round(14 * MM), TOP = Math.round(12 * MM), BOTTOM = 22, PNO = 16;
+      const W = SW - 2 * SIDE;
+      const src = d.createElement('div');
+      src.innerHTML = el.innerHTML;
+      const footEl = src.querySelector('.runfoot');
+      let footH = 0;
+      if (footEl) {
+        footEl.remove();
+        const m = d.createElement('div');
+        m.style.cssText = `position:absolute;left:-20000px;top:0;width:${W}px;`;
+        m.appendChild(footEl);
+        d.body.appendChild(m);
+        footH = Math.ceil(footEl.getBoundingClientRect().height);
+        m.remove();
+      }
+      const H = SH - TOP - BOTTOM - (footH ? footH + 18 : 0) - PNO;
+      const { pages: obsah, stage } = DanubraPaginate.paginate(d, src, { width: W, height: H });
+      const lang = (footEl && footEl.getAttribute('data-lang')) || d.documentElement.lang || 'sk';
+      const strana = { de: 'Seite', both: 'Strana / Seite' }[lang] || 'Strana';
+      const pages = obsah.map((p, i) => {
+        const s = d.createElement('div');
+        s.className = 'pdf-sheet';
+        s.style.cssText = `width:${SW}px;height:${SH}px;padding:${TOP}px ${SIDE}px 0;`;
+        s.appendChild(p);
+        if (footEl) {
+          const f = footEl.cloneNode(true);
+          f.style.cssText = `left:${SIDE}px;right:${SIDE}px;bottom:${BOTTOM}px;`;
+          s.appendChild(f);
+        }
+        if (obsah.length > 1) {
+          const n = d.createElement('div');
+          n.className = 'pdf-pno';
+          n.textContent = `${strana} ${i + 1} / ${obsah.length}`;
+          n.style.cssText = `right:${SIDE}px;bottom:${BOTTOM + footH + 6}px;`;
+          s.appendChild(n);
+        }
+        // Oranžový pruh je naša značka — na faktúre za živnostníka nie je.
+        if (!(footEl && footEl.classList.contains('plain'))) {
+          const bar = d.createElement('div');
+          bar.className = 'pdf-bar';
+          s.appendChild(bar);
+        }
+        stage.appendChild(s);
+        return s;
+      });
       // Nastavenia sa musia vytvoriť v okne dokumentu: knižnica sa pýta
       // `instanceof Array` a pole z tohto okna by tam neprešlo.
       const opts = okno.JSON.parse(JSON.stringify({
-        margin: [MARGIN, MARGIN, MARGIN, MARGIN],
+        margin: [0, 0, 0, 0],
         image: { type: 'jpeg', quality: 0.92 },
         // Bez `windowWidth`: knižnica centruje dokument podľa skutočnej šírky
         // okna, a keby html2canvas počítal s inou, odreže ľavý okraj.

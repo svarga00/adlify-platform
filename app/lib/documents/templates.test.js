@@ -434,7 +434,8 @@ console.log('Objednávka živnostníkovi');
     supplier: SUPPLIER, partner: CLIENT });
   ok(/Auftragsbestätigung/.test(nemcovi), 'potvrdenie odberateľovi je po nemecky');
   ok(!/Rámcovej zmluvy/.test(nemcovi), 'a neodvoláva sa na zmluvu so živnostníkom');
-  ok(/platné bez podpisu/i.test(nemcovi), 'a má pôvodnú pätičku');
+  ok(/ohne Unterschrift gültig/i.test(nemcovi), 'a pätička je po nemecky');
+  ok(/class="runfoot"/.test(nemcovi), 'a dole sú údaje firmy');
 }
 
 // ── Dvojjazyčná objednávka pre nemeckého odberateľa ─────────────────────────
@@ -557,6 +558,35 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
     worker: { full_name: 'Peter Malý', legal_form: 'sro', company_name: 'Malý Stav s.r.o.' }, supplier: { name: 'X' } }) });
   const t = z.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   ok(/Zhotoviteľ Malý Stav s\.r\.o\. konajúca: Peter Malý, konateľ/.test(t), 'pri s.r.o. je zhotoviteľom firma a konateľ', t.slice(0, 400));
+}
+
+// ── Vzhľad punds: značka v hlavičke, päta s údajmi firmy ───────────────────
+{
+  const PUNDS = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A 940 71 Nové Zámky',
+    company_id: '57553921', tax_id: '2122816839', vat_id: 'SK2122816839', iban: 'SK6711000000002948311291',
+    email: 'info@punds.eu', phone: '+421 910 523 858', tax_number_de: '214/633/08265',
+    register: 'Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N' };
+  const b = P.brand(PUNDS);
+  ok(b.brand === 'punds' && b.sub === 'Partner und Service', 'Partner und Service má v hlavičke značku punds', JSON.stringify(b));
+  ok(P.brand({ name: 'Iná firma s. r. o.' }).brand === '', 'iná firma má v hlavičke celý názov');
+  ok(P.brand({ ...PUNDS, brand: 'PuS' }).brand === 'PuS', 'značka sa dá zmeniť v Nastaveniach');
+  ok(P.web(PUNDS) === 'punds.eu' && P.web({ email: 'jano@gmail.com' }) === '', 'web je z domény e-mailu, nie z Gmailu');
+
+  const f = P.invoice({ invoice: { invoice_number: '2026001', total: 100, issue_date: '2026-10-24', due_date: '2026-11-07' },
+    items: [], client: { name: 'GU Ulm GmbH', country: 'DE' }, supplier: PUNDS });
+  const t = f.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  ok(/class="brand-word">punds</.test(f), 'na faktúre je značka punds');
+  ok(/Nr\. 2026001/.test(t) && /Rechnungsdatum 24\. ?10\. ?2026/.test(t), 'číslo a dátum sú v hlavičke', t.slice(0, 300));
+  const pata = (f.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0].replace(/<[^>]+>/g, ' ');
+  ok(/IČO 57553921/.test(pata) && /USt-IdNr\. SK2122816839/.test(pata) && /IBAN SK67/.test(pata) && /punds\.eu/.test(pata),
+    'päta má IČO, USt-IdNr., IBAN a web', pata);
+  ok(/Steuernummer 214\/633\/08265/.test(pata), 'na nemeckom doklade aj Steuernummer');
+  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: { full_name: 'Ján Novák' }, supplier: PUNDS }) });
+  const pz = (z.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0];
+  ok(/DIČ 2122816839/.test(pz) && /IČ DPH SK2122816839/.test(pz) && /69265\/N/.test(pz), 'slovenská päta má DIČ, IČ DPH a zápis v OR', pz);
+  ok(/class="cl">Článok I\.</.test(z) && /cols boxed/.test(z), 'články zmluvy majú oranžové číslo a strany sú v rámikoch');
+  const self = P.selfInvoice({ bill: { bill_number: 'ZF-1', amount: 10, lines: [] }, worker: { full_name: 'Ján Novák', company_id: '111' }, company: PUNDS });
+  ok(/runfoot plain/.test(self) && !/class="brand-word"/.test(self), 'faktúra za živnostníka je jeho — bez našej značky');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
