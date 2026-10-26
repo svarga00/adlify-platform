@@ -260,15 +260,23 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
   padding: 1px 7px; border-radius: var(--radius);
 }
-/* Šípka pri položke, ktorá má podmenu. Na mobile sa podmenu nevysúva,
-   preto tam nie je ani šípka. */
-.nav-more { display: none; flex: none; opacity: .45; margin-right: -4px; transition: opacity .12s, transform .12s; }
+/* Sekcia so záložkami: riadok = položka + šípka na rozbalenie/zbalenie. */
+.nav-row { position: relative; }
+.nav-row > .nav-item { padding-right: 40px; }
 .nav-item.is-fly { background: rgba(255,255,255,.08); color: #fff; }
-.nav-item.is-fly .nav-more, .nav-item:hover .nav-more { opacity: .9; transform: translateX(2px); }
-@media (min-width: 861px) and (hover: hover) { .nav-more { display: inline-flex; } }
+.nav-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 30px; height: 30px; border: 0; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--nav-text); opacity: .6; cursor: pointer;
+}
+.nav-toggle svg { transition: transform .15s; }
+.nav-toggle:hover, .nav-toggle:focus-visible { opacity: 1; background: rgba(255,255,255,.1); color: #fff; outline: none; }
+.nav-row.is-open .nav-toggle { opacity: .95; }
+.nav-row.is-open .nav-toggle svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .nav-toggle svg { transition: none; } }
 
 /* Rozbalená sekcia v menu: jej položky sú pod ňou s ikonami. */
-.nav-item.is-open .nav-more { opacity: .9; transform: rotate(90deg); }
 .nav-sub {
   display: flex; flex-direction: column; gap: 1px;
   margin: 2px 0 8px 19px; padding-left: 10px; border-left: 1px solid var(--navy-line);
@@ -412,13 +420,17 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
 }
 .card-pad { padding: 15px 17px; }
+/* Hlavička karty sa smie zalomiť: keď sa vedľa nadpisu nezmestia filtre
+   a tlačidlá, presunú sa pod neho. Predtým sa nadpis zúžil pod ne a filtre
+   ho prekryli („Viazané náklady" pod prepínačom všetko/Ubytovanie). */
 .card-head {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 10px; gap: 8px 10px;
 }
 .card-title {
   font-size: 14.5px; font-weight: 700; letter-spacing: -.015em;
   display: flex; align-items: center; gap: 8px; min-width: 0;
+  flex: 1 1 190px;
 }
 /* Ikona karty. Nie ozdoba — v mriežke ôsmich kariet je to to, čím sa karta
    nájde očami skôr, než sa prečíta jej názov. */
@@ -427,7 +439,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--blue-50); color: var(--blue);
 }
-.card-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+.card-acts { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; max-width: 100%; }
 /* Tlačidlo bez textu (export, prekliknutie). Titulok aj aria-label má vždy —
    samotná ikona nie je popis. */
 .icon-btn {
@@ -438,6 +450,16 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .icon-btn:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)); gap: 10px; }
+/* Čísla v rade bez osamotenej karty na druhom riadku: šesť je buď 6 vedľa
+   seba, alebo 3 + 3; štyri a osem idú po štyroch. */
+@media (min-width: 861px) {
+  .kpi-grid:has(> :nth-child(4):last-child),
+  .kpi-grid:has(> :nth-child(8):last-child) { grid-template-columns: repeat(4, 1fr); }
+  .kpi-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1360px) {
+  .kpi-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(6, 1fr); }
+}
 /* Dlaždica je celá klikateľná a má **stav**. Predtým vyzerala „Po splatnosti 1"
    presne tak isto ako „Ľudia na stavbách 4" — farbičku mal len drobný text pod
    číslom, ktorý sa z druhého konca stola neprečíta. Prúžok vľavo je tam preto,
@@ -520,6 +542,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   gap: 14px; margin-top: 14px; align-items: start;
 }
 .panels-2 { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+/* Karty v mriežke idú tesne pod seba (ako murované): riadky mriežky majú
+   8 px a každá karta zaberie toľko riadkov, koľko je vysoká (`_masonry`).
+   Bez toho ostávala pod krátkou kartou diera až po spodok najvyššej. */
+.panels.is-masonry { grid-auto-rows: 8px; row-gap: 0; }
 
 /* Profil: karty majú veľmi rôznu výšku (blokátor je dlhý, hodiny krátke).
    V mriežke by sa riadok natiahol podľa najvyššej karty a vedľa tej krátkej
@@ -581,20 +607,21 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
 /* ── Týždenný výhľad ─────────────────────────────────────────────────────
    Tabuľka, nie graf: z grafu sa nedá prečítať, o koľko presne ide. */
-.wk-table { display: grid; gap: 0; }
+.wk-table { display: grid; gap: 0; container-type: inline-size; }
 .wk-row {
-  display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1.1fr;
+  display: grid; grid-template-columns: minmax(92px, 1.4fr) 1fr 1fr 1fr 1.1fr;
   gap: 8px; align-items: center; padding: 9px 2px;
   border-bottom: 1px solid var(--border-soft); font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .wk-row:last-child { border-bottom: 0; }
 .wk-head {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  font-size: 10.5px; letter-spacing: .06em;
   text-transform: uppercase; color: var(--ink-mute); font-weight: 600;
   border-bottom: 1px solid var(--border);
 }
 .wk-head > div:not(:first-child), .wk-row > div:not(:first-child) { text-align: right; }
+.wk-row > div { min-width: 0; white-space: nowrap; }
 .wk-when { font-weight: 600; }
 .wk-when span { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-mute); }
 .wk-in { color: var(--green); }
@@ -603,10 +630,11 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .wk-diff.down { color: var(--red); font-weight: 700; }
 .wk-bal { font-weight: 700; }
 .wk-neg .wk-bal { color: var(--red); }
-@media (max-width: 560px) {
-  .wk-row { grid-template-columns: 1.2fr 1fr 1fr; }
-  .wk-row > div:nth-child(4) { display: none; }      /* rozdiel sa dopočíta */
-  .wk-row > div:nth-child(5) { grid-column: 2 / -1; text-align: right; }
+/* V úzkej karte (tretina obrazovky, telefón) sa „Rozdiel" vynechá — dá sa
+   dopočítať — a týždeň s dátumom sa nezalamuje do štyroch riadkov. */
+@container (max-width: 460px) {
+  .wk-row { grid-template-columns: minmax(84px, auto) 1fr 1fr 1.2fr; font-size: 12.5px; }
+  .wk-row > div:nth-child(4) { display: none; }
 }
 
 /* ── Očakávaný zisk po vrstvách ──────────────────────────────────────────
@@ -965,6 +993,26 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .modal-card { max-width: 680px; }
   .modal-wide { max-width: 1000px; }
 }
+/* ── Stavebnica okna ─────────────────────────────────────────────────────
+   Každé okno má rovnakú kostru: (úvodná veta) → (rámček s upozornením)
+   → časti s nadpisom `.form-section` → polia v `.form-grid` → päta
+   `.modal-actions`. Medzery dávajú tieto triedy, nie `style=` v moduloch,
+   inak má každé okno iné odsadenie a vyzerá ako z inej appky. */
+.modal-lead { margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: var(--ink-sub); }
+.muted { color: var(--ink-mute); font-size: 13px; line-height: 1.5; }
+.muted-sm { color: var(--ink-mute); font-size: 12px; line-height: 1.45; }
+.fld-full { grid-column: 1 / -1; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.btn-row:first-child { margin-top: 0; }
+.modal-body > :is(.warnbox, .regimebox, .notebox) { margin: 0 0 14px; }
+.modal-body > * + :is(.warnbox, .regimebox, .notebox) { margin-top: 14px; }
+.modal-body > form > :is(.warnbox, .regimebox, .notebox) { margin: 14px 0; }
+.modal-body > form > :is(.warnbox, .regimebox, .notebox):first-child { margin-top: 0; }
+.modal-body > .form-section:first-child,
+.modal-body > form > .form-section:first-child { margin-top: 0; }
+.modal-body .js-empty { padding: 10px 0; }
+/* Výber z možností (dlaždice) — rovnaký vo všetkých oknách. */
+.pick-list { display: grid; gap: 8px; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .modal-card { animation: none; } }
 
