@@ -1232,7 +1232,7 @@ begin
     right(to_char(v_d, 'YYYY') || '001', 10), 'work', 'self_billing',
     jsonb_build_array(jsonb_build_object('description', 'Maliarske práce — Bürogebäude Neckarpark', 'activity', 'construction',
       'from', to_char(v_m1 + 7, 'YYYY-MM-DD'), 'to', to_char(v_m0 - 1, 'YYYY-MM-DD'), 'hours', v_hrs, 'rate', 21.50, 'total', v_amt)),
-    md5('vzor-self-dvorak-' || v_d::text) || md5('potvrdenie-' || v_d::text), now() - interval '2 days')
+    replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''), now() - interval '2 days')
   returning id into b6;
 
   select coalesce(sum(t.hours * t.rate_used), 0), coalesce(sum(t.hours), 0) into v_amt, v_hrs
@@ -1961,12 +1961,12 @@ begin
   returning id into ca1;
   insert into danubra_campaign_sends (campaign_id, lead_id, partner_id, email, name, token, status, error, sent_at, created_at)
   values
-    (ca1, ld2, null, 'kontakt@dach-lechner.example', 'Dachdeckerei Lechner GmbH', md5('vzor-ca1-ld2'), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
-    (ca1, ld3, null, 'buero@seitz-innenausbau.example', 'Innenausbau Seitz GmbH', md5('vzor-ca1-ld3'), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
-    (ca1, ld4, null, 'info@maler-hoffmann.example', 'Malerbetrieb Hoffmann & Sohn', md5('vzor-ca1-ld4'), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
-    (ca1, null, p_neu, 'technik@stahlbau-neumann.example', 'Stahlbau Neumann GmbH', md5('vzor-ca1-pneu'), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
-    (ca1, ld6, null, 'info@fliesen-wolf.example', 'Fliesen Wolf GmbH', md5('vzor-ca1-ld6'), 'failed', '550 Mailbox unavailable', null, now() - interval '12 days'),
-    (ca1, ld7, null, 'info@stuck-bauer.example', 'Stuckateur Bauer GmbH', md5('vzor-ca1-ld7'), 'skipped', 'odhlásený', null, now() - interval '12 days');
+    (ca1, ld2, null, 'kontakt@dach-lechner.example', 'Dachdeckerei Lechner GmbH', replace(gen_random_uuid()::text, '-', ''), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
+    (ca1, ld3, null, 'buero@seitz-innenausbau.example', 'Innenausbau Seitz GmbH', replace(gen_random_uuid()::text, '-', ''), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
+    (ca1, ld4, null, 'info@maler-hoffmann.example', 'Malerbetrieb Hoffmann & Sohn', replace(gen_random_uuid()::text, '-', ''), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
+    (ca1, null, p_neu, 'technik@stahlbau-neumann.example', 'Stahlbau Neumann GmbH', replace(gen_random_uuid()::text, '-', ''), 'sent', null, now() - interval '12 days', now() - interval '12 days'),
+    (ca1, ld6, null, 'info@fliesen-wolf.example', 'Fliesen Wolf GmbH', replace(gen_random_uuid()::text, '-', ''), 'failed', '550 Mailbox unavailable', null, now() - interval '12 days'),
+    (ca1, ld7, null, 'info@stuck-bauer.example', 'Stuckateur Bauer GmbH', replace(gen_random_uuid()::text, '-', ''), 'skipped', 'odhlásený', null, now() - interval '12 days');
 
   insert into danubra_campaigns (name, subject, body, lang, status, created_at, created_by)
   values ('Zima 2026 — obkladači a maliari', 'Fliesenleger und Maler für Ihre Winterbaustellen',
@@ -1976,8 +1976,8 @@ begin
   returning id into ca2;
   insert into danubra_campaign_sends (campaign_id, lead_id, email, name, token, status, created_at)
   values
-    (ca2, ld1, 'info@holzbau-brenner.example', 'Holzbau Brenner GmbH', md5('vzor-ca2-ld1'), 'queued', now() - interval '1 day'),
-    (ca2, ld4, 'info@maler-hoffmann.example', 'Malerbetrieb Hoffmann & Sohn', md5('vzor-ca2-ld4'), 'queued', now() - interval '1 day');
+    (ca2, ld1, 'info@holzbau-brenner.example', 'Holzbau Brenner GmbH', replace(gen_random_uuid()::text, '-', ''), 'queued', now() - interval '1 day'),
+    (ca2, ld4, 'info@maler-hoffmann.example', 'Malerbetrieb Hoffmann & Sohn', replace(gen_random_uuid()::text, '-', ''), 'queued', now() - interval '1 day');
 
   -- ── Marketing: inzercia a výdavky ──────────────────────────────────────────
   insert into danubra_marketing_listings (platform, listing_type, url, language, published_at, renew_at, status, performance_note)
@@ -2003,7 +2003,7 @@ begin
   -- ── Balíky dokumentov pre živnostníka ──────────────────────────────────────
   insert into danubra_bundles (token, worker_id, subcontract_id, assignment_id, title, items, message, channels, lang,
     expires_at, opened_at, open_count, created_by)
-  values (md5('vzor-bundle-novotny-' || v_d::text), w_nov, s4, a4, 'Nástup Klinikum Nord',
+  values (replace(gen_random_uuid()::text, '-', ''), w_nov, s4, a4, 'Nástup Klinikum Nord',
     jsonb_build_array(jsonb_build_object('title', 'Infolist na stavbu', 'kind', 'infolist'),
       jsonb_build_object('title', 'Infolist k ubytovaniu', 'kind', 'infolist_lodging'),
       jsonb_build_object('title', 'Objednávka OBJ-VZOR-0007', 'kind', 'objednavka')),
@@ -2011,7 +2011,7 @@ begin
     now() - interval '1 day', 2, v_admin);
   insert into danubra_bundles (token, worker_id, subcontract_id, assignment_id, title, items, message, channels, lang,
     expires_at, revoked_at, created_by)
-  values (md5('vzor-bundle-kovacik-' || v_d::text), w_kov, s1, a1, 'Nástup Isarauen',
+  values (replace(gen_random_uuid()::text, '-', ''), w_kov, s1, a1, 'Nástup Isarauen',
     jsonb_build_array(jsonb_build_object('title', 'Infolist na stavbu', 'kind', 'infolist')),
     'Dobrý deň, pán Kováčik, posielame infolist k nástupu.', array['sms'], 'sk', now() + interval '5 days',
     now() - interval '50 days', v_admin);

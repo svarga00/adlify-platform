@@ -226,19 +226,26 @@
    * neukladá do appky — platí pre tento výtlačok. Faktúra sa takto upravovať
    * nedá (`editable: false`): vystavený doklad sa nemení.
    */
-  function shell(title, bodyHtml, { toolbar = true, editable = true, lang = 'sk' } = {}) {
+  // List na šírku (Stundennachweis). `data-orient` na <html> číta Docs.makePdf
+  // a otočí stranu PDF; @page to isté povie tlači.
+  const CSS_LANDSCAPE = `
+    .page{max-width:1123px}
+    @media print{@page{size:A4 landscape;margin:0}}`;
+
+  function shell(title, bodyHtml, { toolbar = true, editable = true, lang = 'sk', orient = 'portrait', css = '' } = {}) {
+    const land = orient === 'landscape';
     // Písmo Outfit (veľká suma na úhradu) nemá šírku pevnej medzery — „12.400,00€"
     // by sa zlepilo. V tom riadku je preto obyčajná medzera (riadok sa aj tak nezalomí).
     bodyHtml = String(bodyHtml).replace(/<div class="total-row sum">[\s\S]*?<\/div>/g, (m) => m.replace(/\u00a0|\u202f/g, ' '));
     const upravit = editable ? `<button class="tb-2" onclick="(function(b){var p=document.querySelector('.page');`
       + `var on=p.isContentEditable;p.contentEditable=on?'false':'true';document.body.classList.toggle('editing',!on);`
       + `b.textContent=on?'Upraviť text':'Hotovo';if(!on)p.focus();})(this)">Upraviť text</button>` : '';
-    return `<!DOCTYPE html><html lang="${lang === 'de' ? 'de' : 'sk'}"><head><meta charset="utf-8">
+    return `<!DOCTYPE html><html lang="${lang === 'de' ? 'de' : 'sk'}"${land ? ' data-orient="landscape"' : ''}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${CSS}</style></head><body>
+<style>${CSS}${land ? CSS_LANDSCAPE : ''}${css}</style></head><body>
 ${toolbar ? `<div class="toolbar"><span class="tb-title">${esc(title)}</span>
 <span class="tb-acts">${upravit}<button class="tb-2 tb-doc" onclick="window.print()">Tlačiť</button><button class="tb-2 tb-doc" onclick="window.__doc&&window.__doc('share')">Poslať</button><button class="tb-doc" onclick="window.__doc&&window.__doc('pdf')">Stiahnuť PDF</button><button class="tb-print-only" onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
 <div class="tb-msg" id="tb-msg"></div>
@@ -1943,6 +1950,203 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     return shell(`${de ? 'Brief' : 'List'}${subject ? ` – ${subject}` : ''}`, body2, { lang: de ? 'de' : 'sk' });
   }
 
+  // ── STUNDENNACHWEIS (týždenný list na hodiny, na šírku) ───────────────────
+  // „Toto im musíme posielať prázdne aj s infolistami… píšu si hodiny
+  // a majster ich podpíše… na základe toho fakturujeme."
+  //
+  // Prázdny list ide ľuďom na stavbu; vyplnený (`filled`) je čistý prepis
+  // podpísaného papiera pre odberateľa. Stĺpce Po–So ako na pôvodnom
+  // papieri, nedeľa len keď sa v nej robilo. Veľké políčka na písanie
+  // rukou, tenké čiary — vytlačí sa dobre aj čiernobielo.
+  //
+  // Veta pod tabuľkou je tá istá ako na obrazovke výkazu
+  // (js/modules/hoursheet.js, LEGAL) — opravené znenie pôvodnej predlohy.
+  const STUNDEN_LEGAL = 'Mit der Unterschrift auf diesem Stundennachweis bestätigt der Kunde die '
+    + 'Richtigkeit der angegebenen geleisteten Stunden und die mängelfreie Ausführung der Arbeiten.';
+
+  const CSS_HN = `
+    .hn-top{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:14px}
+    .hn-top .brand{flex:0 0 auto}
+    .hn-title{flex:1 1 auto;min-width:0;padding-left:18px;border-left:3px solid ${BRAND.orange}}
+    .hn-title h1{margin:0;font-size:27px;font-weight:700;letter-spacing:-.03em;line-height:1.05}
+    .hn-title .meta{font-size:10.5px;color:${BRAND.mute};margin-top:3px}
+    .hn-kw{flex:0 0 auto;display:flex;align-items:baseline;gap:8px;border:1.5px solid ${BRAND.navy};border-radius:8px;padding:7px 14px;min-width:210px}
+    .hn-kw .lbl{margin:0}
+    .hn-kw b{font-family:Outfit,Arial,sans-serif;font-size:24px;line-height:1;font-weight:700;min-width:44px;display:inline-block;
+      border-bottom:1px solid ${BRAND.lbl};text-align:center}
+    .hn-kw .y{font-size:13px;color:${BRAND.sub};font-weight:600}
+    .hn-kw small{font-size:10px;color:${BRAND.mute};margin-left:auto;white-space:nowrap}
+    .hn-band{display:flex;gap:28px;margin-bottom:12px;align-items:flex-end}
+    .hn-fields{flex:1.35;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 20px}
+    .hn-sign{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+    .hn-f{min-width:0}
+    .hn-f .v{min-height:26px;border-bottom:1px solid ${BRAND.navy};font-size:12.5px;font-weight:600;line-height:1.25;
+      padding:4px 2px 3px;display:flex;align-items:flex-end;overflow-wrap:anywhere}
+    .hn-f .v.tall{min-height:40px}
+    .hn-f .v i{font-weight:500;font-style:italic;color:${BRAND.sub};font-size:10.5px}
+    .hn-f .lbl{margin:4px 0 0}
+    table.hn{width:100%;border-collapse:collapse;margin:0;table-layout:fixed;border:1.5px solid ${BRAND.navy}}
+    table.hn th,table.hn td{border:1px solid ${BRAND.lbl};padding:0 8px;vertical-align:middle;background:none}
+    table.hn thead th{background:${BRAND.soft};color:${BRAND.navy};font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+      font-weight:700;text-align:center;height:30px;border-bottom:1.5px solid ${BRAND.navy}}
+    table.hn .hn-n{width:205px;text-align:left}
+    table.hn .hn-s{width:96px;text-align:center;border-left:1.5px solid ${BRAND.navy}}
+    table.hn tbody th{text-align:left;font-size:10.5px;font-weight:600;color:${BRAND.sub};text-transform:none;letter-spacing:0;background:none}
+    table.hn tr.hn-m td,table.hn tr.hn-m th{height:var(--hn-mh,28px)}
+    table.hn tr.hn-m td{text-align:center;font-size:11.5px;color:${BRAND.navy};font-variant-numeric:tabular-nums}
+    table.hn tr.hn-m.last td,table.hn tr.hn-m.last th{border-bottom:1.5px solid ${BRAND.navy}}
+    table.hn tr.hn-p td,table.hn tr.hn-p th{height:var(--hn-ph,40px)}
+    table.hn tr.hn-p td{text-align:center;font-family:Outfit,Arial,sans-serif;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+    table.hn tr.hn-p td.hn-n{font-family:'Hanken Grotesk',Arial,sans-serif;font-size:12.5px;font-weight:600;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    table.hn tr.hn-p td.hn-n .no{color:${BRAND.lbl};font-weight:600;font-size:9.5px;margin-right:8px}
+    table.hn tfoot td,table.hn tfoot th{height:34px;border-top:1.5px solid ${BRAND.navy};background:${BRAND.soft}}
+    table.hn tfoot th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:${BRAND.navy}}
+    table.hn tfoot td{text-align:center;font-family:Outfit,Arial,sans-serif;font-size:15px;font-weight:700}
+    table.hn tfoot td.hn-s{font-size:18px}
+    .hn-dash{color:${BRAND.lbl};font-weight:400}
+    .hn-unit{float:right;color:${BRAND.lbl};font-size:9px;font-weight:500;letter-spacing:.06em}
+    .hn-bottom{display:flex;gap:24px;justify-content:space-between;align-items:flex-start;margin-top:9px}
+    .hn-legal{font-size:10px;line-height:1.5;color:${BRAND.sub};max-width:620px}
+    .hn-hint{font-size:9.5px;line-height:1.5;color:${BRAND.mute};text-align:right}
+    .hn-copy{font-size:9.5px;color:${BRAND.mute};text-align:right}
+    @media (max-width:640px){body:not(.pdf-mode) .hn-top,body:not(.pdf-mode) .hn-band{flex-direction:column;align-items:stretch}
+      body:not(.pdf-mode) .hn-fields{grid-template-columns:1fr}body:not(.pdf-mode) .page{overflow-x:auto}
+      body:not(.pdf-mode) table.hn{min-width:820px}}
+  `;
+
+  /** Minúty → hodiny na nemeckom doklade: 600 → „10", 615 → „10,25". */
+  function hnHours(min) {
+    if (min == null) return '?';
+    const v = Math.round(Number(min) || 0);
+    if (!v) return '';
+    const c = Math.round(v * 5 / 3);
+    const s = `${Math.floor(c / 100)},${String(c % 100).padStart(2, '0')}`;
+    return s.replace(/,00$/, '').replace(/(,\d)0$/, '$1');
+  }
+  const hnDate = (s, short) => {
+    if (!s) return '';
+    const [y, m, d] = String(s).slice(0, 10).split('-');
+    return short ? `${d}.${m}.` : `${d}.${m}.${y}`;
+  };
+
+  /**
+   * Týždenný Stundennachweis na šírku A4, po nemecky.
+   *
+   * @param {Object} o
+   *   supplier     naša firma (Nastavenia) — značka a päta
+   *   subcontract  zákazka: title, contract_number, site_name, site_address, site_city
+   *   partner      odberateľ (Kunde): name
+   *   week         { year, week } (ISO) alebo null — prázdne KW a dátumy
+   *   workers      [{ id?, full_name }] mená do riadkov (zvyšok sú prázdne riadky)
+   *   rows         koľko riadkov s menami najmenej (predvolene 6)
+   *   filled       null = prázdny list; inak list z DanubraHourScan.normalize
+   *                (+ matchWorkers) — vypíšu sa hodiny, časy a súčty
+   *   signed       true | { name } — podpísané (pri `filled` sa berie aj filled.signed)
+   */
+  function stundennachweis({ supplier = {}, subcontract = null, partner = null, week = null,
+    workers = [], rows = 6, filled = null, signed = null } = {}) {
+    const HS = (typeof module !== 'undefined' && module.exports)
+      ? require('../staffing/hoursheet') : window.DanubraHourSheet;
+    const sub = subcontract || {};
+    const f = filled && typeof filled === 'object' ? filled : null;
+    const wk = week && week.year && week.week ? week
+      : (f && f.year && f.week ? { year: f.year, week: f.week } : null);
+    const base = wk ? HS.weekDates(wk.year, wk.week) : HS.DAYS.map(([key, de]) => ({ key, de, date: null }));
+    // Nedeľa len vtedy, keď je vo vyplnenom liste.
+    const fDays = new Map(((f && f.days) || []).map((d) => [d.weekday, d]));
+    const showSun = !!(f && (fDays.has(7) || (f.rows || []).some((r) => (r.per_day || []).some((c) => c.weekday === 7 && c.minutes))));
+    const days = base.map((d, i) => ({ weekday: i + 1, de: d.de, date: d.date || (fDays.get(i + 1) || {}).date || null }));
+    if (showSun) {
+      const sat = days[5].date;
+      const t = sat ? new Date(`${sat}T00:00:00Z`) : null;
+      if (t) t.setUTCDate(t.getUTCDate() + 1);
+      days.push({ weekday: 7, de: 'Sonntag', date: t ? t.toISOString().slice(0, 10) : ((fDays.get(7) || {}).date || null) });
+    }
+
+    // Riadky s menami: vyplnený list → jeho riadky; inak ľudia zo zákazky.
+    const nameOf = (r) => {
+      const w = r.worker_id && (workers || []).find((x) => x && x.id === r.worker_id);
+      return (w && w.full_name) || r.name || r.name_raw || '';
+    };
+    const people = f ? (f.rows || []).map((r) => ({ name: nameOf(r), cells: new Map((r.per_day || []).map((c) => [c.weekday, c.minutes])) }))
+      : (workers || []).map((w) => ({ name: String((w && w.full_name) || w || '').trim(), cells: null })).filter((p) => p.name);
+    const n = Math.max(Number(rows) || 0, people.length, 1);
+    while (people.length < n) people.push({ name: '', cells: null });
+    // Riadky sa zmestia na jednu stranu: čím viac mien, tým nižšie (ale stále sa do nich dá písať).
+    const ph = Math.max(30, Math.min(46, Math.floor(300 / n)));
+
+    // Hlavička: projekt, stavba, odberateľ.
+    const projekt = [sub.title, sub.contract_number].filter(Boolean).join(' · ') || (f && f.project) || '';
+    const baustelle = [sub.site_name, sub.site_address, sub.site_city].filter(Boolean).join(', ') || (f && f.site) || '';
+    const kunde = (partner && partner.name) || (f && f.customer) || '';
+    const sig = signed != null ? signed : (f ? f.signed : null);
+    const signer = (sig && typeof sig === 'object' && sig.name) || (f && f.signer_name) || '';
+    const b = brandOf(supplier);
+    const field = (label, v, cls = '') => `<div class="hn-f"><div class="v ${cls}">${v}</div><div class="lbl">${esc(label)}</div></div>`;
+
+    const cell = (p, d) => (p.cells && d ? esc(hnHours(p.cells.has(d.weekday) ? p.cells.get(d.weekday) : 0)) : '');
+    const rowSum = (p) => (p.cells ? [...p.cells.values()].reduce((a, m) => a + (Number(m) || 0), 0) : 0);
+    const daySum = (d) => people.reduce((a, p) => a + (p.cells ? Number(p.cells.get(d.weekday)) || 0 : 0), 0);
+    const grand = people.reduce((a, p) => a + rowSum(p), 0);
+
+    const span = (d) => {
+      const x = fDays.get(d.weekday);
+      if (f && x && (x.from || x.to)) return `${esc(x.from || '…')} – ${esc(x.to || '…')}`;
+      return f ? '' : '<span class="hn-dash">–</span>';
+    };
+    const pause = (d) => {
+      const x = fDays.get(d.weekday);
+      if (f && x && x.pause_min != null) return x.pause_min ? `${esc(x.pause_min)} min` : '<span class="hn-dash">–</span>';
+      return f ? '' : '<span class="hn-unit">MIN</span>';
+    };
+
+    const body = `
+      <div class="hn-top">
+        <div class="brand">${LOGO}${b.brand ? `<div><div class="brand-word">${esc(b.brand)}</div>${b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : ''}</div>`
+          : b.name ? `<div><div class="brand-name">${esc(b.name)}</div></div>` : ''}</div>
+        <div class="hn-title"><h1>Stundennachweis</h1>
+          <div class="meta">${esc(supplier.name || '')}${f ? ` · Abschrift${sig ? ' des vom Kunden unterschriebenen Originals' : ''}` : ''}</div></div>
+        <div class="hn-kw"><span class="lbl">KW</span><b>${wk ? esc(wk.week) : '&nbsp;'}</b>${wk ? `<span class="y">${esc(wk.year)}</span>` : '<span class="y">/ 20&nbsp;&nbsp;&nbsp;&nbsp;</span>'}
+          ${wk ? `<small>${esc(hnDate(days[0].date, true))} – ${esc(hnDate(days[days.length - 1].date))}</small>` : ''}</div>
+      </div>
+
+      <div class="hn-band">
+        <div class="hn-fields">
+          ${field('Projekt', esc(projekt))}
+          ${field('Baustelle', esc(baustelle))}
+          ${field('Kunde', esc(kunde))}
+        </div>
+        <div class="hn-sign">
+          ${field('Name in Druckbuchstaben', esc(signer), 'tall')}
+          ${field('Unterschrift des Kunden', f && sig ? '<i>im Original unterschrieben</i>' : '', 'tall')}
+        </div>
+      </div>
+
+      <table class="hn" style="--hn-ph:${ph}px">
+        <thead><tr><th class="hn-n"></th>${days.map((d) => `<th>${esc(d.de)}</th>`).join('')}<th class="hn-s">Insgesamt</th></tr></thead>
+        <tbody>
+          <tr class="hn-m"><th class="hn-n">Datum</th>${days.map((d) => `<td>${esc(hnDate(d.date))}</td>`).join('')}<td class="hn-s"></td></tr>
+          <tr class="hn-m" style="--hn-mh:34px"><th class="hn-n">Stunden (von – bis)</th>${days.map((d) => `<td>${span(d)}</td>`).join('')}<td class="hn-s"></td></tr>
+          <tr class="hn-m last"><th class="hn-n">Pause</th>${days.map((d) => `<td>${pause(d)}</td>`).join('')}<td class="hn-s"></td></tr>
+          ${people.map((p, i) => `<tr class="hn-p"><td class="hn-n"><span class="no">${i + 1}</span>${esc(p.name)}</td>
+            ${days.map((d) => `<td>${cell(p, d)}</td>`).join('')}
+            <td class="hn-s">${p.cells ? esc(hnHours(rowSum(p))) : ''}</td></tr>`).join('')}
+        </tbody>
+        <tfoot><tr><th class="hn-n">Gesamt</th>${days.map((d) => `<td>${f ? esc(hnHours(daySum(d))) : ''}</td>`).join('')}
+          <td class="hn-s">${f ? esc(hnHours(grand)) : ''}</td></tr></tfoot>
+      </table>
+
+      <div class="hn-bottom">
+        <div class="hn-legal">${esc(STUNDEN_LEGAL)}</div>
+        ${f ? `<div class="hn-copy">Stunden in Dezimalstunden (10,25 = 10 Std. 15 Min.)</div>`
+          : `<div class="hn-hint">Bitte täglich ausfüllen · Stunden als Zahl, z. B. 9 oder 9,5<br>arbeitsfreier Tag: /</div>`}
+      </div>
+      ${runFoot(supplier, 'de')}`;
+
+    const title = `Stundennachweis${wk ? ` KW ${wk.week}/${wk.year}` : ''}${sub.title ? ` – ${sub.title}` : ''}`;
+    return shell(title, body, { lang: 'de', orient: 'landscape', css: CSS_HN });
+  }
+
   // ── Skrátené textové verzie pre SMS/WhatsApp (§8) ─────────────────────────
   // Meno odosielateľa je z Nastavení. Príjemca musí vedieť, kto mu píše —
   // ale to meno patrí do nastavení firmy, nie do kódu.
@@ -1969,8 +2173,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, letter, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, letter, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

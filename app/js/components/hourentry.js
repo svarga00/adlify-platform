@@ -245,7 +245,13 @@
       this.keepForm();
       const st = this.st;
       const say = (t) => { const el = document.getElementById('he-scan-st'); if (el) el.textContent = t; };
-      if (file.size > 8 * 1024 * 1024) return UI.toast('Súbor je väčší ako 8 MB — odfoťte ho v menšom rozlíšení.', 'err');
+      say('Pripravujem fotku…');
+      // Fotka z mobilu má aj 10 MB. Na prečítanie stačí 2000 px — menšia
+      // sa rýchlejšie nahrá aj prečíta (funkcia má časový limit).
+      if (/^image\/(jpeg|png|webp)$/.test(file.type)) {
+        try { file = await this.shrink(file, 2000); } catch (e) { /* pošle sa pôvodná */ }
+      }
+      if (file.size > 6 * 1024 * 1024) { say(''); return UI.toast('Súbor je väčší ako 6 MB — odfoťte ho v menšom rozlíšení.', 'err'); }
       say('Nahrávam…');
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
       const path = `hours/${st.subId}/${st.year}-W${pad(st.week)}-${Date.now()}.${ext}`;
@@ -268,6 +274,25 @@
         say(`Nahraté: ${file.name}`);
         UI.toast(e.message || 'Fotku sa nepodarilo prečítať — natukajte hodiny ručne.', 'err');
       }
+    },
+
+    /** Zmenší fotku na najviac `max` px na dlhšej strane (JPEG). */
+    shrink(file, max) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+          if (k >= 1 && file.size < 2.5 * 1024 * 1024) { URL.revokeObjectURL(url); return resolve(file); }
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          c.toBlob((b) => (b ? resolve(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })) : reject(new Error('blob'))), 'image/jpeg', 0.85);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
+        img.src = url;
+      });
     },
 
     /** Prečítaný list → týždeň, časy, riadky. Nepriradené mená ostanú na výber. */

@@ -82,8 +82,15 @@
       // stranách aj „Strana 1 / 3". Päta sa preto z toku dokumentu vyberie
       // a na každú stranu sa pridá zvlášť.
       const MM = 96 / 25.4;
-      const SW = Math.floor(210 * MM);                    // šírka listu v px
-      const SH = Math.floor(SW * 297 / 210) - 1;          // výška listu (o bod menej, nech nevznikne prázdna strana)
+      // List na šírku (Stundennachweis) má na <html> data-orient="landscape".
+      const land = d.documentElement.dataset.orient === 'landscape';
+      const [PW, PH] = land ? [297, 210] : [210, 297];
+      const SW = Math.floor(PW * MM);                     // šírka listu v px
+      const SH = Math.floor(SW * PH / PW) - 1;            // výška listu (o bod menej, nech nevznikne prázdna strana)
+      // Skrytý rám (renderPdf) je úzky na list na šírku — knižnica by ho orezala.
+      if (land && okno.frameElement && okno.frameElement.offsetWidth < SW + 40) {
+        okno.frameElement.style.width = `${SW + 40}px`;
+      }
       const SIDE = Math.round(14 * MM), TOP = Math.round(12 * MM), BOTTOM = 22, PNO = 16;
       const W = SW - 2 * SIDE;
       const src = d.createElement('div');
@@ -137,7 +144,7 @@
         // Bez `windowWidth`: knižnica centruje dokument podľa skutočnej šírky
         // okna, a keby html2canvas počítal s inou, odreže ľavý okraj.
         html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: land ? 'landscape' : 'portrait', compress: true },
         pagebreak: { mode: [] },
       }));
       let blob;
