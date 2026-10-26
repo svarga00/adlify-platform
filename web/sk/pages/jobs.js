@@ -311,3 +311,6 @@ module.exports = async function render(ctx) {
 
 module.exports.matches = matches;
 module.exports.stateFrom = stateFrom;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

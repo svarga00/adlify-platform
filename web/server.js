@@ -13,6 +13,7 @@ const { SITES, match, siteFor } = require('./shared/sites');
 const { context, render } = require('./shared/layout');
 const { toJob } = require('./shared/jobs');
 const { esc } = require('./shared/h');
+const content = require('./content');
 
 const CHROME = { sk: require('./sk/common'), eu: require('./eu/common') };
 const PAGES = { sk: require('./sk/pages'), eu: require('./eu/pages') };
@@ -28,7 +29,8 @@ const HTML_HEADERS = {
 
 /**
  * @param {Object} req  { method, host, path, query (Object), body (string), ip }
- * @param {Object} deps { ads: async ({demoIfEmpty}) => rows, api: async (site, name, req) => resp }
+ * @param {Object} deps { ads: async ({demoIfEmpty}) => rows, api: async (site, name, req) => resp,
+ *                        content: async () => ({ key: value }) — obsah z appky (Marketing → Weby) }
  * @returns {Promise<{status, headers, body}>}
  */
 async function handle(req, deps) {
@@ -37,6 +39,12 @@ async function handle(req, deps) {
   const { site, base, prod } = found;
   // Predpona webu (/punds-sk) sa odreže vždy — naostro ju pridáva edge funkcia.
   const rest = (req.path.startsWith(site.prefix) ? req.path.slice(site.prefix.length) : req.path) || '/';
+
+  // Popis textov a fotiek pre správu webov v appke (verejné texty, bez osobných údajov).
+  if (rest === '/api/schema' && req.method === 'GET') {
+    return { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+      body: JSON.stringify(content.schema()) };
+  }
 
   // Formuláre (prihláška, dopyt) — bez cache.
   const api = rest.match(/^\/api\/([a-z-]+)$/);
@@ -59,6 +67,9 @@ async function handle(req, deps) {
 
   const m = match(site, rest);
   const lang = m ? m.lang : (site.langs.find((l) => rest.startsWith(`/${l}/`)) || site.defaultLang);
+  // Texty, kontakty, tím a fotky z appky — pred skladaním stránky.
+  const rows = deps.content ? await deps.content() : {};
+  content.applyTexts(site.key, rows);
   const t = CHROME[site.key].T[lang];
   let jobsCache = null;
   const ctx = context({
@@ -70,6 +81,7 @@ async function handle(req, deps) {
       }
       return jobsCache;
     },
+    content: { team: content.teamFor(site.key, rows), company: rows.company || {} },
   });
 
   const pages = PAGES[site.key];
@@ -86,7 +98,7 @@ async function handle(req, deps) {
     page = await pages.notFound(ctx);
     page.status = 404;
   }
-  const body = await render(ctx, page, CHROME[site.key]);
+  const body = content.postProcess(await render(ctx, page, CHROME[site.key]), content.replacements(site.key, rows));
   const headers = { ...HTML_HEADERS };
   if (page.status && page.status !== 200) headers['Netlify-CDN-Cache-Control'] = 'public, s-maxage=60';
   return { status: page.status || 200, headers, body };

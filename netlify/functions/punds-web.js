@@ -15,6 +15,7 @@ const { handle } = require('../../web/server.js');
 const { loader } = require('../../web/shared/jobs.js');
 const api = require('../../web/api.js');
 const { notifier } = require('../../web/notify.js');
+const content = require('../../web/content.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -22,10 +23,10 @@ const supabase = createClient(
 );
 const ads = loader(supabase);
 const notify = notifier(supabase);
+const contentRows = content.loader(supabase);
 
 exports.handler = async (event) => {
   const h = event.headers || {};
-  // Pôvodná adresa: pri prepise z netlify.toml je v event.path (alebo rawUrl).
   // Pôvodná adresa (/punds-sk/…): pri prepise z netlify.toml je v event.path,
   // v rawUrl môže byť adresa funkcie — vezme sa tá, ktorá patrí webu.
   let raw = '';
@@ -40,6 +41,6 @@ exports.handler = async (event) => {
     body: event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || ''),
     ip: h['x-nf-client-connection-ip'] || h['x-forwarded-for'] || '', acceptLanguage: h['accept-language'] || '',
     userAgent: h['user-agent'] || '', origin: h.origin || '',
-  }, { ads, api: (site, name, req) => api.handle(site, name, req, { supabase, notify }) });
+  }, { ads, content: contentRows, api: (site, name, req) => api.handle(site, name, req, { supabase, notify }) });
   return { statusCode: res.status, headers: res.headers, body: res.body };
 };

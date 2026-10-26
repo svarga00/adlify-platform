@@ -81,3 +81,6 @@ async function render(ctx) {
 }
 
 module.exports = render;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

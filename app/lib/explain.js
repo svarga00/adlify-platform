@@ -360,6 +360,24 @@
       why: ['Človek hneď vie, že prihláška prišla — a neodíde ku konkurencii, kým sa ozveme.'],
       links: [['candidates', 'Kandidáti'], ['opportunities', 'Dopyty']],
     },
+    'screen.website': {
+      title: 'Weby punds',
+      lead: 'Odtiaľto sa spravujú weby punds.sk a punds.eu — bez programátora.',
+      what: [
+        'Prehľad: koľko prišlo prihlášok, správ a dopytov za 30 dní a koľko ponúk je zverejnených.',
+        'Kontakty a firma: telefóny, e-maily, WhatsApp a konateľ do Impressum.',
+        'Tím: ľudia na stránkach O nás a Über uns — meno, funkcia v každom jazyku, fotka.',
+        'Fotky: výmena fotiek z doterajšieho WordPressu za vlastné.',
+        'Texty: každý text každej stránky v každom jazyku; zmeny v slovenčine (punds.sk) alebo nemčine (punds.eu) sa dajú preložiť do ostatných jazykov.',
+      ],
+      how: [
+        'Ponuky práce sa spravujú v Inzerátoch — „Zverejniť na punds.sk".',
+        'Zmeny sú na webe do 5 minút. Prázdne pole = pôvodný text.',
+        'Nič sa nemaže: človek sa dá skryť, text vrátiť na pôvodný.',
+      ],
+      why: ['Web musí sedieť s tým, čo robíme — a meniť ho musí vedieť ten, kto to vie najlepšie.'],
+      links: [['ads', 'Inzeráty'], ['candidates', 'Kandidáti'], ['opportunities', 'Dopyty']],
+    },
     'screen.printwork': {
       title: 'Tlačoviny',
       lead: 'Vizitky, obálka DL a hlavičkový list v podobe punds — pripravené pre tlačiareň.',

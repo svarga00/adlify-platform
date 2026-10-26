@@ -491,3 +491,7 @@
 
 /* poďakovanie dostane fokus programovo (čítačky) — bez rámika */
 .eu-enq-f .form-ok:focus, .eu-cform .form-ok:focus, .eu-tform .form-ok:focus { outline: none; }
+
+/* Fotka člena tímu z appky (Marketing → Weby → Tím) */
+.eu-member-ph { overflow: hidden; }
+.eu-member-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }

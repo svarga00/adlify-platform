@@ -22,6 +22,15 @@ Návrh: `design_handoff_punds_web` (README + `designs/*.dc.html`). Farby, písma
   - prihlášky idú do Kandidátov;
   - dopyty idú do Dopytov.
 
+## Obsah z appky (Marketing → Weby)
+
+`web/content.js` načíta z `danubra_web_content` (cache 60 s):
+- **Texty:** `texts:<web>:<stránka>` = `{ jazyk: { cesta: text } }`. Prepíšu reťazce v `T` stránky (každá stránka exportuje `module.exports.T`, remeslá aj `TRADES`). Pred každým skladaním sa vrátia do pôvodného stavu.
+- **Kontakty a fotky** (`contacts`, `images`): nahradia sa v hotovom HTML.
+- **Tím a firma** (`team`, `company`): sú v `ctx.content`.
+
+Appka si popis textov berie z `GET {base}/api/schema`.
+
 ## Lokálne
 
 ```
