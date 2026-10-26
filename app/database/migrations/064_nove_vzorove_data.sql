@@ -302,7 +302,8 @@ begin
     ('danubra_crews', '58b67bc6-f144-4ac4-85e9-5090bf6922dc', 'Partia Nitra — partia nasadenia a Jána Nováka'),
     ('danubra_ads', 'c3decda6-c372-4acd-ba03-7538f9192381', 'inzerát Murári Stuttgart — kandidáti, plán, otázka k inzerátu'),
     ('danubra_ads', 'c6c7afab-c5f7-4921-8bc6-068a518c1e32', 'inzerát Sadrokartonári München — kandidát'),
-    ('danubra_opportunities', '439cdebd-6970-43c9-baac-3984f24a2454', 'možnosť Lixenried — naviazaná na náborový plán Lixenried');
+    ('danubra_opportunities', '439cdebd-6970-43c9-baac-3984f24a2454', 'možnosť Lixenried — naviazaná na náborový plán Lixenried'),
+    ('danubra_opportunities', '4173ebd7-fd25-40e7-8d53-426c567b4bcd', 'možnosť Lixenried pri Furth im Walde — ostrý dopyt majiteľa (rozhodnutie majiteľa)');
   -- Hodiny v ponechanom uzavretom období (5 dní Jána Nováka).
   insert into _keep (tbl, id, why)
   select 'danubra_timesheets', t.id, 'hodiny v uzavretom ponechanom období' from danubra_timesheets t
@@ -314,6 +315,12 @@ begin
   select 'danubra_crew_members', m.id, 'členstvo ponechaného človeka v ponechanej partii' from danubra_crew_members m
    where m.crew_id in (select id from _keep where tbl = 'danubra_crews')
      and m.worker_id in (select id from _keep where tbl = 'danubra_workers')
+  on conflict do nothing;
+  -- Doklady ponechaného človeka (Ján Novák) — bez nich by na stavbe svietil
+  -- ako nasadený bez dokladov (rozhodnutie majiteľa).
+  insert into _keep (tbl, id, why)
+  select 'danubra_worker_documents', d.id, 'doklad ponechaného človeka' from danubra_worker_documents d
+   where d.worker_id in (select id from _keep where tbl = 'danubra_workers')
   on conflict do nothing;
   -- Dodatky ponechanej zmluvy patria k nej.
   insert into _keep (tbl, id, why)
