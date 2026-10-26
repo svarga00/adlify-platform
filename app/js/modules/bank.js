@@ -53,7 +53,8 @@
              <button class="fb-chip${this.tab === 'txs' ? ' active' : ''}" onclick="Bank.setTab('txs')">
                Pohyby<em>${this.txs.length}</em></button>
              ${unmatched ? `<span class="fb-count" style="color:var(--amber);">
-               ${unmatched} nespárovaných</span>` : ''}
+               ${unmatched} nespárovaných${UI.tip('Nespárovaný pohyb je platba na účte, pri ktorej appka ešte nevie, '
+                 + 'ku ktorej faktúre patrí. Kým sa nespáruje, faktúra sa neoznačí ako uhradená.')}</span>` : ''}
            </div>`
         + (this.tab === 'cashflow' ? this.cashflowHtml() : this.txsHtml());
     },
@@ -88,15 +89,21 @@
         })}
 
         <div class="kv" style="margin-top:14px;">
-          <div><span>Na účte dnes</span><strong>${Money.format(f.startBalance)}</strong></div>
-          ${f.overdue.in || f.overdue.out ? `<div><span>Po splatnosti</span><strong>${
+          <div><span>Na účte dnes${UI.tip('Súčet všetkých pohybov, ktoré ste do appky načítali z výpisov. '
+            + 'Keď niektorý výpis chýba, číslo nesedí so skutočným zostatkom v banke.')}</span><strong>${Money.format(f.startBalance)}</strong></div>
+          ${f.overdue.in || f.overdue.out ? `<div><span>Po splatnosti${UI.tip('Príjmy aj platby, ktorých dátum splatnosti '
+            + 'už uplynul a stále nie sú vybavené, dokopy. Vo výhľade sú započítané hneď v prvom týždni.')}</span><strong>${
             Money.format(f.overdue.in + f.overdue.out)}</strong></div>` : ''}
-          <div><span>Najnižší bod</span><strong style="${f.lowest.balance < 0 ? 'color:var(--red);' : ''}">${
+          <div><span>Najnižší bod${UI.tip('Najmenej peňazí, koľko bude na účte počas najbližších 8 týždňov, '
+            + 'ak všetci zaplatia načas. Pod nulou = na výplaty nebude.')}</span><strong style="${f.lowest.balance < 0 ? 'color:var(--red);' : ''}">${
             Money.format(f.lowest.balance)}</strong></div>
-          <div><span>Za osem týždňov</span><strong>${Money.format(f.endBalance)}</strong></div>
+          <div><span>Za osem týždňov${UI.tip('Koľko bude na účte o 8 týždňov, keď príde a odíde všetko, '
+            + 'o čom appka teraz vie.')}</span><strong>${Money.format(f.endBalance)}</strong></div>
         </div>
 
-        <div class="form-section">Výhľad po týždňoch</div>
+        <div class="form-section">Výhľad po týždňoch${UI.tip('Každý riadok je jeden týždeň. Zelené + je, čo má '
+          + 'prísť (vydané faktúry podľa splatnosti, po zrážke §48b), červené − je, čo máme zaplatiť '
+          + '(prijaté faktúry a náklady). Vpravo je zostatok na konci týždňa.')}</div>
         <div class="cf-list">${f.buckets.map(week).join('')}</div>
 
         ${this.upcomingHtml(f)}`;
@@ -145,7 +152,8 @@
           <strong style="${Money.toCents(it.amount) < 0 ? 'color:var(--red);' : ''}">${
             Money.format(Money.toCents(it.amount), { sign: true })}</strong>
         </div>`;
-      return `<div class="form-section">Čo sa čaká</div>${all.map(row).join('')}`;
+      return `<div class="form-section">Čo sa čaká${UI.tip('Konkrétne platby, z ktorých je výhľad zložený, '
+        + 'od najbližšej. + príde k nám, − pôjde od nás.')}</div>${all.map(row).join('')}`;
     },
 
     // ── Pohyby ────────────────────────────────────────────────────────────
@@ -188,7 +196,9 @@
             options: [['', 'Všetky'], ...Enums.options('match_status')],
           }],
           right: `<button class="btn btn-outline btn-sm" onclick="Bank.automatch()">
-            ${Icon('repeat', 14)} Spárovať automaticky</button>`,
+            ${Icon('repeat', 14)} Spárovať automaticky</button>${UI.tip('Appka sama priradí platby k faktúram: '
+              + 'príjem podľa variabilného symbolu (= číslo našej faktúry), výdavok podľa sumy a k tomu VS alebo '
+              + 'IBAN-u. Spárovaná faktúra sa označí ako uhradená.')}`,
         },
       });
     },
@@ -218,12 +228,15 @@
           <div><span>Dátum</span><strong>${UI.date(t.booked_at)}</strong></div>
           <div><span>Protistrana</span><strong>${UI.esc(t.counterparty_name || '—')}</strong></div>
           ${t.counterparty_iban ? `<div><span>IBAN</span><strong class="mono">${UI.esc(t.counterparty_iban)}</strong></div>` : ''}
-          ${t.variable_symbol ? `<div><span>Variabilný symbol</span><strong class="mono">${UI.esc(t.variable_symbol)}</strong></div>` : ''}
+          ${t.variable_symbol ? `<div><span>Variabilný symbol${UI.tip('Číslo, ktoré platiteľ zadal k platbe. '
+            + 'Pri našich faktúrach je to číslo faktúry — podľa neho sa platba spáruje.')}</span><strong class="mono">${UI.esc(t.variable_symbol)}</strong></div>` : ''}
         </div>
         ${t.message ? `<div class="notebox">${UI.esc(t.message)}</div>` : ''}
 
         ${t.match_status === 'unmatched' ? `
-          <div class="form-section">Priradiť ${income ? 'k vydanej faktúre' : 'k prijatej faktúre'}</div>
+          <div class="form-section">Priradiť ${income ? 'k vydanej faktúre' : 'k prijatej faktúre'}${UI.tip(income
+            ? 'Vyberte našu faktúru, ktorú týmto odberateľ zaplatil. Ponúkajú sa len vystavené a odoslané, ešte neuhradené.'
+            : 'Vyberte faktúru od živnostníka alebo dodávateľa, ktorú sme týmto zaplatili. Ponúkajú sa len skontrolované a schválené.')}</div>
           ${candidates.length ? `
             <div class="form-grid">
               ${UI.field('target', '', { value: '', options: [['', '— vyberte —'], ...candidates] })}
@@ -239,8 +252,11 @@
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${t.match_status === 'unmatched' ? `
-            <button class="btn ${candidates.length ? 'btn-outline' : 'btn-primary'}" onclick="Bank.ignore('${t.id}')">Nezaujíma nás</button>
-            ${candidates.length ? `<button class="btn btn-primary" onclick="Bank.matchManual('${t.id}', ${income})">Spárovať</button>` : ''}` : ''}
+            <button class="btn ${candidates.length ? 'btn-outline' : 'btn-primary'}" onclick="Bank.ignore('${t.id}')">Nezaujíma nás</button>${
+              UI.tip('Pohyb nepatrí k žiadnej faktúre (napr. poplatok banke, vklad, prevod medzi účtami). '
+                + 'Zmizne z nespárovaných — nič sa nezmaže.')}
+            ${candidates.length ? `<button class="btn btn-primary" onclick="Bank.matchManual('${t.id}', ${income})">Spárovať</button>${
+              UI.tip('Platba sa priradí k vybranej faktúre a faktúra sa tým označí ako uhradená.')}` : ''}` : ''}
         </div>`;
       UI.modal('Pohyb na účte', body, { wide: true });
     },
@@ -285,7 +301,8 @@
           ho stiahnete pri výpisoch z účtu, keď ako formát zvolíte XML. Ide aj CSV z internet
           bankingu, netreba ho upravovať. Ten istý výpis sa nenaimportuje dvakrát.</div>
         <label class="fld">
-          <span>Súbor s výpisom (XML alebo CSV)</span>
+          <span>Súbor s výpisom (XML alebo CSV)${UI.tip('camt.053 je bežný formát výpisu z banky v XML — appka '
+            + 'z neho prečíta všetko presne, aj zostatok. CSV je jednoduchá tabuľka z internet bankingu, ide tiež.')}</span>
           <input type="file" id="bank-file" accept=".xml,.csv,.txt,text/csv,application/xml,text/xml"
             onchange="Bank.readFile(this)">
         </label>
@@ -298,7 +315,8 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
           <button class="btn btn-primary" id="bank-save" onclick="Bank.saveImport()" disabled>
-            Uložiť pohyby</button>
+            Uložiť pohyby</button>${UI.tip('Pohyby sa zapíšu do appky a hneď sa skúsia spárovať s faktúrami. '
+              + 'Pohyb, ktorý už v appke je, sa druhýkrát neuloží.')}
         </div>`;
       UI.modal('Načítať výpis', body, { wide: true });
       this.pending = null;
@@ -435,18 +453,23 @@
       UI.modal('Pripraviť platby', `
         <div class="regimebox">Appka pripraví súbor s príkazmi
           (SEPA XML). V Business Bankingu Tatra banky ho nahráte ako dávku platieb
-          (import súboru s platbami) a podpíšete naraz. Appka sama nič neodošle.</div>
+          (import súboru s platbami) a podpíšete naraz. Appka sama nič neodošle.${UI.tip('SEPA XML (pain.001) je '
+            + 'štandardný súbor s príkazmi na úhradu, ktorý načíta každá banka v EÚ. Peniaze odídu až po Vašom '
+            + 'podpise v banke.')}</div>
         ${!s.iban ? `<div class="warnbox br-warn"><div>${Icon('alert', 14)}<span>Chýba IBAN našej firmy —
           doplňte ho v Nastaveniach → Fakturačné údaje.</span></div></div>` : ''}
         <div class="pay-list">${list.map(riadok).join('')}</div>
         <div class="form-section">Platba</div>
         <div class="form-grid">
-          ${UI.field('pay_date', 'Dátum platby', { type: 'date', value: today })}
+          ${UI.field('pay_date', 'Dátum platby', { type: 'date', value: today,
+            tip: 'Kedy má banka platby odoslať. Zapíše sa do súboru pre všetky vybrané platby naraz.' })}
           <div class="fld"><span>Spolu</span><strong id="pay-total" class="detail-amt"></strong></div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-          <button class="btn btn-primary" onclick="Bank.payDownload()">${Icon('download')} Stiahnuť súbor pre banku</button>
+          <button class="btn btn-primary" onclick="Bank.payDownload()">${Icon('download')} Stiahnuť súbor pre banku</button>${
+            UI.tip('Stiahne XML súbor so zaškrtnutými platbami. Nahrajte ho v Business Bankingu a podpíšte. '
+              + 'Faktúry sa označia ako uhradené až po spárovaní s výpisom z banky.')}
         </div>`, { wide: true });
       this.payTotal();
     },

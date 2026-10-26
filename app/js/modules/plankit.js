@@ -62,7 +62,7 @@
           ${Help.btn('card.kit.where', { size: 13 })}</div>
         ${this.adsHtml(plan)}
 
-        <div class="form-section">Pred zverejnením</div>
+        <div class="form-section">Pred zverejnením${UI.tip('Kontrolný zoznam pred vložením inzerátov: zelená bodka = hotové, oranžová = ešte chýba. Appka ho počíta sama z náboru a textov.')}</div>
         ${nehotove.length ? '' : `<div class="regimebox">${Icon('check', 14)}
           Všetko hotové — podklady sú pripravené na vloženie.</div>`}
         ${ch.map(x => `
@@ -188,7 +188,7 @@
       const x = (plan.analysis && plan.analysis._extra) || {};
       const dni = Number((Danubra.cfg('subcontract') || {}).splatnost_dni) || 14;
       return `
-        <div class="form-section">Doplnky od nás — nepovinné</div>
+        <div class="form-section">Doplnky od nás — nepovinné${UI.tip('Naše podmienky, ktoré v e-maile od nemeckého odberateľa nebudú: ako nám živnostník fakturuje, čo dostane navyše. Klik na štítok ho pridá alebo odoberie; dá sa aj písať vlastnými slovami.')}</div>
         <p class="kit-note" style="margin:-4px 0 10px;">Čo tu napíšete, appka zapracuje do textov
           pri príprave aj pri pregenerovaní. Nemusíte vyplniť nič.</p>
         <div class="kit-extras">
@@ -252,6 +252,7 @@
             <span>týždňov</span>
             <label class="kit-dur-long"><input type="checkbox" ${t.longTerm ? 'checked' : ''}
               onchange="Kit.saveDuration('${plan.id}','',this.checked)"> dlhodobá</label>
+            ${UI.tip('Koľko týždňov práca na stavbe potrvá. Ak koniec nie je určený (práca na mesiace), zaškrtnite „dlhodobá".')}
           </div>
         </div>`;
       }
@@ -326,13 +327,14 @@
         <div class="kit-block${b.gaps ? ' has-gap' : ''}">
           <div class="kit-block-head">
             <b>${UI.esc(b.title)}${b.must ? ' *' : ''}</b>
-            ${navrh ? UI.badge('návrh', 'blue') : ''}
-            ${b.gaps ? UI.badge(`${b.gaps}× ${K.CHYBA}`, 'amber') : ''}
+            ${navrh ? UI.badge('návrh', 'blue') + UI.tip('Text napísala appka a nikto ho ešte neuložil. Keď ho skontrolujete a uložíte (fajka vpravo), berie sa ako schválený a pregenerovanie ho už neprepíše.') : ''}
+            ${b.gaps ? UI.badge(`${b.gaps}× ${K.CHYBA}`, 'amber') + UI.tip(`${K.CHYBA} je značka pre údaj, ktorý appka v zadaní nenašla (napr. sadzba). Prepíšte ho skutočnou hodnotou — kým tam je, kanál nie je hotový.`) : ''}
             <span style="margin-left:auto;display:flex;gap:6px;">
               ${b.filled ? `<button class="btn btn-ghost btn-sm" title="Skopírovať"
                 onclick="Kit.copy('${id}')">${Icon('copy', 14)}</button>` : ''}
               <button class="btn btn-ghost btn-sm" title="Uložiť"
                 onclick="Kit.saveBlock('${c.key}','${b.key}')">${Icon('check', 14)}</button>
+              <span style="align-self:center;display:inline-flex;">${UI.tip('Dve tlačidlá: kópia = skopíruje tento text do schránky na vloženie do inzerátu. Fajka = uloží Vašu úpravu. Predchádzajúca verzia sa nemaže, odloží sa do archívu.')}</span>
             </span>
           </div>
           ${b.hint ? `<div class="kit-hint">${UI.esc(b.hint)}</div>` : ''}

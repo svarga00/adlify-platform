@@ -153,7 +153,7 @@
         ${this.filters.who ? `<button class="who-card who-clear" onclick="Tsk.setWho('')">
           ${Icon('x', 14)}<span>Zrušiť</span></button>` : ''}
         <label class="who-me-pick">
-          <span>Ja som</span>
+          <span>Ja som${UI.tip('Vyberte svoje meno. Pamätá si to len tento prehliadač. Vaša karta sa označí „ja" a pri cudzej úlohe uvidíte tlačidlo „Beriem si to".')}</span>
           <select onchange="Tsk.setMe(this.value)">
             <option value="">— vyberte —</option>
             ${names.map(n => `<option value="${UI.esc(n)}"${n === me ? ' selected' : ''}>${UI.esc(n)}</option>`).join('')}
@@ -178,11 +178,12 @@
     },
 
     pills(f) {
-      return `<div class="pillbar" style="margin-bottom:14px;width:max-content;">
+      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:14px;max-width:100%;">
+        <div class="pillbar" style="width:max-content;">
         <button class="pill${f === 'open' ? ' active' : ''}" onclick="Tsk.setF('open')">Čo treba spraviť</button>
         ${STATUS.map(s => `<button class="pill${f === s[0] ? ' active' : ''}" onclick="Tsk.setF('${s[0]}')">${s[1]}</button>`).join('')}
         <button class="pill${f === 'all' ? ' active' : ''}" onclick="Tsk.setF('all')">Všetky</button>
-      </div>`;
+      </div>${UI.tip('„Čo treba spraviť" = otvorené a rozpracované úlohy, ktoré nie sú odložené, zoradené podľa toho, čo horí. Úlohy označené „automat" založila appka sama podľa pravidiel (napr. končí A1).')}</div>`;
     },
 
     // ── Pravidlá ──────────────────────────────────────────────────────────
@@ -221,6 +222,7 @@
           : '<div class="js-empty">Zatiaľ žiadne pravidlá.</div>'}
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Appka pravidlá prechádza sama raz denne. „Spustiť teraz" to spraví hneď a založí úlohy, ktoré chýbajú. Úloha, ktorá už existuje, sa nezdvojí.')}</span>
           <button class="btn btn-outline" onclick="Tsk.runRules()">
             ${Icon('repeat', 14)} Spustiť teraz</button>
           ${Danubra.isAdmin() ? `<button class="btn btn-primary" onclick="Tsk.ruleForm()">
@@ -273,23 +275,25 @@
             ${UI.field('title', 'Ako sa pravidlo volá', { value: r.title, required: true,
               placeholder: 'Končí platnosť A1' })}
             ${UI.field('key', 'Kľúč', { value: r.key, required: true,
-              placeholder: 'a1_konci' })}
+              placeholder: 'a1_konci', tip: 'Krátky technický názov pravidla bez medzier a diakritiky (napr. a1_konci). Musí byť jedinečný.' })}
           </div>
 
           <div class="form-section">Čo sleduje</div>
           <div class="form-grid">
             ${UI.field('source_table', 'Tabuľka', { value: this._ruleTable,
-              options: list.map(t => [t, DanubraTasks.tableLabel(t)]) })}
-            <label class="fld"><span>Dátumový stĺpec *</span>
+              options: list.map(t => [t, DanubraTasks.tableLabel(t)]),
+              tip: 'Aký druh záznamov pravidlo sleduje, napr. doklady živnostníkov alebo zmluvy.' })}
+            <label class="fld"><span>Dátumový stĺpec *${UI.tip('Ktorý dátum v zázname sa sleduje, napr. „valid_to" = platnosť do. Úloha vznikne, keď sa tento deň blíži.')}</span>
               <select name="date_field" id="rule-date-field" required>
                 ${this._fieldOptions(fields, 'date', r.date_field)}
               </select></label>
-            <label class="fld"><span>Čím sa záznam pomenuje</span>
+            <label class="fld"><span>Čím sa záznam pomenuje${UI.tip('Ktorý údaj sa dosadí do textu úlohy ako {label}, aby bolo jasné, koho alebo čoho sa týka (napr. meno).')}</span>
               <select name="label_field" id="rule-label-field">
                 ${this._fieldOptions(fields, 'label', r.label_field || 'name')}
               </select></label>
             ${UI.field('days_before', 'Koľko dní dopredu', { type: 'number',
-              value: r.days_before ?? 30, step: '1' })}
+              value: r.days_before ?? 30, step: '1',
+              tip: 'Koľko dní pred sledovaným dátumom má úloha vzniknúť. Napr. 30 = mesiac vopred, aby bol čas to vybaviť.' })}
           </div>
 
           <div class="form-section">Akú úlohu vytvorí</div>
@@ -307,7 +311,8 @@
               options: [['low', 'Nízka'], ['normal', 'Bežná'], ['high', 'Vysoká'],
                 ['urgent', 'Súrne']] })}
             ${UI.field('assigned_name', 'Komu sa priradí', { value: r.assigned_name,
-              placeholder: 'nechajte prázdne = nepriradené' })}
+              placeholder: 'nechajte prázdne = nepriradené',
+              tip: 'Meno človeka, ktorému sa každá úloha z tohto pravidla automaticky dá na starosť. Píšte ho rovnako ako pri úlohách.' })}
           </div>
           ${UI.field('description', 'Poznámka k pravidlu', { type: 'textarea', rows: 2,
             value: r.description })}
@@ -509,7 +514,7 @@
           ${this.badge(t.status)}
           ${t.priority === 'high' ? UI.badge('vysoká priorita', 'red') : ''}
           ${late ? UI.badge('po termíne', 'red') : ''}
-          ${t.source === 'cron' ? UI.badge('z pravidla', 'blue') : ''}
+          ${t.source === 'cron' ? UI.badge('z pravidla', 'blue') + UI.tip('Túto úlohu nezaložil človek, ale appka sama podľa pravidla (nižšie je napísané ktorého). Keď je vec vybavená, označte ju Hotovo.') : ''}
         </div>
 
         ${t.description ? `<p class="t-desc">${UI.esc(t.description)}</p>` : ''}
@@ -546,6 +551,7 @@
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Odložiť o týždeň: termín úlohy sa posunie o 7 dní dopredu (od dnes, alebo od pôvodného termínu, ak je ešte pred nami). Úloha sa nezmaže, len sa v zozname presunie podľa nového termínu.')}</span>
           <button class="btn btn-outline" onclick="Tsk.snooze('${t.id}')">
             ${Icon('clock', 14)} Odložiť o týždeň</button>
           <button class="btn btn-outline" onclick="Tsk.form('${t.id}')">
@@ -613,9 +619,12 @@
           ${UI.field('description', 'Podrobnosti', { type: 'textarea', rows: 2, value: t.description })}
           <div class="form-grid">
             ${UI.field('due_date', 'Termín', { type: 'date', value: t.due_date })}
-            ${UI.field('priority', 'Priorita', { value: t.priority || 'normal', options: PRIO.map(p => [p[0], p[1]]) })}
-            ${UI.field('status', 'Stav', { value: t.status || 'open', options: STATUS.map(s => [s[0], s[1]]) })}
-            ${UI.field('assigned_name', 'Rieši', { value: t.assigned_name, placeholder: 'Štefan / Michaela' })}
+            ${UI.field('priority', 'Priorita', { value: t.priority || 'normal', options: PRIO.map(p => [p[0], p[1]]),
+              tip: 'Vysoká sa v zozname označí červeným „vysoká". Poradie v zozname určuje hlavne termín.' })}
+            ${UI.field('status', 'Stav', { value: t.status || 'open', options: STATUS.map(s => [s[0], s[1]]),
+              tip: 'Otvorená = ešte sa na nej nezačalo. Rozpracovaná = niekto na nej robí. Hotová = vybavené. Zrušená = netreba ju robiť.' })}
+            ${UI.field('assigned_name', 'Rieši', { value: t.assigned_name, placeholder: 'Štefan / Michaela',
+              tip: 'Kto má úlohu na starosti. Píšte meno vždy rovnako — podľa neho sa úlohy delia na karty hore.' })}
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>

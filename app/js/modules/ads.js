@@ -88,7 +88,7 @@
                onclick="Ads.detail('${x.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(x.title)}</div>
-              <span style="display:flex;gap:6px;">${x.web_published ? UI.badge('na webe', 'blue') : ''}${x.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}</span>
+              <span style="display:flex;gap:6px;align-items:center;">${x.web_published ? UI.badge('na webe', 'blue') : ''}${x.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}</span>
             </div>
             <div class="meta-row">
               <span>${Icon('marketing', 14)} ${UI.esc(A().channelLabel(x.channel))}${
@@ -105,7 +105,7 @@
               <div><b>${p.contacted}</b><span>ozvali sme sa</span></div>
               <div><b>${p.hired}</b><span>nastúpilo</span></div>
               ${p.contactRate != null ? `<div class="${p.contactRate < 100 ? 'ad-warn' : ''}">
-                <b>${p.contactRate} %</b><span>stihnuté</span></div>` : ''}
+                <b>${p.contactRate} %</b><span>stihnuté${UI.tip('Koľkým z tých, čo sa na inzerát ozvali, sme sa už ozvali späť. Cieľ je 100 % — každý, komu nezavoláme, je stratený človek.')}</span></div>` : ''}
             </div>
           </div>`;
       };
@@ -151,10 +151,10 @@
 
         <div class="kv">
           <div><span>Ozvalo sa</span><strong>${p.candidates}</strong></div>
-          <div><span>Ozvali sme sa</span><strong>${p.contacted}${
+          <div><span>Ozvali sme sa${UI.tip('Koľkým z tých, čo sa ozvali, sme už zavolali alebo napísali späť. V zátvorke je to v percentách.')}</span><strong>${p.contacted}${
             p.contactRate != null ? ` (${p.contactRate} %)` : ''}</strong></div>
           <div><span>Nastúpilo</span><strong>${p.hired}</strong></div>
-          <div><span>Beží</span><strong>${x.starts_on ? UI.date(x.starts_on) : 'odkedy'} – ${
+          <div><span>Beží${UI.tip('Inzerát „beží", keď nie je ukončený a dnešok je medzi dátumom od a do. Prázdny dátum znamená bez obmedzenia.')}</span><strong>${x.starts_on ? UI.date(x.starts_on) : 'odkedy'} – ${
             x.ends_on ? UI.date(x.ends_on) : 'dokedy'}</strong></div>
         </div>
 
@@ -174,6 +174,9 @@
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip(x.active
+            ? 'Ukončiť = inzerát sa označí ako dobehnutý a pri hovoroch sa už neponúka. Nič sa nemaže — kandidáti ostanú naviazaní na to, čo v ňom čítali. Na samotnom Facebooku či Bazoši ho treba stiahnuť ručne.'
+            : 'Znova spustiť = inzerát sa znova ponúkne pri hovoroch (ak to dovolia dátumy od – do).')}</span>
           <button class="btn btn-outline" onclick="Ads.toggle('${x.id}')">
             ${Icon(x.active ? 'x' : 'check', 14)} ${x.active ? 'Ukončiť inzerát' : 'Znova spustiť'}</button>
           <button class="btn btn-primary" onclick="Ads.form('${x.id}')">
@@ -187,23 +190,29 @@
         <form id="ad-form" onsubmit="event.preventDefault();Ads.save('${id || ''}')">
           <div class="form-grid">
             ${UI.field('title', 'Názov (interný)', { value: x.title, required: true,
-              placeholder: 'Murári Stuttgart — FB skupina' })}
+              placeholder: 'Murári Stuttgart — FB skupina',
+              tip: 'Názov len pre nás, ľudia ho nevidia. Podľa neho inzerát vyberiete pri telefonáte („na ktorý inzerát volá?"), tak nech je jasné, ktorý to je.' })}
             ${UI.field('channel', 'Kanál', { value: x.channel || 'facebook',
-              options: A().CHANNELS })}
+              options: A().CHANNELS, tip: 'Kde inzerát beží. Podľa toho sa potom porovnáva, ktorý kanál prináša ľudí.' })}
             ${UI.field('channel_detail', 'Kde presne', { value: x.channel_detail,
-              placeholder: 'Práca v Nemecku — skupina' })}
+              placeholder: 'Práca v Nemecku — skupina', tip: 'Napr. názov facebookovej skupiny alebo rubrika na Bazoši — aby sa dalo nájsť, kde presne visí.' })}
             ${UI.field('url', 'Odkaz na inzerát', { value: x.url, placeholder: 'https://…' })}
             ${UI.field('trade_key', 'Remeslo', { value: x.trade_key, add: 'trade',
-              options: [['', 'viac remesiel'], ...this.trades.map(t => [t.key, t.name_sk])] })}
+              options: [['', 'viac remesiel'], ...this.trades.map(t => [t.key, t.name_sk])],
+              tip: 'Pre aké remeslo inzerát hľadá. Podľa toho sa pri telefonáte ukážu odborné otázky.' })}
             ${UI.field('city', 'Mesto', { value: x.city })}
-            ${UI.field('rate_offered', 'Sľúbená sadzba €/h', { type: 'number', value: x.rate_offered })}
+            ${UI.field('rate_offered', 'Sľúbená sadzba €/h', { type: 'number', value: x.rate_offered,
+              tip: 'Koľko za hodinu sme v inzeráte sľúbili živnostníkovi, bez DPH. Pri hovore sa ukáže medzi sľubmi a predvyplní sa kandidátovi.' })}
             ${UI.field('plan_id', 'Náborový plán', { value: x.plan_id, add: 'plan',
               options: [['', '— žiadny —'], ...this.plans.filter(p => p.status === 'active')
-                .map(p => [p.id, p.title])] })}
+                .map(p => [p.id, p.title])],
+              tip: 'Pre ktorý nábor (konkrétnu potrebu ľudí) inzerát beží. Ponúkajú sa len spustené nábory. Kto zavolá, zapíše sa rovno k nemu.' })}
             ${UI.field('subcontract_id', 'Zákazka', { value: x.subcontract_id, add: 'subcontract',
               options: [['', '— žiadna —'], ...this.subcontracts.filter(s => s.status === 'active')
-                .map(s => [s.id, s.title])] })}
-            ${UI.field('starts_on', 'Beží od', { type: 'date', value: x.starts_on })}
+                .map(s => [s.id, s.title])],
+              tip: 'Ak inzerát hľadá ľudí na konkrétnu stavbu, ktorá už je dohodnutá, vyberte ju. Ponúkajú sa len aktívne zákazky.' })}
+            ${UI.field('starts_on', 'Beží od', { type: 'date', value: x.starts_on,
+              tip: 'Odkedy a dokedy inzerát visí. Mimo týchto dní sa pri hovore ukazuje ako „dobehol". Prázdne = bez obmedzenia.' })}
             ${UI.field('ends_on', 'Beží do', { type: 'date', value: x.ends_on })}
           </div>
 
@@ -276,20 +285,24 @@
       return `<div class="form-section">Web punds.sk</div>
         <div class="regimebox">Zverejnená ponuka je na punds.sk do pár minút po uložení.
           Prihlášky z nej prídu do Kandidátov pri tomto inzeráte.</div>
-        ${UI.field('web_published', 'Zverejniť na punds.sk', { type: 'checkbox', value: !!x.web_published })}
+        ${UI.field('web_published', 'Zverejniť na punds.sk', { type: 'checkbox', value: !!x.web_published,
+          tip: 'Po zaškrtnutí a uložení sa ponuka do pár minút objaví na našom webe punds.sk. Odškrtnutím ju z webu stiahnete. Musia byť vyplnené povinné polia nižšie.' })}
         <div class="form-grid">
           ${UI.field('web_title', 'Verejný názov pozície', { value: x.web_title || '', placeholder: 'Zvárač MIG/MAG (135)' })}
           ${UI.field('web_prof', 'Profesia na webe', { value: x.web_prof || W.FROM_TRADE[x.trade_key] || '',
-            options: [['', '— podľa remesla —'], ...W.WEB_PROFESSIONS] })}
+            options: [['', '— podľa remesla —'], ...W.WEB_PROFESSIONS],
+            tip: 'Do ktorej kategórie sa ponuka na webe zaradí (podľa nej sa dá filtrovať a vyberie sa fotka).' })}
           ${UI.field('country', 'Krajina', { value: x.country || 'DE', options: [['DE', 'Nemecko'], ['AT', 'Rakúsko']] })}
           ${UI.field('rate_max', 'Sadzba do €/h', { type: 'number', value: x.rate_max, hint: '„Sľúbená sadzba" hore je od.' })}
           ${UI.field('hours_week', 'Hodín týždenne', { type: 'number', value: x.hours_week, placeholder: '50' })}
-          ${UI.field('rotation', 'Turnus', { value: x.rotation || '', placeholder: '4+1' })}
+          ${UI.field('rotation', 'Turnus', { value: x.rotation || '', placeholder: '4+1',
+            tip: 'Ako sa strieda práca a voľno, napr. 4+1 = štyri týždne na stavbe, jeden týždeň doma.' })}
           ${UI.field('headcount', 'Koľko ľudí hľadáme', { type: 'number', value: x.headcount })}
           ${UI.field('duration', 'Dĺžka projektu', { value: x.duration || '', placeholder: '6 mesiacov / dlhodobo' })}
         </div>
         <div class="form-grid">
-          ${UI.field('start_now', 'Nástup ihneď', { type: 'checkbox', value: !!x.start_now })}
+          ${UI.field('start_now', 'Nástup ihneď', { type: 'checkbox', value: !!x.start_now,
+            tip: 'Na webe sa pri ponuke ukáže „nástup ihneď".' })}
           ${UI.field('accommodation', 'Ubytovanie zabezpečené', { type: 'checkbox', value: x.accommodation !== false })}
         </div>
         ${UI.field('web_body', 'Popis pozície na web', { type: 'textarea', rows: 4, value: x.web_body || '',
@@ -299,14 +312,17 @@
           ${UI.field('requirements', 'Požiadavky (riadok = bod)', { type: 'textarea', rows: 4, value: (x.requirements || []).join('\n') })}
           ${UI.field('benefits', 'Čo ponúkame (riadok = bod)', { type: 'textarea', rows: 4, value: (x.benefits || []).join('\n') })}
           ${UI.field('faq', 'Otázky (Otázka? | Odpoveď)', { type: 'textarea', rows: 4, value: W.faqText(x.faq),
-            placeholder: 'Potrebujem živnosť? | Áno, pomôžeme Vám ju založiť.' })}
+            placeholder: 'Potrebujem živnosť? | Áno, pomôžeme Vám ju založiť.',
+            tip: 'Časté otázky na webe. Každá na samostatný riadok: najprv otázka, potom zvislá čiara | a odpoveď.' })}
         </div>
         <div class="form-grid">
-          ${UI.field('image_url', 'Fotka (adresa)', { value: x.image_url || '', placeholder: 'prázdne = fotka podľa profesie' })}
+          ${UI.field('image_url', 'Fotka (adresa)', { value: x.image_url || '', placeholder: 'prázdne = fotka podľa profesie',
+            tip: 'Internetová adresa fotky k ponuke. Keď fotku nahráte vedľa, adresa sa doplní sama. Prázdne = použije sa všeobecná fotka podľa profesie.' })}
           <label class="fld"><span>Nahrať fotku</span><input type="file" accept="image/jpeg,image/png,image/webp" onchange="Ads.uploadImage(this)"></label>
         </div>
         <div class="btn-row">
           <button type="button" class="btn btn-outline btn-sm" id="ad-tr-btn" onclick="Ads.translate()">${Icon('repeat', 14)} Preložiť do CZ, HU, DE, EN</button>
+          ${UI.tip('Appka preloží názov, popis, náplň, požiadavky, ponuku a otázky do češtiny, maďarčiny, nemčiny a angličtiny. Preklady sa ukážu nižšie na kontrolu a uložia sa až tlačidlom Uložiť.')}
           <span class="card-note" id="ad-tr-st">${tr.length ? `Preložené: ${tr.map(l => l.toUpperCase()).join(', ')}` : 'Bez prekladu — v ostatných jazykoch sa ukáže slovenský text.'}</span>
           ${x.web_published && x.web_slug ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${UI.esc(this.webUrl(x))}">${Icon('chevron', 14)} Otvoriť na webe</a>` : ''}
         </div>

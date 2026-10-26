@@ -154,7 +154,119 @@
     return adr ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adr)}` : '';
   }
 
-  const API = { FIELDS, BRING, check, sentence, phrases, mapUrl };
+  // ── Kolegovia a kontaktná osoba ────────────────────────────────────────────
+  // Prvá otázka na stavbe nie je „kde je brána", ale „koho sa tu môžem
+  // spýtať". Kto ide s partiou, má ju. Kto ide sám, dostane pri nasadení
+  // kontaktnú osobu — kolegu, ktorý tam už robí, alebo meno a telefón.
+
+  /**
+   * @param {Object} o
+   *   assignment    nasadenie (worker_id, contact_worker_id, contact_name,
+   *                 contact_phone, contact_note)
+   *   crew          partia nasadenia { id, name, phone, leader_worker_id } alebo null
+   *   crewMembers   členstvá { crew_id, worker_id, role, left_at }
+   *   workers       ľudia (na mená a telefóny)
+   *   contactWorker záznam kolegu z contact_worker_id, ak ho už máte načítaný
+   *   today         'YYYY-MM-DD' — kto odišiel pred týmto dňom, už nie je v partii
+   * @returns {{ crew:{name,phone}|null, people:Array<{name,phone,role,leader}>,
+   *             contact:{name,phone,note}|null }}
+   */
+  function colleagues({ assignment, crew, crewMembers, workers, contactWorker, today } = {}) {
+    const a = assignment || {};
+    const dnes = day(today) || new Date().toISOString().slice(0, 10);
+    const byId = new Map((workers || []).filter(Boolean).map(w => [w.id, w]));
+
+    let partia = null;
+    const people = [];
+    if (crew) {
+      partia = { name: txt(crew.name) || 'Partia', phone: txt(crew.phone) };
+      const videl = new Set([a.worker_id]);
+      for (const m of crewMembers || []) {
+        if (!m || (m.crew_id && crew.id && m.crew_id !== crew.id)) continue;
+        // Deň odchodu už do partie nepatrí (rovnako ako v staffing/crews.js).
+        if (day(m.left_at) && day(m.left_at) <= dnes) continue;
+        if (videl.has(m.worker_id)) continue;
+        videl.add(m.worker_id);
+        const w = byId.get(m.worker_id) || {};
+        const name = txt(w.full_name) || txt(m.full_name);
+        if (!name) continue;
+        const leader = m.role === 'leader' || (!!crew.leader_worker_id && m.worker_id === crew.leader_worker_id);
+        people.push({ name, phone: txt(w.phone) || txt(m.phone), role: leader ? 'predák' : 'člen partie', leader });
+      }
+      // Predák prvý — jemu sa volá, keď nikto iný nevie.
+      people.sort((x, y) => (y.leader - x.leader) || x.name.localeCompare(y.name, 'sk'));
+    }
+
+    let contact = null;
+    const cid = a.contact_worker_id;
+    const cw = cid && cid !== a.worker_id
+      ? ((contactWorker && (!contactWorker.id || contactWorker.id === cid)) ? contactWorker : byId.get(cid)) || null
+      : null;
+    const meno = (cw && txt(cw.full_name)) || txt(a.contact_name);
+    const tel = (cw && txt(cw.phone)) || txt(a.contact_phone);
+    if (meno || tel) contact = { name: meno || 'Kontaktná osoba', phone: tel, note: txt(a.contact_note) };
+
+    return { crew: partia, people, contact };
+  }
+
+  // ── Ubytovanie ─────────────────────────────────────────────────────────────
+  /** Adresa ubytovania: priradené ubytovanie zákazky, inak celý záznam. */
+  const adresaByt = (x) => {
+    const l = x.lodging || {}, acc = x.accommodation || {};
+    if (txt(l.address)) return [txt(l.address), txt(l.city) || txt(acc.city)].filter(Boolean).join(', ');
+    return [txt(acc.address), txt(acc.postal_code), txt(acc.city) || txt(l.city)].filter(Boolean).join(', ');
+  };
+
+  /**
+   * Čo má byť na infoliste k ubytovaniu. Povinná je len adresa — zvyšok sa
+   * dá doplniť telefonátom, ale ten telefonát má byť v kancelárii, nie
+   * v nedeľu o desiatej pred zamknutými dverami.
+   */
+  const LODGING_FIELDS = [
+    { key: 'address', label: 'Adresa ubytovania', must: true,
+      get: adresaByt,
+      missing: 'Ubytovanie nemá zapísanú adresu — bez nej ho nenájde ani navigácia.' },
+    { key: 'from', label: 'Od kedy', must: false,
+      get: (x) => day(x.stay && x.stay.date_from) || day(x.lodging && x.lodging.date_from),
+      missing: 'Nie je zapísané, od kedy sa dá na ubytovanie nastúpiť — kto príde skôr, môže stáť pred zamknutými dverami.' },
+    { key: 'access', label: 'Kľúče a vstup', must: false,
+      get: (x) => {
+        const l = x.lodging || {}, acc = x.accommodation || {};
+        return [txt(l.keys_note), txt(acc.access_key_location),
+          txt(acc.access_door_code) && `Kód dverí: ${txt(acc.access_door_code)}`,
+          txt(acc.gate_code) && `Kód brány: ${txt(acc.gate_code)}`].filter(Boolean).join(' · ');
+      },
+      missing: 'Nie je zapísané, ako sa dostať dnu — kde sú kľúče alebo aký je kód. To je najčastejšia otázka v deň príchodu.' },
+    { key: 'checkin', label: 'Príchod (check-in)', must: false,
+      get: (x) => txt(x.accommodation && x.accommodation.checkin_info),
+      missing: 'Nie je zapísané, ako prebieha príchod — od koľkej a u koho sa hlásiť.' },
+  ];
+
+  /**
+   * Ako `check()`, ale pre ubytovanie.
+   * @returns {{ values:Object, missing:Array, blocking:Array, ready:boolean }}
+   *   values navyše: name, to (posledný deň), map (odkaz na mapu)
+   */
+  function checkLodging(input = {}) {
+    const x = { lodging: input.lodging || null, accommodation: input.accommodation || null,
+      stay: input.stay || null };
+    const values = {}, missing = [];
+    for (const f of LODGING_FIELDS) {
+      let v = '';
+      try { v = f.get(x) || ''; } catch { v = ''; }
+      values[f.key] = v;
+      if (!v) missing.push({ key: f.key, label: f.label, why: f.missing, must: !!f.must });
+    }
+    const l = x.lodging || {}, acc = x.accommodation || {};
+    values.name = txt(l.name) || txt(acc.name);
+    values.to = day(x.stay && x.stay.date_to) || day(l.date_to);
+    values.map = (x.lodging && (l.maps_url || (l.lat != null && l.lng != null) || txt(l.address)))
+      ? mapUrl(l) : (x.accommodation ? mapUrl(acc) : '');
+    const blocking = missing.filter(m => m.must);
+    return { values, missing, blocking, ready: blocking.length === 0 };
+  }
+
+  const API = { FIELDS, LODGING_FIELDS, BRING, check, checkLodging, sentence, phrases, mapUrl, colleagues };
   if (typeof window !== 'undefined') window.DanubraSiteSheet = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

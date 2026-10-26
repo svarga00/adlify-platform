@@ -133,10 +133,11 @@
 
       Danubra.setActions(`
         <button class="btn btn-outline btn-sm" onclick="HS.print()">${Icon('doc', 14)} Tlačiť</button>
-        ${signed ? '' : `<button class="btn btn-primary btn-sm" onclick="HS.signForm()">${Icon('check', 14)} Podpísané</button>`}`);
+        ${signed ? '' : `<button class="btn btn-primary btn-sm" onclick="HS.signForm()">${Icon('check', 14)} Podpísané</button>
+          ${UI.tip('Tlačiť = vytlačí len samotný výkaz, ktorý sa nesie na stavbu. Podpísané = keď ho odberateľ na papieri podpíše, zapíšete sem, kto a kedy. Appka si uloží, čo na papieri v tej chvíli bolo.')}`}`);
 
       el.innerHTML = Danubra.header(Danubra.labelOf('hoursheet'),
-        `KW ${s.week}/${s.year} · ${UI.date(s.from)} – ${UI.date(s.to)}`) + `
+        `KW ${s.week}/${s.year} · ${UI.date(s.from)} – ${UI.date(s.to)}${UI.tip('KW (Kalenderwoche) = poradové číslo týždňa v roku, tak ho počítajú Nemci. Výkaz je vždy za jeden týždeň od pondelka do nedele a za jednu partiu. Predvolene sa otvorí minulý týždeň.')}`) + `
         <div class="filterbar">
           <select onchange="HS.setCrew(this.value)" style="min-width:220px;">
             ${this.crews.map(c => `<option value="${c.id}" ${c.id === this.crewId ? 'selected' : ''}>
@@ -205,7 +206,7 @@
             })()}
           </div>
           <div class="hs-titlebox">
-            <div class="hs-title">Stundennachweis</div>
+            <div class="hs-title">Stundennachweis${UI.tip('Stundennachweis = výkaz odpracovaných hodín po nemecky. Projekt = zákazka, Baustelle = stavba, Kunde = odberateľ, Kolonne = partia, Insgesamt / Gesamt = spolu. Podpisuje ho odberateľ a podľa neho fakturujeme.')}</div>
             <div class="hs-kw">KW <strong>${s.week} / ${s.year}</strong></div>
           </div>
         </div>
@@ -220,7 +221,7 @@
         <table class="hs-table">
           <thead>
             <tr>
-              <th class="hs-name"></th>
+              <th class="hs-name">${signed ? '' : UI.tip('Hodiny píšte priamo do políčok — uložia sa hneď do evidencie hodín, z ktorej vzniká faktúra. Nula deň zmaže. Riadky „von – bis" a „Pause" sa dopočítajú z časov od–do, ak sú zapísané.')}</th>
               ${s.days.map(d => `<th>${d.de}<span>${UI.date(d.date)}</span></th>`).join('')}
               <th class="hs-total">Insgesamt</th>
             </tr>

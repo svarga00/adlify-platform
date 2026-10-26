@@ -98,16 +98,10 @@
 
     async view(el) {
       Danubra.setActions(`
-        <button class="btn btn-outline btn-sm" onclick="Inv.monthly()">${Icon('calendar', 14)} Mesačná fakturácia</button>${
-          UI.tip('Za vybraný mesiac pripraví návrhy faktúr pre všetky zákazky naraz — zo schválených hodín. '
-            + 'Nič sa neodošle: každý návrh ešte schvaľuje admin.')}
+        <button class="btn btn-outline btn-sm" onclick="Inv.monthly()">${Icon('calendar', 14)} Mesačná fakturácia</button>
         <button class="btn btn-outline btn-sm" onclick="Inv.dunningList()">${Icon('alert', 14)} Upomienky${
-          this.loaded && this.dunQueue && this.dunQueue().length ? ` (${this.dunQueue().length})` : ''}</button>${
-          UI.tip('Upomienka je list odberateľovi, že faktúru po splatnosti ešte nezaplatil. '
-            + 'Číslo v zátvorke = koľkým faktúram treba upomienku poslať práve teraz.')}
-        <button class="btn btn-outline btn-sm" onclick="Inv.books()">${Icon('download', 14)} Pre účtovníčku</button>${
-          UI.tip('Stiahne balík pre účtovníčku za mesiac alebo rok: tabuľky vydaných a prijatých faktúr '
-            + 'a nákladov pre Excel, prípadne aj PDF dokladov.')}
+          this.loaded && this.dunQueue && this.dunQueue().length ? ` (${this.dunQueue().length})` : ''}</button>
+        <button class="btn btn-outline btn-sm" onclick="Inv.books()">${Icon('download', 14)} Pre účtovníčku</button>
         <button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.rows();

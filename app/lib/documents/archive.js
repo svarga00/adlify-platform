@@ -23,6 +23,8 @@
     ramcova:      { label: 'Rámcová zmluva',         group: 'zmluvy' },
     objednavka:   { label: 'Objednávka',             group: 'objednavky' },
     infolist:     { label: 'Infolist na stavbu',     group: 'infolisty' },
+    infolist_lodging: { label: 'Infolist k ubytovaniu', group: 'infolisty' },
+    invoice_guide: { label: 'Vzor faktúry',          group: 'infolisty' },
     werkvertrag:  { label: 'Werkvertrag',            group: 'zmluvy' },
     rahmen:       { label: 'Rahmenvertrag',          group: 'zmluvy' },
     auftrag:      { label: 'Auftragsbestätigung',    group: 'objednavky' },
