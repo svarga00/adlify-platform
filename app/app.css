@@ -1058,6 +1058,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .lr-main .is-done { text-decoration: line-through; opacity: .6; }
 
 .js-contact { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; flex-basis: 100%; }
+/* Priebeh výroby dokumentov k vzorovým dátam (components/demodocs.js) */
+.demo-progress {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 95;
+  background: var(--navy); color: #fff; padding: 12px 18px; border-radius: var(--radius-lg);
+  font-size: 13.5px; box-shadow: var(--shadow-md); max-width: calc(100vw - 32px);
+}
 /* Balík pre živnostníka (components/bundle.js) */
 .bdl-list { display: grid; gap: 8px; }
 @media (min-width: 861px) { .bdl-list { grid-template-columns: 1fr 1fr; } }

@@ -1963,6 +1963,8 @@ window.Danubra = {
         Keď idete naostro, vymažte ich; ostrých dát sa to nedotkne.
       </span>
       ${Help.btn('dash.demo')}
+      ${window.DemoDocs ? `<button class="btn btn-outline btn-sm" onclick="DemoDocs.run()">
+        ${Icon('doc', 14)} Vyrobiť dokumenty</button>${UI.tip('Ku všetkým vzorovým ľuďom, zákazkám, objednávkam, ponukám a faktúram vyrobí PDF v novom vzhľade a uloží ich do Dokumentov. Ostrých záznamov sa to nedotkne.')}` : ''}
       <button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
         ${Icon('trash', 14)} Vymazať vzorové dáta</button>
     </div>`;
