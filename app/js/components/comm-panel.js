@@ -53,7 +53,7 @@ window.CommPanel = {
   },
 
   /** Dialóg na odoslanie SMS s náhľadom segmentov a diakritiky (§9). */
-  smsDialog(metaEnc, phone) {
+  smsDialog(metaEnc, phone, body = '') {
     let entity = {};
     try { entity = JSON.parse(decodeURIComponent(metaEnc)); } catch {}
     this._smsEntity = entity; this._smsPhone = phone;
@@ -62,7 +62,7 @@ window.CommPanel = {
         oninput="CommPanel.smsPreview()" onchange="CommPanel.smsPreview()">
         <div class="form-grid">
           <div class="fld-full">${UI.field('to', 'Príjemca', { value: phone, required: true })}</div>
-          <div class="fld-full">${UI.field('body', 'Text správy', { type: 'textarea', rows: 5,
+          <div class="fld-full">${UI.field('body', 'Text správy', { type: 'textarea', rows: 5, value: body,
             placeholder: 'Kod dveri 1234. Nastup 1.9. Kontakt na mieste 0176...' })}</div>
           <div class="fld-full">${UI.field('stripDia', 'Odoslať bez diakritiky (zmestí sa viac textu)', { type: 'checkbox', value: true })}</div>
         </div>

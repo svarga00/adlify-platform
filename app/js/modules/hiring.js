@@ -115,7 +115,7 @@
             : null,
           extra: `
             <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
-            <div class="flow-bar-txt">${p.done} z ${p.total} fáz hotových</div>`,
+            <div class="flow-bar-txt">${p.done} z ${p.total} fáz hotových${UI.tip('Nábor má päť fáz: od potreby (dopyt) cez inzerát a telefonát až po človeka na stavbe. Fáza je hotová, keď v nej nič nečaká.')}</div>`,
         })
 
         // Zaškolenie je ponuka, nie úloha. Stálo nad vetou „čo teraz" a bolo
@@ -226,7 +226,7 @@
         <div class="cq">
           <div class="cq-head">
             <span>${Icon('phone', 14)} <b>${vHovore.length}</b> ${
-              Shell.plural(vHovore.length, 'otázka je', 'otázky sú', 'otázok je')} v hovore</span>
+              Shell.plural(vHovore.length, 'otázka je', 'otázky sú', 'otázok je')} v hovore${UI.tip('Odborné otázky k tomuto remeslu, ktoré sa naozaj ukážu počas telefonátu s kandidátom. Návrhy od appky sa do hovoru dostanú až po kliknutí na „Použiť".')}</span>
             ${navrhy.length ? `<button class="btn btn-primary btn-sm"
               onclick="Hire.useQuestions('${p.id}', null)">${Icon('check', 14)}
               Použiť všetky návrhy (${navrhy.length})</button>` : ''}
@@ -294,7 +294,7 @@
         .sort((a, b) => PORADIE[a.status] - PORADIE[b.status]
           || String(a.start_date || '9999').localeCompare(String(b.start_date || '9999')));
       const zavrete = this.plans.filter(p => !(p.status in PORADIE));
-      return `<div class="form-section">Náborové plány · ${otvorene.length} otvorených</div>
+      return `<div class="form-section">Náborové plány · ${otvorene.length} otvorených${UI.tip('Na karte: „nabraných" = kandidáti z náboru v stave Pripravený alebo Nasadený, „v procese" = ešte rozpracovaní. Marža = čo fakturujeme mínus čo platíme živnostníkovi, za hodinu. Podklady = texty a otázky, ktoré pripravila appka.')}</div>
         <div class="pcards">${otvorene.map(p => this.card(p)).join('')}</div>
         ${zavrete.length ? `<details class="pclosed"><summary>Uzavreté (${zavrete.length})</summary>
           ${zavrete.map(p => this.row(p)).join('')}</details>` : ''}`;
@@ -529,6 +529,7 @@
       const back = n > 1 ? n - 1 : null;
       const last = n >= S.PLAN_STEPS.length;
       return `
+        <span style="align-self:center;display:inline-flex;">${UI.tip('Uložiť rozpracované: nábor sa uloží ako Rozpracovaný a pri hovoroch sa ešte neponúka. Spustiť nábor: stav Beží. Spustiť sa dá, až keď je všetkých päť krokov vyplnených a sadzba nie je pod minimálnou mzdou.')}</span>
         <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
         ${back ? `<button type="button" class="btn btn-outline" onclick="Hire.goStep(${back})">Predchádzajúci krok</button>` : ''}
         <button type="button" class="btn btn-outline" onclick="Hire.savePlan(false)">Uložiť rozpracované</button>
@@ -588,14 +589,15 @@
               options: [['', '— vyberte remeslo —'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: p.headcount || 1 })}
             ${UI.field('skill_level', 'Zaradenie', { value: p.skill_level, options: [
-              ['werker', 'Werker (LG1) — pomocné práce'], ['fachwerker', 'Fachwerker (LG2) — remeselník']] })}
-            ${UI.field('legal_form', 'Forma spolupráce', { value: p.legal_form === 'employee' ? 'szco' : p.legal_form, options: [['szco', 'Živnostník (fakturuje nám)'], ['sro', 's.r.o. — firma (fakturuje nám)']] })}
+              ['werker', 'Werker (LG1) — pomocné práce'], ['fachwerker', 'Fachwerker (LG2) — remeselník']], tip: 'Podľa nemeckej stavebnej tarify. Werker (mzdová skupina LG1) = pomocník na jednoduché práce. Fachwerker (LG2) = vyučený remeselník, ktorý robí samostatne. Od skupiny závisí minimálna sadzba.' })}
+            ${UI.field('legal_form', 'Forma spolupráce', { value: p.legal_form === 'employee' ? 'szco' : p.legal_form, options: [['szco', 'Živnostník (fakturuje nám)'], ['sro', 's.r.o. — firma (fakturuje nám)']], tip: 'Ako bude človek s nami spolupracovať. Živnostník = fyzická osoba so živnosťou (SZČO), s.r.o. = jeho vlastná firma. V oboch prípadoch nám za prácu fakturuje — nie je to zamestnanec.' })}
             <div class="fld-full">${UI.field('title', 'Ako si nábor pomenujem', { value: p.title,
               placeholder: 'napr. Sadrokartón München — marec' })}</div>
           </div>
           <div class="btn-row">
             <button type="button" class="btn btn-outline btn-sm"
               onclick="Hire.reloadTrade()">${Icon('repeat')} Načítať príručku k remeslu</button>
+            ${UI.tip('Ukáže pod formulárom, čo o vybranom remesle vieme: čo robí, aké sadzby sú bežné a podľa čoho spoznáte, že to nerobil. Nič sa tým neukladá.')}
           </div>
           <div id="trade-card">${this.tradeCard(t)}</div>
         </form>`;
@@ -605,18 +607,24 @@
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
             ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: p.subcontract_id || '', add: 'subcontract',
+              tip: 'Zákazka = dohodnutá práca pre konkrétneho odberateľa na konkrétnej stavbe. Ak ešte nie je, nechajte „do zásoby" — naberáme dopredu a priradí sa neskôr.',
               options: [['', '— zatiaľ do zásoby —'], ...this.subcontracts.map(s =>
                 [s.id, `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`])] })}
             ${UI.field('city', 'Mesto', { value: p.city, required: true, placeholder: 'München' })}
             ${UI.field('country', 'Krajina', { value: p.country || 'DE', options: [['DE', 'Nemecko'], ['AT', 'Rakúsko'], ['SK', 'Slovensko']] })}
-            ${UI.field('start_date', 'Nástup', { type: 'date', value: p.start_date })}
-            ${UI.field('deadline', 'Dokedy musím mať ľudí', { type: 'date', value: p.deadline })}
+            ${UI.field('start_date', 'Nástup', { type: 'date', value: p.start_date,
+              tip: 'Deň, keď majú ľudia začať robiť na stavbe. Objaví sa v inzeráte.' })}
+            ${UI.field('deadline', 'Dokedy musím mať ľudí', { type: 'date', value: p.deadline,
+              tip: 'Do kedy majú byť ľudia nabraní a s papiermi hotovými. Zvyčajne pár dní pred nástupom, aby bola rezerva.' })}
           </div>
           <div class="form-section">Čo im ponúkam navyše</div>
           <div class="chk-row">
-            ${UI.field('accommodation_provided', '', { type: 'checkbox', value: p.accommodation_provided, placeholder: 'Ubytovanie zabezpečíme' })}
-            ${UI.field('transport_provided', '', { type: 'checkbox', value: p.transport_provided, placeholder: 'Doprava zabezpečená' })}
-            ${UI.field('advance_possible', '', { type: 'checkbox', value: p.advance_possible, placeholder: 'Možná záloha pred prvou výplatou' })}
+            ${UI.field('accommodation_provided', '', { type: 'checkbox', value: p.accommodation_provided, placeholder: 'Ubytovanie zabezpečíme',
+              tip: 'Zaškrtnite, ak ubytovanie pri stavbe zariadime my. Napíše sa do inzerátu a pri telefonáte sa ukáže ako „ubytovanie platíme".' })}
+            ${UI.field('transport_provided', '', { type: 'checkbox', value: p.transport_provided, placeholder: 'Doprava zabezpečená',
+              tip: 'Zaškrtnite, ak sa o cestu na stavbu postaráme my (odvoz, auto). Inak si cestu rieši každý sám.' })}
+            ${UI.field('advance_possible', '', { type: 'checkbox', value: p.advance_possible, placeholder: 'Možná záloha pred prvou výplatou',
+              tip: 'Záloha = časť peňazí vyplatená skôr, než človek dostane prvú riadnu platbu za odpracované hodiny. Zaškrtnite len vtedy, keď ju naozaj dáte.' })}
           </div>
           <div class="regimebox">Ubytovanie je najsilnejší argument v inzeráte — ľudia sa boja, že skončia
           v aute. Ak ho máte, patrí do prvých troch riadkov.</div>
@@ -629,13 +637,17 @@
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
             ${UI.field('offer_rate', 'Čo ponúkam človeku €/h', { type: 'number', value: p.offer_rate,
-              placeholder: t ? `${t.rate_worker_min}–${t.rate_worker_max}` : '' })}
+              placeholder: t ? `${t.rate_worker_min}–${t.rate_worker_max}` : '',
+              tip: 'Koľko zaplatíme živnostníkovi za jednu jeho odpracovanú hodinu, bez DPH. Toto číslo bude v inzeráte. Nesmie byť pod minimálnou mzdou pre jeho mzdovú skupinu.' })}
             ${UI.field('client_rate', 'Čo fakturujem odberateľovi €/h', { type: 'number', value: p.client_rate,
-              placeholder: t ? `${t.rate_client_min}–${t.rate_client_max}` : '' })}
-            ${UI.field('budget', 'Rozpočet na reklamu €', { type: 'number', value: p.budget })}
+              placeholder: t ? `${t.rate_client_min}–${t.rate_client_max}` : '',
+              tip: 'Koľko nám nemecký odberateľ zaplatí za jednu hodinu práce tohto človeka, bez DPH. Ľuďom sa neukazuje.' })}
+            ${UI.field('budget', 'Rozpočet na reklamu €', { type: 'number', value: p.budget,
+              tip: 'Koľko eur celkovo chcete na tento nábor minúť za platené inzeráty (napr. Facebook). Len na zapísanie, appka nič neplatí.' })}
           </div>
           <div class="btn-row">
             <button type="button" class="btn btn-outline btn-sm" onclick="Hire.recalc()">${Icon('repeat')} Prepočítať</button>
+            ${UI.tip('Po zmene sadzieb kliknite, aby sa čísla nižšie (náklad, marža, mesačne) prepočítali. Nič sa tým neukladá.')}
           </div>
           <div id="margin-box">${this.marginBox(p, m, wage, t)}</div>
         </form>`;
@@ -648,7 +660,7 @@
           <div class="regimebox">Toto je scenár, podľa ktorého sa budete pýtať. ${qs.length} otázok,
           z toho <strong>${hidden.length} overovacích</strong> — tie znejú ako bežná odborná otázka,
           ale kandidát netuší, že sa nimi preveruje, či remeslo naozaj robil. Odpovede sa dajú overiť
-          a pripraviť sa na ne z inzerátu nedá.</div>
+          a pripraviť sa na ne z inzerátu nedá.${UI.tip('Druhy otázok: odborná = vie remeslo? overovacia = nenápadne preverí, či to naozaj robil. Právna = papiere a živnosť. Logistika = kedy a ako príde. Motivácia = prečo chce ísť. Kľúčová = najdôležitejšia, najviac pohne skóre.')}</div>
           ${qs.length === 0
             ? `<div class="warnbox" style="margin-top:12px;">${Icon('alert', 14)}
                 Najprv vyberte remeslo v prvom kroku.</div>`
@@ -663,7 +675,7 @@
       // krok 5
       const text = p.ad_text || (t ? S.adText(p, t) : '');
       return `<form id="wiz-form" onsubmit="return false;">
-        <div class="form-section">Kde to zverejním</div>
+        <div class="form-section">Kde to zverejním${UI.tip('Zaškrtnite, kam inzerát dáte. Appka nič nezverejňuje sama — zaškrtnutie je len zápis, kde inzerát beží.')}</div>
         <div class="chk-row">
           ${CHANNELS.map(([k, label]) => `<label class="chk">
             <input type="checkbox" data-channel="${k}" ${(p.channels || []).includes(k) ? 'checked' : ''}> ${label}</label>`).join('')}
@@ -672,6 +684,7 @@
         <div class="btn-row">
           <button type="button" class="btn btn-outline btn-sm" onclick="Hire.regenAd()">${Icon('repeat')} Vygenerovať znova</button>
           <button type="button" class="btn btn-outline btn-sm" onclick="Hire.copyAd()">${Icon('copy')} Skopírovať</button>
+          ${UI.tip('Vygenerovať znova: text inzerátu sa napíše nanovo z údajov v krokoch 1–3. Čo ste v ňom ručne upravili, sa prepíše. Skopírovať: text sa vloží do schránky, aby ste ho mohli vložiť na Facebook či Bazoš.')}
         </div>
         <div class="regimebox">Odporúčania sú najlacnejší kanál a prinášajú ľudí, ktorí zostanú.
         Ak ste ho nezaškrtli, zvyčajne je to premárnená príležitosť — opýtajte sa svojich ľudí.</div>
@@ -690,9 +703,9 @@
         <div class="notebox">${UI.esc(t.summary || '')}</div>
         <div class="kv" style="margin-top:10px;">
           <div><span>Nemecky</span><strong>${UI.esc(t.name_de || '—')}</strong></div>
-          <div><span>Mzdová skupina</span><strong>${UI.esc(t.lohngruppe || '—')}</strong></div>
-          <div><span>Pýta si</span><strong>${t.rate_worker_min}–${t.rate_worker_max} €/h</strong></div>
-          <div><span>Fakturujeme</span><strong>${t.rate_client_min}–${t.rate_client_max} €/h</strong></div>
+          <div><span>Mzdová skupina${UI.tip('Lohngruppe — zaradenie podľa nemeckej stavebnej tarify (LG1 pomocník, LG2 vyučený). Určuje minimálnu hodinovú sadzbu, pod ktorú sa nesmie ísť.')}</span><strong>${UI.esc(t.lohngruppe || '—')}</strong></div>
+          <div><span>Pýta si${UI.tip('Bežné rozpätie, koľko si ľudia v tomto remesle pýtajú za hodinu, bez DPH.')}</span><strong>${t.rate_worker_min}–${t.rate_worker_max} €/h</strong></div>
+          <div><span>Fakturujeme${UI.tip('Bežné rozpätie, koľko za hodinu tohto remesla fakturujeme nemeckému odberateľovi, bez DPH.')}</span><strong>${t.rate_client_min}–${t.rate_client_max} €/h</strong></div>
         </div>
         ${list('Čo na stavbe robí', t.work_scope)}
         ${list('S čím pracuje', t.materials)}
@@ -708,14 +721,14 @@
         ${!wage.ok && wage.message ? `<div class="warnbox" style="margin-top:12px;">
           ${Icon('alert', 14)} ${UI.esc(wage.message)}</div>` : ''}
         <div class="kpi-grid" style="margin-top:12px;">
-          <div class="kpi"><div class="kpi-label">Náklad na hodinu</div>
+          <div class="kpi"><div class="kpi-label">Náklad na hodinu${UI.tip('Koľko nás stojí jedna hodina tohto človeka. Pri živnostníkovi a s.r.o. je to presne sadzba, ktorú mu ponúkame.')}</div>
             <div class="kpi-value">${m.costPerHour || 0} €</div>
             <div class="kpi-delta">${p.legal_form === 'sro' ? 'fakturuje firma (s.r.o.)' : 'fakturuje živnostník'}</div></div>
-          <div class="kpi"><div class="kpi-label">Marža na hodinu</div>
+          <div class="kpi"><div class="kpi-label">Marža na hodinu${UI.tip('Čo fakturujeme odberateľovi mínus náš náklad, za jednu hodinu. Percento je z fakturovanej sumy. Pod 15 % appka varuje.')}</div>
             <div class="kpi-value" style="color:${m.marginPerHour > 0 ? 'var(--green)' : 'var(--red)'};">
               ${m.marginPerHour} €</div>
             <div class="kpi-delta">${UI.pct(m.marginPct)}</div></div>
-          <div class="kpi"><div class="kpi-label">Mesačne z tohto náboru</div>
+          <div class="kpi"><div class="kpi-label">Mesačne z tohto náboru${UI.tip('Hrubý odhad: marža na hodinu × počet ľudí × 174 hodín (približne jeden mesiac plnej práce). Ubytovanie, doprava a réžia v ňom nie sú odpočítané.')}</div>
             <div class="kpi-value">${m.monthlyMargin.toLocaleString('sk-SK')} €</div>
             <div class="kpi-delta">${p.headcount} × 174 h</div></div>
         </div>
@@ -854,7 +867,7 @@
           .filter(Boolean).map(UI.esc).join(' · '), '', [p.title]) + `
         <div class="detail-head">${this.badge(p.status)}
           ${pr.ready ? UI.badge('pripravený', 'green')
-            : UI.badge(`chýba ${pr.total - pr.done} z ${pr.total}`, 'amber')}
+            : UI.badge(`chýba ${pr.total - pr.done} z ${pr.total}`, 'amber')}${UI.tip('Koľko z piatich krokov náboru (koho, kam, za koľko, čo overím, kde zverejním) je vyplnených. Doplniť ich môžete cez „Upraviť".')}
           ${sum ? UI.badge(sum.text, sum.tone === 'ok' ? 'green' : sum.tone === 'warn' ? 'amber' : 'gray') : ''}
         </div>
 
@@ -865,9 +878,9 @@
           <div><span>Počet</span><strong>${p.headcount || '—'}</strong></div>
           <div><span>Kde</span><strong>${UI.esc(p.city || '—')}</strong></div>
           <div><span>Nástup</span><strong>${p.start_date ? UI.date(p.start_date) : '—'}</strong></div>
-          <div><span>Ponúkame</span><strong>${p.offer_rate || '—'} €/h</strong></div>
-          <div><span>Fakturujeme</span><strong>${p.client_rate || '—'} €/h</strong></div>
-          <div><span>Marža</span>${this.marzaText(p)
+          <div><span>Ponúkame${UI.tip('Koľko platíme živnostníkovi za hodinu, bez DPH.')}</span><strong>${p.offer_rate || '—'} €/h</strong></div>
+          <div><span>Fakturujeme${UI.tip('Koľko nám platí odberateľ za hodinu jedného človeka, bez DPH.')}</span><strong>${p.client_rate || '—'} €/h</strong></div>
+          <div><span>Marža${UI.tip('Fakturujeme mínus Ponúkame, za jednu hodinu. Percento je z fakturovanej sumy.')}</span>${this.marzaText(p)
             ? `<strong style="color:${this.marzaText(p).ok ? 'var(--green)' : 'var(--red)'};">${this.marzaText(p).text}</strong>`
             : '<strong style="color:var(--ink-mute);font-weight:500;">— doplňte sadzbu pre živnostníka</strong>'}</div>
           <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
@@ -886,7 +899,10 @@
               : UI.badge('bez hovoru', 'gray')}
           </div>`).join('')}` : ''}
 
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:18px;">
+          ${UI.tip(p.status === 'active'
+            ? 'Uzavrieť nábor: stav sa zmení na Uzavretý a pri telefonátoch sa už neponúka. Kandidáti ostanú. Zmazať: nábor zmizne natrvalo aj s podkladmi a textami.'
+            : 'Spustiť nábor: stav sa zmení na Beží a nábor sa ponúkne pri telefonátoch. Zmazať: nábor zmizne natrvalo aj s podkladmi a textami.')}
           ${p.status === 'active'
             ? `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','done')">Uzavrieť nábor</button>`
             : `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','active')">Spustiť nábor</button>`}

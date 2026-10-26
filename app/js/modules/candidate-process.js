@@ -57,7 +57,7 @@
 
         ${prog.flagCount ? `<div class="warnbox" style="margin-bottom:12px;">
           ${Icon('alert', 14)} <strong>${prog.flagCount} ${prog.flagCount === 1 ? 'červená vlajka' : 'červené vlajky'}</strong>
-          — ${prog.flags.map(f => UI.esc(f.text)).join(' · ')}</div>` : ''}
+          — ${prog.flags.map(f => UI.esc(f.text)).join(' · ')}${UI.tip('Červená vlajka = vážny dôvod na opatrnosť, ktorý ste zaškrtli pri hovore alebo v časti Červené vlajky. Kandidáta sama nevyradí, ale pred nasadením si to preverte.')}</div>` : ''}
 
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
           <span class="stay-bar" style="flex:1;">
@@ -67,7 +67,7 @@
           <span style="font-size:12.5px;font-weight:700;white-space:nowrap;">${UI.pct(prog.percent)}</span>
         </div>
         <div style="font-size:12px;color:var(--ink-mute);margin-bottom:12px;">
-          ${prog.done} z ${prog.total} odrážok · celý nábor má päť krokov</div>
+          ${prog.done} z ${prog.total} odrážok · celý nábor má päť krokov${UI.tip('Percento = koľko odrážok zo všetkých krokov je hotových. Niektoré sa zaškrtnú samy z údajov (napr. že ste mu volali), ostatné odškrtávate Vy. Ukladá sa hneď po kliknutí.')}</div>
 
         ${P.STEPS.map((step, i) => this.stepHtml(cand, step, prog.steps[i])).join('')}
         ${this.afterHtml(prog.afterPlacement)}
@@ -317,14 +317,16 @@
           ${check.flagCount ? `<div class="warnbox">${Icon('alert', 14)}
             Kandidát má ${check.flagCount} ${check.flagCount === 1 ? 'červenú vlajku' : 'červené vlajky'}.</div>` : ''}
           <div class="regimebox">Kandidát sa objaví v spise zákazky. Ak ešte nie je medzi
-          pracovníkmi, prevedieme ho tam automaticky.</div>
+          pracovníkmi, prevedieme ho tam automaticky.${UI.tip('Prevedenie = z kandidáta sa stane živnostník v zozname Živnostníci. Potom mu appka ponúkne ďalšie kroky: súhlas GDPR a zmluvu.')}</div>
           <div class="form-grid">
             <div class="fld-full">${UI.field('subcontract_id', 'Na ktorú zákazku nastupuje', { required: true,
               add: 'subcontract',
+              tip: 'Zákazka = dohodnutá práca pre konkrétneho nemeckého odberateľa na konkrétnej stavbe. Kandidát sa objaví v jej spise a hodiny sa mu budú písať na ňu.',
               options: list.map(s => [s.id,
                 `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`]) })}</div>
             ${UI.field('expected_start', 'Dátum nástupu', { type: 'date',
-              value: cand.expected_start || cand.available_from || '' })}
+              value: cand.expected_start || cand.available_from || '',
+              tip: 'Deň, keď začne na stavbe robiť. Predvyplní sa z „Možný nástup" alebo „Dostupný od", ak sú zapísané.' })}
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -363,7 +365,8 @@
         <form id="rej-form" onsubmit="event.preventDefault();CandProc.reject()">
           <div class="regimebox">Dôvod sa hodí o pol roka, keď sa ten istý človek ozve znova.</div>
           ${UI.field('outcome_reason', 'Dôvod (voliteľné)', { type: 'textarea', rows: 3,
-            placeholder: 'napr. nedodal referencie, pýtal zálohu vopred' })}
+            placeholder: 'napr. nedodal referencie, pýtal zálohu vopred',
+            tip: 'Po zamietnutí dostane kandidát stav Odmietnutý a zmizne z rozpracovaných. Nič sa nemaže a dá sa vrátiť tlačidlom „Vrátiť do procesu".' })}
           <div class="modal-actions">
             <button type="submit" class="btn btn-danger">Zamietnuť</button>
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>

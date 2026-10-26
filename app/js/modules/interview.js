@@ -362,7 +362,7 @@
     contextHtml() {
       const p = this.plan, sub = this.subcontract(), partner = this.partnerOf(sub);
       if (!p && !sub && !this.trade && !this.ad) return this.promiseHtml();
-      const row = (k, v) => v ? `<div><span>${k}</span><strong>${UI.esc(v)}</strong></div>` : '';
+      const row = (k, v, tip) => v ? `<div><span>${k}${tip ? UI.tip(tip) : ''}</span><strong>${UI.esc(v)}</strong></div>` : '';
       // Zo zhrnutia zákazky — to, čo sa pri náboru naozaj dohodlo. Nedoplnené
       // [XX] sa nevypisuje: na telefóne by to vyzeralo ako údaj.
       const fakt = (k) => {
@@ -377,10 +377,10 @@
             ${row('Kde', [p?.city || sub?.site_city, p?.country === 'DE' ? 'Nemecko' : p?.country].filter(Boolean).join(', '))}
             ${row('Nástup', p?.start_date ? UI.date(p.start_date) : null)}
             ${row('Treba ľudí', p?.headcount ? String(p.headcount) : null)}
-            ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : fakt('rate'))}
+            ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : fakt('rate'), 'Koľko platíme živnostníkovi za jednu hodinu práce, bez DPH. Toto mu môžete povedať.')}
             ${row('Trvanie', fakt('duration'))}
             ${this.route ? row('Cesta', `${this.routeFrom}: ${DanubraRoute.sentence(this.route)}`) : ''}
-            ${row('Forma', p ? (p.legal_form === 'sro' ? 's.r.o.' : 'živnosť') : null)}
+            ${row('Forma', p ? (p.legal_form === 'sro' ? 's.r.o.' : 'živnosť') : null, 'Ako s nami bude spolupracovať: na vlastnú živnosť alebo cez vlastnú firmu s.r.o. Zamestnanca neberieme.')}
             ${row('Podmienky', fakt('condition'))}
             ${row('Ubytovanie', fakt('housing'))}
             ${row('Navyše', ((p?.analysis || {})._extra || {}).benefits || null)}
@@ -399,10 +399,10 @@
             ${row('Odberateľ', partner?.name)}
             ${row('Stavba', [sub.site_name, sub.site_address, sub.site_city].filter(Boolean).join(', '))}
             ${row('Termín', sub.date_from ? `${UI.date(sub.date_from)} – ${sub.date_to ? UI.date(sub.date_to) : '…'}` : null)}
-            ${row('Fakturujeme', sub.charge_rate ? `${sub.charge_rate} €/h` : null)}
+            ${row('Fakturujeme', sub.charge_rate ? `${sub.charge_rate} €/h` : null, 'Koľko za jednu hodinu jeho práce fakturujeme my odberateľovi, bez DPH. Nie je to sadzba pre živnostníka.')}
           </div>
           ${sub.work_type === 'construction'
-            ? `<div class="aside-note">Stavebné práce — platí Bau-Mindestlohn, SOKA a hlásenie Zoll.</div>` : ''}
+            ? `<div class="aside-note">Stavebné práce — platí Bau-Mindestlohn, SOKA a hlásenie Zoll.${UI.tip('Na nemeckej stavbe platia osobitné pravidlá. Bau-Mindestlohn = minimálna hodinová mzda v stavebníctve. SOKA-BAU = stavebná pokladnica (dovolenky). Zoll = nemecká colná správa, ktorá na stavbách kontroluje papiere a kam sa ľudia vopred hlásia.')}</div>` : ''}
         </div>` : ''}
 
         ${(this.trade?.pitch || []).length ? `<div class="aside-card">
@@ -428,7 +428,7 @@
         </div>` : '';
       return `
         <div class="aside-card aside-live">
-          <div class="aside-title">${Icon('check', 14)} Zatiaľ z hovoru</div>
+          <div class="aside-title">${Icon('check', 14)} Zatiaľ z hovoru${UI.tip('Percento sa počíta z toho, čo zaškrtnete: plusy ho zvyšujú, mínusy a varovania znižujú. Slovo pod ním (Sedí, Použiteľný, Slabý, Nebrať) je len odporúčanie — rozhodujete Vy.')}</div>
           <div class="live-score verdict-${v[1]}">
             <span class="ls-num">${r.percent == null ? '—' : r.percent + ' %'}</span>
             <span class="ls-lbl">${v[0]}</span>
@@ -459,13 +459,16 @@
         <div class="guide-q">Na ktorý inzerát volá?</div>
         <div class="guide-lead">Od toho sa odvíja zvyšok hovoru — remeslo, mesto
           aj to, čo sme sľúbili.</div>
-        <div class="pillbar" style="margin-bottom:12px;width:max-content;max-width:100%;overflow-x:auto;">
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:12px;">
+        <div class="pillbar" style="width:max-content;max-width:100%;overflow-x:auto;">
           ${this.ads.length ? `<button class="pill${byAd ? ' active' : ''}"
             onclick="Guide.setPickMode('ad')">Inzerát</button>` : ''}
           ${this.plans.length ? `<button class="pill${byPlan ? ' active' : ''}"
             onclick="Guide.setPickMode('plan')">Bežiaci nábor</button>` : ''}
           <button class="pill${!byAd && !byPlan ? ' active' : ''}"
             onclick="Guide.setPickMode('trade')">Do zásoby</button>
+        </div>
+        ${UI.tip('Inzerát = volá na konkrétny inzerát, vpravo uvidíte, čo sme v ňom sľúbili. Bežiaci nábor = naberáme pre konkrétnu stavbu. Do zásoby = teraz nič konkrétne, zapíšeme ho len podľa remesla na neskôr.')}
         </div>
 
         ${byAd ? `<div class="plan-grid">
@@ -512,6 +515,7 @@
           <input type="checkbox" id="call-crew" ${(this.draft || {}).crew ? 'checked' : ''}
             onchange="Guide.draft.crew=this.checked">
           <span style="font-size:15px;">Je to partia, nie jednotlivec</span>
+          ${UI.tip('Zaškrtnite, keď volá za celú skupinu ľudí, ktorí chcú robiť spolu (napr. „sme traja murári"). Založí sa ako jedna partia, nie ako jeden človek.')}
         </label>
 
         <div class="call-mode">
@@ -532,6 +536,7 @@
         <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:14px;"
           onclick="Guide.beginCall()">${Icon('phone', 20)} ${
           this.mode === 'full' ? 'Začať pohovor' : 'Začať hovor'}</button>
+        <div class="guide-note-hint">Čo sa stane po kliknutí${UI.tip('Kandidát sa hneď založí v zozname Kandidáti so stavom Kontaktovaný a časom prvého kontaktu „teraz". Potom sa ukážu otázky. Všetko sa ukladá priebežne, takže keď hovor spadne, nič sa nestratí.')}</div>
         ${!this.trade && !this.plan && !this.ad ? `<div class="guide-note-hint">Vyberte inzerát, nábor
           alebo remeslo — podľa toho sa poskladajú polia aj otázky a vpravo uvidíte,
           čo sme sľúbili.</div>` : ''}`;
@@ -555,11 +560,12 @@
           const g = this.callQ(seg);
           return `${g.questions.length ? `<div class="cq2-list">${g.questions
             .map(q => this.callQHtml(seg.key, q)).join('')}</div>
-            <div class="cq2-rest">Ďalšie postrehy — zaškrtnite, čo zaznelo</div>` : ''}
+            <div class="cq2-rest">Ďalšie postrehy — zaškrtnite, čo zaznelo${UI.tip('Klepnite na to, čo počas hovoru zaznelo. Zelené = dobré znamenie, červené = zlé, varovanie = treba preveriť pred nasadením. Ukladá sa hneď a mení skóre vpravo.')}</div>` : ''}
           <div class="chip-list">
             ${g.rest.map(c => this.chipHtml(c)).join('')}
             <button class="chip chip-add" onclick="Guide.addChipPrompt('${seg.key}')">
               ${Icon('plus', 14)} pridať vlastné</button>
+            ${UI.tip('Pridá nové pole, ktoré v zozname chýba. Hneď sa zaškrtne a pri ďalších hovoroch bude v ponuke tiež.')}
           </div>`;
         })()}
 
@@ -569,7 +575,7 @@
           placeholder="Čo hovorí? Píšte vlastnými slovami…"
           oninput="Guide.noteChanged('${seg.key}', this.value)">${UI.esc(note)}</textarea>
         <div class="guide-note-hint">Poznámka sa uloží pri prechode ďalej. Neskôr z nej vieme
-          navrhnúť nové polia.</div>
+          navrhnúť nové polia.${UI.tip('Po skončení hovoru si appka poznámky prečíta a môže navrhnúť nové polia na zaškrtnutie. Pridajú sa až po Vašom potvrdení.')}</div>
 
         ${this.pitchHtml()}
 
@@ -587,7 +593,7 @@
       // Odborné otázky sú vyššie, na klik (dobre / čiastočne / zle) — tu sa
       // dá už len pridať nová.
       return `<button class="q-add" onclick="Guide.addQuestionPrompt('${seg.key}')">
-        ${Icon('plus', 13)} pridať otázku k tejto časti</button>`;
+        ${Icon('plus', 13)} pridať otázku k tejto časti</button>${UI.tip('Otázka sa uloží k tomuto remeslu a pri ďalších hovoroch sa ukáže znova.')}`;
     },
 
     /**
@@ -753,7 +759,7 @@
     judgeHtml(q) {
       if (!q.dbId) return '';
       return `<div class="qq-judge">
-        ${q.weight >= 3 ? `<em class="q-key">kľúčová</em>` : ''}
+        ${q.weight >= 3 ? `<em class="q-key">kľúčová</em>${UI.tip('Najdôležitejšia otázka — odpoveď na ňu najviac pohne skóre. Odlíši majstra od toho, kto to robil raz.')}` : ''}
         ${q.good ? `<p class="q-good">${Icon('check', 12)} ${UI.esc(q.good)}</p>` : ''}
         ${q.bad ? `<p class="q-bad">${Icon('alert', 12)} ${UI.esc(q.bad)}</p>` : ''}
         <button class="q-edit" onclick="Guide.editQuestion('${q.dbId}')">${Icon('edit', 12)} upraviť otázku</button>
@@ -795,6 +801,7 @@
             onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.calcRoute('${seg.key}')}">
           <button class="btn btn-primary" id="route-go" onclick="Guide.calcRoute('${seg.key}')">
             ${Icon('pin', 15)} Vypočítať cestu</button>
+          ${UI.tip('Appka vypočíta kilometre a čas autom až na stavbu. Mesto, ktoré napíšete, sa zapíše ku kandidátovi ako jeho bydlisko.')}
         </div>
         <div id="route-box">${r ? this.routeBoxHtml(r) : ''}</div>
         ${r ? `<button class="btn btn-primary qq-continue" onclick="Guide.stepNext('${seg.key}')">
@@ -1188,7 +1195,7 @@
         <div class="guide-done">
           <div class="guide-done-ico ${good ? 'ok' : 'warn'}">
             ${Icon(good ? 'check' : 'alert', 30)}</div>
-          ${r.percent != null ? `<div class="guide-score">${UI.pct(r.percent)}</div>` : ''}
+          ${r.percent != null ? `<div class="guide-score">${UI.pct(r.percent)}${UI.tip('Skóre hovoru: koľko z toho, čo zaznelo, hovorí pre neho. Plusy pridávajú, mínusy a varovania uberajú. Uloží sa ku kandidátovi.', { size: 16 })}</div>` : ''}
           <div class="guide-q" style="margin-bottom:6px;">${UI.esc(r.nextAction.label)}</div>
           <div class="guide-hint" style="text-align:left;">${UI.esc(r.nextAction.hint)}</div>
 
@@ -1216,6 +1223,7 @@
                  onclick="Guide.goFull()">${Icon('chevron', 18)}
                  Pokračovať plným pohovorom</button>` : ''}
 
+          <div class="guide-note-hint" style="text-align:left;">Čo robia tlačidlá dole${UI.tip('Každé tlačidlo uloží skóre a hovor zavrie. Ísť preveriť: kandidát prejde do stavu Pohovor a otvorí sa krok Preveriť. Uložiť a pokračovať neskôr: tiež stav Pohovor, ale nič ďalšie sa neotvorí. Zamietnuť: opýta sa na dôvod a kandidát odíde z procesu.')}</div>
           <div class="guide-end-actions">
             ${r.nextAction.key === 'reject'
               ? `<button class="guide-btn guide-btn-red" onclick="Guide.finishCall('reject')">

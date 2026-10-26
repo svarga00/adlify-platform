@@ -81,6 +81,7 @@
               ${LL().STATUS.map(([k, l]) => { const c = this.rows.filter(r => r.status === k).length;
                 return c ? `<button class="pill${this.filters.status === k ? ' active' : ''}" onclick="Lead.setF('status','${k}')">${l} ${c}</button>` : ''; }).join('')}
             </div>
+            ${UI.tip('Nová = ešte sme jej nepísali. Oslovená = odišiel jej e-mail (prepne sa samo po odoslaní). Odpísala, Má záujem a Nemá záujem nastavujete Vy. Odhlásená = v e-maile klikla na odhlásenie a už jej nič nepôjde.')}
             <input type="search" placeholder="Hľadať meno, mesto, remeslo…" value="${UI.esc(this.filters.q)}" onchange="Lead.setF('q', this.value)">
           </div>
           ${rows.length ? `<div class="cards">${rows.map(r => this.card(r)).join('')}</div>`
@@ -96,25 +97,26 @@
         <div class="acc-card-head">
           <div style="min-width:0;"><div class="acc-name">${UI.esc(r.name)}</div>
             <div class="acc-loc">${UI.esc([r.postal_code, r.city].filter(Boolean).join(' ') || '—')}${r.trade ? ` · ${UI.esc(r.trade)}` : ''}</div></div>
-          ${UI.badge(st[1], st[2])}
+          <span style="display:inline-flex;align-items:center;flex:none;">${UI.badge(st[1], st[2])}</span>
         </div>
-        ${r.why ? `<div style="font-size:12.5px;color:var(--ink-sub);margin:0 0 8px;">${UI.esc(r.why)}</div>` : ''}
+        ${r.why ? `<div style="font-size:12.5px;color:var(--ink-sub);margin:0 0 8px;">${UI.esc(r.why)}${UI.tip('Prečo túto firmu navrhla AI: v čom sa podobá na Vašich odberateľov. Je to len odhad AI, pred oslovením si pozrite jej web.')}</div>` : ''}
         <div class="link-row" style="margin-bottom:8px;">
-          ${r.email ? `<a class="link-chip" href="mailto:${UI.esc(r.email)}">${Icon('mail', 13)}<span>${UI.esc(r.email)}</span></a>` : '<span class="link-chip is-static">bez e-mailu</span>'}
+          ${r.email ? `<a class="link-chip" href="mailto:${UI.esc(r.email)}">${Icon('mail', 13)}<span>${UI.esc(r.email)}</span></a>` : `<span class="link-chip is-static">bez e-mailu</span>${UI.tip('Firme bez e-mailu appka hromadný e-mail nepošle. Osloviť ju môžete telefonicky alebo cez formulár na jej webe; e-mail potom doplňte, keď ho zistíte.')}`}
           ${r.phone ? `<a class="link-chip" href="tel:${UI.esc(r.phone.replace(/[^\d+]/g, ''))}">${Icon('phone', 13)}<span>${UI.esc(r.phone)}</span></a>` : ''}
           ${web ? `<a class="link-chip" target="_blank" rel="noopener" href="${UI.esc(web)}">${Icon('site', 13)}<span>Web</span></a>` : ''}
           ${r.similar_to ? `<span class="link-chip is-static">ako ${UI.esc(this.partnerName(r.similar_to))}</span>` : ''}
-          <span class="link-chip is-static">${r.source === 'ai' ? 'AI' : r.source === 'osm' ? 'mapa' : 'ručne'}</span>
+          <span class="link-chip is-static">${r.source === 'ai' ? 'AI' : r.source === 'osm' ? 'mapa' : 'ručne'}</span>${UI.tip(
+            'Odkiaľ sa firma vzala. Mapa = OpenStreetMap, verejná mapa (zadarmo, e-mail býva zriedka). AI = umelá inteligencia ju našla na internete, e-mail vzala z Impressum na webe firmy. Ručne = pridali ste ju Vy. „ako …" = firma sa podobá na tohto Vášho odberateľa.')}
         </div>
         ${r.notes ? `<div class="notebox" style="white-space:pre-wrap;font-size:12.5px;">${UI.esc(r.notes)}</div>` : ''}
         <div class="js-acts" style="margin-top:6px;">
           <select class="verif-sel" onchange="Lead.setStatus('${r.id}', this.value)">
             ${LL().STATUS.filter(s => s[0] !== 'won').map(([k, l]) => `<option value="${k}" ${r.status === k ? 'selected' : ''}>${l}</option>`).join('')}
             ${r.status === 'won' ? '<option value="won" selected>Je odberateľ</option>' : ''}
-          </select>
+          </select>${UI.tip('Stav meníte Vy podľa toho, ako firma reagovala. Podľa stavu potom pri e-maile vyberáte, komu ho poslať. „Je odberateľ" sa nastaví samo tlačidlom Urobiť odberateľa.')}
           <button class="btn btn-ghost btn-sm" onclick="Lead.note('${r.id}')">${Icon('note', 14)} Poznámka</button>
           ${r.partner_id ? Danubra.link('partner', r.partner_id, 'Odberateľ')
-            : `<button class="btn btn-outline btn-sm" onclick="Lead.toPartner('${r.id}')">${Icon('clients', 14)} Urobiť odberateľa</button>`}
+            : `<button class="btn btn-outline btn-sm" onclick="Lead.toPartner('${r.id}')">${Icon('clients', 14)} Urobiť odberateľa</button>${UI.tip('Založí firmu v Odberateľoch s jej menom, adresou, e-mailom, telefónom a poznámkami. Tu zostane so stavom Je odberateľ. USt-IdNr a kontaktnú osobu doplníte v Odberateľoch.')}`}
         </div>
       </div>`;
     },
@@ -129,7 +131,8 @@
     /** Poznámky sa len pridávajú — staré sa neprepisujú. */
     note(id) {
       UI.modal('Poznámka k firme', `<form id="ln-form" onsubmit="event.preventDefault();Lead.saveNote('${id}')">
-        ${UI.field('text', 'Čo sa stalo', { type: 'textarea', rows: 3, required: true, placeholder: 'napr. volal som, ozvú sa v januári' })}
+        ${UI.field('text', 'Čo sa stalo', { type: 'textarea', rows: 3, required: true, placeholder: 'napr. volal som, ozvú sa v januári',
+          tip: 'Pridá sa na koniec poznámok s dnešným dátumom a zmení sa dátum posledného kontaktu. Staršie poznámky sa neprepisujú ani nemažú.' })}
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
           <button type="submit" class="btn btn-primary">Pridať</button></div></form>`);
     },
@@ -161,12 +164,13 @@
     form() {
       UI.modal('Pridať firmu', `<form id="lf-form" onsubmit="event.preventDefault();Lead.saveForm()">
         <div class="form-grid">
-          ${UI.field('name', 'Názov firmy', { required: true })}
-          ${UI.field('city', 'Mesto')}
+          ${UI.field('name', 'Názov firmy', { required: true,
+            tip: 'Ak už firmu s rovnakým názvom máte medzi novými firmami alebo odberateľmi, druhýkrát sa neuloží. GmbH, KG, bodky a pomlčky sa pri porovnaní nerátajú.' })}
+          ${UI.field('city', 'Mesto', { tip: 'Do e-mailu sa dosadí namiesto {mesto}. Bez mesta by v texte ostalo prázdne miesto.' })}
           ${UI.field('email', 'E-mail', { type: 'email' })}
           ${UI.field('phone', 'Telefón')}
           ${UI.field('website', 'Web')}
-          ${UI.field('trade', 'Čím sa zaoberá')}
+          ${UI.field('trade', 'Čím sa zaoberá', { placeholder: 'napr. Trockenbau', tip: 'Remeslo firmy. Do e-mailu sa dosadí namiesto {remeslo}.' })}
         </div>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
           <button type="submit" class="btn btn-primary">Uložiť</button></div></form>`, { wide: true });
@@ -188,19 +192,23 @@
       const zaklad = ['builder', 'plasterer', 'tiler', 'painter', 'metal_construction', 'electrician', 'carpenter'];
       UI.modal('Hľadať podobné firmy', `
         <form id="find-form" onsubmit="event.preventDefault()">
-          <div class="form-section">Podobné ako</div>
+          <div class="form-section">Podobné ako${UI.tip('Zaškrtnutí odberatelia sú vzor. Mapa hľadá firmy v okolí ich miest, AI hľadá firmy s podobnou prácou (berie prvých 15 zaškrtnutých).')}</div>
           <div class="chk-grid">${this.partners.slice(0, 40).map(p => `<label class="chk"><input type="checkbox" name="p" value="${p.id}" checked>
             <span>${UI.esc(p.name)}${p.city ? ` <em>· ${UI.esc(p.city)}</em>` : ''}</span></label>`).join('')}</div>
           <div class="form-grid">
-            ${UI.field('radius', 'Okruh okolo ich miest', { value: '50', options: [['25', '25 km'], ['50', '50 km'], ['100', '100 km']] })}
-            ${UI.field('region', 'Alebo región (pre AI)', { placeholder: 'napr. Bayern, okolie Mníchova' })}
-            ${UI.field('count', 'Koľko firiem (AI)', { value: '15', options: [['10', '10'], ['15', '15'], ['25', '25']] })}
-            <div class="fld-full">${UI.field('note', 'Čo hľadáme (pre AI, nepovinné)', { placeholder: 'napr. firmy na sadrokartón a suchú výstavbu, 20–200 zamestnancov' })}</div>
+            ${UI.field('radius', 'Okruh okolo ich miest', { value: '50', options: [['25', '25 km'], ['50', '50 km'], ['100', '100 km']],
+              tip: 'Len pre hľadanie na mape: ako ďaleko od miest Vašich odberateľov sa hľadá. Berie sa najviac 6 rôznych miest.' })}
+            ${UI.field('region', 'Alebo región (pre AI)', { placeholder: 'napr. Bayern, okolie Mníchova',
+              tip: 'Len pre AI. Keď ho vyplníte, AI hľadá v tomto regióne. Keď je prázdny, hľadá v okolí miest Vašich odberateľov.' })}
+            ${UI.field('count', 'Koľko firiem (AI)', { value: '15', options: [['10', '10'], ['15', '15'], ['25', '25']],
+              tip: 'Koľko firiem má AI najviac nájsť. Viac firiem = dlhšie hľadanie a o niečo vyššia cena. Firmy, ktoré už máte, sa neuložia znova.' })}
+            <div class="fld-full">${UI.field('note', 'Čo hľadáme (pre AI, nepovinné)', { placeholder: 'napr. firmy na sadrokartón a suchú výstavbu, 20–200 zamestnancov',
+              tip: 'Vlastnými slovami, aké firmy chcete. AI to zoberie do úvahy. Môžete písať po slovensky.' })}</div>
           </div>
-          <div class="form-section">Remeslá (pre mapu)</div>
+          <div class="form-section">Remeslá (pre mapu)${UI.tip('Druhy firiem, ktoré sa hľadajú na mape. Na hľadanie cez AI nemajú vplyv — tam rozhoduje, čo robia Vaši odberatelia.')}</div>
           <div class="chk-grid">${crafts.map(([k, l]) => `<label class="chk"><input type="checkbox" name="c" value="${k}" ${zaklad.includes(k) ? 'checked' : ''}><span>${UI.esc(l)}</span></label>`).join('')}</div>
           <p class="card-note">Mapa (OpenStreetMap) je zadarmo, ale e-mail tam býva zriedka. AI prehľadá weby firiem
-            a e-mail vezme len z ich Impressum/Kontaktu — jedno hľadanie stojí rádovo centy.</p>
+            a e-mail vezme len z ich Impressum/Kontaktu — jedno hľadanie stojí rádovo centy.${UI.tip('Na mape: výsledky sa ukážu hneď tu dole a sami vyberiete, ktoré uložiť. Cez AI: hľadá sa na pozadí 1–3 minúty, nájdené firmy sa uložia samy a okno môžete zavrieť. Impressum = povinná stránka nemeckého webu s údajmi o firme.')}</p>
           <div id="find-out"></div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -285,7 +293,7 @@
       const { fresh, known } = LL().dedupe(LL().parse(json), { leads: this.rows, partners: this.partners });
       this.found = fresh;
       if (out) out.innerHTML = fresh.length ? `
-        <div class="form-section">Našlo sa ${fresh.length} nových firiem${known.length ? ` (${known.length} už máte)` : ''}</div>
+        <div class="form-section">Našlo sa ${fresh.length} nových firiem${known.length ? ` (${known.length} už máte)` : ''}${UI.tip('Vopred sú zaškrtnuté firmy, ktoré majú e-mail alebo web. Firmy, ktoré už máte, sa tu neukazujú. Uloží sa len to, čo je zaškrtnuté.')}</div>
         <div class="mf-list">${fresh.map((f, i) => `<label class="mf-row"><input type="checkbox" data-i="${i}" ${f.email || f.website ? 'checked' : ''}>
           <span class="mf-main"><b>${UI.esc(f.name)}</b><em>${UI.esc([f.city, f.trade, f.email || (f.website ? 'web' : 'bez kontaktu')].filter(Boolean).join(' · '))}</em></span></label>`).join('')}</div>
         <div class="btn-row"><button type="button" class="btn btn-primary" onclick="Lead.saveFound()">${Icon('check', 14)} Uložiť vybrané</button></div>`
@@ -333,10 +341,10 @@
               why: 'Každý e-mail odíde zvlášť z Vašej schránky, s odosielateľom a odkazom na odhlásenie.' },
           { help: 'screen.campaigns', action: caka ? { label: 'Pokračovať', ico: 'mail', onclick: `Camp.run('${caka.id}')` }
             : { label: 'Nový e-mail', ico: 'plus', onclick: 'Camp.form()' } })
-        + (st.smtp ? `<div class="regimebox">${Icon('check', 14)} Posiela sa z adresy <b>${UI.esc(st.from || '')}</b>.</div>`
+        + (st.smtp ? `<div class="regimebox">${Icon('check', 14)} Posiela sa z adresy <b>${UI.esc(st.from || '')}</b>.${UI.tip('Z tejto schránky odchádza každý e-mail. Odpovede firiem prídu e-mailom do tejto schránky, v appke sa samy neukážu — stav firmy (Odpísala, Má záujem) potom zmeňte v Nových firmách.')}</div>`
           : `<div class="warnbox">${Icon('alert', 14)} Posielanie ešte nie je zapnuté. V Netlify (Site configuration → Environment variables) treba doplniť
               <b>SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS</b> a <b>SMTP_FROM</b> (napr. „Partner und Service &lt;info@punds.eu&gt;"). Kým to nie je,
-              e-maily sa dajú pripraviť, ale neodídu.</div>`)
+              e-maily sa dajú pripraviť, ale neodídu.${UI.tip('SMTP = prihlasovacie údaje k e-mailovej schránke (server, port, meno, heslo, adresa odosielateľa). Zadáva ich ten, kto spravuje Netlify — zámerne nie sú v appke, aby sa heslo nedostalo do prehliadača.')}</div>`)
         + (this.rows.length ? `<div class="cards">${this.rows.map(c => this.card(c)).join('')}</div>`
           : UI.empty('mail', 'Zatiaľ žiadny e-mail', 'Napíšte prvý — šablóna po nemecky je pripravená.',
             `<button class="btn btn-primary" onclick="Camp.form()">${Icon('plus')} Nový e-mail</button>`));
@@ -350,13 +358,16 @@
         done: ['Odoslané', 'green'], error: ['Chyba', 'red'] }[c.status] || ['—', 'gray'];
       return `<div class="acc-card card">
         <div class="acc-card-head"><div style="min-width:0;"><div class="acc-name">${UI.esc(c.name)}</div>
-          <div class="acc-loc">${UI.esc(c.subject)}</div></div>${UI.badge(ST[0], ST[1])}</div>
+          <div class="acc-loc">${UI.esc(c.subject)}</div></div><span style="display:inline-flex;align-items:center;flex:none;">${UI.badge(ST[0], ST[1])}${UI.tip(
+          'Návrh = uložené, nič neodišlo. Posiela sa = server práve posiela. Čaká na pokračovanie = odišla jedna dávka, zvyšok pošlete tlačidlom Pokračovať. Odoslané = odišlo všetkým.')}</span></div>
         <div class="acc-meta"><span>${Icon('check', 14)} odoslané ${n('sent')}</span><span>${Icon('clock', 14)} čaká ${n('queued')}</span>
           ${n('failed') ? `<span style="color:var(--red);">${Icon('alert', 14)} chyba ${n('failed')}</span>` : ''}
-          ${n('skipped') ? `<span>${Icon('x', 14)} preskočené ${n('skipped')}</span>` : ''}</div>
+          ${n('skipped') ? `<span>${Icon('x', 14)} preskočené ${n('skipped')}</span>` : ''}${n('failed') || n('skipped')
+            ? UI.tip('Chyba = schránka e-mail neprijala (napr. zlá adresa); dôvod uvidíte v Adresátoch. Preskočené = adresa sa medzitým odhlásila, tak sa jej nič neposlalo.') : ''}</div>
         ${c.error ? `<div class="warnbox" style="margin-top:8px;">${UI.esc(c.error)}</div>` : ''}
         <div class="js-acts">
-          ${n('queued') ? `<button class="btn btn-primary btn-sm" onclick="Camp.run('${c.id}')">${Icon('mail', 14)} ${c.status === 'draft' ? 'Odoslať' : 'Pokračovať'} (${n('queued')})</button>` : ''}
+          ${n('queued') ? `<button class="btn btn-primary btn-sm" onclick="Camp.run('${c.id}')">${Icon('mail', 14)} ${c.status === 'draft' ? 'Odoslať' : 'Pokračovať'} (${n('queued')})</button>${UI.tip(
+            'Naraz odíde najviac 40 e-mailov, každý zvlášť a s pauzou pár sekúnd, aby Vaša schránka neskončila v spame. Ak čaká viac adresátov, po dávke kliknite znova na Pokračovať.')}` : ''}
           <button class="btn btn-ghost btn-sm" onclick="Camp.detail('${c.id}')">Adresáti</button>
         </div></div>`;
     },
@@ -377,22 +388,26 @@
       UI.modal('Nový e-mail', `<form id="cf-form" onsubmit="event.preventDefault()" oninput="Camp.preview()" onchange="Camp.preview()">
         <div class="form-grid">
           ${UI.field('name', 'Názov (len pre Vás)', { value: `Predstavenie ${new Date().toLocaleDateString('sk-SK')}`, required: true })}
-          ${UI.field('subject', 'Predmet', { value: T.subject, required: true })}
-          <div class="fld-full">${UI.field('body', 'Text', { type: 'textarea', rows: 12, value: T.body })}</div>
+          ${UI.field('subject', 'Predmet', { value: T.subject, required: true,
+            tip: 'Nadpis e-mailu, ktorý firma uvidí v schránke. {firma} sa každej firme nahradí jej názvom.' })}
+          <div class="fld-full">${UI.field('body', 'Text', { type: 'textarea', rows: 12, value: T.body,
+            tip: 'Píšte po nemecky — firmy sú v Nemecku. Slová v zložených zátvorkách, napr. {mesto}, sa každej firme nahradia jej údajmi; keď firma údaj nemá, ostane tam prázdne miesto.' })}</div>
         </div>
         <p class="card-note">Doplní sa samo: <code>{firma}</code>, <code>{mesto}</code>, <code>{remeslo}</code>, <code>{nasa_firma}</code>, <code>{podpis}</code>.
-          Pätička s odosielateľom a odkazom na odhlásenie sa pridá vždy.</p>
-        <div class="form-section">Komu</div>
+          Pätička s odosielateľom a odkazom na odhlásenie sa pridá vždy.${UI.tip(
+          '{firma} = názov firmy, {mesto} = jej mesto, {remeslo} = čím sa zaoberá, {nasa_firma} a {podpis} = názov našej firmy z Nastavení. Pätička: naša firma, IČO, USt-IdNr, telefón, e-mail a odkaz „Keine weiteren E-Mails". Kto naň klikne, je odhlásený a už mu nič nepošleme.')}</p>
+        <div class="form-section">Komu${UI.tip('Zaškrtnite, ktorým firmám poslať, podľa ich stavu. Firmy, ktoré sa odhlásili, nemajú záujem alebo nemajú e-mail, sa vynechajú vždy. Tá istá adresa dostane e-mail len raz.')}</div>
         <div class="chk-grid">${LL().STATUS.filter(s => !['won', 'unsubscribed', 'rejected'].includes(s[0])).map(([k, l]) =>
           `<label class="chk"><input type="checkbox" name="st" value="${k}" ${k === 'new' ? 'checked' : ''}><span>${l}</span></label>`).join('')}
-          <label class="chk"><input type="checkbox" name="partners" value="1"><span>Aj naši odberatelia</span></label></div>
+          <label class="chk"><input type="checkbox" name="partners" value="1"><span>Aj naši odberatelia${UI.tip('Pošle sa aj firmám, s ktorými už spolupracujete (ak majú e-mail). Dostanú ten istý text — pri predstavovacom e-maile to väčšinou nechcete.')}</span></label></div>
         <div id="cf-count" class="card-note"></div>
-        <div class="form-section">Ukážka</div>
+        <div class="form-section">Ukážka${UI.tip('Takto e-mail uvidí prvá firma zo zoznamu adresátov. Odkaz na odhlásenie je tu skrátený (…), skutočný bude mať každá firma vlastný.')}</div>
         <pre id="cf-preview" class="cf-preview"></pre>
         <div class="regimebox">V Nemecku sa obchodný e-mail smie poslať firme, pri ktorej sa dá predpokladať záujem (§ 7 UWG).
           Píšte firmám, ktoré robia to, na čo dodávame ľudí, a vždy s možnosťou odhlásenia — tá je v každom e-maile.</div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          ${UI.tip('Návrh: e-mail aj zoznam adresátov sa uložia a nič neodíde, odoslať ho môžete neskôr z karty. Adresáti sa vyberú teraz — firmy pridané neskôr v ňom nebudú.')}
           <button type="button" class="btn btn-outline" onclick="Camp.save(false)">Uložiť ako návrh</button>
           <button type="button" class="btn btn-primary" id="cf-go" onclick="Camp.save(true)">${Icon('mail', 14)} Odoslať</button>
         </div></form>`, { wide: true });

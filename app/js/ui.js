@@ -269,7 +269,9 @@ window.UI = {
   // jednotke to je, čo z toho appka počíta a kde sa to potom objaví.
   // Dáva sa len tam, kde zlá hodnota niečo pokazí — pri každom poli by
   // z toho bola stena textu, ktorú nikto nečíta.
-  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step, hint, add, onchange } = {}) {
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step, hint, add, onchange, tip } = {}) {
+    // `tip` = otáznik pri názve poľa s krátkym vysvetlením (`UI.tip`).
+    const tipHtml = tip ? ` ${this.tip(tip)}` : '';
     const v = this.esc(value);
     // `onchange` je tu pre polia, ktoré **prekresľujú formulár** — napríklad
     // výber týždňa v zápise hodín. Bez neho by sa taký formulár musel písať
@@ -284,7 +286,7 @@ window.UI = {
     } else if (type === 'textarea') {
       input = `<textarea name="${name}" rows="${rows || 3}" placeholder="${this.esc(placeholder)}">${v}</textarea>`;
     } else if (type === 'checkbox') {
-      input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>`;
+      input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>${tipHtml}`;
       return `<div class="fld fld-chk">${input}${this.hint(hint)}</div>`;
     } else {
       const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';
@@ -295,7 +297,7 @@ window.UI = {
     // odberateľ ešte nie je v databáze, treba zavrieť rozpísaný formulár,
     // ísť inam, založiť ho a vrátiť sa — a rozpísané sa stratí.
     if (add && options) {
-      return `<label class="fld fld-pick"><span>${this.esc(label)}${required ? ' *' : ''}</span>
+      return `<label class="fld fld-pick"><span>${this.esc(label)}${required ? ' *' : ''}${tipHtml}</span>
         <span class="pick">${input}
           <button type="button" class="pick-add"
             onclick="Danubra.quickAdd('${add}','${name}')"
@@ -303,7 +305,68 @@ window.UI = {
             ${window.Icon ? Icon('plus', 15) : '+'}</button>
         </span>${this.hint(hint)}</label>`;
     }
-    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}${this.hint(hint)}</label>`;
+    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}${tipHtml}</span>${input}${this.hint(hint)}</label>`;
+  },
+
+  // ── Otáznik s krátkym vysvetlením ─────────────────────────────────────────
+  // „Ku všetkému, čo môže spôsobiť minimálne pochyby, priložte otáznik
+  // s vysvetlením." Na rozdiel od `Help.btn` (celá vysvetlivka v okne) je to
+  // jedna-dve vety priamo pri poli alebo tlačidle: čo to je a čo sa stane.
+  // Na počítači sa ukáže pri nabehnutí myšou, na mobile po ťuknutí.
+  /** @param {string} text  vysvetlenie obyčajnou rečou (bez HTML) */
+  tip(text, { size = 13 } = {}) {
+    const t = String(text || '').trim();
+    if (!t) return '';
+    return `<button type="button" class="tip-btn no-print" data-tip="${this.esc(t)}"
+      aria-label="Vysvetlenie: ${this.esc(t)}">${window.Icon ? Icon('help', size) : '?'}</button>`;
+  },
+  _tipShow(btn) {
+    this._tipHide();
+    const box = document.createElement('div');
+    box.id = 'ui-tip'; box.className = 'tip-pop'; box.setAttribute('role', 'tooltip');
+    box.textContent = btn.dataset.tip;
+    document.body.appendChild(box);
+    const r = btn.getBoundingClientRect();
+    const w = box.offsetWidth, h = box.offsetHeight;
+    let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    let top = r.top - h - 8;
+    if (top < 8) { top = r.bottom + 8; box.classList.add('is-below'); }
+    box.style.left = `${left}px`; box.style.top = `${top}px`;
+    box.style.setProperty('--tip-x', `${r.left + r.width / 2 - left}px`);
+    this._tipBtn = btn;
+  },
+  _tipHide() { document.getElementById('ui-tip')?.remove(); this._tipBtn = null; },
+  _tipBind() {
+    if (this._tipBound || typeof document === 'undefined') return;
+    this._tipBound = true;
+    const hover = () => window.matchMedia && matchMedia('(hover: hover)').matches;
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('.tip-btn');
+      if (b) {
+        // Klik na otáznik v názve poľa nesmie preklopiť zaškrtávačku ani
+        // odoslať formulár.
+        e.preventDefault(); e.stopPropagation();
+        if (this._tipBtn === b) this._tipHide(); else this._tipShow(b);
+        return;
+      }
+      if (this._tipBtn) this._tipHide();
+    }, true);
+    document.addEventListener('mouseover', (e) => {
+      const b = e.target.closest && e.target.closest('.tip-btn');
+      if (b && hover() && this._tipBtn !== b) this._tipShow(b);
+    });
+    document.addEventListener('mouseout', (e) => {
+      const b = e.target.closest && e.target.closest('.tip-btn');
+      if (b && hover() && !b.contains(e.relatedTarget)) this._tipHide();
+    });
+    document.addEventListener('focusin', (e) => {
+      if (e.target.classList && e.target.classList.contains('tip-btn')) this._tipShow(e.target);
+    });
+    document.addEventListener('focusout', (e) => {
+      if (e.target.classList && e.target.classList.contains('tip-btn')) this._tipHide();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._tipHide(); });
+    window.addEventListener('scroll', () => this._tipHide(), true);
   },
 
   /** Veta pod poľom. Prázdne `hint` nič nevykreslí — nie prázdny prvok. */
@@ -321,3 +384,4 @@ window.UI = {
     return out;
   },
 };
+window.UI._tipBind();

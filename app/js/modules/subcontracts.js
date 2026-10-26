@@ -586,10 +586,15 @@
                 + b('btn-primary', `Sub.viaWrk('zmluvaForm','${a.worker_id}')`, 'check', 'Podpísaná')}
               ${x.objednavka ? '' : b(x.zmluva ? 'btn-primary' : 'btn-outline', `Sub.newWorkerOrder('${a.id}')`, 'orders', 'Vystaviť objednávku')}
               ${b('btn-ghost', `Sub.siteSheet('${a.id}')`, 'doc', 'Infolist')}
+              ${b('btn-ghost', `Sub.contactForm('${a.id}')`, 'phone', 'Kontakt')}
+              ${window.Bundle ? b(x.zmluva && x.objednavka ? 'btn-primary' : 'btn-outline', `Bundle.open('${a.id}')`, 'mail', 'Poslať všetko naraz') : ''}
             </div>
+            ${this.contactLine(a)}
           </div>`;
         }).join('')}</div>
-          <p class="card-note">Infolist je papier pre živnostníka: kam prísť, kedy, za kým a kde bude bývať.</p>`;
+          <p class="card-note">Infolist je papier pre živnostníka: kam prísť, kedy, za kým a kde bude bývať.
+            „Poslať všetko naraz" pošle infolist na stavbu, infolist k ubytovaniu, objednávku a vzor faktúry
+            v jednej správe — e-mailom, cez WhatsApp alebo SMS. ${UI.tip('Živnostník tak nedostane päť správ zvlášť. E-mail má všetky PDF ako prílohy, WhatsApp a SMS jeden krátky odkaz, kde sú všetky papiere naraz. Odkaz platí 30 dní.')}</p>`;
       }
 
       if (key === 'ubytovanie') {
@@ -1464,6 +1469,86 @@
       Docs.show(okno || window.open('', '_blank'), html, { kind: 'infolist', title: 'Infolist na stavbu',
         who: worker && worker.full_name, lang: 'sk', worker_id: a.worker_id,
         subcontract_id: a.subcontract_id, partner_id: (sc || {}).partner_id || null });
+    },
+
+    // ── Kontaktná osoba pri nasadení ──────────────────────────────────────
+    // Kto je v partii, má kolegov z partie na infoliste sám. Kto nie je,
+    // tomu sa dá vybrať kolega zo stavby alebo ručne meno a telefón —
+    // „chcem mať možnosť kolegovi pridať kontakt na kontaktnú osobu".
+    contactOf(a) {
+      if (!a) return null;
+      if (a.contact_worker_id) {
+        const w = this.workerOf(a.contact_worker_id) || {};
+        return { name: w.full_name || 'kolega', phone: w.phone || '', note: a.contact_note || '' };
+      }
+      if (a.contact_name || a.contact_phone) {
+        return { name: a.contact_name || '', phone: a.contact_phone || '', note: a.contact_note || '' };
+      }
+      return null;
+    },
+    contactLine(a) {
+      const crew = a.crew_id ? (this.crews || []).find(c => c.id === a.crew_id) : null;
+      const c = this.contactOf(a);
+      if (!crew && !c) return '';
+      return `<div class="js-contact muted-sm">${Icon('phone', 12)}
+        ${crew ? `Partia <b>${UI.esc(crew.name)}</b> — kolegovia z partie sú na infoliste.` : ''}
+        ${c ? `Kontaktná osoba: <b>${UI.esc(c.name)}</b>${c.phone ? ` · ${UI.esc(c.phone)}` : ''}` : ''}</div>`;
+    },
+    contactForm(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return;
+      const me = this.workerOf(a.worker_id) || {};
+      const crew = a.crew_id ? (this.crews || []).find(c => c.id === a.crew_id) : null;
+      const today = new Date().toISOString().slice(0, 10);
+      const kolegovia = this.assignments
+        .filter(x => x.subcontract_id === a.subcontract_id && x.worker_id !== a.worker_id
+          && x.status !== 'ended' && (!x.date_to || x.date_to >= today))
+        .map(x => this.workerOf(x.worker_id)).filter(Boolean);
+      const sel = a.contact_worker_id || (a.contact_name || a.contact_phone ? '__manual' : '');
+      UI.modal('Kontaktná osoba na stavbe', `
+        <form id="asg-contact" onsubmit="event.preventDefault();Sub.saveContact('${a.id}')">
+          <p class="modal-lead">Komu má <b>${UI.esc(me.full_name || 'živnostník')}</b> zavolať, keď prvý deň
+            nevie, kam ísť. Ukáže sa na infoliste aj v správe, ktorú mu pošlete.</p>
+          ${crew ? `<div class="regimebox">Je v partii <b>${UI.esc(crew.name)}</b> — kolegov z partie s telefónmi
+            uvidí na infoliste sám. Kontaktnú osobu pridajte len vtedy, keď má volať niekomu inému.</div>` : ''}
+          <div class="form-grid">
+            ${UI.field('who', 'Kto', { value: sel,
+              options: [['', '— nikto —'], ...kolegovia.map(w => [w.id, `${w.full_name}${w.phone ? ` · ${w.phone}` : ''}`]),
+                ['__manual', 'Iná osoba — napíšem ručne']],
+              onchange: "document.getElementById('asg-contact-manual').hidden = this.value !== '__manual'",
+              tip: 'Kolega zo stavby, ktorý tam už robí, alebo niekto iný (napr. majster). Číslo mu dajte len so súhlasom toho človeka.' })}
+          </div>
+          <div id="asg-contact-manual" class="form-grid"${sel === '__manual' ? '' : ' hidden'}>
+            ${UI.field('contact_name', 'Meno', { value: a.contact_name || '' })}
+            ${UI.field('contact_phone', 'Telefón', { type: 'tel', value: a.contact_phone || '', placeholder: '+49 …' })}
+          </div>
+          <div class="form-grid">
+            ${UI.field('contact_note', 'Poznámka pre živnostníka', { value: a.contact_note || '',
+              placeholder: 'napr. robí na 2. poschodí, hovorí po slovensky', type: 'textarea', rows: 2 })}
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Uložiť</button>
+          </div>
+        </form>`);
+    },
+    async saveContact(asgId) {
+      const d = UI.formData(document.getElementById('asg-contact'));
+      const manual = d.who === '__manual';
+      const patch = {
+        contact_worker_id: d.who && !manual ? d.who : null,
+        contact_name: manual ? (d.contact_name || null) : null,
+        contact_phone: manual ? (d.contact_phone || null) : null,
+        contact_note: d.contact_note || null,
+      };
+      if (manual && !patch.contact_name && !patch.contact_phone) return UI.toast('Napíšte meno alebo telefón', 'err');
+      const { error } = await DB.update('assignments', asgId, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const a = this.assignments.find(x => x.id === asgId);
+      if (a) Object.assign(a, patch);
+      UI.closeModal();
+      UI.toast('Kontaktná osoba je uložená', 'ok');
+      if (a) this.detail(a.subcontract_id);
     },
 
     async delAsg(id) {

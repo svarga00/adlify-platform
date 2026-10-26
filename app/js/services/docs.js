@@ -241,6 +241,32 @@
       for (const r of this.rows) if (ids.includes(r.id)) r.sent_at = at;
     },
 
+    /**
+     * PDF bez otvárania okna — pre balík, kde treba naraz štyri papiere.
+     * Dokument sa vykreslí v neviditeľnom ráme v šírke A4, spraví sa z neho
+     * PDF a uloží sa do dokumentov, rovnako ako cez tlačidlo PDF.
+     * @returns {Promise<{ row: Object|null, file: File }>}
+     */
+    async renderPdf(html, meta = {}) {
+      const fr = document.createElement('iframe');
+      fr.setAttribute('aria-hidden', 'true');
+      fr.style.cssText = 'position:fixed;left:-12000px;top:0;width:900px;height:1300px;border:0;visibility:hidden;';
+      document.body.appendChild(fr);
+      try {
+        const okno = fr.contentWindow;
+        this.show(okno, html, meta);
+        // Rám potrebuje chvíľu na rozloženie a písma.
+        await new Promise(r => setTimeout(r, 150));
+        const blob = await this.makePdf(okno);
+        const name = A().fileName({ ...meta, date: new Date() });
+        const file = new File([blob], name, { type: 'application/pdf' });
+        const row = await this.store(blob, { ...meta, file_name: name });
+        return { row, file };
+      } finally {
+        fr.remove();
+      }
+    },
+
     // ── Archív ────────────────────────────────────────────────────────────
     /** Nahrá PDF do úložiska a zapíše ho do archívu. Chyba nezastaví stiahnutie. */
     async store(blob, meta) {
