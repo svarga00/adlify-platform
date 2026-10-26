@@ -100,7 +100,10 @@
       const warn = r.warning ? `<div class="warnbox">${Icon('alert',14)} ${UI.esc(r.warning)}</div>` : '';
       const body = `
         <div class="detail-head">${this.typeBadge(c.type)}
-          ${UI.badge(r.regime === 'sk_no_vat' ? 'SK — nie sme platiteľmi DPH' : r.regime === 'eu_reverse_charge' ? 'EU reverse charge' : 'Režim na kontrolu', r.regime === 'other' ? 'amber' : 'green')}</div>
+          ${UI.badge(r.regime === 'sk_no_vat' ? 'SK — nie sme platiteľmi DPH' : r.regime === 'eu_reverse_charge' ? 'EU reverse charge' : 'Režim na kontrolu', r.regime === 'other' ? 'amber' : 'green')}${
+            UI.tip('Fakturačný režim hovorí, ako sa na faktúre rieši DPH. SK = klient na Slovensku, DPH nepripočítavame, '
+              + 'lebo nie sme platiteľ DPH. Reverse charge = klient v inej krajine EÚ s IČ DPH, daň si odvedie sám. '
+              + '„Na kontrolu" = chýba krajina alebo IČ DPH.')}</div>
         ${warn}
         ${CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'client', id: c.id } })}
         <div class="kv">${rows.map(x => `<div><span>${x[0]}</span><strong>${UI.esc(x[1])}</strong></div>`).join('')}</div>
@@ -110,7 +113,8 @@
           <button class="btn btn-danger" onclick="Cli.del('${c.id}')">Zmazať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Cli.form('${c.id}')">Upraviť</button>
-          <button class="btn btn-primary" onclick="Cli.invoice('${c.id}')">${Icon('receipt')} Vystaviť faktúru</button>
+          <button class="btn btn-primary" onclick="Cli.invoice('${c.id}')">${Icon('receipt')} Vystaviť faktúru</button>${
+            UI.tip('Otvorí voľnú faktúru pre tohto klienta. Vznikne ako návrh — platná bude až po schválení.')}
         </div>`;
       UI.modal(c.name, body, { wide: true });
     },
@@ -125,15 +129,22 @@
             ${UI.field('contact_person', 'Kontaktná osoba', { value: c.contact_person })}
             ${UI.field('phone', 'Telefón', { value: c.phone })}
             ${UI.field('email', 'E-mail', { type: 'email', value: c.email })}
-            ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ...LANGS] })}
-            ${UI.field('country', 'Krajina', { value: c.country, placeholder: 'SK, DE, HU…' })}
-            ${UI.field('company_id', 'IČO', { value: c.company_id })}
-            ${UI.field('vat_id', 'IČ DPH', { value: c.vat_id })}
+            ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ...LANGS],
+              tip: 'V akom jazyku sa klientovi píšu ponuky. Predvyplní sa do novej ponuky.' })}
+            ${UI.field('country', 'Krajina', { value: c.country, placeholder: 'SK, DE, HU…',
+              tip: 'Dvojpísmenový kód krajiny. Spolu s IČ DPH určuje fakturačný režim (či a ako sa rieši DPH).' })}
+            ${UI.field('company_id', 'IČO', { value: c.company_id,
+              tip: 'IČO = identifikačné číslo firmy alebo živnostníka z registra. Tlačí sa na faktúru.' })}
+            ${UI.field('vat_id', 'IČ DPH', { value: c.vat_id,
+              tip: 'IČ DPH klienta (napr. DE123456789). Klient z inej krajiny EÚ s IČ DPH ide v režime reverse '
+                + 'charge — daň si odvedie sám.' })}
             ${UI.field('source', 'Zdroj', { value: c.source })}
           </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: c.whatsapp, placeholder: 'Má WhatsApp' })}
-            ${UI.field('retainer', '', { type: 'checkbox', value: c.retainer, placeholder: 'Retainer (priebežná spolupráca)' })}
+            ${UI.field('retainer', '', { type: 'checkbox', value: c.retainer, placeholder: 'Retainer (priebežná spolupráca)',
+              tip: 'Retainer = pravidelný paušál za priebežnú spoluprácu, aj keď klient práve nič neobjednáva. '
+                + 'Sumu a obdobie vyplňte nižšie.' })}
           </div>
           <div class="form-grid">
             ${UI.field('retainer_rate', 'Retainer sadzba €', { type: 'number', value: c.retainer_rate })}

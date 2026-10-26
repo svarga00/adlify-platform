@@ -133,11 +133,11 @@
 
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Msg.close()">${Icon('back', 15)} Späť</button>
-        <button class="btn btn-outline btn-sm" onclick="Msg.toggleDone('${t.id}')">
+        <span style="display:inline-flex;align-items:center;"><button class="btn btn-outline btn-sm" onclick="Msg.toggleDone('${t.id}')">
           ${Icon(t.status === 'done' ? 'repeat' : 'check', 14)}
           ${t.status === 'done' ? 'Otvoriť znova' : 'Uzavrieť'}</button>${UI.tip(t.status === 'done'
             ? 'Vráti vlákno medzi otvorené. Nič sa nemení ani neposiela.'
-            : 'Vlákno sa presunie medzi Uzavreté — správy v ňom ostanú a kedykoľvek ho otvoríte znova. Nikomu sa nič neposiela.')}`);
+            : 'Vlákno sa presunie medzi Uzavreté — správy v ňom ostanú a kedykoľvek ho otvoríte znova. Nikomu sa nič neposiela.')}</span>`);
 
       const msg = (m) => `
         <div class="msg msg-${m.direction}">
@@ -175,8 +175,7 @@
                ${Icon('note', 14)} Uložiť ako poznámku</button>${UI.tip('Poznámku uvidia len kolegovia v appke, protistrane nikam neodíde. Po uložení sa už nedá upraviť ani zmazať.')}
              ${t.channel !== 'internal' ? `<button class="btn btn-primary btn-sm"
                onclick="Msg.reply('${t.id}','queued')">
-               ${Icon('mail', 14)} ${cfg.ok ? 'Odoslať' : 'Zaradiť na odoslanie'}</button>${cfg.ok ? ''
-               : UI.tip('Správa sa uloží do frontu a odíde až po zapnutí odosielania v Nastaveniach. Dovtedy ju adresát nedostane — ak je to súrne, ozvite sa mu inak.')}` : ''}
+               ${Icon('mail', 14)} ${cfg.ok ? 'Odoslať' : 'Zaradiť na odoslanie'}</button>` : ''}
            </div>`;
     },
 
@@ -257,9 +256,8 @@
           <p class="card-note" id="msg-missing"></p>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-            ${UI.tip('Koncept sa uloží do Správ, ale nikam neodíde ani sa nezaradí do frontu.')}
-            <button type="button" class="btn btn-outline" onclick="Msg.saveNew('draft')">
-              Uložiť ako koncept</button>
+            <span style="display:inline-flex;align-items:center;"><button type="button" class="btn btn-outline" onclick="Msg.saveNew('draft')">
+              Uložiť ako koncept</button>${UI.tip('Koncept sa uloží do Správ, ale nikam neodíde ani sa nezaradí do frontu.')}</span>
             <button type="submit" class="btn btn-primary">
               ${cfg.ok ? 'Odoslať' : 'Zaradiť na odoslanie'}</button>
           </div>

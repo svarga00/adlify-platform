@@ -166,5 +166,87 @@ console.log('Odolnosť');
   }
 }
 
+// ── Kolegovia: partia, alebo kontaktná osoba ────────────────────────────────
+console.log('Kolegovia');
+{
+  const WORKERS = [
+    { id: 'w1', full_name: 'Ján Novák', phone: '+421 900 111 111' },
+    { id: 'w2', full_name: 'Peter Malý', phone: '+421 900 222 222' },
+    { id: 'w3', full_name: 'Adam Bača', phone: '+421 900 333 333' },
+    { id: 'w4', full_name: 'Zoltán Kiss', phone: '+36 30 444 4444' },
+    { id: 'w5', full_name: 'Karol Odišiel', phone: '+421 900 555 555' },
+  ];
+  const CREW = { id: 'c1', name: 'Partia Malý', phone: '+421 900 999 999', leader_worker_id: 'w3' };
+  const MEMBERS = [
+    { crew_id: 'c1', worker_id: 'w1', role: 'member' },
+    { crew_id: 'c1', worker_id: 'w2', role: 'member' },
+    { crew_id: 'c1', worker_id: 'w3', role: 'leader' },
+    { crew_id: 'c1', worker_id: 'w5', role: 'member', left_at: '2026-09-01' },
+    { crew_id: 'c1', worker_id: 'w4', role: 'member', left_at: '2026-12-31' },
+    { crew_id: 'c2', worker_id: 'w2', role: 'member' },
+  ];
+  const k = S.colleagues({ assignment: { worker_id: 'w1', crew_id: 'c1' }, crew: CREW,
+    crewMembers: MEMBERS, workers: WORKERS, today: '2026-10-26' });
+  eq(k.crew, { name: 'Partia Malý', phone: '+421 900 999 999' }, 'partia s menom a telefónom');
+  eq(k.people.map(p => p.name), ['Adam Bača', 'Peter Malý', 'Zoltán Kiss'],
+    'predák prvý, bez neho samého a bez toho, kto už odišiel');
+  eq(k.people[0].role, 'predák', 'predák je označený');
+  eq(k.people[0].phone, '+421 900 333 333', 'telefón je zo záznamu človeka');
+  ok(k.people.every(p => p.name !== 'Ján Novák'), 'sám seba v zozname nemá');
+  ok(k.people.some(p => p.name === 'Zoltán Kiss'), 'kto odchádza až v budúcnosti, je ešte v partii');
+  eq(k.contact, null, 'bez kontaktnej osoby žiadna kontaktná osoba');
+
+  // Nie je v partii: kontaktná osoba je kolega zo stavby…
+  const kolega = S.colleagues({ assignment: { worker_id: 'w1', contact_worker_id: 'w4',
+    contact_note: 'Robí tam od augusta, vie, kde je bunka.' }, workers: WORKERS });
+  eq(kolega.crew, null, 'mimo partie žiadna partia');
+  eq(kolega.people, [], 'a žiadni členovia');
+  eq(kolega.contact, { name: 'Zoltán Kiss', phone: '+36 30 444 4444',
+    note: 'Robí tam od augusta, vie, kde je bunka.' }, 'kolega z nasadenia aj s poznámkou');
+  const zNacitaneho = S.colleagues({ assignment: { worker_id: 'w1', contact_worker_id: 'w9' },
+    contactWorker: { id: 'w9', full_name: 'Milan Iný', phone: '+421 900 000 009' } });
+  eq(zNacitaneho.contact.name, 'Milan Iný', 'kolega sa vezme aj z contactWorker');
+
+  // …alebo voľné meno a telefón.
+  const volne = S.colleagues({ assignment: { worker_id: 'w1', contact_name: 'Herr Schulz',
+    contact_phone: '+49 151 123' } });
+  eq(volne.contact, { name: 'Herr Schulz', phone: '+49 151 123', note: '' }, 'ručne zapísaný kontakt');
+
+  const nic = S.colleagues({ assignment: { worker_id: 'w1', contact_name: '—', contact_note: 'x' } });
+  eq(nic, { crew: null, people: [], contact: null }, 'nič, keď nie je ani partia, ani kontakt');
+  eq(S.colleagues(), { crew: null, people: [], contact: null }, 'prázdny vstup nespadne');
+  eq(S.colleagues({ assignment: { worker_id: 'w1', contact_worker_id: 'w1' }, workers: WORKERS }).contact,
+    null, 'sám sebe kontaktnou osobou nie je');
+}
+
+// ── Infolist k ubytovaniu: čo chýba ─────────────────────────────────────────
+console.log('Ubytovanie');
+{
+  const LOD = { id: 'l1', name: 'Pension Lerche', address: 'Lerchenstr. 8', city: 'Stuttgart',
+    keys_note: 'Kľúče u správcu.', date_from: '2026-10-11', date_to: '2026-12-18' };
+  const ACC = { name: 'Pension Lerche', address: 'Lerchenstr. 8', postal_code: '70176', city: 'Stuttgart',
+    access_door_code: '4711', checkin_info: 'Od 16:00, zvonček Hausmeister.' };
+  const plne = S.checkLodging({ lodging: LOD, accommodation: ACC, stay: { date_from: '2026-10-12', date_to: '2026-11-30' } });
+  eq(plne.missing, [], 'kompletné ubytovanie');
+  eq(plne.values.from, '2026-10-12', 'od kedy je z jeho pobytu');
+  eq(plne.values.to, '2026-11-30', 'aj do kedy');
+  ok(/Kód dverí: 4711/.test(plne.values.access), 'kód dverí patrí k vstupu');
+  ok(/maps/.test(plne.values.map), 'a je odkaz na mapu');
+
+  eq(S.checkLodging({ lodging: LOD }).values.from, '2026-10-11', 'bez pobytu platí termín ubytovania');
+
+  const holé = S.checkLodging({ lodging: { name: 'Byt' } });
+  eq(holé.ready, false, 'bez adresy sa list posielať nemá');
+  eq(holé.blocking.map(b => b.key), ['address'], 'a jediné povinné je adresa');
+  eq(holé.missing.map(m => m.key), ['address', 'from', 'access', 'checkin'], 'zvyšok sa povie, že chýba');
+  ok(holé.missing.every(m => m.why.length > 30), 'každé „prečo" je veta, nie nálepka');
+  ok(/kľúče/.test(holé.missing.find(m => m.key === 'access').why), 'pri vstupe sa spomenú kľúče');
+
+  const lenZaznam = S.checkLodging({ lodging: { name: 'X' }, accommodation: ACC });
+  eq(lenZaznam.values.address, 'Lerchenstr. 8, 70176, Stuttgart', 'adresa sa vezme aj z celého záznamu');
+  eq(lenZaznam.values.access, 'Kód dverí: 4711', 'vstup stačí aj samotný kód');
+  eq(S.checkLodging({}).ready, false, 'prázdny vstup nespadne');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

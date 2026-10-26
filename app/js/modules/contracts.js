@@ -193,9 +193,9 @@
           ${c.date_from ? `<div><span>Platnosť</span><strong>${UI.dateRange(c.date_from, c.date_to)}</strong></div>` : ''}
           <div><span>Cena</span><strong>${this.priceText(c)}</strong></div>
           <div><span>Splatnosť${UI.tip('Koľko dní po vystavení faktúry má odberateľ na zaplatenie. Z toho sa počíta dátum splatnosti na faktúre.')}</span><strong>${c.payment_terms_days || 30} dní</strong></div>
-          ${c.retention_pct ? `<div><span>Zádržné${UI.tip('Časť ceny (Sicherheitseinbehalt), ktorú si odberateľ nechá ako zábezpeku až do konca záruky. Sú to naše peniaze, ale prídu až neskôr.')}</span><strong>${UI.pct(c.retention_pct)}</strong></div>` : ''}
-          ${c.warranty_months ? `<div><span>Záruka${UI.tip('Ako dlho po odovzdaní diela ručíme za chyby. Do konca záruky drží odberateľ zádržné.')}</span><strong>${c.warranty_months} mes.</strong></div>` : ''}
-          ${c.notice_days ? `<div><span>Výpovedná lehota${UI.tip('Koľko dní dopredu treba zmluvu vypovedať, kým naozaj skončí.')}</span><strong>${c.notice_days} dní</strong></div>` : ''}
+          ${c.retention_pct ? `<div><span>Zádržné</span><strong>${UI.pct(c.retention_pct)}</strong></div>` : ''}
+          ${c.warranty_months ? `<div><span>Záruka</span><strong>${c.warranty_months} mes.</strong></div>` : ''}
+          ${c.notice_days ? `<div><span>Výpovedná lehota</span><strong>${c.notice_days} dní</strong></div>` : ''}
           ${c.signed_at ? `<div><span>Podpísaná</span><strong>${UI.date(c.signed_at)}</strong></div>` : ''}
         </div>
 

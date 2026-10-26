@@ -271,6 +271,163 @@ console.log('Dokumenty');
   ok(!/undefined|null/.test(bezFirmy.replace(/null"/g, '')),
     'prázdny vstup nevyrobí „undefined" na papieri');
   ok(!/arbeite für/.test(bezFirmy), 'ani sľub firmy, ktorú nepoznáme');
+
+  // Kolegovia a kontakt: partia, kontaktná osoba, alebo aspoň naše číslo.
+  const S = require('./sitesheet.js');
+  const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const sPartiou = P.siteSheet({ ...zaklad, lodging: null, colleagues: S.colleagues({
+    assignment: { worker_id: 'w1' }, crew: { id: 'c1', name: 'Partia Malý', leader_worker_id: 'w3' },
+    crewMembers: [{ crew_id: 'c1', worker_id: 'w1' }, { crew_id: 'c1', worker_id: 'w2' },
+      { crew_id: 'c1', worker_id: 'w3', role: 'leader' }],
+    workers: [{ id: 'w2', full_name: 'Peter Malý', phone: '+421 900 222 222' },
+      { id: 'w3', full_name: 'Adam Bača', phone: '+421 900 333 333' }] }) });
+  const tp = text(sPartiou);
+  ok(/Kolegovia a kontakt/.test(tp), 'infolist má oddiel o kolegoch');
+  ok(/Partia Malý/.test(tp) && /Adam Bača — predák/.test(tp) && /Peter Malý/.test(tp),
+    'partia s predákom a členmi', tp.slice(tp.indexOf('Kolegovia'), tp.indexOf('Kolegovia') + 200));
+  ok(tp.indexOf('Adam Bača') < tp.indexOf('Peter Malý'), 'predák je prvý');
+  ok(/href="tel:\+421900333333"/.test(sPartiou), 'telefón je odkaz, na mobile sa naň ťukne');
+
+  const sKontaktom = P.siteSheet({ ...zaklad, lodging: null, colleagues: S.colleagues({
+    assignment: { worker_id: 'w1', contact_name: 'Zoltán Kiss', contact_phone: '+36 30 444 4444',
+      contact_note: 'Robí tam od augusta.' } }) });
+  const tk = text(sKontaktom);
+  ok(/Kontaktná osoba/.test(tk) && /Zoltán Kiss/.test(tk) && /Robí tam od augusta/.test(tk),
+    'kto nie je v partii, má kontaktnú osobu aj s poznámkou');
+  ok(!/Vaša partia/.test(tk), 'a nepíše sa o partii, ktorú nemá');
+  ok(!tyka.test(tk), 'vyká', (tk.match(tyka) || [])[0]);
+
+  const bezNikoho = text(P.siteSheet({ ...zaklad, lodging: null, colleagues: S.colleagues({}) }));
+  ok(/nemáte zapísaného kolegu/.test(bezNikoho) && /zavolajte nám na \+421 900 000 000/.test(bezNikoho),
+    'bez kolegov je aspoň veta, že sa volá nám — s číslom');
+  ok(/Kolegovia a kontakt/.test(text(h)) && /zavolajte nám/.test(text(h)),
+    'aj keď UI kolegov nepošle, miesto nie je prázdne');
+
+  // Keď ide aj infolist k ubytovaniu, tu je ubytovanie len v skratke.
+  const skratka = text(P.siteSheet({ ...zaklad, lodgingSheet: true,
+    lodging: { name: 'Pension Lerche', address: 'Lerchenstr. 8', city: 'Stuttgart',
+      keys_note: 'Kľúče u správcu.', house_rules: 'Nočný pokoj 22:00–06:00.' } }));
+  ok(/Pension Lerche/.test(skratka), 'adresa ubytovania zostane');
+  ok(/Podrobnosti o ubytovaní sú na samostatnom liste\./.test(skratka), 'a odkáže sa na samostatný list');
+  ok(!/Kľúče u správcu/.test(skratka), 'kľúče a pravidlá sú až tam — nie dvakrát');
+  ok(!/samostatnom liste/.test(text(sUbytovanim)), 'bez samostatného listu sa naň neodkazuje');
+}
+
+// ── Infolist k ubytovaniu ───────────────────────────────────────────────────
+console.log('Infolist k ubytovaniu');
+{
+  const tyka = /(?<!\p{L})(tvoj\p{L}*|máš|si vezmi|zavolaj|nerieš|ukáž|nepodpisuj|budeš|dovoláš|ťa|ti|od teba|nemáš|vystavíš|pošli|musíš|môžeš)(?!\p{L})/iu;
+  const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const SUP = { name: 'Partner und Service s. r. o.', phone: '+421 910 523 858', email: 'info@punds.eu' };
+  const LOD = { name: 'Pension Lerche', address: 'Lerchenstr. 8', city: 'Stuttgart',
+    keys_note: 'Kľúče u správcu, zvonček Hausmeister.', house_rules: 'Fajčí sa len na balkóne.',
+    date_from: '2026-10-11', date_to: '2026-12-18' };
+  const ACC = { access_door_code: '4711', gate_code: '0815', floor: '2', room_number: '12',
+    wifi_ssid: 'Lerche-Gast', wifi_password: 'sommer2026', checkin_info: 'Od 16:00.',
+    checkout_info: 'Kľúče nechajte na stole.', owner_name: 'Frau Lerche', owner_phone: '+49 711 123456' };
+  const h = P.lodgingSheet({ worker: { full_name: 'Ján Novák' }, subcontract: { title: 'Wohnpark' },
+    lodging: LOD, accommodation: ACC, stay: { date_from: '2026-10-12', date_to: '2026-11-30' },
+    roommates: ['Peter Malý', 'Adam Bača'], supplier: SUP });
+  const t = text(h);
+  ok(/Infolist k ubytovaniu/.test(t) && /Ján Novák/.test(t), 'dokument sa volá podľa toho, načo je, a pre koho je');
+  ok(/Lerchenstr\. 8/.test(t) && /maps/.test(h), 'adresa s mapou');
+  ok(/12\. ?10\. ?2026 – 30\. ?11\. ?2026/.test(t), 'od – do je jeho pobyt, po slovensky', t.slice(0, 600));
+  ok(/Kľúče u správcu/.test(t) && /4711/.test(t) && /0815/.test(t), 'ako sa dostane dnu: kľúče a kódy');
+  ok(/poschodie 2, izba 12/.test(t), 'poschodie a izba');
+  ok(/Od 16:00/.test(t) && /Kľúče nechajte na stole/.test(t), 'príchod a odchod');
+  ok(/Lerche-Gast/.test(t) && /sommer2026/.test(t), 'Wi-Fi');
+  ok(/Peter Malý/.test(t) && /Adam Bača/.test(t), 's kým býva');
+  ok(/Fajčí sa len na balkóne/.test(t), 'domáci poriadok z ubytovania');
+  ok(/Nočný pokoj/.test(t) && /hostia/.test(t) && /Škodu uhrádza ten, kto ju spôsobil/.test(t),
+    'krátke pravidlá: pokoj, hostia, škody');
+  ok(/\+421 910 523 858/.test(t) && /info@punds\.eu/.test(t), 'komu volať: najprv nám');
+  ok(/Majiteľ — len keď sa nám nedovoláte/.test(t) && /\+49 711 123456/.test(t),
+    'majiteľ len ako záloha a tak je aj označený');
+  ok(!tyka.test(t), 'vyká', (t.match(tyka) || [])[0]);
+
+  const bezMajitela = text(P.lodgingSheet({ worker: { full_name: 'Ján' }, lodging: LOD,
+    accommodation: { ...ACC, owner_phone: '' }, supplier: SUP }));
+  ok(!/Majiteľ/.test(bezMajitela) && !/Frau Lerche/.test(bezMajitela), 'bez telefónu majiteľ na liste nie je');
+
+  // Keď chýba, napíše sa to — a čo s tým.
+  const dieravy = P.lodgingSheet({ worker: { full_name: 'Ján' }, lodging: { name: 'Byt' }, supplier: SUP });
+  const td = text(dieravy);
+  ok(/Ubytovanie nemá zapísanú adresu/.test(td), 'chýbajúca adresa je na papieri napísaná');
+  ok(/ako sa dostať dnu/.test(td) && /ako prebieha príchod/.test(td), 'aj vstup a príchod');
+  ok(/Spýtajte sa u nás/.test(td) && /class="todo"/.test(dieravy), 'aj čo s tým spraviť, zvýraznené');
+  ok(/nikoho ďalšieho/.test(td), 'bez spolubývajúcich sa to povie');
+  ok(!/Wi-Fi/.test(td), 'Wi-Fi sa nevymýšľa');
+  ok(!/undefined|null/.test(td), 'prázdny vstup nevyrobí „undefined"');
+  ok(!tyka.test(td), 'vyká aj pri chýbajúcich údajoch', (td.match(tyka) || [])[0]);
+
+  const sKontaktom = text(P.lodgingSheet({ lodging: LOD, supplier: SUP,
+    colleagues: { crew: null, people: [], contact: { name: 'Zoltán Kiss', phone: '+36 30 444', note: '' } } }));
+  ok(/Na stavbe: Zoltán Kiss/.test(sKontaktom), 'kontaktná osoba je aj tu');
+  ok(typeof P.lodgingSheet() === 'string', 'bez vstupu nespadne');
+}
+
+// ── Vzor faktúry ────────────────────────────────────────────────────────────
+console.log('Vzor faktúry');
+{
+  const tyka = /(?<!\p{L})(tvoj\p{L}*|máš|zavolaj|pošli|vystav|nepodpisuj|budeš|ťa|ti|od teba|nemáš|vystavíš|musíš|môžeš|prilož)(?!\p{L})/iu;
+  const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const SUP = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, 940 71 Nové Zámky',
+    company_id: '57553921', tax_id: '2122816839', vat_id: 'SK2122816839', iban: 'SK6711000000002948311291',
+    email: 'info@punds.eu', phone: '+421 910 523 858' };
+  const W = { full_name: 'Ján Novák', business_address: 'Hlavná 1', business_zip: '940 01',
+    business_city: 'Nové Zámky', company_id: '12345678', tax_id: '1020304050',
+    bank_iban: 'SK3112000000198742637541', hourly_cost: 18.5 };
+  const h = P.invoiceGuide({ worker: W, assignment: {}, subcontract: { title: 'Wohnpark', site_city: 'Stuttgart' },
+    supplier: SUP, month: '2026-10' });
+  const t = text(h);
+  ok(/Vzor faktúry/.test(t) && /Ako nám fakturovať/.test(t), 'dokument sa volá podľa toho, načo je');
+  ok(/Odberateľ — my/.test(t) && /Partner und Service/.test(t) && /IČO: 57553921/.test(t) && /DIČ: 2122816839/.test(t),
+    'odberateľ sme my, s IČO a DIČ');
+  ok(/Dodávateľ — Vy/.test(t) && /Hlavná 1, 940 01 Nové Zámky/.test(t) && /IČO: 12345678/.test(t),
+    'dodávateľ je on, s adresou podnikania');
+  ok(!/doplňte/.test(t.replace(/Svoje skontrolujte a doplňte/, '')), 'keď je všetko vyplnené, nič „doplňte"', t.slice(0, 800));
+  ok(/Práce na stavbe Wohnpark, Stuttgart za obdobie október 2026/.test(t), 'predmet a obdobie po slovensky');
+  ok(/Odpracované hodiny podľa podpísaného výkazu/.test(t), 'riadok s hodinami podľa výkazu');
+  ok(/18,50 €/.test(t), 'sadzba s desatinnou čiarkou a dvoma miestami');
+  ok(/160 h × 18,50 € = 2 960,00 €/.test(t), 'príklad 160 hodín', t.match(/Príklad[^.]*/)?.[0]);
+  ok(/14 dní od doručenia/.test(t), 'splatnosť podľa rámcovej zmluvy');
+  ok(/SK3112000000198742637541/.test(t), 'jeho IBAN');
+  ok(/„Nie som platiteľ DPH\."/.test(t) && /Ak ste platiteľom DPH, zavolajte nám na \+421 910 523 858 skôr, než faktúru vystavíte/.test(t),
+    'veta o DPH a čo robiť, keď je platiteľ');
+  ok(/Čo musí byť na faktúre/.test(t) && /Kam ju poslať/.test(t) && /info@punds\.eu/.test(t), 'čo na nej má byť a kam ju poslať');
+  ok(/Stundennachweis/.test(t) && /Priložte podpísaný výkaz hodín/.test(t), 'priložiť podpísaný výkaz');
+  ok(!tyka.test(t), 'vyká', (t.match(tyka) || [])[0]);
+
+  // Peniaze: sadzba nasadenia má prednosť a nič sa nesčítava v desatinných číslach.
+  const t2 = text(P.invoiceGuide({ worker: W, assignment: { worker_rate: '19,99' }, supplier: SUP }));
+  ok(/160 h × 19,99 € = 3 198,40 €/.test(t2), 'sadzba z nasadenia, v centoch (nie 3 198,3999…)', t2.match(/Príklad[^.]*/)?.[0]);
+  ok(/obdobie podľa výkazu/.test(t2), 'bez mesiaca „obdobie podľa výkazu"');
+  eq(P.toCents('18,5'), 1850, 'sadzba „18,5" sú 1850 centov');
+  eq(P.toCents(0.1 + 0.2), 30, 'a desatinný šum zmizne');
+  eq(P.toCents('abc'), null, 'nezmysel nie je sadzba');
+  eq(P.centsText(123456789), '1 234 567,89 €', 'tisíce oddelené pevnou medzerou');
+  eq(P.monthLabel('2026-01-15'), 'január 2026', 'mesiac po slovensky');
+
+  // Chýbajúce údaje sú „doplňte", nie prázdne miesto.
+  const holy = P.invoiceGuide({ worker: { full_name: 'Ján Novák' }, supplier: SUP });
+  const th = text(holy);
+  ok((th.match(/doplňte/g) || []).length >= 5, 'chýbajúca adresa, IČO, DIČ, IBAN aj sadzba sú „doplňte"');
+  ok(/Sadzba za hodinu nie je zapísaná/.test(th) && !/Príklad/.test(th), 'bez sadzby sa príklad nevymýšľa');
+  ok(!/undefined|null|NaN/.test(th), 'žiadne „undefined" ani NaN');
+  ok(/Ak ste platiteľom DPH/.test(text(P.invoiceGuide({ worker: { ...W, vat_id: 'SK1020304050' }, supplier: SUP }))),
+    'kto má IČ DPH, ten vetu o volaní vidí tiež');
+
+  // Samofakturácia: faktúru vystavujeme my, on ju len potvrdí.
+  const sf = text(P.invoiceGuide({ worker: { ...W, self_billing_prefix: 'JN' }, supplier: SUP,
+    subcontract: { title: 'Wohnpark' } }));
+  ok(/samofakturácia/i.test(sf) && /vystavujeme my — vo Vašom mene/.test(sf), 'povie jasne, že faktúru vystavujeme my');
+  ok(/potvrdíte ju cez ten odkaz/.test(sf), 'on ju len potvrdí cez odkaz');
+  ok(/neposielajte/.test(sf), 'a vlastnú nám neposiela');
+  ok(/5 dní/.test(sf), 'lehota na námietku z rámcovej zmluvy');
+  ok(!/Čo musí byť na faktúre/.test(sf) && !/Príklad: 160/.test(sf), 'bez návodu, ako faktúru vystaviť — je kratší');
+  ok(/18,50 €\/h/.test(sf) && /Stundennachweis/.test(sf), 'sadzba a výkaz zostávajú');
+  ok(!tyka.test(sf), 'vyká', (sf.match(tyka) || [])[0]);
+  ok(typeof P.invoiceGuide() === 'string', 'bez vstupu nespadne');
 }
 
 // ── Objednávka ──────────────────────────────────────────────────────────────

@@ -529,7 +529,7 @@
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${Icon('check')} Vystaviť faktúru</button>${
-              UI.tip('Napriek názvu vznikne najprv návrh. Platná faktúra z neho bude až po schválení adminom.')}
+              UI.tip('Napriek názvu vznikne najprv návrh. Platná faktúra z neho bude až po schválení.')}
           </div>
         </form>`, { wide: true });
       this.renderRows();

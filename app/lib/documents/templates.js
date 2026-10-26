@@ -1247,7 +1247,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       ${row('Poschodie / izba', [t(acc.floor) && `poschodie ${esc(t(acc.floor))}`,
         t(acc.room_number) && `izba ${esc(t(acc.room_number))}`].filter(Boolean).join(', '))}
       <div class="ss-row"><div class="lbl">Od – do</div>
-        <div class="val">${od} – ${doo}</div></div>
+        <div class="val">${v.from ? `${od} – ${doo}` : `${od}${v.to ? `<br>Do ${doo}` : ''}`}</div></div>
       ${row('Poznámka', esc(t(stay && stay.note) || t(l.note)))}
 
       <h2 class="ss-h">Ako sa dostanete dnu</h2>

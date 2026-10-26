@@ -218,6 +218,7 @@
                ...this.subcontracts.map(s => [s.id, s.title || s.contract_number])] })}
            ${UI.field('their_ref', 'Jeho číslo objednávky', { value: o.their_ref,
              placeholder: 'napr. 4500123456',
+             tip: 'Bestellung = objednávka po nemecky. Nemecká firma ju posiela s vlastným číslom (často dlhé, napr. 4500…). Opíšte ho presne.',
              hint: 'Číslo z jeho Bestellung. Ide na našu faktúru — bez neho ju '
                + 'účtovné oddelenie odberateľa často neprepustí.' })}
            ${UI.field('received_at', 'Kedy prišla', { type: 'date', value: o.received_at })}`
@@ -248,7 +249,8 @@
                 + 'odpoveď — napíšte, čo presne má byť hotové.'
               : 'Čo presne si odberateľ objednal. Podľa toho sa potom kontroluje faktúra.' })}
           <div class="form-grid">
-            ${UI.field('date_from', 'Od', { type: 'date', value: o.date_from })}
+            ${UI.field('date_from', 'Od', { type: 'date', value: o.date_from,
+              tip: 'Obdobie, kedy sa dielo robí — od nástupu po plánované dokončenie.' })}
             ${UI.field('date_to', 'Do', { type: 'date', value: o.date_to })}
           </div>
 
@@ -257,9 +259,13 @@
             <!-- Vždy po hodinách — model sa nevyberá. -->
             <input type="hidden" name="price_model" value="hourly">
             ${UI.field('rate', 'Sadzba €/h', { type: 'number', step: '0.01', value: o.rate,
+              tip: k === 'worker'
+                ? 'Koľko zaplatíme živnostníkovi za jednu jeho hodinu, bez DPH. Predvyplní sa z nasadenia.'
+                : 'Koľko nám odberateľ zaplatí za jednu hodinu práce jedného človeka, bez DPH.',
               hint: k === 'worker'
                 ? 'Na stavbe musí byť aspoň Bau-Mindestlohn.' : 'Fakturujeme vždy po hodinách.' })}
-            ${UI.field('status', 'Stav', { value: o.status || 'draft', options: STATUS_OPTS })}
+            ${UI.field('status', 'Stav', { value: o.status || 'draft', options: STATUS_OPTS,
+              tip: 'Rozpracovaná = ešte sa dopĺňa. Odoslaná = poslali sme ju druhej strane. Potvrdená = druhá strana súhlasí (podpísala). Vybavená = dielo je hotové. Zrušená = neplatí.' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: o.notes })}
           <div class="modal-actions">
@@ -355,6 +361,9 @@
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Ord.form('${o.id}')">${Icon('edit', 14)} Upraviť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip(o.kind === 'customer'
+            ? 'Objednávka SK/DE = dvojjazyčný dokument, ktorý podpisujú obe strany; ním vzniká zmluva o dielo k rámcovej zmluve. Potvrdenie objednávky (Auftragsbestätigung) = náš krátky papier po nemecky, že jeho objednávku prijímame.'
+            : 'Objednávka = dokument po slovensky pre živnostníka: čo presne má urobiť, kde, kedy a za koľko. Odvoláva sa na jeho rámcovú zmluvu.')}</span>
           ${o.kind === 'customer' ? `
             <!-- Potvrdenie je papier, ktorý posielame my. Objednávka SK/DE je
                  dokument, ktorý podpisujú obe strany a ktorým vzniká

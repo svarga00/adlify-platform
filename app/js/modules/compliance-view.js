@@ -13,6 +13,22 @@
     ['insurance', 'Betriebshaftpflicht', 'Poistenie zodpovednosti — odberatelia ho spravidla vyžadujú.'],
     ['other', 'Iné', ''],
   ];
+  // Otáznik pri druhu položky: čo to je, obyčajnou rečou.
+  const KIND_TIP = {
+    freistellung_48b: 'Freistellungsbescheinigung §48b je potvrdenie nemeckého finančného úradu, že '
+      + 'odberateľ nemusí z našich faktúr zrážať 15 % stavebnej dane. Bez neho nám zo stavebných '
+      + 'faktúr príde o 15 % menej.',
+    ust_idnr: 'USt-IdNr je nemecký názov pre IČ DPH v EÚ. Bez platného čísla sa nedá fakturovať '
+      + 'v režime reverse charge §13b, teda bez DPH, ktorú si odvedie odberateľ.',
+    soka_registration: 'SOKA-BAU je nemecká stavebná sociálna kasa (dovolenkový a dôchodkový fond '
+      + 'stavebníctva). Firma, ktorá robí v Nemecku stavebné práce, sa v nej musí zaregistrovať.',
+    handwerksrolle: 'Dienstleistungsanzeige je oznámenie nemeckej remeselnej komore (HWK), že budeme '
+      + 'v Nemecku robiť remeslo, ktoré tam vyžaduje zápis (napr. elektrikár). Podáva sa pred prvou prácou.',
+    insurance: 'Betriebshaftpflicht je poistenie firmy pre prípad, že na stavbe niečo poškodíme alebo '
+      + 'niekoho zraníme. Odberatelia si ho zvyčajne pýtajú pred začatím.',
+  };
+  const TIP_A1 = 'A1 je potvrdenie zo Sociálnej poisťovne, že človek je poistený na Slovensku aj počas '
+    + 'práce v Nemecku. Bez platného A1 nesmie byť na stavbe — pri kontrole platí pokutu firma.';
   const STATUS = [['active', 'Platné', 'green'], ['pending', 'Vybavuje sa', 'amber'],
     ['expiring', 'Čoskoro vyprší', 'amber'], ['expired', 'Neplatné', 'red'],
     ['not_required', 'Netýka sa nás', 'gray']];
@@ -88,10 +104,12 @@
           <div class="kpi"><div class="kpi-label">Čoskoro vypršia</div>
             <div class="kpi-value" style="color:${expiring.length ? 'var(--amber)' : 'var(--green)'};">${expiring.length}</div>
             <div class="kpi-delta">do 45 dní</div></div>
-          <div class="kpi"><div class="kpi-label">Neplatné</div>
+          <div class="kpi"><div class="kpi-label">Neplatné${UI.tip('Firemné položky, ktorým skončila platnosť. '
+            + 'Treba ich obnoviť a zadať nové dátumy.')}</div>
             <div class="kpi-value" style="color:${problems.length ? 'var(--red)' : 'var(--green)'};">${problems.length}</div>
             <div class="kpi-delta">blokujú prácu</div></div>
-          <div class="kpi"><div class="kpi-label">Problémy s A1</div>
+          <div class="kpi"><div class="kpi-label">Problémy s A1${UI.tip('Koľko ľudí pripravených alebo na stavbe '
+            + 'nemá A1, má ho po platnosti alebo mu skončí do 45 dní. ' + TIP_A1)}</div>
             <div class="kpi-value" style="color:${a1Problems.length ? 'var(--red)' : 'var(--green)'};">${a1Problems.length}</div>
             <div class="kpi-delta">u aktívnych ľudí</div></div>
         </div>
@@ -104,13 +122,13 @@
         <div class="form-section">Čo ešte chýba zaevidovať</div>
         ${missing.map(k => `<div class="list-row" style="cursor:default;align-items:flex-start;">
           <span class="dot amber" style="margin-top:5px;"></span>
-          <span style="flex:1;font-size:13px;"><strong>${UI.esc(k[1])}</strong>
+          <span style="flex:1;font-size:13px;"><strong>${UI.esc(k[1])}</strong>${UI.tip(KIND_TIP[k[0]] || '')}
             ${k[2] ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(k[2])}</span>` : ''}</span>
           <button class="btn btn-ghost btn-sm" onclick="Cmp.form(null,'${k[0]}')">${Icon('plus', 15)}</button>
         </div>`).join('')}` : ''}
 
         ${a1Problems.length ? `
-        <div class="form-section">A1 pracovníkov</div>
+        <div class="form-section">A1 pracovníkov${UI.tip(TIP_A1 + ' Vybavenie trvá až 45 dní, preto treba žiadať včas.')}</div>
         ${a1Problems.map(x => `<div class="list-row" style="cursor:default;">
           <span class="dot ${x.st === 'expiring' ? 'amber' : 'red'}"></span>
           <span style="flex:1;font-size:13px;"><strong>${UI.esc(x.worker.full_name)}</strong>
@@ -145,7 +163,7 @@
         <div class="list-row" onclick="Cmp.form('${i.id}')" style="align-items:flex-start;">
           <span class="dot ${st === 'valid' ? 'green' : st === 'expiring' ? 'amber' : 'red'}" style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(this.kindLabel(i.kind))}</strong>
+            <strong>${UI.esc(this.kindLabel(i.kind))}</strong>${UI.tip(KIND_TIP[i.kind] || '')}
             ${i.reference ? `<span style="color:var(--ink-mute);"> · ${UI.esc(i.reference)}</span>` : ''}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${i.valid_from ? UI.date(i.valid_from) : '—'} – ${i.valid_to ? UI.date(i.valid_to) : 'bez konca'}
@@ -164,14 +182,19 @@
           s predstihom — §48b sa vybavuje 4 až 8 týždňov, A1 až 45 dní.</div>
           <div class="form-grid">
             ${UI.field('kind', 'Typ', { value: i.kind || presetKind || 'freistellung_48b',
+              tip: 'Druh dokladu. Čo ktorý znamená, ukáže otáznik pri ňom v zozname.',
               options: KINDS.map(k => [k[0], k[1]]) })}
             ${UI.field('reference', 'Číslo / referencia', { value: i.reference })}
             ${UI.field('valid_from', 'Platí od', { type: 'date', value: i.valid_from })}
-            ${UI.field('valid_to', 'Platí do', { type: 'date', value: i.valid_to })}
-            ${UI.field('status', 'Stav', { value: i.status || 'active', options: STATUS.map(s => [s[0], s[1]]) })}
+            ${UI.field('valid_to', 'Platí do', { type: 'date', value: i.valid_to,
+              tip: 'Posledný deň platnosti. 45 dní pred ním appka začne upozorňovať. Prázdne = platí bez konca.' })}
+            ${UI.field('status', 'Stav', { value: i.status || 'active', options: STATUS.map(s => [s[0], s[1]]),
+              tip: 'Farbu v zozname appka počíta sama z dátumov. Toto pole rozhoduje pri §48b: kým je '
+                + '„Vybavuje sa", „Neplatné" alebo „Netýka sa nás", faktúry za stavebné práce sa robia so zrážkou 15 %.' })}
             ${UI.field('responsible', 'Kto to rieši', { value: i.responsible, placeholder: 'Michaela / účtovník' })}
           </div>
-          ${UI.field('file_url', 'Odkaz na dokument', { type: 'url', value: i.file_url })}
+          ${UI.field('file_url', 'Odkaz na dokument', { type: 'url', value: i.file_url,
+            tip: 'Webová adresa, kde je sken uložený (napr. Google Drive). Appka súbor nekopíruje, len si pamätá odkaz.' })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2, value: i.notes })}
           <div class="modal-actions">
             ${id ? `<button type="button" class="btn btn-danger" onclick="Cmp.del('${id}')">Zmazať</button>` : ''}

@@ -59,6 +59,8 @@
             const n = this.items.filter(i => (i.status || 'new') === s[0]).length;
             return `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inq.setF('status','${s[0]}')">${s[1]}${n ? ` ${n}` : ''}</button>`;
           }).join('')}
+          ${UI.tip('Dopyt ide krokmi: Nový → Kvalifikovaný (overili sme, že je reálny) → Ponuka odoslaná → '
+            + 'Vyhraté → Ubytovaní → Uzavretý. Stratený = klient išiel inam.')}
         </div>
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať mesto, klienta, poznámku…" value="${UI.esc(this.filters.q)}"
@@ -88,7 +90,8 @@
             <span>${Icon('user', 14)} ${i.persons || '?'} os.</span>
             ${i.date_from ? `<span>${Icon('calendar', 14)} ${UI.dateRange(i.date_from, i.date_to)}${nights ? ` (${nights} n.)` : ''}</span>` : ''}
             ${i.budget_per_bed ? `<span>${Icon('euro', 14)} do ${UI.money(i.budget_per_bed)}/lôžko</span>` : ''}
-            ${noReply ? `<span style="color:var(--amber);font-weight:700;">${Icon('clock', 14)} bez reakcie</span>` : ''}
+            ${noReply ? `<span style="color:var(--amber);font-weight:700;">${Icon('clock', 14)} bez reakcie${
+              UI.tip('Klientovi ešte nikto neodpovedal. Prvá reakcia sa zapíše sama, keď dopyt posuniete zo stavu Nový.')}</span>` : ''}
           </div>
         </div>`;
     },
@@ -108,7 +111,9 @@
         ['Rozpočet / lôžko', i.budget_per_bed ? UI.money(i.budget_per_bed) : null],
         ['Kanál', (CHANNELS.find(x => x[0] === i.channel) || [, i.channel])[1]],
         ['Prijaté', i.received_at ? new Date(i.received_at).toLocaleString('sk-SK') : null],
-        ['Prvá reakcia', i.first_response_at ? new Date(i.first_response_at).toLocaleString('sk-SK') : '— zatiaľ žiadna'],
+        ['Prvá reakcia', i.first_response_at ? new Date(i.first_response_at).toLocaleString('sk-SK') : '— zatiaľ žiadna',
+          'Kedy sme klientovi prvýkrát odpovedali. Zapíše sa samo pri prvej zmene stavu z „Nový". '
+            + 'Podľa toho sa meria, ako rýchlo reagujeme.'],
       ].filter(r => r[1] != null && r[1] !== '');
 
       const reqLabels = (i.requirements || []).map(r => (REQS.find(x => x[0] === r) || [, r])[1]);
@@ -123,18 +128,21 @@
         </div>
         ${!i.first_response_at ? `<div class="warnbox">${Icon('clock', 14)} Dopyt zatiaľ nemá zaznamenanú prvú reakciu — kontaktujte klienta.</div>` : ''}
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'inquiry', id: i.id } }) : ''}
-        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+        <div class="kv">${rows.map(r => `<div><span>${r[0]}${r[2] ? UI.tip(r[2]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${reqLabels.length ? `<div class="chips">${reqLabels.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
         ${i.notes ? `<div class="notebox">${UI.esc(i.notes)}</div>` : ''}
 
-        <div class="form-section">Panel zhôd · najvhodnejšie ubytovania</div>
+        <div class="form-section">Panel zhôd · najvhodnejšie ubytovania${UI.tip('Appka zoradí ubytovania z databázy '
+          + 'podľa toho, ako sedia na dopyt: mesto, kapacita, rozpočet a požiadavky. Číslo vľavo je skóre do 100 — '
+          + 'čím vyššie, tým lepšie sedí.')}</div>
         <div id="match-panel">${UI.loading()}</div>
 
         <div class="modal-actions">
           <button class="btn btn-danger" onclick="Inq.del('${i.id}')">Zmazať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Inq.form('${i.id}')">Upraviť</button>
-          <button class="btn btn-outline" onclick="Inq.invoice('${i.id}')">${Icon('receipt')} Faktúra</button>
+          <button class="btn btn-outline" onclick="Inq.invoice('${i.id}')">${Icon('receipt')} Faktúra</button>${
+            UI.tip('Voľná faktúra z tohto dopytu, napr. záloha ešte pred objednávkou. Vznikne ako návrh na schválenie.')}
           <button class="btn btn-primary" onclick="Offers.fromInquiry('${i.id}')">Vytvoriť ponuku ${Icon('chevron', 14)}</button>
         </div>`;
       UI.modal(`Dopyt · ${i.target_city || '—'}`, body, { wide: true });
@@ -204,7 +212,9 @@
             ${UI.field('persons', 'Počet osôb', { type: 'number', value: i.persons })}
             ${UI.field('date_from', 'Termín od', { type: 'date', value: i.date_from })}
             ${UI.field('date_to', 'Termín do', { type: 'date', value: i.date_to })}
-            ${UI.field('budget_per_bed', 'Rozpočet / lôžko / noc €', { type: 'number', value: i.budget_per_bed })}
+            ${UI.field('budget_per_bed', 'Rozpočet / lôžko / noc €', { type: 'number', value: i.budget_per_bed,
+              tip: 'Koľko je klient ochotný zaplatiť za jednu posteľ na jednu noc. Panel zhôd podľa toho '
+                + 'uprednostní ubytovania v rozpočte.' })}
             ${UI.field('status', 'Stav', { value: i.status || 'new', options: STATUS.map(s => [s[0], s[1]]) })}
           </div>
           <div class="form-section">Požiadavky</div>
@@ -212,7 +222,8 @@
             ${REQS.map(r => `<label class="chk"><input type="checkbox" name="req_${r[0]}" ${reqs.includes(r[0]) ? 'checked' : ''}> ${r[1]}</label>`).join('')}
           </div>
           <div class="chk-row">
-            ${UI.field('urgent', '', { type: 'checkbox', value: i.urgent, placeholder: 'Súrny dopyt' })}
+            ${UI.field('urgent', '', { type: 'checkbox', value: i.urgent, placeholder: 'Súrny dopyt',
+              tip: 'Súrny dopyt sa v zozname označí bleskom a ponuka z neho má vopred zaškrtnutý príplatok za súrnosť.' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: i.notes })}
           <div class="modal-actions">

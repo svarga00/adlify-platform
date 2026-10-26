@@ -407,8 +407,7 @@
           Píšte firmám, ktoré robia to, na čo dodávame ľudí, a vždy s možnosťou odhlásenia — tá je v každom e-maile.</div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-          ${UI.tip('Návrh: e-mail aj zoznam adresátov sa uložia a nič neodíde, odoslať ho môžete neskôr z karty. Adresáti sa vyberú teraz — firmy pridané neskôr v ňom nebudú.')}
-          <button type="button" class="btn btn-outline" onclick="Camp.save(false)">Uložiť ako návrh</button>
+          <span style="display:inline-flex;align-items:center;"><button type="button" class="btn btn-outline" onclick="Camp.save(false)">Uložiť ako návrh</button>${UI.tip('Návrh: e-mail aj zoznam adresátov sa uložia a nič neodíde, odoslať ho môžete neskôr z karty. Adresáti sa vyberú teraz — firmy pridané neskôr v ňom nebudú.')}</span>
           <button type="button" class="btn btn-primary" id="cf-go" onclick="Camp.save(true)">${Icon('mail', 14)} Odoslať</button>
         </div></form>`, { wide: true });
       this.preview();

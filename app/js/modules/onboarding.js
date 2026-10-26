@@ -51,7 +51,8 @@
       const kroky = O().state(this.saved());
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Learn.close()">${Icon('back', 15)} Späť na nábor</button>
-        <button class="btn btn-ghost btn-sm" onclick="Learn.reset()">Začať odznova</button>`);
+        <button class="btn btn-ghost btn-sm" onclick="Learn.reset()">Začať odznova</button>${
+          UI.tip('Vymaže Váš postup zaškolenia v tomto prehliadači a začnete od prvého kroku. Nič iné sa nemaže.')}`);
 
       if (this.screen) return this.stepView(el, this.screen, kroky);
 
@@ -74,7 +75,8 @@
 
         <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
         <div class="flow-bar-txt">${p.done} z ${p.total} krokov${
-          p.ready ? '' : ` · zostáva ${p.minutesLeft} minút`}</div>
+          p.ready ? '' : ` · zostáva ${p.minutesLeft} minút`}${UI.tip('Postup sa ukladá len v tomto prehliadači '
+          + 'na tomto počítači. Na inom zariadení alebo po vymazaní prehliadača začnete odznova.')}</div>
 
         <div class="flow">${kroky.map(k => `
           <div class="flow-step flow-${k.done ? 'done' : 'idle'}${
@@ -216,7 +218,8 @@
         <div class="form-section" style="margin-top:18px;">Keď ho máte za sebou</div>
         <p class="lesson-text">Zapíšte, na koľko percent ste ho zvládli. Je to na
         Vás — nikto to nekontroluje. Pod ${UI.pct(O().QUIZ_PASS)} to ale nemá zmysel
-        posúvať ďalej.</p>
+        posúvať ďalej.${UI.tip(`Percento = koľko otázok ste vedeli zodpovedať zo všetkých (napr. 7 z 10 = 70 %).`
+          + `Pod ${UI.pct(O().QUIZ_PASS)} sa krok neráta ako hotový.`)}</p>
         <div class="guide-rate" style="margin-top:10px;">
           ${[50, 70, 85, 100].map(v => `<button class="guide-rb"
             onclick="Learn.hotovo('quiz', ${v})"><b>${UI.pct(v)}</b></button>`).join('')}
@@ -335,6 +338,8 @@
               ${Icon('check', 20)} Beriem to</button>
             <button class="guide-btn guide-btn-no" onclick="Learn.answerPractice(false)">
               Pri tomto zbystrím</button>
+            ${UI.tip('„Beriem to" = odpoveď je v poriadku, pokračovali by ste. „Pri tomto zbystrím" = odpoveď '
+              + 'Vám niečo nesedí a doplnili by ste otázku. Potom uvidíte, ako to bolo správne.')}
           </div>`}
       </div>`;
     },

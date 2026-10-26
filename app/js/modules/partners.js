@@ -8,6 +8,14 @@
 (function () {
   const RATING = [['a', 'A — platí spoľahlivo', 'green'], ['b', 'B — priemer', 'amber'], ['c', 'C — problémový', 'red']];
 
+  // Otázniky pri údajoch v detaile odberateľa (kľúč = názov riadku).
+  const TIPS = {
+    'USt-IdNr': 'USt-IdNr = nemecké IČ DPH firmy (napr. DE123456789). Bez platného čísla nemôžeme fakturovať bez nemeckej DPH (prenesenie daňovej povinnosti, §13b) a daň by sme zaplatili my.',
+    'Typ prác': 'Stavebné = robíme na stavbe a platí SOKA-BAU, zrážka §48b a stavebná minimálna mzda. Dielenské = výroba mimo stavby, menej pravidiel.',
+    'Splatnosť': 'Dohodnutý počet dní na zaplatenie faktúry. Koľko naozaj platí, je nižšie v Platobnej disciplíne.',
+    'Faktoring': 'Či môžeme jeho faktúry predať faktoringovej spoločnosti a dostať peniaze hneď (za poplatok).',
+  };
+
   const Prt = {
     items: [], subcontracts: [], invoices: [], logos: new Map(), loaded: false,
     filters: { q: '', is_construction: '' },
@@ -142,10 +150,10 @@
           </div>
           <div class="acc-meta">
             ${p.ust_idnr ? `<span>${Icon('receipt', 14)} ${UI.esc(p.ust_idnr)}</span>`
-              : `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} bez USt-IdNr</span>`}
+              : `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} bez USt-IdNr${UI.tip('USt-IdNr = nemecké IČ DPH firmy (napr. DE123456789). Bez platného čísla nemôžeme fakturovať bez nemeckej DPH (prenesenie daňovej povinnosti, §13b) a daň by sme zaplatili my.')}</span>`}
             <span>${Icon('clock', 14)} splatnosť ${p.payment_terms_days || 30} dní</span>
             ${subs.length ? `<span>${Icon('site', 14)} ${subs.length} ${subs.length === 1 ? 'zákazka' : 'zákaziek'}</span>` : ''}
-            ${p.factoring_eligible ? `<span style="color:var(--green);">${Icon('check', 14)} faktoring</span>` : ''}
+            ${p.factoring_eligible ? `<span style="color:var(--green);">${Icon('check', 14)} faktoring${UI.tip('Faktoring = faktúru tohto odberateľa môžeme predať faktoringovej spoločnosti a peniaze dostať hneď, nie až keď on zaplatí (za poplatok).')}</span>` : ''}
           </div>
         </div>`;
     },
@@ -211,19 +219,19 @@
           ${UI.badge(p.is_construction ? 'Stavba' : 'Dielňa', p.is_construction ? 'amber' : 'blue')}
         </div>
         ${!p.ust_idnr ? `<div class="warnbox">${Icon('alert', 14)}
-          Bez USt-IdNr sa nedá fakturovať v režime reverse charge §13b.</div>` : ''}
+          Bez USt-IdNr sa nedá fakturovať v režime reverse charge §13b.${UI.tip('Reverse charge (§13b) = fakturujeme bez nemeckej DPH a daň za nás odvedie odberateľ. Funguje to len vtedy, keď má platné nemecké IČ DPH (USt-IdNr). Doplňte ho cez Upraviť.')}</div>` : ''}
         ${CommPanel.render({ contact: { phone: p.phone, email: p.email, name: p.name }, entity: { type: 'partner', id: p.id } })}
-        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+        <div class="kv">${rows.map(r => `<div><span>${r[0]}${TIPS[r[0]] ? UI.tip(TIPS[r[0]]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${p.notes ? `<div class="notebox">${UI.esc(p.notes)}</div>` : ''}
 
-        <div class="form-section">Platobná disciplína</div>
+        <div class="form-section">Platobná disciplína${UI.tip('Ako odberateľ reálne platí — počíta sa z jeho faktúr v appke. Podľa toho sa dá odhadnúť, kedy prídu peniaze, a navrhnúť hodnotenie A/B/C.')}</div>
         ${disc.total ? `
           <div class="kv">
-            <div><span>Priemerne platí za</span><strong>${
+            <div><span>Priemerne platí za${UI.tip('Priemerný počet dní od vystavenia faktúry po úhradu, len z uhradených faktúr.')}</span><strong>${
               disc.avgDaysToPay != null
                 ? `${disc.avgDaysToPay} ${DanubraPayment.plural(disc.avgDaysToPay, 'deň', 'dni', 'dní')}`
                 : '—'}</strong></div>
-            <div><span>Do splatnosti</span><strong>${
+            <div><span>Do splatnosti${UI.tip('Koľko percent uhradených faktúr zaplatil včas, teda najneskôr v deň splatnosti.')}</span><strong>${
               disc.onTimePct != null ? UI.pct(disc.onTimePct) : '—'}</strong></div>
             <div><span>Faktúr</span><strong>${disc.paid} z ${disc.total} uhradených</strong></div>
             ${disc.overdue ? `<div><span>Po splatnosti</span><strong class="tx-bad">${
@@ -238,7 +246,7 @@
               ${UI.esc(suggested.reason)}
               ${suggested.confident ? '' : ' (zatiaľ málo faktúr na istý záver)'}
               <div class="btn-row"><button class="btn btn-outline btn-sm"
-                onclick="Prt.applyRating('${p.id}','${suggested.rating}')">Prepísať na ${suggested.rating.toUpperCase()}</button></div>
+                onclick="Prt.applyRating('${p.id}','${suggested.rating}')">Prepísať na ${suggested.rating.toUpperCase()}</button>${UI.tip('Hodnotenie sa nemení samo — je to Vaše rozhodnutie. Po kliknutí sa uložené hodnotenie zmení na to, ktoré vychádza z faktúr.')}</div>
             </div>` : ''}
         ` : `<div class="js-empty">
             Zatiaľ žiadna faktúra tomuto odberateľovi — nie je z čoho počítať.</div>`}
@@ -259,6 +267,7 @@
         <div class="modal-actions">
           <button class="btn btn-danger" onclick="Prt.del('${p.id}')">Zmazať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Rámcová zmluva = spoločné podmienky spolupráce s týmto odberateľom (splatnosť, záruky…), dvojjazyčne slovensky a nemecky. Otvorí sa na tlač; ak niečo chýba, appka povie čo.')}</span>
           <button class="btn btn-outline" onclick="Prt.rahmen('${p.id}')">
             ${Icon('doc', 14)} Rámcová zmluva SK/DE</button>
           <button class="btn btn-primary" onclick="Prt.form('${p.id}')">Upraviť</button>
@@ -274,13 +283,13 @@
         <form id="prt-form" onsubmit="event.preventDefault();Prt.save('${id || ''}')">
           <div class="form-grid">
             ${UI.field('name', 'Názov firmy', { value: p.name, required: true })}
-            ${UI.field('ust_idnr', 'USt-IdNr', { value: p.ust_idnr, placeholder: 'DE123456789' })}
+            ${UI.field('ust_idnr', 'USt-IdNr', { value: p.ust_idnr, placeholder: 'DE123456789', tip: 'USt-IdNr = nemecké IČ DPH firmy (napr. DE123456789). Bez platného čísla nemôžeme fakturovať bez nemeckej DPH (prenesenie daňovej povinnosti, §13b) a daň by sme zaplatili my.' })}
             ${UI.field('contact_person', 'Kontaktná osoba', { value: p.contact_person })}
             ${UI.field('phone', 'Telefón', { value: p.phone })}
             ${UI.field('email', 'E-mail', { type: 'email', value: p.email })}
             ${UI.field('city', 'Mesto', { value: p.city })}
             ${UI.field('website', 'Web', { value: p.website,
-              placeholder: 'vogel-bau.de' })}
+              placeholder: 'vogel-bau.de', tip: 'Adresa webu firmy. Appka si z neho vezme malé logo (ikonku), aby sa firma dala v zozname rýchlo spoznať.' })}
             ${UI.field('address', 'Adresa', { value: p.address })}
             ${UI.field('postal_code', 'PSČ', { value: p.postal_code })}
             ${UI.field('country', 'Krajina', { value: p.country || 'DE' })}
@@ -288,12 +297,16 @@
               value: p.payment_terms_days ?? 30,
               hint: 'Dohodnutá splatnosť. Koľko dní odberateľ naozaj platí, počíta '
                 + 'appka z úhrad — a práve to ide do výhľadu cash-flow.' })}
-            ${UI.field('rating', 'Spoľahlivosť platieb', { value: p.rating, options: [['', '—'], ...RATING.map(r => [r[0], r[1]])] })}
-            ${UI.field('source', 'Zdroj', { value: p.source, placeholder: 'Auftragsbank, referral…' })}
+            ${UI.field('rating', 'Spoľahlivosť platieb', { value: p.rating, options: [['', '—'], ...RATING.map(r => [r[0], r[1]])],
+              tip: 'Vaše hodnotenie, ako odberateľ platí: A = spoľahlivo, B = priemer, C = problémový. V detaile appka navrhne hodnotenie podľa faktúr.' })}
+            ${UI.field('source', 'Zdroj', { value: p.source, placeholder: 'Auftragsbank, referral…',
+              tip: 'Odkiaľ sme firmu získali, napr. Auftragsbank (nemecká burza zákaziek) alebo odporúčanie.' })}
           </div>
           <div class="chk-row">
-            ${UI.field('is_construction', '', { type: 'checkbox', value: p.is_construction !== false, placeholder: 'Stavebné práce (SOKA, §48b, Bau-Mindestlohn)' })}
-            ${UI.field('factoring_eligible', '', { type: 'checkbox', value: p.factoring_eligible, placeholder: 'Vhodný na faktoring' })}
+            ${UI.field('is_construction', '', { type: 'checkbox', value: p.is_construction !== false, placeholder: 'Stavebné práce (SOKA, §48b, Bau-Mindestlohn)',
+              tip: 'Zaškrtnite, ak pre neho robíme na stavbe. Vtedy platí SOKA-BAU (stavebná pokladnica), §48b (odberateľ môže z faktúry strhnúť 15 % daň, ak nemáme oslobodenie) a stavebná minimálna mzda.' })}
+            ${UI.field('factoring_eligible', '', { type: 'checkbox', value: p.factoring_eligible, placeholder: 'Vhodný na faktoring',
+              tip: 'Faktoring = faktúru predáme faktoringovej spoločnosti a peniaze dostaneme hneď (za poplatok). Zaškrtnite, ak je odberateľ na to dosť spoľahlivý.' })}
           </div>
           <div class="regimebox">Pri dielenských prácach odpadá SOKA-BAU aj Bau-Mindestlohn —
           podľa plánu je to bezpečnejší vstupný segment s rýchlejším cash-flow.</div>
