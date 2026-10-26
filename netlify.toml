@@ -25,6 +25,95 @@
   to = "/app/"
   status = 302
 
+# Weby punds.sk a punds.eu (web/). Skúšobne bežia pod touto adresou:
+#   /punds-sk/sk/…  a  /punds-eu/de/…
+# Stránky skladá funkcia punds-web (aj formuláre /punds-*/api/*).
+# Naostro: punds.sk a punds.eu sa pridajú ako domény tohto webu a zapne sa
+# edge funkcia z web/edge/punds-host.js (návod je v nej).
+[[redirects]]
+  from = "/punds-sk"
+  to = "/.netlify/functions/punds-web"
+  status = 200
+[[redirects]]
+  from = "/punds-sk/*"
+  to = "/.netlify/functions/punds-web"
+  status = 200
+[[redirects]]
+  from = "/punds-eu"
+  to = "/.netlify/functions/punds-web"
+  status = 200
+[[redirects]]
+  from = "/punds-eu/*"
+  to = "/.netlify/functions/punds-web"
+  status = 200
+# Zdrojáky webov nie sú statické súbory — von ide len web/public.
+[[redirects]]
+  from = "/web/sk/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/eu/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/shared/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/edge/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/tests/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/server.js"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/api.js"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/notify.js"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/emails.js"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/dev.js"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/web/README.md"
+  to = "/404"
+  status = 404
+  force = true
+
+# Písma a obrázky webov sa nemenia — prehliadač ich môže držať dlho.
+[[headers]]
+  for = "/web/public/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+[[headers]]
+  for = "/web/public/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
 # Appka bývala v /danubra/. Kto má starý odkaz v záložkách alebo v histórii,
 # musí skončiť v appke, nie na hlásení „Page not found" — 301, lebo je to
 # presun natrvalo. Cesta za lomkou sa zachová; kotva (#/dashboard) sa na

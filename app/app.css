@@ -44,6 +44,17 @@
   font-style: normal; font-weight: 600; font-display: swap;
   src: url('./vendor/fonts/plex-mono-600-latin.woff2') format('woff2');
 }
+/* Hanken Grotesk — text na tlačovinách punds (vizitka, obálka). */
+@font-face {
+  font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('./vendor/fonts/hanken-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('./vendor/fonts/hanken-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 /* Outfit — písmo nadpisov a súm na dokumentoch punds (výkaz hodín v appke).
    Licencia SIL Open Font License. */
 @font-face {
@@ -166,8 +177,8 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: flex; align-items: center; justify-content: center; gap: 11px;
   margin-bottom: 30px;
 }
-.login-brand .logo-word { font-size: 29px; color: var(--navy); }
-.login-brand .logo-mark { margin-right: -1px; }
+.login-brand .logo-word { font-size: 30px; color: #0E1626; }
+.login-brand .logo-tag { color: #6F7A92; }
 #login-form { display: grid; gap: 14px; }
 #login-form label { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink-sub); }
 #login-form input {
@@ -189,10 +200,13 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 6px 10px 14px; }
 .logo-mark { display: block; flex-shrink: 0; }
+.logo-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+/* Slovo punds — písmo Outfit ako na webe a dokumentoch. */
 .logo-word {
-  font-weight: 800; letter-spacing: -.03em; line-height: 1;
-  font-size: 19px; color: #fff; white-space: nowrap;
+  font: 700 22px/.8 Outfit, Inter, sans-serif; letter-spacing: -.045em;
+  color: #fff; white-space: nowrap;
 }
+.logo-tag { font-size: 6px; font-weight: 500; letter-spacing: .26em; color: #8C97AD; line-height: 1; white-space: nowrap; }
 /* Navigácia sa musí zmestiť celá. Keď sa nezmestí, musí byť **vidieť**, že
    pokračuje — inak sa položky pod okrajom nedajú nájsť a človek si myslí,
    že v appke nie sú. Presne to sa stalo s celou skupinou PENIAZE. */
@@ -3760,3 +3774,15 @@ iframe.mail-body { width: 100%; min-height: 240px; border: 0; margin-top: 10px; 
   .mail-list { max-height: none; }
   .mail-read { padding: 12px; }
 }
+
+/* Náhľad grafického e-mailového podpisu (Nastavenia → Schránky) */
+.sig-preview:empty { display: none; }
+.sig-frame { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 18px 14px; margin: 4px 0 10px; overflow-x: auto; }
+
+/* Tlačoviny (vizitka, obálka, list) */
+.pw-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; margin-top: 14px; }
+.pw-prev { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+.pw-face-wrap { overflow: hidden; border-radius: 6px; box-shadow: 0 1px 2px rgba(14,22,38,.08), 0 12px 30px rgba(14,22,38,.14); }
+.pw-cap { font-size: 11.5px; color: var(--ink-mute); margin: -4px 0 6px; }
+.pw-letter { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #E9EAEC; }
+@media (max-width: 900px) { .pw-grid { grid-template-columns: 1fr; } }

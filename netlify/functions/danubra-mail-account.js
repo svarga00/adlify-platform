@@ -24,7 +24,7 @@ const H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const out = (code, body) => ({ statusCode: code, headers: H, body: JSON.stringify(body) });
 
 const POLIA = ['name', 'email', 'display_name', 'imap_host', 'imap_port', 'imap_secure', 'smtp_host', 'smtp_port',
-  'smtp_secure', 'username', 'signature', 'sent_folder'];
+  'smtp_secure', 'username', 'signature', 'sent_folder', 'signature_card'];
 
 function clean(mb = {}) {
   const r = {};
@@ -32,6 +32,13 @@ function clean(mb = {}) {
   if (r.email) r.email = String(r.email).trim().toLowerCase();
   if (!r.username && r.email) r.username = r.email;
   ['imap_port', 'smtp_port'].forEach(k => { if (r[k] != null) r[k] = Number(r[k]) || null; });
+  // Vizitka do podpisu — len známe polia, krátke texty.
+  if (r.signature_card != null) {
+    const c = r.signature_card || {};
+    const t = (v, n = 120) => String(v == null ? '' : v).trim().slice(0, n);
+    r.signature_card = { enabled: !!c.enabled, name: t(c.name), role: t(c.role), phone: t(c.phone, 40), lang: c.lang === 'de' ? 'de' : 'sk',
+      web: t(c.web, 80), cta_label: t(c.cta_label, 80), cta_url: /^https?:\/\//.test(String(c.cta_url || '')) ? t(c.cta_url, 300) : '', cta: c.cta !== false };
+  }
   return r;
 }
 

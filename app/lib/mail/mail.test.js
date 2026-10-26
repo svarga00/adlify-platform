@@ -64,5 +64,23 @@ console.log('\nZOBRAZENIE');
   ok(M.hasRemoteImages({ html_body: '<img src="https://x/a.png">' }), 'vie, že sú v ňom obrázky z webu');
   ok(/white-space:pre-wrap/.test(M.viewerDoc({ text_body: 'a\nb' })), 'čistý text sa zobrazí s riadkami');
 }
+
+// ── Grafický podpis ──────────────────────────────────────────────────────
+{
+  const mb = { email: 'stefan@punds.sk', signature_card: { enabled: true, name: 'Štefan Varga', role: 'Koordinátor projektov', phone: '+421 910 523 858', lang: 'sk' } };
+  const t = M.sigOf(mb);
+  ok(/^S pozdravom\n\nŠtefan Varga\nKoordinátor projektov · punds\n\+421 910 523 858\nstefan@punds\.sk · punds\.sk$/.test(t), 'textový podpis z vizitky', JSON.stringify(t));
+  ok(M.sigOf({ ...mb, signature: 'Vlastný' }) === 'Vlastný', 'vlastný text má prednosť');
+  ok(M.sigOf({ email: 'a@b.sk', signature_card: { enabled: false, name: 'X' } }) === '', 'vypnutá vizitka = bez podpisu');
+  const de = M.sigHtml({ email: 'name@punds.eu', signature_card: { enabled: true, name: 'Max', lang: 'de' } }, 'https://x/web/public');
+  ok(/Mit freundlichen Grüßen/.test(de) && /Fachkräfte anfragen/.test(de) && /punds\.eu/.test(de) && /punds-mark\.png/.test(de), 'nemecký grafický podpis');
+  const text = `Dobrý deň,\nposielam ponuku.\n\n-- \n${t}\n\nDňa 1. 1. 2026 Jano napísal(a):\n> otázka`;
+  const html = M.bodyHtml(text, mb, 'https://x/web/public');
+  ok(/<table/.test(html) && !/-- <br>/.test(html) && /posielam ponuku/.test(html) && /&gt; otázka/.test(html), 'v HTML je grafický podpis namiesto textového, citácia zostane', html.slice(0, 200));
+  ok(!/<table/.test(M.bodyHtml('Ahoj\n\n-- \nJano', { email: 'a@b.sk' })), 'bez vizitky je HTML len text');
+  const r = M.replyDraft({ from_email: 'x@y.de', subject: 'Hi', text_body: 'q', sent_at: '2026-01-01' }, { mailbox: mb });
+  ok(r.body.includes(`-- \n${t}`), 'odpoveď má podpis z vizitky');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

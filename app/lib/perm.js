@@ -124,7 +124,7 @@
     // Dokumenty sú PDF z obrazoviek, na ktoré človek už má právo.
     archive: 'dashboard',
     // Marketing: nové firmy a e-maily patria k tomu istému ako inzercia.
-    leads: 'marketing', campaigns: 'marketing',
+    leads: 'marketing', campaigns: 'marketing', printwork: 'marketing',
     // E-maily sú to isté ako Správy; ktoré schránky vidí, určuje admin
     // zvlášť (danubra_mailbox_access). Schránky nastavuje, kto smie na Nastavenia.
     mail: 'messages', mailboxes: 'settings',

@@ -10,10 +10,10 @@
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="P&amp;S">
+  <meta name="apple-mobile-web-app-title" content="punds">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <title>P&amp;S — nábor a stavby v Nemecku</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 120 120'><rect x='-10' y='-10' width='120' height='120' rx='10' fill='%230A1B3D'/><rect x='4' y='56' width='24' height='40' rx='2' fill='%23fff'/><rect x='38' y='32' width='24' height='64' rx='2' fill='%23fff'/><rect x='72' y='4' width='24' height='92' rx='2' fill='%23F07E22'/></svg>">
+  <title>punds — nábor a stavby v Nemecku</title>
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <!-- Klient Supabase si nesieme so sebou. Keď sa ťahal z unpkg.com a
        nenačítal sa, stránka zostala biela a bez hlášky. Pozri vendor/README.md. -->
   <script src="./vendor/supabase-js-2.116.0.js"></script>
@@ -32,15 +32,13 @@
   <!-- LOGIN -->
   <div id="login-screen" class="login-screen" hidden>
     <div class="login-card">
-      <!-- Značka bez názvu firmy. Tri stĺpce, najvyšší oranžový — je to
-           znak, nie písmeno, takže sa z neho nedá prečítať, čia appka to je. -->
-      <div class="login-brand" aria-label="P&amp;S">
-        <svg class="logo-mark" viewBox="0 0 100 100" width="30" height="30" aria-hidden="true">
-          <rect x="4" y="56" width="24" height="40" rx="2" fill="#0A1B3D"/>
-          <rect x="38" y="32" width="24" height="64" rx="2" fill="#0A1B3D"/>
-          <rect x="72" y="4" width="24" height="92" rx="2" fill="#F07E22"/>
+      <!-- Značka punds: znak „∩∪" (un z p-un-ds) a slovo. -->
+      <div class="login-brand" aria-label="punds">
+        <svg class="logo-mark" viewBox="2.25 7.25 43.5 33.5" width="40" height="31" fill="none" aria-hidden="true">
+          <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="#0E1626" stroke-width="7.5" stroke-linecap="round"/>
+          <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="#F07F1A" stroke-width="7.5" stroke-linecap="round"/>
         </svg>
-        <span class="logo-word">P&amp;S</span>
+        <span class="logo-txt"><span class="logo-word">punds</span><span class="logo-tag">PARTNER UND SERVICE</span></span>
       </div>
       <form id="login-form">
         <label>E-mail
@@ -58,13 +56,12 @@
   <!-- APP -->
   <div id="app" class="app" hidden>
     <aside class="sidebar">
-      <div class="sidebar-brand" aria-label="P&amp;S">
-        <svg class="logo-mark" viewBox="0 0 100 100" width="20" height="20" aria-hidden="true">
-          <rect x="4" y="56" width="24" height="40" rx="2" fill="#fff"/>
-          <rect x="38" y="32" width="24" height="64" rx="2" fill="#fff"/>
-          <rect x="72" y="4" width="24" height="92" rx="2" fill="#F07E22"/>
+      <div class="sidebar-brand" aria-label="punds">
+        <svg class="logo-mark" viewBox="2.25 7.25 43.5 33.5" width="30" height="23" fill="none" aria-hidden="true">
+          <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="#fff" stroke-width="7.5" stroke-linecap="round"/>
+          <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="#F07F1A" stroke-width="7.5" stroke-linecap="round"/>
         </svg>
-        <span class="logo-word">P&amp;S</span>
+        <span class="logo-txt"><span class="logo-word">punds</span><span class="logo-tag">PARTNER UND SERVICE</span></span>
       </div>
       <div id="area-switch" class="area-switch"></div>
       <!-- Obal drží tieň na spodku, keď navigácia pokračuje pod okrajom. -->
@@ -163,6 +160,7 @@
   <script src="./lib/documents/subcontract.js"></script>
   <script src="./lib/documents/framework-de.js"></script>
   <script src="./lib/documents/templates.js"></script>
+  <script src="./lib/documents/printwork.js"></script>
   <script src="./lib/documents/archive.js"></script>
   <script src="./lib/documents/paginate.js"></script>
   <script src="./lib/billing/dunning.js"></script>
@@ -205,6 +203,7 @@
   <script src="./lib/route.js"></script>
   <script src="./lib/lodging/nearby.js"></script>
   <script src="./lib/recruiting/ads.js"></script>
+  <script src="./lib/recruiting/web-ad.js"></script>
   <script src="./lib/recruiting/trade.js"></script>
   <script src="./lib/recruiting/flow.js"></script>
   <script src="./lib/recruiting/onboarding.js"></script>
@@ -249,6 +248,7 @@
   <script src="./js/modules/marketing.js"></script>
   <script src="./js/modules/leads.js"></script>
   <script src="./js/modules/mail.js"></script>
+  <script src="./js/modules/printwork.js"></script>
   <script src="./js/modules/ads.js"></script>
   <script src="./js/modules/recruiting.js"></script>
   <script src="./js/modules/tasks.js"></script>

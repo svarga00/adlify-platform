@@ -78,7 +78,9 @@ exports.handler = async (event) => {
     const mail = {
       from: { name: mb.display_name || mb.name || '', address: mb.email },
       to: to.map(M.fmtAddress), cc: cc.map(M.fmtAddress), bcc: bcc.map(M.fmtAddress),
-      subject: String(b.subject || '').slice(0, 500), text, html: `<div style="font-family:Arial,sans-serif;font-size:14px">${M.textToHtml(text)}</div>`,
+      subject: String(b.subject || '').slice(0, 500), text,
+      // Grafický podpis schránky (vizitka) namiesto textového — M.bodyHtml.
+      html: M.bodyHtml(text, mb, `${process.env.URL || 'https://adlify-app.netlify.app'}/web/public`),
       inReplyTo: b.in_reply_to || undefined, references: b.references || undefined, attachments,
     };
     // Správa sa poskladá raz: tá istá ide cez SMTP aj do Odoslaných.

@@ -101,6 +101,68 @@
     return `${pred.replace(/\s+$/, '')}\n\n-- \n${sig}${za}`;
   }
 
+  // ── Grafický podpis (návrh 3a/3b) ─────────────────────────────────────
+  // Schránka môže mať namiesto (alebo popri) textovom podpise „vizitku":
+  // meno, funkcia, telefón, e-mail, web a odkaz. V e-maile je ako tabuľka
+  // (Gmail, Outlook aj mobil), v texte ako niekoľko riadkov.
+  const SIG = {
+    sk: { greet: 'S pozdravom', cta: 'Aktuálne pracovné ponuky v Nemecku', url: 'https://punds.sk', web: 'punds.sk' },
+    de: { greet: 'Mit freundlichen Grüßen', cta: 'Fachkräfte anfragen – Antwort in 24 h', url: 'https://punds.eu', web: 'punds.eu' },
+  };
+  const ADDRESS = 'Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky · IČO 57553921';
+  const cardOn = (mb) => !!(mb && mb.signature_card && mb.signature_card.enabled && mb.signature_card.name);
+
+  /** Textový podpis z vizitky. */
+  function cardText(mb = {}) {
+    const c = mb.signature_card || {};
+    const d = SIG[c.lang === 'de' ? 'de' : 'sk'];
+    return [d.greet, '', c.name, c.role ? `${c.role} · punds` : 'punds', c.phone, [mb.email, c.web || d.web].filter(Boolean).join(' · ')]
+      .filter((x) => x != null && x !== false).join('\n').replace(/\n{3,}/g, '\n\n');
+  }
+
+  /** Podpis schránky ako text: vlastný text má prednosť, inak z vizitky. */
+  function sigOf(mb = {}) {
+    const s = String(mb.signature || '').trim();
+    if (s) return s;
+    return cardOn(mb) ? cardText(mb) : '';
+  }
+
+  /** Podpis ako HTML tabuľka. @param {string} assets  adresa web/public (pre logo PNG) */
+  function sigHtml(mb = {}, assets = '') {
+    const c = mb.signature_card || {};
+    const d = SIG[c.lang === 'de' ? 'de' : 'sk'];
+    const F = "'Hanken Grotesk',Arial,Helvetica,sans-serif", Hh = "'Outfit',Arial,Helvetica,sans-serif";
+    const web = c.web || d.web, url = c.cta_url || d.url;
+    return `<div style="font:400 14px/1.6 ${F};color:#4A5570;margin:18px 0 14px;">${esc(d.greet)}</div>`
+      + `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>`
+      + `<td style="padding-right:18px;border-right:2px solid #F07F1A;vertical-align:top;">`
+      + `<img src="${esc(assets)}/img/email/punds-mark.png" width="54" height="42" alt="punds" style="display:block;border:0;"></td>`
+      + `<td style="padding-left:18px;vertical-align:top;">`
+      + `<div style="font:700 18px/1.2 ${Hh};color:#0E1626;">${esc(c.name)}</div>`
+      + `<div style="font:500 13px/1.4 ${F};color:#F07F1A;margin:2px 0 8px;">${esc(c.role ? `${c.role} · punds` : 'punds')}</div>`
+      + `<div style="font:400 13px/1.65 ${F};color:#4A5570;">${c.phone ? `${esc(c.phone)}<br>` : ''}`
+      + `<a href="mailto:${esc(mb.email)}" style="color:#0E1626;text-decoration:none;">${esc(mb.email)}</a> · `
+      + `<a href="https://${esc(web)}" style="color:#0E1626;font-weight:600;text-decoration:none;">${esc(web)}</a></div></td></tr></table>`
+      + (c.cta === false ? '' : `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:14px;"><tr><td style="background:#F4F4F1;border-radius:10px;padding:9px 14px;">`
+      + `<a href="${esc(url)}" style="font:600 13px ${F};color:#0E1626;text-decoration:none;"><span style="color:#F07F1A;">●</span>&nbsp; ${esc(c.cta_label || d.cta)} →</a></td></tr></table>`)
+      + `<div style="margin-top:12px;font:400 10.5px/1.5 ${F};color:#8C97AD;">${esc(ADDRESS)}</div>`;
+  }
+
+  /**
+   * Telo e-mailu v HTML. Keď má schránka vizitku, textový podpis („-- \n…")
+   * sa v HTML nahradí grafickým; citácia pod ním zostane.
+   */
+  function bodyHtml(text, mb = {}, assets = '') {
+    const wrap = (h) => `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.55;color:#0E1626">${h}</div>`;
+    const t = String(text || '');
+    if (!cardOn(mb)) return wrap(textToHtml(t));
+    const sig = sigOf(mb);
+    const at = sig ? t.indexOf(`-- \n${sig}`) : -1;
+    if (at < 0) return wrap(textToHtml(t));
+    const pred = t.slice(0, at).replace(/\s+$/, ''), za = t.slice(at + 4 + sig.length);
+    return wrap(`${textToHtml(pred)}${sigHtml(mb, assets)}${za.trim() ? `<br>${textToHtml(za.replace(/^\n+/, ''))}` : ''}`);
+  }
+
   function fmtDate(d) {
     const x = new Date(d);
     if (isNaN(x)) return '';
@@ -132,7 +194,7 @@
       subject: `Re: ${s}`.trim(),
       in_reply_to: msg.message_id || null,
       references: [msg.refs, msg.message_id].filter(Boolean).join(' ').trim() || null,
-      body: withSignature(`\n\nDňa ${fmtDate(msg.sent_at)} ${kto} napísal(a):\n${cit}`, mailbox.signature),
+      body: withSignature(`\n\nDňa ${fmtDate(msg.sent_at)} ${kto} napísal(a):\n${cit}`, sigOf(mailbox)),
     };
   }
 
@@ -148,7 +210,7 @@
     return {
       mailbox_id: mailbox.id || msg.mailbox_id, to: [], cc: [],
       subject: `Fwd: ${normSubject(msg.subject)}`.trim(),
-      body: withSignature(`\n\n${hlav}\n\n${text}`, mailbox.signature),
+      body: withSignature(`\n\n${hlav}\n\n${text}`, sigOf(mailbox)),
       attachments: (msg.attachments || []).filter(a => a && a.storage_path),
     };
   }
@@ -217,7 +279,7 @@
   }
 
   const API = { PRESETS, parseAddresses, emailOk, fmtAddress, normSubject, threadKey, snippet, htmlToText,
-    textToHtml, withSignature, replyDraft, forwardDraft, matchEntities, fromParsed, viewerDoc, hasRemoteImages, fmtDate };
+    textToHtml, withSignature, sigOf, sigHtml, cardText, bodyHtml, replyDraft, forwardDraft, matchEntities, fromParsed, viewerDoc, hasRemoteImages, fmtDate };
   if (typeof window !== 'undefined') window.DanubraMail = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

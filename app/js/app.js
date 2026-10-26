@@ -136,7 +136,9 @@ window.Danubra = {
     // Marketing smerom k firmám: noví odberatelia, e-maily, inzercia.
     ['MARKETING',  [['leads', 'Marketing', 'marketing'],
                     ['campaigns', 'E-maily firmám', 'mail'],
-                    ['marketing', 'Inzercia a výdavky', 'chart']]],
+                    ['marketing', 'Inzercia a výdavky', 'chart'],
+                    // Vizitky, obálky, hlavičkový list — PDF na tlač.
+                    ['printwork', 'Tlačoviny', 'print']]],
     // „Plnohodnotný mailový klient s viacerými schránkami, podpisom atď."
     // Každý vidí len schránky, ktoré mu admin pridelí (Nastavenia → Schránky).
     ['SPRÁVY',     [['mail', 'Správy', 'mail'],
@@ -186,6 +188,7 @@ window.Danubra = {
     marketing: 'Inzeráty a odkiaľ chodia ľudia',
     leads: 'Nemecké firmy podobné našim odberateľom — z mapy alebo cez AI, s e-mailom a stavom oslovenia',
     campaigns: 'E-maily firmám po nemecky, cez Vašu schránku, s odhlásením',
+    printwork: 'Vizitky, obálka DL a hlavičkový list v podobe punds — PDF pre tlačiareň',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
     members: 'Kto smie do appky a na čo',
     rules: 'Sadzby a prahy, ktoré vstupujú do výpočtov',
@@ -353,7 +356,7 @@ window.Danubra = {
     trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
     mailboxes: 'settings',
     // Marketing: nové firmy, e-maily im, inzercia.
-    campaigns: 'leads', marketing: 'leads',
+    campaigns: 'leads', marketing: 'leads', printwork: 'leads',
   },
 
   // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
@@ -363,7 +366,7 @@ window.Danubra = {
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
-    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', campaigns: 'E-maily',
+    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', campaigns: 'E-maily', printwork: 'Tlačoviny',
     money: 'Prehľad', invoices: 'Vydané', costs: 'Prijaté', advances: 'Zálohy a výplaty', bank: 'Banka',
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
     mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné',
@@ -379,7 +382,7 @@ window.Danubra = {
     timesheets: 'Kto koľko odrobil', hoursheet: 'Na podpis Nemcovi', accommodations: 'Kde ľudia bývajú',
     workers: 'Kartotéka', hiring: 'Koho hľadáme', candidates: 'Kto sa ozval', ads: 'Kde inzerujeme',
     recruiting: 'Z telefonátov', marketing: 'Portály a čo to stojí', crews: 'Kto chodí spolu',
-    leads: 'Podobné našim odberateľom', campaigns: 'Rozoslať a odhlásenia',
+    leads: 'Podobné našim odberateľom', campaigns: 'Rozoslať a odhlásenia', printwork: 'Vizitky, obálky, listy',
     money: 'Čo čaká a čo zaplatiť', invoices: 'Vystaviť a pozrieť', costs: 'Faktúry a bločky od iných',
     advances: 'Čo dlhujeme ľuďom',
     bank: 'Výpis a platby',
