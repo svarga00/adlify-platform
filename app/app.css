@@ -675,7 +675,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   transform: rotate(-45deg); transition: transform .12s;
 }
 .more-block[open] > summary::before { transform: rotate(45deg); margin-bottom: 4px; }
-/* Smer triedenia v tabuľke — ikona, nie znak ▲▼. */
+/* Smer triedenia v tabuľke — ikona, nie znak. */
 .kpi-sort { display: inline-flex; vertical-align: -1px; margin-left: 3px; transform: rotate(90deg); }
 .kpi-sort.is-asc { transform: rotate(-90deg); }
 .more-block > summary:hover { color: var(--brand); }

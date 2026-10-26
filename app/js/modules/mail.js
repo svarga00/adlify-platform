@@ -427,7 +427,7 @@
         const napisat = this.boxes.length && s.dataset.email
           ? `<button class="btn btn-outline btn-sm" onclick="Mail.compose({to:'${UI.esc(s.dataset.email)}',links:{${k}:'${s.dataset.id}'}})">${Icon('mail', 14)} Napísať e-mail</button>` : '';
         s.innerHTML = (list.length ? list.map(m => `<button class="mail-row${m.seen ? '' : ' unread'}" onclick="Danubra.go('mail');setTimeout(()=>{Mail.box='${m.mailbox_id}';Mail.folder='${m.direction}';Mail.open('${m.id}')},300)">
-          <span class="mail-row-top"><b>${m.direction === 'out' ? '→ ' : '← '}${UI.esc(m.subject || '(bez predmetu)')}</b><time>${UI.esc(this.shortDate(m.sent_at))}</time></span>
+          <span class="mail-row-top"><b>${Icon(m.direction === 'out' ? 'upload' : 'download', 13)} ${UI.esc(m.subject || '(bez predmetu)')}</b><time>${UI.esc(this.shortDate(m.sent_at))}</time></span>
           <span class="mail-row-snip">${UI.esc(m.snippet || '')}</span></button>`).join('')
           : `<div class="js-empty">${this.boxes.length ? 'Zatiaľ žiadne e-maily.' : 'E-maily sa tu ukážu, keď bude pridaná schránka.'}</div>`)
           + (napisat ? `<div class="js-acts">${napisat}</div>` : '');

@@ -477,6 +477,7 @@
   .eu-legal-top { padding-top: 24px; }
   .eu-legal-top h1 { margin-top: 14px; }
   .eu-legal-top .eu-warn { align-items: flex-start; }
+  .eu-legal-top .eu-warn .ico-alert { margin-top: 2px; }
   .eu-imp { grid-template-columns: 1fr; gap: 10px; padding-top: 22px; }
   .eu-imp-c { padding: 20px; }
   .eu-imp-priv { padding-top: 44px; gap: 20px; }
