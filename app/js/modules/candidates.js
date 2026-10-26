@@ -206,8 +206,8 @@
           avg == null ? 'zatiaľ nemeriame' : `${avg} min`,
           avg == null ? 'nikomu sme sa ešte neozvali' : 'cieľ do 10 minút',
           avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)')}
-        ${kpi(`Nastúpili${UI.tip('Koľko kandidátov má stav Nasadený. Percento je z počtu všetkých kandidátov v zozname.')}`, placed,
-          uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(conv)}`
+        ${kpi(`Nastúpili${UI.tip('Koľko kandidátov má stav Nasadený. Percento je z uzavretých — tých, pri ktorých je už rozhodnuté (nastúpili, odmietnutí alebo stratení).')}`, placed,
+          uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(Math.round(placed / uzavreti * 1000) / 10)}`
             : 'zatiaľ sa nedá počítať',
           placed ? 'var(--green)' : null)}
         ${kpi(`Odmietnutí a stratení${UI.tip('Odmietnutý = nechceli sme ho my. Stratený = on odstúpil alebo sa prestal ozývať.')}`, stratenI,

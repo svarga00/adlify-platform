@@ -313,9 +313,9 @@
               <label class="mod-toggle">
                 <input type="checkbox" ${on(key) ? 'checked' : ''}
                   onchange="Cfg.toggleModule('${key}', this.checked)">
-                <b>${UI.esc(label)}</b>
-              </label>${UI.tip('Vypnutím agenda zmizne z menu pre všetkých. Nič sa nemaže — '
-                + 'po zapnutí je všetko späť, ako bolo.')}
+                <b>${UI.esc(label)}</b>${UI.tip('Vypnutím agenda zmizne z menu pre všetkých. Nič sa nemaže — '
+                  + 'po zapnutí je všetko späť, ako bolo.')}
+              </label>
               <span>${UI.esc(note)}</span>
             </div>`).join('')}
         </div>`;
