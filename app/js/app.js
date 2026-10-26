@@ -802,8 +802,9 @@ window.Danubra = {
   },
 
   _flyBind(nav) {
-    // Rozbalená sekcia má položky priamo v menu — podmenu by ich len zdvojilo.
-    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids:not(.is-open)');
+    // Podmenu sa ukáže pri každej hlavnej sekcii, aj pri rozbalenej —
+    // „mega menu nech sa mi zobrazuje pri každom hoveri na hlavnú kategóriu".
+    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids');
     nav.addEventListener('mouseover', (e) => {
       const el = item(e);
       if (!el || !this._flyCan()) return;

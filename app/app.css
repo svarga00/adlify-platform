@@ -360,12 +360,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .topbar-menu { display: none; background: none; border: 0; font-size: 20px; cursor: pointer; color: var(--ink); }
 .searchbox {
-  flex: 1; max-width: 460px; display: flex; align-items: center; gap: 9px;
+  flex: 1 1 180px; min-width: 150px; max-width: 460px; display: flex; align-items: center; gap: 9px;
   background: var(--field); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px;
 }
 .searchbox span { color: var(--ink-mute); font-size: 13px; }
 .searchbox input { border: 0; background: transparent; outline: none; width: 100%; font-size: 13.5px; }
-.topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+/* Pri užšom okne a mnohých tlačidlách sa tlačidlá zalomia do druhého
+   riadku — nikdy nevytlačia zvonček či nápovedu za okraj obrazovky. */
+.topbar-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 /* Odkaz v hornom pruhu — mapa appky, nie agenda. Vyzerá ako odkaz, nie ako
    tlačidlo, ktoré niečo spraví: nič nemení, len ukazuje. */
 .top-links { display: flex; gap: 6px; flex: none; }
@@ -1023,6 +1025,38 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Zoznam v okne (odrážky) — namiesto ručne štýlovaných <ul>. */
 .modal-list { margin: 8px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; color: var(--ink-sub); }
 .modal-list li + li { margin-top: 2px; }
+/* Okná: riadky, súčty a farby textu bez ručných štýlov. */
+.list-row.is-static { cursor: default; }
+.list-row.is-static:hover { background: none; }
+.list-row.is-top { align-items: flex-start; }
+.list-row.is-top > .dot { margin-top: 6px; }
+.lr-main { flex: 1; min-width: 0; font-size: 13px; }
+.lr-main.is-dead { opacity: .55; }
+.lr-sub { display: block; color: var(--ink-mute); font-size: 12px; line-height: 1.45; }
+.lr-go { flex: none; color: var(--ink-mute); display: inline-flex; }
+.doc-no { font-size: 11px; color: var(--ink-mute); letter-spacing: .1em; }
+.service-total.is-neutral { background: var(--field); border-color: var(--border); margin-top: 14px; }
+.service-total .st-sum { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pick-tile.is-static { cursor: default; }
+.pick-tile.is-static:hover { border-color: var(--border); box-shadow: none; }
+.tx-warn { color: var(--amber); }
+.tx-bad { color: var(--red); }
+.tx-ok { color: var(--green); }
+.warnbox .br-warn-sub { font-weight: 400; }
+.br-grid > form > .form-section:first-child { margin-top: 0; }
+.br-grid > form > .notebox { margin: 0 0 12px; }
+.detail-amt { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.or-sep { text-align: center; margin: 10px 0; }
+.warn-list { margin: 6px 0 0 16px; font-size: 12.5px; font-weight: 400; }
+.pick-search { margin: 0 0 10px; }
+.modal-body p:is(.muted, .muted-sm) { margin: 8px 0 12px; }
+.notebox.is-quote { font-style: italic; }
+.match-row.is-pick { cursor: pointer; }
+.match-row.is-pick > input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--brand); flex: none; }
+.match-score.is-num { color: var(--blue); border-color: var(--blue); }
+.service-total .st-side { text-align: right; }
+.lr-main .is-done { text-decoration: line-through; opacity: .6; }
+
 /* Výber z možností (dlaždice) — rovnaký vo všetkých oknách. */
 .pick-list { display: grid; gap: 8px; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
