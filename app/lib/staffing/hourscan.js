@@ -6,7 +6,7 @@
 // posielať skupiny aj jednotlivci."
 //
 // Ľudia dostanú prázdny týždenný list (DanubraPapers.stundennachweis), píšu
-// doň hodiny rukou, Polier ho podpíše a pošlú nám fotku. Fotku prečíta model
+// doň hodiny rukou, majster ho podpíše a pošlú nám fotku. Fotku prečíta model
 // (netlify/functions/danubra-read-hours.js) cez nástroj `TOOL`; tu je všetko
 // ostatné:
 //
@@ -126,7 +126,7 @@
       'Prečítaj priložený týždenný výkaz hodín (Stundennachweis) a zapíš ho cez nástroj stundennachweis.',
       '',
       'O čo ide: firma Partner und Service s. r. o. posiela živnostníkov zo Slovenska a Maďarska na stavby',
-      'v Nemecku. Každý týždeň si na tento papier rukou píšu hodiny a nemecký majster (Kunde, Polier) ho',
+      'v Nemecku. Každý týždeň si na tento papier rukou píšu hodiny a nemecký majster (Kunde) ho',
       'podpíše. Z neho sa fakturuje — každá hodina je peniaz, preto presnosť je dôležitejšia než úplnosť.',
       'List môže byť za celú partiu (viac mien) alebo za jedného človeka.',
       '',
@@ -484,7 +484,7 @@
 
   /**
    * Ako veľmi sa meno z papiera podobá na človeka. 1 = celé meno sedí,
-   * ~0.95 = priezvisko a začiatočné písmeno („Mynárik P." ↔ „Peter Mynárik"),
+   * ~0.95 = priezvisko a začiatočné písmeno („Mynárik P." a „Peter Mynárik"),
    * 0.85 = len jedno slovo. Začiatočné písmeno, ktoré nesedí, ťahá dole.
    */
   function nameScore(raw, fullName) {

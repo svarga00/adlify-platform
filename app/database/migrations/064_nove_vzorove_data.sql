@@ -2,22 +2,30 @@
 -- 064 — nové vzorové dáta: všetky stavy, všetky obrazovky
 -- ============================================================================
 -- Majiteľ schválil, že pracovné záznamy sa nahradia novou vzorovou sadou,
--- ktorá pokryje každý stav každej veci. Prázdna obrazovka vyzerá rovnako ako
+-- ktorá pokryje každý stav každej veci. Skutočné záznamy majiteľa zostávajú
+-- (zoznam v kroku 1). Prázdna obrazovka vyzerá rovnako ako
 -- pokazená a stav, ktorý v dátach nikdy nebol, sa nedá posúdiť — preto tu je
 -- každý stav, každé upozornenie a každý filter aspoň raz.
 --
 -- Čo skript robí, v tomto poradí (všetko v jednom bloku — buď prejde celý,
 -- alebo sa nestane nič):
 --
---   1. Staré PDF v archíve **skryje** (archived_at = now()). Nemaže ich —
+--   1. Zostaví zoznam toho, čo zostáva: prijaté faktúry Orange Slovensko,
+--      Okresný úrad Komárno a Michaela Túrócziová, návrhy faktúr 2026002 a
+--      2026003, celú firemnú compliance, všetky náborové plány s podkladmi,
+--      všetkých kandidátov so všetkým, čo k nim patrí — a všetko, na čo tieto
+--      riadky ukazujú cudzím kľúčom. Overí, že zoznam je úplný; inak skončí
+--      chybou a nezmení nič.
+--   2. Staré PDF v archíve **skryje** (archived_at = now()). Nemaže ich —
 --      archív je doklad o tom, čo odišlo von.
---   2. Odkazy z tabuliek, ktoré zostávajú (archív, pošta, otázky k náboru,
+--   3. Odkazy z tabuliek, ktoré zostávajú (archív, pošta, otázky k náboru,
 --      prihlášky z webu), na mazané riadky nastaví na null.
---   3. Zmaže všetky pracovné záznamy v poradí, ktoré dovolia cudzie kľúče,
+--   4. Zmaže ostatné pracovné záznamy v poradí, ktoré dovolia cudzie kľúče,
 --      a vyprázdni evidenciu vzorových dát.
---   4. Vloží novú sadu a každý riadok zapíše do danubra_demo_ledger, takže
---      pás „V systéme sú vzorové dáta" aj tlačidlo „Vymazať vzorové dáta"
---      fungujú ďalej.
+--   5. Vloží novú sadu a 6. každý jej riadok zapíše do danubra_demo_ledger,
+--      takže pás „V systéme sú vzorové dáta" aj tlačidlo „Vymazať vzorové
+--      dáta" fungujú ďalej. Ponechané ostré riadky sa do evidencie
+--      nezapisujú — tlačidlo ich nezmaže.
 --
 -- Nedotkne sa: nastavení, používateľov, schránok a pošty (len odkazy),
 -- číselníkov, remesiel, otázok, čipov, šablón, pravidiel úloh, obsahu webu,
@@ -33,6 +41,10 @@
 --
 -- Spustiť raz. Druhé spustenie sa zastaví samo (pozná vzorovú firmu), aby
 -- nezmazalo, čo medzičasom pribudlo naostro.
+--
+-- Celý súbor je jedna transakcia: funkcia danubra_demo_purge sa nahradí
+-- (create or replace je samo o sebe atómové) a výmena dát beží v jedinom
+-- bloku `do $$ … $$`. Ak čokoľvek v ňom zlyhá, nezmení sa ani jeden riadok.
 -- ============================================================================
 
 
@@ -164,6 +176,27 @@ declare
   v_amt_sza numeric;
   v_hrs numeric;
   v_week_mon date;
+  fk record;
+  v_n bigint;
+  v_deleted text[] := '{}';
+  -- Tabuľky, ktoré sa mažú (okrem ponechaných riadkov), v poradí deti pred
+  -- rodičmi. Ostatné danubra_* tabuľky sú nastavenia a ostré dáta — tých sa
+  -- skript nedotkne.
+  v_wipe text[] := array[
+    'danubra_bank_transactions', 'danubra_invoice_reminders', 'danubra_advances', 'danubra_costs',
+    'danubra_invoice_items', 'danubra_invoices', 'danubra_bills', 'danubra_bundles', 'danubra_work_orders',
+    'danubra_timesheets', 'danubra_hour_sheets', 'danubra_checklist_items', 'danubra_assignment_checks',
+    'danubra_stays', 'danubra_subcontract_accommodations', 'danubra_assignments', 'danubra_periods',
+    'danubra_promises', 'danubra_call_recordings', 'danubra_consents',
+    'danubra_candidate_chips', 'danubra_candidate_checks', 'danubra_candidate_notes', 'danubra_screening_answers',
+    'danubra_candidates', 'danubra_ads', 'danubra_plan_assets', 'danubra_opportunities', 'danubra_recruitment_plans',
+    'danubra_campaign_sends', 'danubra_campaigns', 'danubra_lead_searches', 'danubra_leads',
+    'danubra_subcontracts', 'danubra_contract_amendments', 'danubra_contracts', 'danubra_quotes', 'danubra_partners',
+    'danubra_crew_members', 'danubra_crews', 'danubra_worker_documents', 'danubra_overrides', 'danubra_workers',
+    'danubra_documents', 'danubra_order_extensions', 'danubra_order_service_periods', 'danubra_order_requests',
+    'danubra_order_persons', 'danubra_orders', 'danubra_offer_variants', 'danubra_offers', 'danubra_inquiries',
+    'danubra_clients', 'danubra_accommodations', 'danubra_activities', 'danubra_tasks', 'danubra_messages',
+    'danubra_message_threads', 'danubra_marketing_listings', 'danubra_marketing_expenses', 'danubra_compliance'];
 begin
   -- ── 0. Spustiť len raz ─────────────────────────────────────────────────────
   if exists (select 1 from danubra_partners where ust_idnr = 'DE287451936' and name = 'Hofmann Bau GmbH') then
@@ -174,96 +207,190 @@ begin
   select user_id into v_admin from danubra_members
    where role = 'admin' and active order by created_at limit 1;
 
-  -- ── 1. Staré PDF skryť ─────────────────────────────────────────────────────
+  -- ── 1. Čo zostáva: vlastné dáta majiteľa ───────────────────────────────────
+  -- Majiteľ rozhodol (26. 10. 2026): skutočné záznamy zostávajú, zmaže sa
+  -- všetko ostatné. Zoznam ponechaných riadkov je v dočasnej tabuľke _keep
+  -- a mazanie ho obíde. Ponechané riadky sa do danubra_demo_ledger
+  -- **nezapisujú** — nie sú vzorové, tlačidlo „Vymazať vzorové dáta" ich
+  -- nesmie zmazať.
+  --
+  -- Zoznam má dve časti:
+  --   a) Čo chcel majiteľ zachovať (pravidlom alebo presným id).
+  --   b) Všetko, na čo tieto riadky ukazujú cudzím kľúčom, aj ďalej do hĺbky —
+  --      zistené čítaním ostrej databázy 26. 10. 2026 a zapísané presnými id.
+  -- Na konci sa to celé overí podľa pg_constraint: keby ponechaný riadok
+  -- ukazoval na riadok, ktorý sa má zmazať, skript skončí chybou a nezmení sa
+  -- nič. Zoznam teda nemôže potichu chýbať.
+  create temp table _keep (tbl text not null, id uuid not null, why text,
+    primary key (tbl, id)) on commit drop;
+
+  -- a) Čo chcel majiteľ zachovať ---------------------------------------------
+  -- Prijaté faktúry, ktoré nahral naostro (aj so súbormi v úložisku).
+  insert into _keep (tbl, id, why) values
+    ('danubra_bills', '6af0bc81-cf97-416f-9e3b-9521d6244eb6', 'prijatá faktúra Orange Slovensko, a. s. č. 2910056421'),
+    ('danubra_bills', 'f1f825a6-d288-4d9d-af4e-6577ab567a1b', 'doklad Okresný úrad Komárno OU-KN-OZP-2026/020113-2'),
+    ('danubra_bills', 'c5a7e69e-d85b-481d-bd7b-6bfa98ec4928', 'prijatá faktúra Michaela Túrócziová č. 2026070015');
+  -- Návrhy faktúr 2026002 a 2026003 (rozpracované v ostrom číselnom rade).
+  insert into _keep (tbl, id, why) values
+    ('danubra_invoices', '000890fd-27be-4360-990e-e03bde2f29f8', 'návrh faktúry 2026002'),
+    ('danubra_invoices', 'c91da0d2-2bd3-4ef8-a06b-b992febeb188', 'návrh faktúry 2026003');
+  insert into _keep (tbl, id, why)
+  select 'danubra_invoice_items', id, 'položka ponechanej faktúry' from danubra_invoice_items
+   where invoice_id in (select id from _keep where tbl = 'danubra_invoices');
+  insert into _keep (tbl, id, why)
+  select 'danubra_invoice_reminders', id, 'upomienka ponechanej faktúry' from danubra_invoice_reminders
+   where invoice_id in (select id from _keep where tbl = 'danubra_invoices');
+  -- Compliance je firemná a malá: zostáva všetko, čo nie je vzorové
+  -- (vrátane záznamu „Freistellungsbescheinigung máme").
+  insert into _keep (tbl, id, why)
+  select 'danubra_compliance', id, 'firemná compliance' from danubra_compliance
+   where id not in (select row_id from danubra_demo_ledger where table_name = 'danubra_compliance');
+  -- Nábor: všetky plány s podkladmi a všetci kandidáti so všetkým, čo k nim
+  -- patrí (čipy z hovoru, kroky, poznámky, odpovede, aktivity, nahrávky).
+  insert into _keep (tbl, id, why)
+  select 'danubra_recruitment_plans', id, 'náborový plán: ' || title from danubra_recruitment_plans;
+  insert into _keep (tbl, id, why)
+  select 'danubra_plan_assets', id, 'podklad k náborovému plánu' from danubra_plan_assets
+   where plan_id in (select id from _keep where tbl = 'danubra_recruitment_plans');
+  insert into _keep (tbl, id, why)
+  select 'danubra_candidates', id, 'kandidát: ' || full_name from danubra_candidates;
+  insert into _keep (tbl, id, why)
+  select 'danubra_candidate_chips', id, 'čip kandidáta' from danubra_candidate_chips
+   where candidate_id in (select id from _keep where tbl = 'danubra_candidates');
+  insert into _keep (tbl, id, why)
+  select 'danubra_candidate_checks', id, 'krok kandidáta' from danubra_candidate_checks
+   where candidate_id in (select id from _keep where tbl = 'danubra_candidates');
+  insert into _keep (tbl, id, why)
+  select 'danubra_candidate_notes', id, 'poznámka ku kandidátovi' from danubra_candidate_notes
+   where candidate_id in (select id from _keep where tbl = 'danubra_candidates');
+  insert into _keep (tbl, id, why)
+  select 'danubra_screening_answers', id, 'odpoveď kandidáta' from danubra_screening_answers
+   where candidate_id in (select id from _keep where tbl = 'danubra_candidates')
+      or (candidate_id is null and plan_id in (select id from _keep where tbl = 'danubra_recruitment_plans'));
+  insert into _keep (tbl, id, why)
+  select 'danubra_activities', id, 'aktivita pri kandidátovi' from danubra_activities
+   where entity_type = 'candidate' and entity_id in (select id from _keep where tbl = 'danubra_candidates');
+  insert into _keep (tbl, id, why)
+  select 'danubra_consents', id, 'súhlas kandidáta' from danubra_consents
+   where subject_type = 'candidate' and subject_id in (select id from _keep where tbl = 'danubra_candidates');
+  insert into _keep (tbl, id, why)
+  select 'danubra_call_recordings', id, 'nahrávka hovoru s kandidátom' from danubra_call_recordings
+   where subject_type = 'candidate' and subject_id in (select id from _keep where tbl = 'danubra_candidates');
+  insert into _keep (tbl, id, why)
+  select 'danubra_promises', id, 'sľub kandidátovi' from danubra_promises
+   where (subject_type = 'candidate' and subject_id in (select id from _keep where tbl = 'danubra_candidates'))
+      or recording_id in (select id from _keep where tbl = 'danubra_call_recordings');
+
+  -- b) Na čo ponechané riadky ukazujú (stav ostrej databázy 26. 10. 2026) -----
+  -- Faktúra 2026002 bola založená nad starou vzorovou zákazkou Feuerbach,
+  -- preto zostáva aj tá zákazka, jej zmluva, ponuka, uzavreté obdobie a
+  -- hodiny v ňom (uzavreté obdobie sa nemení, takže ani jeho hodiny).
+  insert into _keep (tbl, id, why) values
+    ('danubra_partners', '803ca41d-fc23-430a-9b46-34b56536f29f', 'Bauunternehmen Vogel GmbH — odberateľ faktúry 2026002, zákazky ZAK-VZOR-001, zmluvy a ponuky'),
+    ('danubra_partners', 'd5ec06c5-13eb-4ebf-aab0-10c069927a7c', 'Metallbau Sommer KG — odberateľ faktúry 2026003 a zákazky ZAK-2026-0001'),
+    ('danubra_partners', '5e452472-dece-4e12-ac0f-075d2a2b40bc', 'Hartmann Bau KG — odberateľ zákazky ZAK-VZOR-002 (plán Sadrokartonári München)'),
+    ('danubra_subcontracts', '66fdbbcc-209d-4a0d-89eb-128dd817e275', 'ZAK-VZOR-001 Wohnpark Feuerbach — faktúra 2026002, plán Murári na Stuttgart'),
+    ('danubra_subcontracts', '4458dc86-cd3a-4e67-8a6c-d7964decff73', 'ZAK-2026-0001 Zváranie oceľových konštrukcií — faktúra 2026003, inzerát Murári Stuttgart'),
+    ('danubra_subcontracts', '8bdcb72a-056d-4f3b-9462-b4a7d9123c76', 'ZAK-VZOR-002 Sanierung Schulzentrum Nord — plán Sadrokartonári München'),
+    ('danubra_contracts', '049c99b2-8f9d-4173-b924-155b9dea9273', 'ZML-VZOR-001 — zmluva faktúry 2026002 a zákazky ZAK-VZOR-001'),
+    ('danubra_quotes', '566b6c26-72e1-46d1-950f-2bc56044473e', 'PON-VZOR-001 — ponuka zmluvy ZML-VZOR-001 a zákazky ZAK-VZOR-001'),
+    ('danubra_periods', '7f3357fd-6270-48b2-bf9d-a3031fd18ab8', 'uzavreté obdobie október, zákazka ZAK-VZOR-001 — faktúra 2026002'),
+    ('danubra_assignments', '78a2d05d-6efa-49b9-a8c9-d404516c471d', 'nasadenie Jána Nováka na ZAK-VZOR-001 — hodiny v uzavretom období'),
+    ('danubra_workers', '81021eec-8542-4640-bd83-ba5acfca04b2', 'Ján Novák — hodiny v uzavretom období faktúry 2026002'),
+    ('danubra_crews', '58b67bc6-f144-4ac4-85e9-5090bf6922dc', 'Partia Nitra — partia nasadenia a Jána Nováka'),
+    ('danubra_ads', 'c3decda6-c372-4acd-ba03-7538f9192381', 'inzerát Murári Stuttgart — kandidáti, plán, otázka k inzerátu'),
+    ('danubra_ads', 'c6c7afab-c5f7-4921-8bc6-068a518c1e32', 'inzerát Sadrokartonári München — kandidát'),
+    ('danubra_opportunities', '439cdebd-6970-43c9-baac-3984f24a2454', 'možnosť Lixenried — naviazaná na náborový plán Lixenried');
+  -- Hodiny v ponechanom uzavretom období (5 dní Jána Nováka).
+  insert into _keep (tbl, id, why)
+  select 'danubra_timesheets', t.id, 'hodiny v uzavretom ponechanom období' from danubra_timesheets t
+   where t.period_id in (select id from _keep where tbl = 'danubra_periods')
+  on conflict do nothing;
+  -- Členstvo ponechaného človeka v ponechanej partii. Keby sa zmazalo,
+  -- trigger danubra_worker_crew_trg by mu prepísal partiu.
+  insert into _keep (tbl, id, why)
+  select 'danubra_crew_members', m.id, 'členstvo ponechaného človeka v ponechanej partii' from danubra_crew_members m
+   where m.crew_id in (select id from _keep where tbl = 'danubra_crews')
+     and m.worker_id in (select id from _keep where tbl = 'danubra_workers')
+  on conflict do nothing;
+  -- Dodatky ponechanej zmluvy patria k nej.
+  insert into _keep (tbl, id, why)
+  select 'danubra_contract_amendments', a.id, 'dodatok ponechanej zmluvy' from danubra_contract_amendments a
+   where a.contract_id in (select id from _keep where tbl = 'danubra_contracts')
+  on conflict do nothing;
+
+  -- Kontrola: žiadny ponechaný riadok nesmie ukazovať na riadok, ktorý sa
+  -- zmaže. Prejde všetky cudzie kľúče medzi mazanými tabuľkami.
+  for fk in
+    select cl.relname::text as child, att.attname::text as col, pl.relname::text as parent
+      from pg_constraint c
+      join pg_class cl on cl.oid = c.conrelid
+      join pg_class pl on pl.oid = c.confrelid
+      join pg_attribute att on att.attrelid = c.conrelid and att.attnum = c.conkey[1]
+     where c.contype = 'f' and array_length(c.conkey, 1) = 1
+       and cl.relnamespace = 'public'::regnamespace
+       and cl.relname::text = any(v_wipe) and pl.relname::text = any(v_wipe)
+  loop
+    execute format(
+      'select count(*) from %I t where t.%I is not null
+          and exists (select 1 from _keep k where k.tbl = %L and k.id = t.id)
+          and not exists (select 1 from _keep k2 where k2.tbl = %L and k2.id = t.%I)',
+      fk.child, fk.col, fk.child, fk.parent, fk.col) into v_n;
+    if v_n > 0 then
+      raise exception '064: % ponechaných riadkov v % (stĺpec %) ukazuje na % mimo zoznamu, čo zostáva. Nič sa nezmenilo — doplňte ich do _keep.',
+        v_n, fk.child, fk.col, fk.parent;
+    end if;
+  end loop;
+
+  -- ── 2. Staré PDF skryť ─────────────────────────────────────────────────────
   update danubra_archive set archived_at = now() where archived_at is null;
 
-  -- ── 2. Odkazy z tabuliek, ktoré zostávajú ──────────────────────────────────
-  update danubra_archive
-     set worker_id = null, partner_id = null, subcontract_id = null
-   where worker_id is not null or partner_id is not null or subcontract_id is not null;
-  update danubra_mail_messages
-     set worker_id = null, partner_id = null, lead_id = null
-   where worker_id is not null or partner_id is not null or lead_id is not null;
-  update danubra_web_submissions
-     set candidate_id = null, opportunity_id = null
-   where candidate_id is not null or opportunity_id is not null;
-  update danubra_screening_questions set ad_id = null where ad_id is not null;
+  -- ── 3. Odkazy z tabuliek, ktoré zostávajú — len na riadky, ktoré sa zmažú ───
+  update danubra_archive set worker_id = null
+   where worker_id is not null and worker_id not in (select id from _keep where tbl = 'danubra_workers');
+  update danubra_archive set partner_id = null
+   where partner_id is not null and partner_id not in (select id from _keep where tbl = 'danubra_partners');
+  update danubra_archive set subcontract_id = null
+   where subcontract_id is not null and subcontract_id not in (select id from _keep where tbl = 'danubra_subcontracts');
+  update danubra_mail_messages set worker_id = null
+   where worker_id is not null and worker_id not in (select id from _keep where tbl = 'danubra_workers');
+  update danubra_mail_messages set partner_id = null
+   where partner_id is not null and partner_id not in (select id from _keep where tbl = 'danubra_partners');
+  update danubra_mail_messages set lead_id = null
+   where lead_id is not null and lead_id not in (select id from _keep where tbl = 'danubra_leads');
+  update danubra_web_submissions set candidate_id = null
+   where candidate_id is not null and candidate_id not in (select id from _keep where tbl = 'danubra_candidates');
+  update danubra_web_submissions set opportunity_id = null
+   where opportunity_id is not null and opportunity_id not in (select id from _keep where tbl = 'danubra_opportunities');
+  update danubra_screening_questions set ad_id = null
+   where ad_id is not null and ad_id not in (select id from _keep where tbl = 'danubra_ads');
 
-  -- ── 3. Zmazať pracovné záznamy ─────────────────────────────────────────────
-  -- Uzavreté obdobia sa najprv otvoria — inak by hodiny v nich zostali
-  -- zamknuté (danubra_ts_frozen_trg). Dodatky sa bežne nemažú; tu áno, lebo
-  -- sa maže celá sada naraz so súhlasom majiteľa.
-  update danubra_periods set status = 'open' where status <> 'open';
+  -- ── 4. Zmazať pracovné záznamy okrem ponechaných ───────────────────────────
+  -- Uzavreté obdobia, ktoré sa mažú, sa najprv otvoria — inak by hodiny v nich
+  -- zostali zamknuté (danubra_ts_frozen_trg). Ponechané obdobie sa nemení.
+  -- Dodatky sa bežne nemažú; tu áno (okrem ponechanej zmluvy), lebo sa maže
+  -- celá sada naraz so súhlasom majiteľa.
+  update danubra_periods set status = 'open'
+   where status <> 'open' and id not in (select id from _keep where tbl = 'danubra_periods');
   alter table danubra_contract_amendments disable trigger danubra_amendment_no_delete_trg;
 
-  delete from danubra_bank_transactions;
-  delete from danubra_invoice_reminders;
-  delete from danubra_advances;
-  delete from danubra_costs;
-  delete from danubra_invoice_items;
-  delete from danubra_invoices;
-  delete from danubra_bills;
-  delete from danubra_bundles;
-  delete from danubra_work_orders;
-  delete from danubra_timesheets;
-  delete from danubra_hour_sheets;
-  delete from danubra_checklist_items;
-  delete from danubra_assignment_checks;
-  delete from danubra_stays;
-  delete from danubra_subcontract_accommodations;
-  delete from danubra_assignments;
-  delete from danubra_periods;
-  delete from danubra_promises;
-  delete from danubra_call_recordings;
-  delete from danubra_consents;
-  update danubra_workers set candidate_id = null where candidate_id is not null;
-  delete from danubra_candidate_chips;
-  delete from danubra_candidate_checks;
-  delete from danubra_candidate_notes;
-  delete from danubra_screening_answers;
-  delete from danubra_candidates;
-  delete from danubra_ads;
-  delete from danubra_plan_assets;
-  delete from danubra_opportunities;
-  delete from danubra_recruitment_plans;
-  delete from danubra_campaign_sends;
-  delete from danubra_campaigns;
-  delete from danubra_lead_searches;
-  delete from danubra_leads;
-  delete from danubra_subcontracts;
-  delete from danubra_contract_amendments;
-  delete from danubra_contracts;
-  delete from danubra_quotes;
-  delete from danubra_partners;
-  delete from danubra_crew_members;
-  delete from danubra_crews;
-  delete from danubra_worker_documents;
-  delete from danubra_overrides;
-  delete from danubra_workers;
-  delete from danubra_documents;
-  delete from danubra_order_extensions;
-  delete from danubra_order_service_periods;
-  delete from danubra_order_requests;
-  delete from danubra_order_persons;
-  delete from danubra_orders;
-  delete from danubra_offer_variants;
-  delete from danubra_offers;
-  delete from danubra_inquiries;
-  delete from danubra_clients;
-  delete from danubra_accommodations;
-  delete from danubra_activities;
-  delete from danubra_tasks;
-  delete from danubra_messages;
-  delete from danubra_message_threads;
-  delete from danubra_marketing_listings;
-  delete from danubra_marketing_expenses;
-  delete from danubra_compliance;
+  -- Poradie: deti pred rodičmi.
+  foreach v_t in array v_wipe loop
+    execute format('delete from %I t where not exists (select 1 from _keep k where k.tbl = %L and k.id = t.id)', v_t, v_t);
+    get diagnostics v_n = row_count;
+    v_deleted := v_deleted || (replace(v_t, 'danubra_', '') || '=' || v_n);
+  end loop;
   delete from danubra_demo_ledger;
 
   alter table danubra_contract_amendments enable trigger danubra_amendment_no_delete_trg;
 
+  raise notice '064: ponechané %; zmazané %',
+    (select string_agg(replace(tbl, 'danubra_', '') || '=' || n, ', ' order by tbl)
+       from (select tbl, count(*) n from _keep group by tbl) x),
+    array_to_string(v_deleted, ', ');
+
   -- ══════════════════════════════════════════════════════════════════════════
-  -- 4. NOVÁ SADA
+  -- 5. NOVÁ SADA
   -- ══════════════════════════════════════════════════════════════════════════
 
   -- ── Odberatelia ────────────────────────────────────────────────────────────
@@ -1382,17 +1509,10 @@ begin
      'Vlastný prevod medzi účtami.', now() - interval '80 days', 'vzor-064-t10', 'vypis-vzor-' || to_char(v_m3, 'YYYY-MM'));
 
   -- ── Compliance firmy ───────────────────────────────────────────────────────
-  -- Platné, vybavuje sa, končí, po platnosti, netýka sa — a §9 HwO chýba
-  -- úplne (obrazovka ho ukáže medzi „Čo ešte chýba zaevidovať").
-  insert into danubra_compliance (scope, kind, reference, valid_from, valid_to, status, responsible, notes)
-  values
-    ('company', 'freistellung_48b', 'FB-VZOR-48b-2026', v_d - 140, v_d + 225, 'active', 'Michaela',
-     'Freistellungsbescheinigung §48b — vzorový záznam.'),
-    ('company', 'ust_idnr', 'DE-VZOR-000000', v_d - 270, null, 'active', 'Michaela', 'Vzorový záznam USt-IdNr.'),
-    ('company', 'soka_registration', null, null, null, 'pending', 'účtovník', 'Registrácia podaná, čaká sa na číslo.'),
-    ('company', 'insurance', 'BHV-VZOR-4471', v_d - 375, v_d - 10, 'active', 'Štefan',
-     'Betriebshaftpflicht — skončila, obnova je v riešení.'),
-    ('company', 'other', 'Gewerbeanmeldung', null, null, 'not_required', null, 'Pri vysielaní zo SK sa netýka.');
+  -- Vzorová sa nevkladá: firemná compliance zostáva ostrá (krok 1). Vzorový
+  -- záznam vedľa skutočnej Freistellung alebo poistenia by miatol. Stavy
+  -- dokladov s platnosťou (končí, po platnosti, ešte neplatí) ukazujú doklady
+  -- ľudí vyššie, chýbajúci §9 HwO ukáže obrazovka sama.
 
   -- ── Nábor: plány ───────────────────────────────────────────────────────────
   insert into danubra_recruitment_plans (title, trade_key, headcount, skill_level, legal_form, subcontract_id, city, country,
@@ -1816,8 +1936,6 @@ begin
   values
     ('Ozvať sa kandidátovi Peter Mráz', 'candidate', cd1, 'Peter Mráz', 'high', 'open', v_d, 'cron', 'auto',
      'danubra_candidates.first_contact_at', 'candidate:' || cd1, now() - interval '20 minutes'),
-    ('Obnoviť Betriebshaftpflicht', null, null, 'Compliance firmy', 'high', 'open', v_d - 10, 'cron', 'auto',
-     'danubra_compliance.valid_to', 'compliance-vzor:insurance:' || (v_d - 10), now() - interval '30 days'),
     ('Nábor Obkladači Stuttgart nestíha', null, null, 'Obkladači Stuttgart — Klinikum Nord', 'normal', 'open', v_d + 7,
      'cron', 'auto', 'danubra_recruitment_plans.deadline', 'plan:' || rp1 || ':' || (v_d + 7), now() - interval '1 day');
 
@@ -2168,13 +2286,13 @@ begin
     ('order', or1, 'whatsapp', 'out', 'Poslaný odovzdávací list s kódom od dverí.', 'manual', now() - interval '56 days');
 
   -- ══════════════════════════════════════════════════════════════════════════
-  -- 5. Evidencia vzorových dát
+  -- 6. Evidencia vzorových dát
   -- ══════════════════════════════════════════════════════════════════════════
   -- Zapisuje sa až na konci a po tabuľkách v poradí „rodič pred dieťaťom".
   -- Mazanie (danubra_demo_purge) ide podľa poradia zápisu odzadu, takže
   -- deti padnú skôr než rodičia a cudzie kľúče ho nezastavia. Zapisujú sa
-  -- všetky riadky týchto tabuliek — po kroku 3 v nich nič iné nie je
-  -- (vrátane členstva vedúceho, ktoré založil trigger).
+  -- všetky riadky týchto tabuliek okrem ponechaných ostrých (_keep) —
+  -- vrátane členstva vedúceho, ktoré založil trigger.
   for v_t in select unnest(array[
     'danubra_partners', 'danubra_workers', 'danubra_crews', 'danubra_crew_members', 'danubra_worker_documents',
     'danubra_quotes', 'danubra_contracts', 'danubra_contract_amendments', 'danubra_subcontracts',
@@ -2195,7 +2313,7 @@ begin
   loop
     -- Poradie v rámci jednej tabuľky nerozhoduje: riadky jednej tabuľky maže
     -- jeden príkaz naraz (aj náklad s rodičom v tej istej tabuľke).
-    execute format('select danubra_demo_mark(%L, id) from %I order by id', v_t, v_t);
+    execute format('select danubra_demo_mark(%L, t.id) from %I t where not exists (select 1 from _keep k where k.tbl = %L and k.id = t.id) order by t.id', v_t, v_t, v_t);
   end loop;
 
   raise notice '064: vzorové dáta vymenené, v evidencii % riadkov.', (select count(*) from danubra_demo_ledger);

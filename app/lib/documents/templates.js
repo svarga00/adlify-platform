@@ -2074,7 +2074,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const n = f ? Math.max(people.length, 1) : Math.max(Number(rows) || 0, people.length, 1);
     while (people.length < n) people.push({ name: '', cells: null });
     // Riadky sa zmestia na jednu stranu: čím viac mien, tým nižšie (ale stále sa do nich dá písať).
-    const ph = Math.max(30, Math.min(46, Math.floor(300 / n)));
+    const ph = Math.max(26, Math.min(46, Math.floor(312 / n)));
 
     // Hlavička: projekt, stavba, odberateľ.
     // Číslo zákazky sa nezlomí uprostred („ZAK-2026-" / „0003").
@@ -2088,7 +2088,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const sig = signed != null ? signed : (f ? f.signed : null);
     const signer = (sig && typeof sig === 'object' && sig.name) || (f && f.signer_name) || '';
     const b = brandOf(supplier);
-    const field = (label, v, cls = '') => `<div class="hn-f"><div class="v ${cls}">${v}</div><div class="lbl">${esc(label)}</div></div>`;
+    const field = (label, v, cls = '') => `<div class="hn-f"><div class="v ${cls}"><span>${v}</span></div><div class="lbl">${esc(label)}</div></div>`;
 
     // Deň bez práce je na prepise pomlčka (na papieri „/"), nie prázdne miesto.
     const cell = (p, d) => {
@@ -2143,7 +2143,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
             ${days.map((d) => `<td>${cell(p, d)}</td>`).join('')}
             <td class="hn-s">${p.cells ? esc(hnHours(rowSum(p))) : ''}</td></tr>`).join('')}
         </tbody>
-        <tfoot><tr><th class="hn-n">Gesamt</th>${days.map((d) => `<td>${f ? esc(hnHours(daySum(d))) : ''}</td>`).join('')}
+        <tfoot><tr><th class="hn-n">Gesamt</th>${days.map((d) => `<td>${!f ? '' : daySum(d) ? esc(hnHours(daySum(d))) : '<span class="hn-dash">–</span>'}</td>`).join('')}
           <td class="hn-s">${f ? esc(hnHours(grand)) : ''}</td></tr></tfoot>
       </table>
 
