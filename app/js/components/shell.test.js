@@ -364,7 +364,7 @@ console.log('Zdieľané komponenty');
     onOverride: 'ovr()',
   });
   ok(!nic.includes('Chcem to povoliť aj tak'), 'na neobchádzateľnú prekážku sa výnimka neponúka');
-  ok(nic.includes('Uzavri obdobie'), 'namiesto toho povie, čo urobiť');
+  ok(nic.includes('Uzavrite obdobie'), 'namiesto toho povie, čo urobiť');
 
   // Vlastná veta namiesto „len administrátor" — pri faktúre je to iné právo.
   const cudzia = S.blocker({

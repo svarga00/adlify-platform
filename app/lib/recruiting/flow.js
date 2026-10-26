@@ -84,7 +84,7 @@
           detail: bezia.length
             ? `${bezia.length} ${plural(bezia.length, 'nábor beží', 'nábory bežia', 'náborov beží')}`
               + (treba ? `, treba ${treba} ${plural(treba, 'človeka', 'ľudí', 'ľudí')}` : '')
-            : 'Zatiaľ nehľadáš nikoho.',
+            : 'Zatiaľ nehľadáte nikoho.',
           action: bezia.length
             ? null
             : { label: 'Potrebujem ľudí', onclick: 'Hire.wizard()', kind: 'yes' } };
@@ -170,11 +170,11 @@
     if (n.key === 'call' && n.who) {
       const m = n.who._min;
       return {
-        title: `Zavolaj — ${n.who.full_name || 'kandidát'}`,
+        title: `Zavolajte — ${n.who.full_name || 'kandidát'}`,
         sub: m != null
           ? (m > CIEL_MINUT
             ? `Čaká už ${cas(m)}. Cieľ je ozvať sa do desiatich minút.`
-            : `Ozval sa pred ${cas(m)}. Stíhaš to.`)
+            : `Ozval sa pred ${cas(m)}. Stíhate to.`)
           : 'Čaká na prvý hovor.',
         hot: m != null && m > CIEL_MINUT,
       };

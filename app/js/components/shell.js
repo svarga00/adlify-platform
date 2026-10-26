@@ -180,7 +180,7 @@
         <span class="dashbar-hint">${
           o.period.from || o.period.to
             ? esc(window.DanubraPeriod ? DanubraPeriod.text(periodRange(o.period)) : '')
-            : 'Zadaj aspoň jednu hranicu — dovtedy sa ukazuje všetko.'}</span>
+            : 'Zadajte aspoň jednu hranicu — dovtedy sa ukazuje všetko.'}</span>
       </div>` : ''}`;
   }
 
@@ -302,7 +302,7 @@
         </div>
         ${o.onAdd ? `
         <div class="notes-add">
-          <textarea id="${inputId}" rows="2" placeholder="${esc(o.placeholder || 'Čo sa stalo? Píš tak, aby to o mesiac dávalo zmysel.')}"></textarea>
+          <textarea id="${inputId}" rows="2" placeholder="${esc(o.placeholder || 'Čo sa stalo? Píšte tak, aby to o mesiac dávalo zmysel.')}"></textarea>
           <button class="btn btn-primary btn-sm" onclick="${o.onAdd}">${Icon('plus', 14)} Pridať</button>
         </div>` : ''}
         ${rows.length ? `<div class="notes-list">${rows.map(noteRow).join('')}</div>`

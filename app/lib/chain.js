@@ -58,7 +58,7 @@
     {
       n: 1, key: 'dopyt', ico: 'offers', route: 'opportunities',
       title: 'Dopyt na zákazku',
-      hint: 'Zapíš, kto potrebuje ľudí — koľko, kam, od kedy a za koľko.',
+      hint: 'Zapíšte, kto potrebuje ľudí — koľko, kam, od kedy a za koľko.',
       cta: ['Odpovedať na dopyty', 'Vložiť dopyt'],
       lead: 'Niekto sa ozve, že potrebuje ľudí. Zapíše to ten, kto to prijal — '
         + 'aj keď o tom vie málo.',
@@ -91,7 +91,7 @@
     {
       n: 2, key: 'nabor', ico: 'marketing', route: 'hiring',
       title: 'Inzeráty a záujemcovia',
-      hint: 'Spusti inzeráty a každému, kto sa ozve, zavolaj späť do desiatich minút.',
+      hint: 'Spustite inzeráty a každému, kto sa ozve, zavolajte späť do desiatich minút.',
       cta: ['Ozvať sa ľuďom', 'Otvoriť nábor'],
       lead: 'Zo zadania vzniknú texty na web, Bazoš a Facebook. Kto sa ozve, '
         + 'tomu sa treba ozvať späť do desiatich minút.',
@@ -274,7 +274,7 @@
         const caka = arr(x.invoices).filter(i => i.status === 'pending_approval');
         if (caka.length) {
           return { n: caka.length, state: WATCH,
-            text: `${caka.length} ${plural(caka.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} na tvoje schválenie` };
+            text: `${caka.length} ${plural(caka.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} na Vaše schválenie` };
         }
         // Hodiny staršie než dva týždne sa už ťažko vysvetľujú obom stranám.
         const stare = arr(x.timesheets).filter(t => !t.period_id && t.work_date
@@ -456,23 +456,23 @@
         key: 'gdpr', n: 4, title: 'Súhlas GDPR',
         done: !!gdpr,
         text: gdpr ? `Podpísaný ${denSk(gdpr.valid_from)}.`.replace(' .', '.')
-          : 'Vytlač súhlas, nechaj ho podpísať a zapíš to.',
+          : 'Vytlačte súhlas, nechajte ho podpísať a zapíšte to.',
       },
       {
         key: 'zmluva', n: 5, title: 'Rámcová zmluva o dielo',
         done: zPlati, warn: !!zKonci,
         text: zPlati
-          ? (zDo ? `${zKonci ? 'Končí' : 'Platí do'} ${denSk(zDo)}${zKonci ? ' — priprav novú.' : '.'}`
+          ? (zDo ? `${zKonci ? 'Končí' : 'Platí do'} ${denSk(zDo)}${zKonci ? ' — pripravte novú.' : '.'}`
             : 'Platí bez obmedzenia.')
           : (zmluva ? `Skončila ${denSk(zDo)} — treba novú.`
-            : 'Vytlač zmluvu, nechaj ju podpísať a zapíš to.'),
+            : 'Vytlačte zmluvu, nechajte ju podpísať a zapíšte to.'),
       },
       {
         key: 'objednavka', n: 6, title: 'Stavba a objednávka',
         done: asg.length > 0 && bezObj.length === 0,
         needs: !asg.length ? 'assign' : (bezObj.length ? 'order' : null),
         assignmentId: bezObj.length ? bezObj[0].id : null,
-        text: !asg.length ? 'Ešte nie je na žiadnej stavbe. Vyber mu stavbu.'
+        text: !asg.length ? 'Ešte nie je na žiadnej stavbe. Vyberte mu stavbu.'
           : (bezObj.length ? 'Je na stavbe, ale nemá objednávku. Bez nej to nie je dielo.'
             : 'Má stavbu aj objednávku.'),
       },

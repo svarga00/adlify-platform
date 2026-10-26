@@ -82,7 +82,7 @@
     if (c.amount <= 0) {
       reasons.push({
         rule: 'bill_zero', label: 'Faktúra je na nulu alebo zápornú sumu',
-        detail: 'Skontroluj, čo prišlo.', severity: 'block',
+        detail: 'Skontrolujte, čo prišlo.', severity: 'block',
       });
     }
 
@@ -98,7 +98,7 @@
           + `by malo prísť ${M.format(c.expected)}, prišlo ${M.format(c.amount)}. `
           + (more
             ? 'Schváliť sa to dá len s poznámkou, ktorá vysvetlí prečo.'
-            : 'Možno zabudol na časť hodín — over to s ním skôr, než to schváliš.'),
+            : 'Možno zabudol na časť hodín — overte to s ním skôr, než to schválite.'),
         severity: 'block',
       });
     }
@@ -117,7 +117,7 @@
     if (!String(worker.company_id || '').trim()) {
       warnings.push({
         rule: 'missing_billing_data', label: 'Živnostník nemá v kartotéke IČO',
-        detail: 'Doplň fakturačné údaje, inak sa faktúra nedá zapísať '
+        detail: 'Doplňte fakturačné údaje, inak sa faktúra nedá zapísať '
           + 'do účtovníctva.', severity: 'warn',
       });
     }

@@ -145,7 +145,7 @@ console.log('\nHODINY');
 {
   const s = krok(S.state({ ...HOTOVO, timesheets: [] }), 'hours');
   ok(!s.done, 'bez hodín nie je čo fakturovať');
-  ok(/Zapíš odpracované hodiny/.test(s.todo), 'a to je tá vec, ktorú treba spraviť', s.todo);
+  ok(/Zapíšte odpracované hodiny/.test(s.todo), 'a to je tá vec, ktorú treba spraviť', s.todo);
 }
 {
   // Ukončená zákazka už hodiny nečaká.
@@ -185,14 +185,14 @@ console.log('\nPENIAZE');
 {
   // Hodiny sú, ale nikto nezaložil obdobie — najtichšia diera v reťazci.
   const steps = S.state({ ...HOTOVO, timesheets: HODINY, periods: [], invoices: [] });
-  ok(/Uzavri obdobie/.test(krok(steps, 'money').todo),
+  ok(/Uzavrite obdobie/.test(krok(steps, 'money').todo),
     'hodiny bez obdobia hovoria, že treba uzavrieť obdobie',
     krok(steps, 'money').todo);
 }
 {
   const steps = S.state({ ...HOTOVO, timesheets: HODINY,
     periods: [{ id: 'per2', status: 'open' }], invoices: [] });
-  ok(/Uzavri ho a fakturuj/.test(krok(steps, 'money').todo),
+  ok(/Uzavrite ho a fakturujte/.test(krok(steps, 'money').todo),
     'otvorené obdobie s hodinami tiež', krok(steps, 'money').todo);
 }
 {

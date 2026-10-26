@@ -185,7 +185,7 @@
     if (w.gross <= 0) {
       reasons.push({
         rule: 'invoice_zero', label: 'Faktúra je na nulu',
-        detail: 'Skontroluj podklad — z uzavretého obdobia nevyšli žiadne peniaze.',
+        detail: 'Skontrolujte podklad — z uzavretého obdobia nevyšli žiadne peniaze.',
         severity: 'block',
       });
     }
@@ -203,7 +203,7 @@
         rule: 'invoice_no_ustidnr',
         label: 'Reverse charge §13b bez USt-IdNr odberateľa',
         detail: 'Bez daňového čísla odberateľa sa nulová sadzba neuznáva. '
-          + 'Doplň USt-IdNr, alebo prepni režim.',
+          + 'Doplňte USt-IdNr, alebo prepnite režim.',
         severity: 'block',
       });
     }
@@ -248,7 +248,7 @@
         rule: 'invoice_missing_withholding',
         label: 'Stavebné práce bez Freistellungsbescheinigung, ale zrážka je nulová',
         detail: 'Odberateľ pravdepodobne zrazí 15 % a na účet príde menej, '
-          + 'než faktúra hovorí. Skontroluj §48b.',
+          + 'než faktúra hovorí. Skontrolujte §48b.',
         severity: 'warn',
       });
     }

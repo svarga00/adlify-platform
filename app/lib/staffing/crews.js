@@ -99,7 +99,7 @@
     if (crew.leader_worker_id && !active.some(m => m.worker_id === crew.leader_worker_id)) {
       reasons.push({
         rule: 'crew_leader_not_member', label: 'Predák nie je členom partie',
-        detail: 'Buď ho pridaj medzi členov, alebo zvoľ iného predáka.',
+        detail: 'Buď ho pridajte medzi členov, alebo zvoľte iného predáka.',
         severity: 'block',
       });
     }
@@ -112,7 +112,7 @@
       if (!speaksGerman) {
         warnings.push({
           rule: 'crew_no_german', label: 'V partii nikto nehovorí po nemecky',
-          detail: 'Na stavbe sa bude komunikovať cez teba pri každej maličkosti.',
+          detail: 'Na stavbe sa bude komunikovať cez Vás pri každej maličkosti.',
           severity: 'warn',
         });
       }
@@ -129,7 +129,7 @@
         warnings.push({
           rule: 'crew_mixed_forms',
           label: `V partii ${employees.length} ${plural(employees.length, 'človek nie je živnostník', 'ľudia nie sú živnostníci', 'ľudí nie je živnostníkov')}`,
-          detail: 'Zamestnanec a subdodávateľ majú iný právny režim. Nemiešaj ich v jednej partii.',
+          detail: 'Zamestnanec a subdodávateľ majú iný právny režim. Nemiešajte ich v jednej partii.',
           severity: 'warn',
         });
       }

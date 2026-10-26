@@ -359,7 +359,7 @@ console.log('\nCash-flow');
     workers: [clovek('w1', 'Jozef Malý')], workerDocs: [a1('w1', '2026-11-10')] });
   eq(konci.key, 'a1soon', 'A1 pred koncom platnosti');
   ok(!konci.hot, 'nehorí, ale treba to podať');
-  ok(/podaj to dnes/.test(konci.why), 'a je povedané prečo', konci.why);
+  ok(/podajte to dnes/.test(konci.why), 'a je povedané prečo', konci.why);
 
   // Povolenie, ktorému sa končí platnosť, je posledné.
   const konciFirma = C.nowNext({ today: DNES,

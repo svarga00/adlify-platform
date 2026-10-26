@@ -28,7 +28,7 @@
     ['coordinator', 'Koordinátor', 'Zákazky, ľudia, hodiny a náklady. Faktúru neschváli.'],
     ['recruiter', 'Náborár', 'Inzeráty, kandidáti, hovory a ľudia. K peniazom sa nedostane.'],
     ['accountant', 'Účtovníctvo', 'Faktúry, náklady a banka. Zákazky len na čítanie.'],
-    ['custom', 'Na mieru', 'Presne to, čo zaškrtneš.'],
+    ['custom', 'Na mieru', 'Presne to, čo zaškrtnete.'],
   ];
 
   /**

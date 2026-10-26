@@ -84,7 +84,7 @@
     } else if (ticked.length < 4) {
       verdict = 'unknown'; reason = 'Zaškrtnuté je príliš málo na rozhodnutie.';
     } else if (flags.length === 1) {
-      verdict = 'weak'; reason = `Varovanie: ${flags[0].label}. Pred nasadením si to over.`;
+      verdict = 'weak'; reason = `Varovanie: ${flags[0].label}. Pred nasadením si to overte.`;
     } else if (percent >= 75) {
       verdict = 'strong'; reason = 'Odbornosť aj papiere sedia, bez varovaní.';
     } else if (percent >= 50) {
@@ -102,16 +102,16 @@
     let nextAction;
     if (res.verdict === 'reject') {
       nextAction = { key: 'reject', label: 'Zamietnuť',
-        hint: 'Povedz mu narovinu, že to zatiaľ nevychádza. Dôvod si zapíš — o pol roka sa ozve znova.' };
+        hint: 'Povedzte mu narovinu, že to zatiaľ nevychádza. Dôvod si zapíšte — o pol roka sa ozve znova.' };
     } else if (res.verdict === 'unknown') {
       nextAction = { key: 'continue', label: 'Dokončiť neskôr',
-        hint: 'Na rozhodnutie je toho málo. Dohodni si druhý telefonát.' };
+        hint: 'Na rozhodnutie je toho málo. Dohodnite si druhý telefonát.' };
     } else if (res.verdict === 'strong') {
       nextAction = { key: 'advance', label: 'Ísť preveriť',
-        hint: 'Vypýtaj si fotky prác a kontakt na toho, pre koho robil, ešte počas hovoru.' };
+        hint: 'Vypýtajte si fotky prác a kontakt na toho, pre koho robil, ešte počas hovoru.' };
     } else {
       nextAction = { key: 'advance', label: 'Ísť preveriť',
-        hint: 'Slabšie miesta si over referenciou skôr, než mu niečo sľúbiš.' };
+        hint: 'Slabšie miesta si overte referenciou skôr, než mu niečo sľúbite.' };
     }
     return { ...res, nextAction };
   }
@@ -167,16 +167,16 @@
     const s = score || {};
     if ((s.flags || []).length) {
       return { key: 'reject', label: 'Nepokračovať',
-        why: 'Zaznelo niečo, čo nasadenie vylučuje. Povedz to rovno a slušne — '
-          + 'nenechávaj človeka čakať na odpoveď, ktorá nepríde.' };
+        why: 'Zaznelo niečo, čo nasadenie vylučuje. Povedzte to rovno a slušne — '
+          + 'nenechávajte človeka čakať na odpoveď, ktorá nepríde.' };
     }
     if (s.percent != null && s.percent >= 60) {
       return { key: 'full', label: 'Pokračovať na plný pohovor',
-        why: 'Sedí to. Ak má teraz čas, pokračuj hneď — druhýkrát sa už nemusí ozvať.' };
+        why: 'Sedí to. Ak má teraz čas, pokračujte hneď — druhýkrát sa už nemusí ozvať.' };
     }
     return { key: 'later', label: 'Zavolať neskôr',
-      why: 'Zatiaľ to nie je jasné. Dohodni konkrétny čas, nie „ozvem sa" — '
-        + 'a zapíš, čo treba doveriť.' };
+      why: 'Zatiaľ to nie je jasné. Dohodnite konkrétny čas, nie „ozvem sa" — '
+        + 'a zapíšte, čo treba doveriť.' };
   }
 
   const API = { SEGMENTS, QUICK_SEGMENTS, segmentTitle, buildQuickSegment, quickNext, orderChips, buildCallSegments, scoreChips, callOutcome, summarize };

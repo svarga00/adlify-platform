@@ -172,7 +172,7 @@
     if (q.date_from && q.date_to && day(q.date_to) < day(q.date_from)) {
       reasons.push({
         rule: 'quote_bad_dates', label: 'Koniec je skôr než začiatok',
-        detail: 'Skontroluj dátumy nasadenia.', severity: 'block',
+        detail: 'Skontrolujte dátumy nasadenia.', severity: 'block',
       });
     }
 

@@ -40,7 +40,7 @@
     open() {
       const dostupne = DOCS.filter(d => this.available(d));
       UI.modal('Pripraviť papier', `
-        <p class="pap-lead">Vyber papier. Potom vyberieš, pre koho je — údaje sa
+        <p class="pap-lead">Vyberte papier. Potom vyberiete, pre koho je — údaje sa
           doplnia samy z jeho karty.</p>
         <div class="pap-grid">
           ${dostupne.map(d => `
@@ -125,7 +125,7 @@
           <span class="pap-row-go">${Icon('chevron', 16)}</span>
         </button>`).join('')
         : `<div class="pap-empty">${this.q ? 'Nič tomu nesedí.' : (this.doc.who === 'order'
-          ? 'Zatiaľ žiadna objednávka od odberateľa. Založíš ju na Zákazkách → Objednávky.'
+          ? 'Zatiaľ žiadna objednávka od odberateľa. Založíte ju na Zákazkách → Objednávky.'
           : 'Zatiaľ tu nikto nie je.')}</div>`;
     },
 

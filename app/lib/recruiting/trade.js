@@ -37,14 +37,14 @@
   const SECTIONS = [
     { key: 'summary', title: 'Čo to je', kind: 'text', field: 'summary', need: true },
     { key: 'day', title: 'Deň na stavbe', kind: 'text', field: 'day_in_life', need: true },
-    { key: 'vocab', title: 'Slovíčka, ktoré budeš počuť', kind: 'vocab', field: 'vocab', need: true },
+    { key: 'vocab', title: 'Slovíčka, ktoré budete počuť', kind: 'vocab', field: 'vocab', need: true },
     { key: 'scope', title: 'Čo na stavbe robí', kind: 'list', field: 'work_scope', need: true },
     { key: 'materials', title: 'S čím pracuje', kind: 'list', field: 'materials', need: true },
     { key: 'tools', title: 'Čím pracuje — vlastné náradie', kind: 'list', field: 'tools', need: true },
     { key: 'standards', title: 'Podľa čoho sa to meria', kind: 'list', field: 'standards', need: true },
     { key: 'output', title: 'Koľko toho za deň spraví', kind: 'text', field: 'daily_output', need: true },
     { key: 'certificates', title: 'Čo musí doložiť', kind: 'list', field: 'certificates', need: true },
-    { key: 'red_flags', title: 'Podľa čoho spoznáš, že to nerobil', kind: 'list', field: 'red_flags', need: true },
+    { key: 'red_flags', title: 'Podľa čoho spoznáte, že to nerobil', kind: 'list', field: 'red_flags', need: true },
     { key: 'pay', title: 'Prečo je sadzba taká, aká je', kind: 'text', field: 'pay_note', need: true },
   ];
 

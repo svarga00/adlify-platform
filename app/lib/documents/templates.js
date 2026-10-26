@@ -986,7 +986,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           ? ` uzavretej dňa ${date(ramcova.signedAt)}` : ''} objednáva
         u Zhotoviteľa nasledovný rozsah činností.</div>`
         : `<p class="todo">Objednávka sa neodvoláva na rámcovú zmluvu o dielo —
-          doplň jej číslo a dátum, inak to nie je individuálna zmluva o dielo.</p>`) : ''}
+          doplňte jej číslo a dátum, inak to nie je individuálna zmluva o dielo.</p>`) : ''}
 
       <h2 class="ss-h">${esc(L.scope)}</h2>
       ${o.scope
@@ -1050,7 +1050,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const v = st.values;
     const chyba = (key) => {
       const m = st.missing.find(x => x.key === key);
-      return m ? `<span class="todo">${esc(m.why)} Spýtaj sa u nás, kým nastúpiš.</span>` : '';
+      return m ? `<span class="todo">${esc(m.why)} Spýtajte sa u nás, kým nastúpite.</span>` : '';
     };
     const riadok = (label, key, extra) => `<div class="ss-row">
       <div class="lbl">${esc(label)}</div>
@@ -1249,7 +1249,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
              ${o.scope_de ? '<strong>' + esc(o.scope_de) + '</strong>'
               : '<span class="todo">Der Arbeitsumfang ist nicht beschrieben.</span>'}`)
           : `<p class="todo">Objednávka sa neodvoláva na rámcovú zmluvu o dielo —
-             doplň jej číslo a dátum. / Die Bestellung nimmt auf keinen
+             doplňte jej číslo a dátum. / Die Bestellung nimmt auf keinen
              Rahmenwerkvertrag Bezug.</p>`}
 
         ${dvoj(2, cenaSk, cenaDe)}

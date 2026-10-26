@@ -99,7 +99,7 @@ console.log('Nábor krok za krokom');
     now: NOW,
   });
   ok(!F.headline(stiha).hot, 'do desiatich minút to nie je naliehavé');
-  ok(F.headline(stiha).sub.includes('Stíhaš'), 'a povie sa to');
+  ok(F.headline(stiha).sub.includes('Stíhate'), 'a povie sa to');
 }
 
 // ── Doklady a nasadenie ─────────────────────────────────────────────────────

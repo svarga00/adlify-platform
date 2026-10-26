@@ -71,7 +71,7 @@ console.log('Zaškolenie náborára');
   const s = O.state({ basics: true, trade: 't', quiz: 90, call: true, practice: 88 });
   ok(O.progress(s).ready, 'všetkých päť krokov je hotových');
   eq(O.next(s), null, 'a niet čo ďalej');
-  eq(O.headline(s).title, 'Môžeš volať', 'appka to povie jednou vetou');
+  eq(O.headline(s).title, 'Môžete volať', 'appka to povie jednou vetou');
   ok(O.headline(s).sub.includes('príručka'),
     'a pripomenie, že príručka zostáva po ruke');
 
@@ -135,7 +135,7 @@ console.log('Zaškolenie náborára');
   ];
   const p = O.practiceScore(prisny);
   eq(p.prisne, 2, 'spočíta sa aj prehnaná prísnosť');
-  ok(p.verdict.includes('odrežeš'), 'a povie sa, čo to stojí');
+  ok(p.verdict.includes('odrežete'), 'a povie sa, čo to stojí');
 
   eq(O.practiceScore([]).pct, 0, 'bez odpovedí je to nula');
   ok(!O.practiceScore([]).passed, 'a neprejde');

@@ -164,7 +164,7 @@
       return {
         rows: [], skipped: [], columns, delimiter,
         error: 'Vo výpise sa nenašiel stĺpec s dátumom alebo so sumou. '
-          + 'Skontroluj, či je to export pohybov a nie zostatkov.',
+          + 'Skontrolujte, či je to export pohybov a nie zostatkov.',
       };
     }
 

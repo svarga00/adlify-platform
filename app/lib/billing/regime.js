@@ -53,14 +53,14 @@ function determineBillingRegime(client, supplier) {
       // niet na čo pýtať.
       warning: nasVatId ? null
         : 'Nemáme zapísané vlastné IČ DPH — bez registrácie podľa §7a reverse '
-          + 'charge neobstojí. Doplň ho v Nastaveniach.',
+          + 'charge neobstojí. Doplňte ho v Nastaveniach.',
     };
   }
 
   return {
     regime: 'other',
     note: '',
-    warning: 'Neznámy fakturačný režim — skontroluj manuálne (krajina/IČ DPH).',
+    warning: 'Neznámy fakturačný režim — skontrolujte manuálne (krajina/IČ DPH).',
   };
 }
 

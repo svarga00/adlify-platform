@@ -71,7 +71,7 @@
     { key: 'lodging', title: 'Zabezpečené ubytovanie', required: true,
       source: 'stay',
       why: 'Adresa, kontakt a spôsob prevzatia kľúčov. Číta sa z pobytov — '
-        + 'z toho, koho si na ubytovanie zapísal.' },
+        + 'z toho, koho ste na ubytovanie zapísali.' },
     { key: 'transport', title: 'Vyriešená doprava na miesto', required: true,
       source: 'transport',
       why: 'Kto vezie, čím a kto hradí cestu tam a späť.' },
@@ -139,7 +139,7 @@
         state = blocking.has(c.rule) ? 'open' : (waived.has(c.rule) ? 'waived' : 'ok');
         detail = state === 'ok' ? 'Doklad je v kartotéke a platí.'
           : state === 'waived' ? 'Povolené zapísanou výnimkou.'
-          : 'Chýba alebo neplatí — doplň v kartotéke živnostníka.';
+          : 'Chýba alebo neplatí — doplňte v kartotéke živnostníka.';
       } else if (c.source === 'subcontract') {
         state = sc[c.field] ? 'ok' : 'open';
         detail = state === 'ok' ? 'Zapísané na zákazke.' : 'Zapíše sa na zákazke.';
@@ -149,7 +149,7 @@
           from: a.date_from, to: a.date_to,
         }) ? 'ok' : 'open';
         detail = state === 'ok' ? 'Má pobyt na celý čas nasadenia.'
-          : 'Zapíš ho na ubytovanie v sekcii Ubytovanie a doprava.';
+          : 'Zapíšte ho na ubytovanie v sekcii Ubytovanie a doprava.';
       } else if (c.source === 'transport') {
         state = (sc.transport_provided || String(sc.transport_note || '').trim())
           ? 'ok' : 'open';

@@ -97,7 +97,7 @@
 
     listingsHtml() {
       if (!this.listings.length) {
-        return UI.empty('marketing', 'Žiadne inzeráty', 'Pridaj prvý inzerát a nastav dátum obnovenia.',
+        return UI.empty('marketing', 'Žiadne inzeráty', 'Pridajte prvý inzerát a nastavte dátum obnovenia.',
           `<button class="btn btn-primary" onclick="Mkt.listingForm()">${Icon('plus')} Pridať inzerát</button>`);
       }
       return `<div class="cards">${this.listings.map(l => `
@@ -121,7 +121,7 @@
 
     expensesHtml() {
       if (!this.expenses.length) {
-        return UI.empty('euro', 'Žiadne výdavky', 'Zapíš, koľko a kam ide marketingový rozpočet.',
+        return UI.empty('euro', 'Žiadne výdavky', 'Zapíšte, koľko a kam ide marketingový rozpočet.',
           `<button class="btn btn-primary" onclick="Mkt.expenseForm()">${Icon('plus')} Pridať výdavok</button>`);
       }
       return this.expenses.map(e => `
@@ -198,7 +198,7 @@
 
     async saveExpense() {
       const d = UI.formData(document.getElementById('mkt-e-form'));
-      if (!d.amount) return UI.toast('Zadaj sumu', 'err');
+      if (!d.amount) return UI.toast('Zadajte sumu', 'err');
       const { error } = await DB.insert('marketing_expenses', {
         spent_at: d.spent_at, channel: d.channel, amount: Number(d.amount), note: d.note || null,
       });

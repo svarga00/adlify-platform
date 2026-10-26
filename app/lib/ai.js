@@ -129,8 +129,8 @@
     const m = data && data.error && data.error.message;
     if (m) return m;
     if (status === 401 || status === 403) return 'Kľúč k modelu neplatí alebo nemá právo.';
-    if (status === 429) return 'Model je práve zahltený — skús o chvíľu.';
-    if (status >= 500) return 'Model má výpadok — skús o chvíľu.';
+    if (status === 429) return 'Model je práve zahltený — skúste o chvíľu.';
+    if (status >= 500) return 'Model má výpadok — skúste o chvíľu.';
     // Pozor na skloňovanie: „Analýza zlyhalo" je nezmysel. `co` je preto
     // nálepka pred vetou, nie podmet v nej.
     return `${co ? co + ' — ' : ''}volanie modelu zlyhalo (${status}).`;

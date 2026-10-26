@@ -106,7 +106,7 @@
         : `${o.partner && o.partner.name ? o.partner.name : 'Odberateľ'}`
           + (num(sc.charge_rate) ? `, ${sc.charge_rate} €/h` : '')
           + (sc.date_from ? `, od ${den(sc.date_from)}` : ''),
-      todo: chyba.length ? `Doplň ${chyba.join(', ')} — bez toho sa nedá fakturovať.` : null,
+      todo: chyba.length ? `Doplňte ${chyba.join(', ')} — bez toho sa nedá fakturovať.` : null,
     };
 
     // ── 2. Smie sa začať ────────────────────────────────────────────────────
@@ -135,8 +135,8 @@
         : `${asg.length} ${plural(asg.length, 'človek', 'ľudia', 'ľudí')}`
           + (bezDokladov ? `, ${bezDokladov} bez dokladu` : '')
           + (bezBytu ? `, ${bezBytu} bez zapísaného ubytovania` : ''),
-      todo: !asg.length ? 'Nasaď na zákazku ľudí — inak nezarába.'
-        : bezDokladov ? `${bezDokladov} ${plural(bezDokladov, 'človeku chýba doklad', 'ľuďom chýbajú doklady', 'ľuďom chýbajú doklady')}. Dobehni ich, alebo zapíš výnimku.`
+      todo: !asg.length ? 'Nasaďte na zákazku ľudí — inak nezarába.'
+        : bezDokladov ? `${bezDokladov} ${plural(bezDokladov, 'človeku chýba doklad', 'ľuďom chýbajú doklady', 'ľuďom chýbajú doklady')}. Dobehnite ich, alebo zapíšte výnimku.`
           : bezBytu ? `${bezBytu} ${plural(bezBytu, 'človek nemá', 'ľudia nemajú', 'ľudí nemá')} zapísané, kde býva.` : null,
       hot: asg.length > 0 && bezDokladov > 0,
     };
@@ -158,9 +158,9 @@
         : `${hodinSpolu} ${plural(hodinSpolu, 'hodina', 'hodiny', 'hodín')} nezúčtovaných`
           + (neschvalene.length ? `, z toho ${hodinNeschv} neschválených` : ''),
       todo: neschvalene.length
-        ? `Schváľ ${neschvalene.length} ${plural(neschvalene.length, 'výkaz', 'výkazy', 'výkazov')} — neschválené hodiny do podkladu nejdú.`
+        ? `Schváľte ${neschvalene.length} ${plural(neschvalene.length, 'výkaz', 'výkazy', 'výkazov')} — neschválené hodiny do podkladu nejdú.`
         : (!nezuctovane.length && zive.length && !ZAVRETA.includes(sc.status)
-          ? 'Zapíš odpracované hodiny — z nich je faktúra.' : null),
+          ? 'Zapíšte odpracované hodiny — z nich je faktúra.' : null),
       hot: neschvalene.length > 0,
     };
 
@@ -179,12 +179,12 @@
     } else if (naSchvalenie.length) {
       moneyTodo = `${naSchvalenie.length} ${plural(naSchvalenie.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} na schválenie. Bez schválenia sa neodošle.`;
     } else if (poSplatnosti.length) {
-      moneyTodo = `${poSplatnosti.length} ${plural(poSplatnosti.length, 'faktúra je', 'faktúry sú', 'faktúr je')} po splatnosti. Zavolaj odberateľovi.`;
+      moneyTodo = `${poSplatnosti.length} ${plural(poSplatnosti.length, 'faktúra je', 'faktúry sú', 'faktúr je')} po splatnosti. Zavolajte odberateľovi.`;
       moneyHot = true;
     } else if (!periods.length && hodinSpolu > 0) {
-      moneyTodo = 'Uzavri obdobie — z podkladu vznikne faktúra.';
+      moneyTodo = 'Uzavrite obdobie — z podkladu vznikne faktúra.';
     } else if (otvorene.length && hodinSpolu > 0) {
-      moneyTodo = 'Obdobie je otvorené a hodiny v ňom sú. Uzavri ho a fakturuj.';
+      moneyTodo = 'Obdobie je otvorené a hodiny v ňom sú. Uzavrite ho a fakturujte.';
     }
 
     const money = {
