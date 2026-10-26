@@ -264,7 +264,7 @@
               ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}
               ${pr.total ? ` · ${UI.pct(pr.percent)}${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
           </span>
-          ${pr.flagCount ? UI.badge(`${pr.flagCount} 🚩`.replace('🚩', 'vlajky'), 'red') : ''}
+          ${pr.flagCount ? UI.badge(`${pr.flagCount} ${pr.flagCount === 1 ? 'varovanie' : pr.flagCount < 5 ? 'varovania' : 'varovaní'}`, 'red') : ''}
           ${c.outcome === 'hired' ? UI.badge('nastúpil', 'green')
             : c.outcome === 'rejected' ? UI.badge('zamietnutý', 'gray') : this.badge(c.status)}
         </div>`;

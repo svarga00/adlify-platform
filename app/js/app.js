@@ -375,6 +375,9 @@ window.Danubra = {
     mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné',
   },
 
+  // V rozbalenom menu by prvá položka mala rovnaký názov ako sekcia nad ňou.
+  navSubLabel: { dashboard: 'Prehľad dňa', subcontracts: 'Všetky zákazky' },
+
   // Krátko pod názvom záložky — čo tam je. Celá veta je v `navHints`.
   navTabHint: {
     dashboard: 'Čo treba dnes', tasks: 'Pripomienky', messages: 'Poznámky pri záznamoch', flow: 'Celá cesta',
@@ -665,10 +668,19 @@ window.Danubra = {
         const b = this.badges[key];
         // Položka so záložkami má šípku — na počítači sa pri nej vysunie
         // podmenu (`_fly`), takže sa na záložku dá ísť jedným klikom.
-        const kids = this.tabsOf(key).length > 1;
-        return `<button class="nav-item${key === this.navActive() ? ' active' : ''}${kids ? ' has-kids' : ''}" data-key="${key}" onclick="Danubra.go('${key}')"${kids ? ' aria-haspopup="menu"' : ''}>
-          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}${kids ? `<span class="nav-more" aria-hidden="true">${Icon('chevron', 14)}</span>` : ''}
-        </button>`;
+        const tabs = this.tabsOf(key);
+        const kids = tabs.length > 1;
+        // Otvorená sekcia sa v menu rozbalí: pod ňou sú všetky jej položky
+        // s ikonami, takže je vidieť, kde človek je a kam môže ďalej.
+        const open = kids && key === this.navActive();
+        return `<button class="nav-item${key === this.navActive() ? ' active' : ''}${kids ? ' has-kids' : ''}${open ? ' is-open' : ''}" data-key="${key}" onclick="Danubra.go('${key}')"${kids ? ` aria-haspopup="menu" aria-expanded="${open}"` : ''}>
+          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b && !open ? `<span class="nav-badge">${b}</span>` : ''}${kids ? `<span class="nav-more" aria-hidden="true">${Icon('chevron', 14)}</span>` : ''}
+        </button>${open ? `<div class="nav-sub" role="group" aria-label="${UI.esc(label)}">${tabs.map(([k, , kico]) => {
+          const n = this.badges[k];
+          return `<button class="nav-sub-item${k === this.route ? ' active' : ''}" data-sub="${k}"
+            onclick="Danubra.go('${k}')" title="${UI.esc(this.hintOf(k))}">${Icon(kico, 15)}<span class="nav-text">${
+            UI.esc(this.navSubLabel[k] || this.navTabLabel[k] || this.labelOf(k))}</span>${n ? `<span class="nav-badge">${n}</span>` : ''}</button>`;
+        }).join('')}</div>` : ''}`;
       }).join('')}`;
     }).join('');
 
@@ -744,7 +756,8 @@ window.Danubra = {
   },
 
   _flyBind(nav) {
-    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids');
+    // Rozbalená sekcia má položky priamo v menu — podmenu by ich len zdvojilo.
+    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids:not(.is-open)');
     nav.addEventListener('mouseover', (e) => {
       const el = item(e);
       if (!el || !this._flyCan()) return;
@@ -832,14 +845,14 @@ window.Danubra = {
           const hint = this.navTabHint[k] || '';
           return `<button class="fly-item${k === this.route ? ' active' : ''}" role="menuitem"
             onclick="Danubra._flyGo('${k}')" title="${UI.esc(this.hintOf(k))}">
-            <span class="fly-ico">${Icon(ico, 16)}</span>
+            <span class="fly-ico">${Icon(ico, 20)}</span>
             <span class="fly-txt"><b>${UI.esc(this.labelOf(k))}</b>${hint ? `<em>${UI.esc(hint)}</em>` : ''}</span>
             ${n ? `<span class="nav-badge">${n}</span>` : ''}
           </button>`;
         }).join('')}
       </div>
       ${showNew ? `<div class="fly-foot">
-        <button class="fly-new" role="menuitem" onclick="Danubra._flyNew('${key}')">${Icon('plus', 15)} ${UI.esc(nw[0])}</button>
+        <button class="fly-new" role="menuitem" onclick="Danubra._flyNew('${key}')">${Icon('plus', 16)} ${UI.esc(nw[0])}</button>
       </div>` : ''}`;
   },
 
@@ -1037,6 +1050,12 @@ window.Danubra = {
         }
       }
     }
+    // Menu sa prekreslí, aby sa rozbalila sekcia, v ktorej človek je.
+    // Posun menu sa zachová — inak by po každom kliku skočilo hore.
+    const navEl = document.getElementById('sidebar-nav');
+    const top0 = navEl ? navEl.scrollTop : 0;
+    if (this.user) this._buildNav();
+    if (navEl) navEl.scrollTop = top0;
     document.querySelectorAll('.nav-item, .tab, .top-link').forEach(el => {
       // Pri záložke sa zvýrazní jej rodič — `navActive()`.
       if (el.dataset.key) el.classList.toggle('active', el.dataset.key === this.navActive());
@@ -2403,7 +2422,8 @@ window.Danubra = {
       if (col.kind === 'num') return UI.esc(String(v).replace('.', ','));
       return UI.esc(v);
     };
-    const arrow = (col) => (k.sort === col ? (k.dir === 'asc' ? ' ▲' : ' ▼') : '');
+    const arrow = (col) => (k.sort === col
+      ? `<span class="kpi-sort${k.dir === 'asc' ? ' is-asc' : ''}" aria-label="${k.dir === 'asc' ? 'vzostupne' : 'zostupne'}">${Icon('chevron', 11)}</span>` : '');
     return `<div class="kpi-table-wrap">
       <table class="kpi-table">
         <thead><tr>

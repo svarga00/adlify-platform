@@ -85,7 +85,8 @@ function confirmApply({ lang = 'sk', name = '', job = null, ref = '', assets, ph
       <div style="width:26px;height:26px;border-radius:13px;background:${CHALK};text-align:center;font:700 12px/26px ${HEAD};color:${OR};">${i + 1}</div></td>
     <td style="padding:6px 0;font:400 14.5px/1.5 ${FONT};color:${T2};"><b style="color:${INK};">${esc(h)}</b> – ${esc(p)}</td></tr>`).join('');
   const inner = `<tr><td style="padding:32px 28px 8px;">
-    <div style="width:52px;height:52px;border-radius:26px;background:${OR};color:#ffffff;text-align:center;font:400 24px/52px ${FONT};">✓</div>
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="52" height="52" align="center" valign="middle" style="width:52px;height:52px;border-radius:26px;background:${OR};text-align:center;vertical-align:middle;">
+      <img src="${assets}/img/email/check-white.png" width="26" height="26" alt="" style="display:inline-block;width:26px;height:26px;border:0;vertical-align:middle;"></td></tr></table>
     <h1 style="margin:16px 0 10px;font:700 28px/1.12 ${HEAD};letter-spacing:-1px;color:${INK};">${esc(t.thanks(first))}</h1>
     <p style="margin:0;font:400 15.5px/1.65 ${FONT};color:${T2};">${esc(t.sub)}</p></td></tr>
   ${card}

@@ -427,7 +427,7 @@
         const napisat = this.boxes.length && s.dataset.email
           ? `<button class="btn btn-outline btn-sm" onclick="Mail.compose({to:'${UI.esc(s.dataset.email)}',links:{${k}:'${s.dataset.id}'}})">${Icon('mail', 14)} Napísať e-mail</button>` : '';
         s.innerHTML = (list.length ? list.map(m => `<button class="mail-row${m.seen ? '' : ' unread'}" onclick="Danubra.go('mail');setTimeout(()=>{Mail.box='${m.mailbox_id}';Mail.folder='${m.direction}';Mail.open('${m.id}')},300)">
-          <span class="mail-row-top"><b>${m.direction === 'out' ? '→ ' : '← '}${UI.esc(m.subject || '(bez predmetu)')}</b><time>${UI.esc(this.shortDate(m.sent_at))}</time></span>
+          <span class="mail-row-top"><b>${Icon(m.direction === 'out' ? 'upload' : 'download', 13)} ${UI.esc(m.subject || '(bez predmetu)')}</b><time>${UI.esc(this.shortDate(m.sent_at))}</time></span>
           <span class="mail-row-snip">${UI.esc(m.snippet || '')}</span></button>`).join('')
           : `<div class="js-empty">${this.boxes.length ? 'Zatiaľ žiadne e-maily.' : 'E-maily sa tu ukážu, keď bude pridaná schránka.'}</div>`)
           + (napisat ? `<div class="js-acts">${napisat}</div>` : '');
@@ -610,7 +610,7 @@
       if (box) box.innerHTML = '<div class="nb-wait">Skúšam pripojenie…</div>';
       try {
         const r = await call('danubra-mail-account', body);
-        const t = `Prijímanie (IMAP): ${r.imap.ok ? '✓ v poriadku' : `✗ ${r.imap.error}`} · Odosielanie (SMTP): ${r.smtp.ok ? '✓ v poriadku' : `✗ ${r.smtp.error}`}`;
+        const t = `Prijímanie (IMAP): ${r.imap.ok ? 'v poriadku' : `chyba — ${r.imap.error}`} · Odosielanie (SMTP): ${r.smtp.ok ? 'v poriadku' : `chyba — ${r.smtp.error}`}`;
         if (box) box.innerHTML = `<div class="${r.imap.ok && r.smtp.ok ? 'regimebox' : 'warnbox'}">${UI.esc(t)}</div>`;
         else UI.toast(t, r.imap.ok && r.smtp.ok ? 'ok' : 'err');
       } catch (e) {

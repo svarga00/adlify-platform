@@ -9,6 +9,7 @@ const { esc, each, plural } = require('../shared/h');
 const { logo } = require('../shared/brand');
 const { LANGS } = require('../shared/sites');
 const PROF = require('../shared/professions');
+const { icon } = require('../shared/icons');
 
 const PHONE = '+421 910 523 858', PHONE2 = '+421 910 523 958', MAIL = 'info@punds.sk';
 const tel = (p) => `tel:${p.replace(/\s+/g, '')}`;
@@ -23,7 +24,7 @@ const T = {
     jobsN: ['ponuka', 'ponuky', 'ponúk'],
     foot: { privacy: 'Ochrana osobných údajov', cookies: 'Cookies', b2b: 'Pre firmy v Nemecku' },
     lang: 'Jazyk',
-    js: { sending: 'Odosielam…', error: 'Niečo sa nepodarilo. Skúste to prosím znova alebo nám zavolajte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez súhlasu so spracovaním údajov to nevieme prijať.', phone: 'Skontrolujte prosím telefónne číslo.', email: 'Skontrolujte prosím e-mail.', copied: 'Skopírované ✓' },
+    js: { sending: 'Odosielam…', error: 'Niečo sa nepodarilo. Skúste to prosím znova alebo nám zavolajte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez súhlasu so spracovaním údajov to nevieme prijať.', phone: 'Skontrolujte prosím telefónne číslo.', email: 'Skontrolujte prosím e-mail.', copied: 'Skopírované' },
   },
   cz: {
     skip: 'Přeskočit na obsah', menu: 'Menu', close: 'Zavřít',
@@ -34,7 +35,7 @@ const T = {
     jobsN: ['nabídka', 'nabídky', 'nabídek'],
     foot: { privacy: 'Ochrana osobních údajů', cookies: 'Cookies', b2b: 'Pro firmy v Německu' },
     lang: 'Jazyk',
-    js: { sending: 'Odesílám…', error: 'Něco se nepovedlo. Zkuste to prosím znovu nebo nám zavolejte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez souhlasu se zpracováním údajů to nemůžeme přijmout.', phone: 'Zkontrolujte prosím telefonní číslo.', email: 'Zkontrolujte prosím e-mail.', copied: 'Zkopírováno ✓' },
+    js: { sending: 'Odesílám…', error: 'Něco se nepovedlo. Zkuste to prosím znovu nebo nám zavolejte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez souhlasu se zpracováním údajů to nemůžeme přijmout.', phone: 'Zkontrolujte prosím telefonní číslo.', email: 'Zkontrolujte prosím e-mail.', copied: 'Zkopírováno' },
   },
   hu: {
     skip: 'Ugrás a tartalomra', menu: 'Menü', close: 'Bezárás',
@@ -45,7 +46,7 @@ const T = {
     jobsN: ['állás', 'állás', 'állás'],
     foot: { privacy: 'Adatvédelem', cookies: 'Cookie-k', b2b: 'Németországi cégeknek' },
     lang: 'Nyelv',
-    js: { sending: 'Küldés…', error: 'Valami nem sikerült. Kérjük, próbálja újra, vagy hívjon minket.', required: 'Kérjük, töltse ki ezt a mezőt.', consent: 'Az adatkezelési hozzájárulás nélkül nem tudjuk fogadni.', phone: 'Kérjük, ellenőrizze a telefonszámot.', email: 'Kérjük, ellenőrizze az e-mail-címet.', copied: 'Másolva ✓' },
+    js: { sending: 'Küldés…', error: 'Valami nem sikerült. Kérjük, próbálja újra, vagy hívjon minket.', required: 'Kérjük, töltse ki ezt a mezőt.', consent: 'Az adatkezelési hozzájárulás nélkül nem tudjuk fogadni.', phone: 'Kérjük, ellenőrizze a telefonszámot.', email: 'Kérjük, ellenőrizze az e-mail-címet.', copied: 'Másolva' },
   },
   de: {
     skip: 'Zum Inhalt springen', menu: 'Menü', close: 'Schließen',
@@ -56,7 +57,7 @@ const T = {
     jobsN: ['Job', 'Jobs', 'Jobs'],
     foot: { privacy: 'Datenschutz', cookies: 'Cookies', b2b: 'Für Firmen in Deutschland' },
     lang: 'Sprache',
-    js: { sending: 'Wird gesendet…', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder rufen Sie uns an.', required: 'Bitte füllen Sie dieses Feld aus.', consent: 'Ohne Einwilligung in die Datenverarbeitung können wir das nicht annehmen.', phone: 'Bitte prüfen Sie die Telefonnummer.', email: 'Bitte prüfen Sie die E-Mail-Adresse.', copied: 'Kopiert ✓' },
+    js: { sending: 'Wird gesendet…', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder rufen Sie uns an.', required: 'Bitte füllen Sie dieses Feld aus.', consent: 'Ohne Einwilligung in die Datenverarbeitung können wir das nicht annehmen.', phone: 'Bitte prüfen Sie die Telefonnummer.', email: 'Bitte prüfen Sie die E-Mail-Adresse.', copied: 'Kopiert' },
   },
   en: {
     skip: 'Skip to content', menu: 'Menu', close: 'Close',
@@ -67,7 +68,7 @@ const T = {
     jobsN: ['job', 'jobs', 'jobs'],
     foot: { privacy: 'Privacy policy', cookies: 'Cookies', b2b: 'For companies in Germany' },
     lang: 'Language',
-    js: { sending: 'Sending…', error: 'Something went wrong. Please try again or give us a call.', required: 'Please fill in this field.', consent: 'We can’t accept this without your consent to data processing.', phone: 'Please check the phone number.', email: 'Please check the email address.', copied: 'Copied ✓' },
+    js: { sending: 'Sending…', error: 'Something went wrong. Please try again or give us a call.', required: 'Please fill in this field.', consent: 'We can’t accept this without your consent to data processing.', phone: 'Please check the phone number.', email: 'Please check the email address.', copied: 'Copied' },
   },
 };
 
@@ -108,7 +109,7 @@ function langMenu(ctx, { dark = false } = {}) {
     <button type="button" class="lang-btn" aria-haspopup="true" aria-expanded="false" aria-label="${esc((ctx.t || {}).lang || 'Language')}: ${esc(cur.name)}">${flag(ctx, ctx.lang)}<span>${cur.label}</span>${chev}</button>
     <div class="lang-panel" role="menu">${each(ctx.site.langs, (l) => {
       const href = ctx.url(ctx.route, ctx.paramsIn(l), l) || ctx.url('home', {}, l);
-      return `<a role="menuitem" class="lang-item${l === ctx.lang ? ' on' : ''}" href="${esc(href)}" hreflang="${LANGS[l].html}" lang="${LANGS[l].html}">${flag(ctx, l)}<span class="lang-name">${esc(LANGS[l].name)}</span><span class="lang-code">${LANGS[l].label}</span><span class="lang-chk" aria-hidden="true">✓</span></a>`;
+      return `<a role="menuitem" class="lang-item${l === ctx.lang ? ' on' : ''}" href="${esc(href)}" hreflang="${LANGS[l].html}" lang="${LANGS[l].html}">${flag(ctx, l)}<span class="lang-name">${esc(LANGS[l].name)}</span><span class="lang-code">${LANGS[l].label}</span><span class="lang-chk" aria-hidden="true">${icon('check')}</span></a>`;
     })}</div>
   </div>`;
 }

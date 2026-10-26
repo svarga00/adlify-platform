@@ -127,7 +127,7 @@
           </div>
           <div class="chk-row">
             ${UI.field('ongoing_service_enabled', '', { type: 'checkbox', value: true, placeholder: 'Zahrnúť priebežnú službu' })}
-            ${UI.field('urgent_surcharge', '', { type: 'checkbox', value: !!inq.urgent, placeholder: '⚡ Príplatok za súrnosť' })}
+            ${UI.field('urgent_surcharge', '', { type: 'checkbox', value: !!inq.urgent, placeholder: 'Príplatok za súrnosť' })}
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -152,7 +152,7 @@
               ${total ? ` · spolu ${UI.money(total)}` : ''}
             </div>
             <div class="match-reasons">
-              ${m.reasons.slice(0, 5).map(r => `<span class="${r.ok ? 'ok' : 'no'}">${r.ok ? '✓' : '✗'} ${UI.esc(r.text)}</span>`).join('')}
+              ${m.reasons.slice(0, 5).map(r => `<span class="${r.ok ? 'ok' : 'no'}">${Icon(r.ok ? 'check' : 'x', 12)} ${UI.esc(r.text)}</span>`).join('')}
             </div>
           </div>
         </label>`;
@@ -288,7 +288,7 @@
       L.push('');
       vs.forEach((v, i) => {
         const a = accs.find(x => x.id === v.accommodation_id) || {};
-        // ⚠ zámerne BEZ adresy a kontaktu (§5.1)
+        // Pozor: zámerne BEZ adresy a kontaktu (§5.1)
         L.push(`${i + 1}) ${a.city || '—'}${a.type ? ` – ${TYPE_LABEL[a.type] || a.type}` : ''}`);
         L.push(`   ${UI.money(v.price_per_bed_night || 0)} / lôžko / noc${v.nights ? ` × ${v.nights} nocí` : ''} = ${UI.money(v.total_accommodation || 0)}`);
       });

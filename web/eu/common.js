@@ -22,7 +22,7 @@ const T = {
       ['Arbeitnehmerüberlassung', 'Fachkräfte zur Verstärkung Ihres Teams, eingesetzt unter Ihrer Bauleitung.']],
     aueg: 'Arbeitnehmerüberlassung nur mit gültiger Erlaubnis nach AÜG – wir klären das vor Projektbeginn mit Ihnen.',
     foot: { imprint: 'Impressum', privacy: 'Datenschutz', jobs: 'Sie suchen Arbeit?' },
-    js: { sending: 'Wird gesendet…', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder rufen Sie uns an.', required: 'Bitte füllen Sie dieses Feld aus.', consent: 'Bitte stimmen Sie der Datenverarbeitung zu.', phone: 'Bitte prüfen Sie die Telefonnummer.', email: 'Bitte prüfen Sie die E-Mail-Adresse.', copied: 'Kopiert ✓' },
+    js: { sending: 'Wird gesendet…', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder rufen Sie uns an.', required: 'Bitte füllen Sie dieses Feld aus.', consent: 'Bitte stimmen Sie der Datenverarbeitung zu.', phone: 'Bitte prüfen Sie die Telefonnummer.', email: 'Bitte prüfen Sie die E-Mail-Adresse.', copied: 'Kopiert' },
   },
   en: {
     skip: 'Skip to content', menu: 'Menu', close: 'Close', lang: 'Language',
@@ -33,7 +33,7 @@ const T = {
       ['Temporary staffing', 'Skilled workers to reinforce your team (Arbeitnehmerüberlassung), working under your site management.']],
     aueg: 'Temporary staffing only with a valid licence under the German AÜG – we clarify this with you before the project starts.',
     foot: { imprint: 'Imprint', privacy: 'Privacy policy', jobs: 'Looking for work?' },
-    js: { sending: 'Sending…', error: 'Something went wrong. Please try again or give us a call.', required: 'Please fill in this field.', consent: 'Please agree to the processing of your data.', phone: 'Please check the phone number.', email: 'Please check the email address.', copied: 'Copied ✓' },
+    js: { sending: 'Sending…', error: 'Something went wrong. Please try again or give us a call.', required: 'Please fill in this field.', consent: 'Please agree to the processing of your data.', phone: 'Please check the phone number.', email: 'Please check the email address.', copied: 'Copied' },
   },
 };
 

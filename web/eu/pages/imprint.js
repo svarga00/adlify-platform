@@ -7,6 +7,7 @@
 'use strict';
 
 const { esc, each } = require('../../shared/h');
+const { icon } = require('../../shared/icons');
 const { PHONE, MAIL, tel } = require('../common');
 
 /** Geschäftsführer — doplniť, keď ho klient potvrdí. */
@@ -77,7 +78,7 @@ async function render(ctx) {
   <nav class="crumbs" aria-label="Breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span aria-current="page">${esc(t.h1)}</span></nav>
   <h1 class="eu-h1-52">${esc(t.h1)}</h1>
   <span class="eu-legal-sub">${esc(t.sub)}</span>
-  ${ctx.prod ? '' : `<p class="warn eu-warn"><span aria-hidden="true">⚠️</span> ${esc(t.warn)}</p>`}
+  ${ctx.prod ? '' : `<p class="warn eu-warn">${icon('alert')}<span>${esc(t.warn)}</span></p>`}
 </section>
 <section class="wrap eu-imp">${each(cards, ([h, lines]) => `<div class="eu-imp-c"><span class="eyebrow">${esc(h)}</span>${each(lines, (l) => `<span>${l}</span>`)}</div>`)}</section>
 <section class="wrap eu-imp-priv">

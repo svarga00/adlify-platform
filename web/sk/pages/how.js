@@ -5,6 +5,7 @@
 
 const { esc, each } = require('../../shared/h');
 const { mark } = require('../../shared/brand');
+const { icon } = require('../../shared/icons');
 const { PHONE, tel } = require('../common');
 
 const T = {
@@ -127,7 +128,7 @@ const T = {
 
 const pad = (i) => String(i + 1).padStart(2, '0');
 const clock = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.8V8l2.2 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-const checks = (list) => each(list, (x) => `<li><span class="sp-tick" aria-hidden="true">✓</span>${esc(x)}</li>`);
+const checks = (list) => each(list, (x) => `<li><span class="sp-tick" aria-hidden="true">${icon('check')}</span>${esc(x)}</li>`);
 
 async function render(ctx) {
   const t = T[ctx.lang];

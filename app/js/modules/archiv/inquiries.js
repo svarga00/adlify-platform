@@ -163,7 +163,7 @@
                 ${a.max_persons ? ` · max ${a.max_persons}` : ''}
               </div>
               <div class="match-reasons">
-                ${m.reasons.map(r => `<span class="${r.ok ? 'ok' : 'no'}">${r.ok ? '✓' : '✗'} ${UI.esc(r.text)}</span>`).join('')}
+                ${m.reasons.map(r => `<span class="${r.ok ? 'ok' : 'no'}">${Icon(r.ok ? 'check' : 'x', 12)} ${UI.esc(r.text)}</span>`).join('')}
               </div>
             </div>
           </div>`;

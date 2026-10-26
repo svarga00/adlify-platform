@@ -12,6 +12,7 @@
 const { esc, each } = require('../../shared/h');
 const { mark } = require('../../shared/brand');
 const PROF = require('../../shared/professions');
+const { icon } = require('../../shared/icons');
 const { PHONE, MAIL, tel } = require('../common');
 
 /** Krátke názvy remesiel pre čipy vo formulári (podľa návrhu 3b). */
@@ -94,7 +95,7 @@ function enquiryForm(ctx, o = {}) {
   <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
   <div class="form-msg" role="alert"></div>
   <button type="submit" class="btn btn-primary btn-block eu-send"${cta}>${esc(ctaText)}</button>
-  <template data-ok><div class="ok-ico" aria-hidden="true">✓</div><h3>${esc(f.okH)}</h3><p>${o.trade ? f.okFor(tradeName) : esc(f.okP)}</p><a class="link-u" href="${esc(ctx.url('home'))}">${esc(f.okHome)}</a></template>
+  <template data-ok><div class="ok-ico" aria-hidden="true">${icon('check')}</div><h3>${esc(f.okH)}</h3><p>${o.trade ? f.okFor(tradeName) : esc(f.okP)}</p><a class="link-u" href="${esc(ctx.url('home'))}">${esc(f.okHome)}</a></template>
 </form>`;
 }
 
@@ -161,7 +162,7 @@ async function render(ctx) {
     <a class="eu-map-art" href="${esc(maps)}" target="_blank" rel="noopener" aria-label="${esc(t.route)}">
       <span class="eu-map-grid" aria-hidden="true"></span>
       <span class="eu-map-pin" aria-hidden="true">${mark({ w: 30, light: true })}</span>
-      <span class="eu-map-link">${esc(t.route)} ↗</span>
+      <span class="eu-map-link">${esc(t.route)}${icon('external')}</span>
     </a>
     <div class="eu-map-txt"><strong>${esc(t.seat)}</strong><span>${esc(t.addr)}</span></div>
   </div>

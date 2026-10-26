@@ -490,7 +490,7 @@
           <strong>${UI.esc(q.question_sk)}</strong>
           <span style="display:block;color:var(--ink-mute);font-size:12px;margin-top:2px;">
             ${UI.esc(this.tradeName(q.trade_key))} · ${PHASE[q.phase] || q.phase}${q.weight >= 3 ? ' · kľúčová' : ''}</span>
-          ${q.good_answer ? `<span style="display:block;color:var(--green);font-size:12px;">✓ ${UI.esc(q.good_answer)}</span>` : ''}
+          ${q.good_answer ? `<span style="display:block;color:var(--green);font-size:12px;">${Icon('check', 12)} ${UI.esc(q.good_answer)}</span>` : ''}
           ${q.red_flag_answer ? `<span style="display:block;color:var(--red);font-size:12px;">! ${UI.esc(q.red_flag_answer)}</span>` : ''}
         </span>
         ${UI.badge(k[0], k[1])}

@@ -10,6 +10,8 @@
   var T = P.t || {};
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  // Ikona = web/shared/icons.js (check)
+  var CHECK = '<svg class="ico ico-check" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.5 8.4l3 3 6-6.6"/></svg>';
 
   // ── Výber jazyka ───────────────────────────────────────────────────────
   $$('[data-dropdown]').forEach(function (dd) {
@@ -99,7 +101,7 @@
     if (!c) return;
     e.preventDefault();
     var url = c.getAttribute('data-copy') || location.href;
-    var done = function () { var l = c.querySelector('[data-copy-label]') || c; var o = l.textContent; l.textContent = T.copied || 'Copied ✓'; setTimeout(function () { l.textContent = o; }, 1800); };
+    var done = function () { var l = c.querySelector('[data-copy-label]') || c; var o = l.textContent; l.textContent = T.copied || 'Copied'; setTimeout(function () { l.textContent = o; }, 1800); };
     if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done); else done();
   });
 
@@ -154,7 +156,7 @@
           var tpl = f.querySelector('template[data-ok]');
           var box = document.createElement('div');
           box.className = 'form-ok'; box.setAttribute('role', 'status'); box.setAttribute('tabindex', '-1');
-          box.innerHTML = tpl ? tpl.innerHTML : '<div class="ok-ico">✓</div>';
+          box.innerHTML = tpl ? tpl.innerHTML : '<div class="ok-ico" aria-hidden="true">' + CHECK + '</div>';
           f.replaceWith(box); box.focus();
           document.dispatchEvent(new CustomEvent('punds:sent', { detail: { form: f.getAttribute('data-form') } }));
         })
