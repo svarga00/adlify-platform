@@ -26,8 +26,12 @@ const notify = notifier(supabase);
 exports.handler = async (event) => {
   const h = event.headers || {};
   // Pôvodná adresa: pri prepise z netlify.toml je v event.path (alebo rawUrl).
-  let path = event.path || '/';
-  try { if (event.rawUrl) path = new URL(event.rawUrl).pathname; } catch (e) { /* ponechá event.path */ }
+  // Pôvodná adresa (/punds-sk/…): pri prepise z netlify.toml je v event.path,
+  // v rawUrl môže byť adresa funkcie — vezme sa tá, ktorá patrí webu.
+  let raw = '';
+  try { if (event.rawUrl) raw = new URL(event.rawUrl).pathname; } catch (e) { /* bez rawUrl */ }
+  const cand = [event.path, raw, h['x-nf-original-path']].filter(Boolean);
+  let path = cand.find((p) => /^\/punds-(sk|eu)(\/|$)/.test(p)) || cand.find((p) => !p.startsWith('/.netlify/')) || '/';
   const host = h['x-forwarded-host'] || h.host || '';
   // Edge funkcia punds-host posiela pôvodný host (punds.sk) v hlavičke.
   const origHost = h['x-punds-host'] || host;
