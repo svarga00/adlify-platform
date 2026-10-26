@@ -345,6 +345,37 @@
       why: ['Čo sa s ním dohodlo e-mailom, je pri ňom — nie v niečej schránke.'],
       links: [['mail', 'Správy']],
     },
+    'card.mailboxes.web': {
+      title: 'E-maily z webov',
+      lead: 'Čo sa pošle, keď niekto vyplní formulár na punds.sk alebo punds.eu.',
+      what: [
+        'Uchádzač dostane potvrdenie vo svojom jazyku (SK, CZ, HU, DE, EN) — s ponukou, na ktorú sa prihlásil, a ďalšími krokmi.',
+        'Nemecká firma dostane potvrdenie dopytu po nemecky alebo anglicky so súhrnom (remeslo, počet, miesto, začiatok).',
+        'Vy dostanete upozornenie na zadanú adresu — odpoveďou píšete rovno uchádzačovi.',
+      ],
+      how: [
+        'Posiela sa zo zvolenej schránky (Správy), kópia je v jej priečinku Odoslané.',
+        'Prihláška sa do Kandidátov a dopyt do Dopytov uloží vždy — aj keď je posielanie vypnuté.',
+      ],
+      why: ['Človek hneď vie, že prihláška prišla — a neodíde ku konkurencii, kým sa ozveme.'],
+      links: [['candidates', 'Kandidáti'], ['opportunities', 'Dopyty']],
+    },
+    'screen.printwork': {
+      title: 'Tlačoviny',
+      lead: 'Vizitky, obálka DL a hlavičkový list v podobe punds — pripravené pre tlačiareň.',
+      what: [
+        'Vizitka 85 × 55 mm v dvoch variantoch (tmavá a biela s oranžovým rubom), PDF so spadávkou 3 mm.',
+        'Obálka DL 220 × 110 mm, adresát v mieste okienka.',
+        'Hlavičkový list s Vašimi údajmi z Nastavení — ponuka, sprievodný list, výzva.',
+      ],
+      how: [
+        'Údaje sa doplnia z Nastavení a Vášho účtu, stačí ich skontrolovať.',
+        'List sa otvorí ako dokument: dá sa upraviť, stiahnuť ako PDF, poslať a uloží sa do Dokumentov.',
+        'Tlačiareň môže chcieť farby v CMYK — oranžová sa pri prevode môže mierne zmeniť.',
+      ],
+      why: ['Všetky papiere od firmy vyzerajú rovnako — ako faktúry, zmluvy aj web.'],
+      links: [['marketing', 'Inzercia'], ['settings', 'Nastavenia']],
+    },
     'screen.advances': {
       title: 'Zálohy a výplaty',
       lead: 'Komu sme dali zálohu a komu čo dlhujeme — za všetkých živnostníkov naraz.',

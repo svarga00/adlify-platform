@@ -195,6 +195,18 @@
     .pdf-sheet .runfoot{position:absolute;margin:0}
     .pdf-sheet .pdf-bar{position:absolute;left:0;right:0;bottom:0;height:6px;background:${BRAND.orange}}
     .pdf-sheet .pdf-pno{position:absolute;font-size:8.5px;color:${BRAND.mute}}
+    .letter-head{margin-bottom:58px}
+    .letter-head .doc-title{gap:2px}
+    .letter-addr{display:flex;justify-content:space-between;gap:24px;margin-bottom:40px}
+    .letter-addr .val{font-size:12px}
+    .letter-date{text-align:right}
+    .letter-subj{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 16px;line-height:1.3}
+    .letter-body p{margin:0 0 12px;font-size:12px;line-height:1.7;color:${BRAND.sub}}
+    .letter-sig{margin-top:18px;display:flex;flex-direction:column;font-size:12px;color:${BRAND.sub};page-break-inside:avoid}
+    .letter-sig p{margin:0 0 4px}
+    .letter-sig strong{color:${BRAND.navy};font-weight:600}
+    .letter-stamp img{max-height:90px;max-width:200px;object-fit:contain;margin:4px 0}
+    .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
     .tb-msg{display:none;background:#FFF4EA;color:${BRAND.navy};font-size:13px;padding:9px 20px;text-align:center}
     .tb-msg.on{display:block}
     .tb-msg button{margin-left:10px;background:${BRAND.orange};color:#fff;border:0;border-radius:8px;
@@ -1563,6 +1575,42 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     return shell(`Pokyny ${order.order_number || ''}`, body);
   }
 
+  // ── HLAVIČKOVÝ LIST (návrh 2a) ───────────────────────────────────────────
+  /**
+   * List na hlavičkovom papieri: ponuka, sprievodný list, výzva… Hlavička so
+   * značkou a kontaktmi, adresát, miesto a dátum, vec, text, podpis; päta
+   * s údajmi firmy a oranžový pruh ako na ostatných dokumentoch.
+   *
+   * @param {Object} o { supplier, to (viac riadkov), place, date, subject, body, closing, signer, role, lang }
+   */
+  function letter({ supplier = {}, to = '', place = '', date: d = null, subject = '', body = '', closing = '', signer = '', role = '', lang = 'sk' } = {}) {
+    const de = lang === 'de';
+    const b = brandOf(supplier);
+    const web = webOf(supplier);
+    const L = de ? { to: 'Empfänger', subj: 'Betreff', close: 'Mit freundlichen Grüßen' } : { to: 'Adresát', subj: 'Vec', close: 'S pozdravom' };
+    const riadky = String(to || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const odst = String(body || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    const miesto = place || mestoZAdresy(supplier);
+    const body2 = `
+      <div class="head letter-head">
+        <div class="brand">${LOGO}${b.brand ? `<div><div class="brand-word">${esc(b.brand)}</div>${b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : ''}</div>`
+          : `<div><div class="brand-name">${esc(b.name)}</div></div>`}</div>
+        <div class="doc-title">${supplier.phone ? `<div class="meta">${esc(supplier.phone)}</div>` : ''}${supplier.email ? `<div class="meta">${esc(supplier.email)}</div>` : ''}
+          ${web ? `<div class="meta" style="color:${BRAND.orange};font-weight:600;">${esc(web)}</div>` : ''}</div>
+      </div>
+      <div class="letter-addr">
+        <div>${riadky.length ? `<div class="lbl">${esc(L.to)}</div><div class="val">${riadky.map((x, i) => (i === 0 ? `<strong>${esc(x)}</strong>` : esc(x))).join('<br>')}</div>` : ''}</div>
+        <div class="letter-date">${miesto ? `<div class="lbl">${esc(miesto.toUpperCase())}</div>` : ''}<div class="val">${esc(date(d || new Date().toISOString()))}</div></div>
+      </div>
+      ${subject ? `<h1 class="letter-subj">${esc(L.subj)}: ${esc(subject)}</h1>` : '<h1 class="letter-subj sr">&nbsp;</h1>'}
+      <div class="letter-body">${odst.map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('')}</div>
+      <div class="letter-sig"><p>${esc(closing || L.close)}</p>
+        ${stamp(supplier) ? `<div class="letter-stamp">${stamp(supplier, 'st')}</div>` : '<div style="height:34px"></div>'}
+        ${signer ? `<strong>${esc(signer)}</strong>` : ''}${role ? `<span>${esc(role)}</span>` : ''}</div>
+      ${runFoot(supplier, de ? 'de' : 'sk')}`;
+    return shell(`${de ? 'Brief' : 'List'}${subject ? ` – ${subject}` : ''}`, body2, { lang: de ? 'de' : 'sk' });
+  }
+
   // ── Skrátené textové verzie pre SMS/WhatsApp (§8) ─────────────────────────
   // Meno odosielateľa je z Nastavení. Príjemca musí vedieť, kto mu píše —
   // ale to meno patrí do nastavení firmy, nie do kódu.
@@ -1589,8 +1637,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, letter, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, letter, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

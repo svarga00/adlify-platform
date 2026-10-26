@@ -26,9 +26,12 @@ function findTests(dir) {
 
 // Serverové funkcie majú testy pri sebe, mimo `app/`.
 const fnDir = path.join(repo, 'netlify', 'functions');
+// Weby punds.sk a punds.eu majú testy v web/tests.
+const webDir = path.join(repo, 'web');
 const suites = [
   ...findTests(root).sort(),
   ...(fs.existsSync(fnDir) ? findTests(fnDir).sort() : []),
+  ...(fs.existsSync(webDir) ? findTests(webDir).sort() : []),
   path.join(__dirname, 'smoke.js'),
 ];
 

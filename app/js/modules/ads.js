@@ -88,7 +88,7 @@
                onclick="Ads.detail('${x.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(x.title)}</div>
-              ${x.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}
+              <span style="display:flex;gap:6px;">${x.web_published ? UI.badge('na webe', 'blue') : ''}${x.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}</span>
             </div>
             <div class="meta-row">
               <span>${Icon('marketing', 14)} ${UI.esc(A().channelLabel(x.channel))}${
@@ -168,6 +168,9 @@
         ${x.url ? `<p style="margin:10px 0 0;"><a href="${UI.esc(x.url)}"
           target="_blank" rel="noopener noreferrer">${Icon('chevron', 13)} Otvoriť inzerát</a></p>` : ''}
         ${x.note ? `<p style="margin:10px 0 0;color:var(--ink-sub);font-size:13px;">${UI.esc(x.note)}</p>` : ''}
+        ${x.web_published ? `<div class="form-section">Web punds.sk</div>
+          <p style="margin:0;font-size:13px;">${Icon('check', 13)} Zverejnené ako <strong>${UI.esc(x.web_title || x.title)}</strong>
+            ${x.web_slug ? ` · <a href="${UI.esc(this.webUrl(x))}" target="_blank" rel="noopener">otvoriť na webe</a>` : ''}</p>` : ''}
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="Ads.toggle('${x.id}')">
@@ -216,6 +219,8 @@
             placeholder: 'Skopíruj sem text inzerátu tak, ako beží.' })}
           ${UI.field('note', 'Interná poznámka', { type: 'textarea', rows: 2, value: x.note })}
 
+          ${this.webSection(x)}
+
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Uložiť</button>
@@ -236,6 +241,20 @@
         ends_on: d.ends_on || null,
         promise: String(d.promise || '').split('\n').map(s => s.trim()).filter(Boolean),
       };
+      // Časť pre web punds.sk — polia web_*, preklady, adresa ponuky.
+      const W = window.DanubraWebAd;
+      const x = id ? this.items.find(i => i.id === id) || {} : {};
+      if (W) {
+        if (d.web_published && W.missing(d).length) {
+          return UI.toast(`Na web chýba: ${W.missing(d).join(', ')}`, 'err');
+        }
+        Object.assign(payload, W.payload(d, x, { i18n: this.webI18n(x) }));
+        for (const k of Object.keys(d)) if (/^tr_/.test(k)) delete payload[k];
+        // Súradnice pre mapu na webe — pri zverejnení, keď ich ešte nemá alebo sa zmenilo mesto.
+        if (payload.web_published && d.city && (payload.lat === null || x.lat == null)) {
+          Object.assign(payload, await this.geocode(d.city, payload.country));
+        }
+      }
       const { error } = id
         ? await DB.update('ads', id, payload)
         : await DB.insert('ads', payload);
@@ -244,6 +263,140 @@
       UI.toast(id ? 'Inzerát upravený' : 'Inzerát založený', 'ok');
       this.loaded = false;
       Danubra.renderRoute();
+    },
+
+    // ── Web punds.sk ────────────────────────────────────────────────────
+    /** Časť formulára: zverejnenie inzerátu ako ponuky na punds.sk. */
+    webSection(x) {
+      const W = window.DanubraWebAd;
+      if (!W) return '';
+      this._i18n = JSON.parse(JSON.stringify(x.i18n || {}));
+      const tr = W.translated(this._i18n);
+      return `<div class="form-section">Web punds.sk</div>
+        <div class="regimebox" style="margin:0 0 10px;">Zverejnená ponuka je na punds.sk do pár minút po uložení.
+          Prihlášky z nej prídu do Kandidátov pri tomto inzeráte.</div>
+        ${UI.field('web_published', 'Zverejniť na punds.sk', { type: 'checkbox', value: !!x.web_published })}
+        <div class="form-grid">
+          ${UI.field('web_title', 'Verejný názov pozície', { value: x.web_title || '', placeholder: 'Zvárač MIG/MAG (135)' })}
+          ${UI.field('web_prof', 'Profesia na webe', { value: x.web_prof || W.FROM_TRADE[x.trade_key] || '',
+            options: [['', '— podľa remesla —'], ...W.WEB_PROFESSIONS] })}
+          ${UI.field('country', 'Krajina', { value: x.country || 'DE', options: [['DE', 'Nemecko'], ['AT', 'Rakúsko']] })}
+          ${UI.field('rate_max', 'Sadzba do €/h', { type: 'number', value: x.rate_max, hint: '„Sľúbená sadzba" hore je od.' })}
+          ${UI.field('hours_week', 'Hodín týždenne', { type: 'number', value: x.hours_week, placeholder: '50' })}
+          ${UI.field('rotation', 'Turnus', { value: x.rotation || '', placeholder: '4+1' })}
+          ${UI.field('headcount', 'Koľko ľudí hľadáme', { type: 'number', value: x.headcount })}
+          ${UI.field('duration', 'Dĺžka projektu', { value: x.duration || '', placeholder: '6 mesiacov / dlhodobo' })}
+        </div>
+        <div class="form-grid">
+          ${UI.field('start_now', 'Nástup ihneď', { type: 'checkbox', value: !!x.start_now })}
+          ${UI.field('accommodation', 'Ubytovanie zabezpečené', { type: 'checkbox', value: x.accommodation !== false })}
+        </div>
+        ${UI.field('web_body', 'Popis pozície na web', { type: 'textarea', rows: 4, value: x.web_body || '',
+          placeholder: 'Hľadáme skúsených zváračov MIG/MAG na oceľové konštrukcie pre halu v Bremene…' })}
+        <div class="form-grid">
+          ${UI.field('duties', 'Náplň práce (riadok = bod)', { type: 'textarea', rows: 4, value: (x.duties || []).join('\n') })}
+          ${UI.field('requirements', 'Požiadavky (riadok = bod)', { type: 'textarea', rows: 4, value: (x.requirements || []).join('\n') })}
+          ${UI.field('benefits', 'Čo ponúkame (riadok = bod)', { type: 'textarea', rows: 4, value: (x.benefits || []).join('\n') })}
+          ${UI.field('faq', 'Otázky (Otázka? | Odpoveď)', { type: 'textarea', rows: 4, value: W.faqText(x.faq),
+            placeholder: 'Potrebujem živnosť? | Áno, pomôžeme Vám ju založiť.' })}
+        </div>
+        <div class="form-grid">
+          ${UI.field('image_url', 'Fotka (adresa)', { value: x.image_url || '', placeholder: 'prázdne = fotka podľa profesie' })}
+          <label class="fld"><span>Nahrať fotku</span><input type="file" accept="image/jpeg,image/png,image/webp" onchange="Ads.uploadImage(this)"></label>
+        </div>
+        <div class="js-acts" style="align-items:center;">
+          <button type="button" class="btn btn-outline btn-sm" id="ad-tr-btn" onclick="Ads.translate()">${Icon('repeat', 14)} Preložiť do CZ, HU, DE, EN</button>
+          <span class="card-note" id="ad-tr-st">${tr.length ? `Preložené: ${tr.map(l => l.toUpperCase()).join(', ')}` : 'Bez prekladu — v ostatných jazykoch sa ukáže slovenský text.'}</span>
+          ${x.web_published && x.web_slug ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${UI.esc(this.webUrl(x))}">${Icon('chevron', 14)} Otvoriť na webe</a>` : ''}
+        </div>
+        <div id="ad-tr-edit">${this.trEditor()}</div>`;
+    },
+
+    webUrl(x) { return `${location.origin}/punds-sk/sk/ponuky/${encodeURIComponent(x.web_slug || '')}`; },
+
+    /** Preklady na úpravu — po jazykoch, rozbalí sa len na požiadanie. */
+    trEditor() {
+      const W = window.DanubraWebAd;
+      const i = this._i18n || {};
+      return W.LANGS.filter(([l]) => i[l]).map(([l, name]) => `<details class="more-block"><summary>${UI.esc(name)} — upraviť preklad</summary>
+        <div class="form-grid">
+          ${UI.field(`tr_${l}_title`, 'Názov', { value: i[l].title || '' })}
+          ${UI.field(`tr_${l}_duration`, 'Dĺžka projektu', { value: i[l].duration || '' })}
+        </div>
+        ${UI.field(`tr_${l}_body`, 'Popis', { type: 'textarea', rows: 3, value: i[l].body || '' })}
+        <div class="form-grid">
+          ${UI.field(`tr_${l}_duties`, 'Náplň práce', { type: 'textarea', rows: 3, value: (i[l].duties || []).join('\n') })}
+          ${UI.field(`tr_${l}_requirements`, 'Požiadavky', { type: 'textarea', rows: 3, value: (i[l].requirements || []).join('\n') })}
+          ${UI.field(`tr_${l}_benefits`, 'Čo ponúkame', { type: 'textarea', rows: 3, value: (i[l].benefits || []).join('\n') })}
+          ${UI.field(`tr_${l}_faq`, 'Otázky (Otázka? | Odpoveď)', { type: 'textarea', rows: 3, value: W.faqText(i[l].faq) })}
+        </div></details>`).join('');
+    },
+
+    /** Preklady z formulára (ručné opravy majú prednosť). */
+    webI18n(x) {
+      const W = window.DanubraWebAd;
+      const f = document.getElementById('ad-form');
+      const i = JSON.parse(JSON.stringify(this._i18n || x.i18n || {}));
+      if (!f) return i;
+      const d = UI.formData(f);
+      for (const [l] of W.LANGS) {
+        if (!i[l]) continue;
+        if (d[`tr_${l}_title`] != null) i[l].title = d[`tr_${l}_title`];
+        if (d[`tr_${l}_duration`] != null) i[l].duration = d[`tr_${l}_duration`];
+        if (d[`tr_${l}_body`] != null) i[l].body = d[`tr_${l}_body`];
+        for (const k of ['duties', 'requirements', 'benefits']) if (d[`tr_${l}_${k}`] != null) i[l][k] = W.lines(d[`tr_${l}_${k}`]);
+        if (d[`tr_${l}_faq`] != null) i[l].faq = W.faqParse(d[`tr_${l}_faq`]);
+      }
+      return i;
+    },
+
+    async translate() {
+      const W = window.DanubraWebAd;
+      const f = document.getElementById('ad-form');
+      const d = UI.formData(f);
+      if (!d.web_title) return UI.toast('Najprv vyplňte verejný názov pozície', 'err');
+      const btn = document.getElementById('ad-tr-btn'), st = document.getElementById('ad-tr-st');
+      btn.disabled = true; st.textContent = 'Prekladám… (asi pol minúty)';
+      try {
+        const { data: s } = await DB.client.auth.getSession();
+        const res = await fetch('/.netlify/functions/punds-translate', { method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(s && s.session && s.session.access_token) || ''}` },
+          body: JSON.stringify({ ad: { web_title: d.web_title, web_body: d.web_body, duration: d.duration,
+            duties: W.lines(d.duties), requirements: W.lines(d.requirements), benefits: W.lines(d.benefits), faq: W.faqParse(d.faq) } }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.i18n) throw new Error(j.error || `Chyba ${res.status}`);
+        this._i18n = { ...(this._i18n || {}), ...j.i18n };
+        document.getElementById('ad-tr-edit').innerHTML = this.trEditor();
+        st.textContent = `Preložené: ${W.translated(this._i18n).map(l => l.toUpperCase()).join(', ')} — skontrolujte a uložte.`;
+      } catch (e) {
+        st.textContent = e.message;
+        UI.toast(e.message, 'err');
+      } finally { btn.disabled = false; }
+    },
+
+    async uploadImage(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) return UI.toast('Fotka môže mať najviac 5 MB', 'err');
+      const ext = (file.name.match(/\.(jpe?g|png|webp)$/i) || ['.jpg'])[0].toLowerCase();
+      const path = `ponuky/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}${ext}`;
+      const { error } = await DB.client.storage.from('punds-web').upload(path, file, { contentType: file.type, upsert: false });
+      if (error) return UI.toast('Fotka sa nenahrala: ' + error.message, 'err');
+      const { data } = DB.client.storage.from('punds-web').getPublicUrl(path);
+      const f = document.getElementById('ad-form');
+      f.querySelector('[name=image_url]').value = data.publicUrl;
+      UI.toast('Fotka nahratá', 'ok');
+    },
+
+    /** Súradnice mesta pre mapu na webe (OpenStreetMap). Keď sa nepodarí, web použije známe mestá. */
+    async geocode(city, country) {
+      if (!city) return {};
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=${(country || 'de').toLowerCase()}&q=${encodeURIComponent(city)}`,
+          { headers: { 'Accept-Language': 'de' } });
+        const j = await r.json();
+        return j && j[0] ? { lat: Number(j[0].lat), lng: Number(j[0].lon) } : {};
+      } catch (e) { return {}; }
     },
 
     /**

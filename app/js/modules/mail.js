@@ -40,7 +40,7 @@
 
     async load() {
       const [b, m] = await Promise.all([
-        DB.list('mailboxes', { select: 'id,name,email,display_name,signature,sent_folder,last_sync_at,sync_error,active', limit: 100 }),
+        DB.list('mailboxes', { select: 'id,name,email,display_name,signature,signature_card,sent_folder,last_sync_at,sync_error,active', limit: 100 }),
         DB.list('mail_messages', { select: COLS, order: { column: 'sent_at', ascending: false }, limit: 1500 }),
       ]);
       this.boxes = (b.data || []).filter(x => x.active !== false);
@@ -270,7 +270,8 @@
     },
 
     // ── Písanie ───────────────────────────────────────────────────────────
-    sig(boxId) { const s = (this.boxOf(boxId).signature || '').trim(); return s ? `\n\n-- \n${s}` : ''; },
+    // Podpis schránky: vlastný text, inak z grafickej vizitky (DanubraMail.sigOf).
+    sig(boxId) { const s = MM().sigOf(this.boxOf(boxId)); return s ? `\n\n-- \n${s}` : ''; },
 
     async ensure() {
       if (!this.loaded) await this.load();
@@ -327,7 +328,7 @@
         const t = f.querySelector('[name=text]');
         // Hľadá sa „-- \n podpis" bez úvodných riadkov — textarea prvý
         // prázdny riadok zahodí.
-        const podpis = (id) => (this.boxOf(id).signature || '').trim();
+        const podpis = (id) => MM().sigOf(this.boxOf(id));
         const stary = podpis(this._draft.mailbox_id), novy = podpis(e.target.value);
         if (stary && t.value.includes(`-- \n${stary}`)) {
           t.value = novy ? t.value.replace(`-- \n${stary}`, `-- \n${novy}`) : t.value.replace(new RegExp(`\\n*-- \\n${stary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), '');
@@ -439,7 +440,7 @@
     rows: [], members: [], access: [], loaded: false,
     async load() {
       const [b, m, a] = await Promise.all([
-        DB.list('mailboxes', { select: 'id,name,email,display_name,imap_host,imap_port,imap_secure,smtp_host,smtp_port,smtp_secure,username,signature,sent_folder,last_sync_at,sync_error,active', limit: 100 }),
+        DB.list('mailboxes', { select: 'id,name,email,display_name,imap_host,imap_port,imap_secure,smtp_host,smtp_port,smtp_secure,username,signature,signature_card,sent_folder,last_sync_at,sync_error,active', limit: 100 }),
         DB.list('members', { select: 'id,user_id,email,full_name,role,active', limit: 200 }),
         DB.list('mailbox_access', { limit: 2000 }),
       ]);
@@ -467,7 +468,46 @@
             ${b.active !== false ? `<button class="btn btn-ghost btn-sm" onclick="Mbx.off('${b.id}')">Vypnúť</button>` : ''}</div>` : ''}
         </div>`).join('')}</div>`
           : UI.empty('mail', 'Zatiaľ žiadna schránka', 'Pridajte firemnú schránku — e-mail, heslo a podpis. Servery Websupportu a Forpsi sa doplnia samy.',
-            admin ? `<button class="btn btn-primary" onclick="Mbx.form()">${Icon('plus')} Pridať schránku</button>` : ''));
+            admin ? `<button class="btn btn-primary" onclick="Mbx.form()">${Icon('plus')} Pridať schránku</button>` : ''))
+        + (admin ? await this.webCard() : '');
+    },
+
+    /**
+     * Automatické e-maily z webov punds.sk / punds.eu: potvrdenie uchádzačovi
+     * alebo firme a upozornenie nám. Posiela sa zo zvolenej schránky.
+     */
+    async webCard() {
+      const row = await Danubra.loadCfg();
+      const w = row.web || {};
+      const opts = [['', '— neposielať —'], ...this.rows.filter(b => b.active !== false).map(b => [b.id, `${b.name} <${b.email}>`])];
+      return `<div class="card card-pad" style="margin-top:16px;">
+        <div class="card-head"><div class="card-title">E-maily z webov punds.sk a punds.eu${Help.btn('card.mailboxes.web', { size: 13 })}</div></div>
+        <p class="card-note" style="margin:0 0 10px;">Kto pošle prihlášku alebo dopyt, dostane hneď potvrdenie vo svojom jazyku
+          a Vy upozornenie. Prihláška sa do appky uloží vždy — aj keď je posielanie vypnuté.</p>
+        <form id="web-mail" onsubmit="event.preventDefault();Mbx.saveWeb()">
+          ${UI.field('confirm', 'Posielať automatické e-maily', { type: 'checkbox', value: !!w.confirm })}
+          <div class="form-grid">
+            ${UI.field('mailbox_sk', 'punds.sk — posielať zo schránky', { value: w.mailbox_sk || '', options: opts })}
+            ${UI.field('notify_sk', 'punds.sk — upozornenie na adresu', { type: 'email', value: w.notify_sk || '', placeholder: 'info@punds.sk' })}
+            ${UI.field('mailbox_eu', 'punds.eu — posielať zo schránky', { value: w.mailbox_eu || '', options: opts })}
+            ${UI.field('notify_eu', 'punds.eu — upozornenie na adresu', { type: 'email', value: w.notify_eu || '', placeholder: 'info@punds.eu' })}
+            ${UI.field('contact_eu', 'punds.eu — meno kontaktnej osoby v potvrdení', { value: w.contact_eu || '', placeholder: 'napr. Štefan Varga' })}
+            ${UI.field('phone_eu', 'punds.eu — telefón v potvrdení', { value: w.phone_eu || '', placeholder: '+421 910 523 958' })}
+          </div>
+          <div class="modal-actions" style="justify-content:flex-start;"><button type="submit" class="btn btn-primary btn-sm">Uložiť</button></div>
+        </form></div>`;
+    },
+
+    async saveWeb() {
+      const d = UI.formData(document.getElementById('web-mail'));
+      if (d.confirm && !d.mailbox_sk && !d.mailbox_eu) return UI.toast('Vyberte schránku, z ktorej sa má posielať', 'err');
+      const row = await Danubra.loadCfg();
+      const web = { ...(row.web || {}), confirm: !!d.confirm, mailbox_sk: d.mailbox_sk || null, mailbox_eu: d.mailbox_eu || null,
+        notify_sk: d.notify_sk || null, notify_eu: d.notify_eu || null, contact_eu: d.contact_eu || null, phone_eu: d.phone_eu || null };
+      const { error } = row.id ? await DB.update('settings', row.id, { web }) : { error: { message: 'Nastavenia sa nenačítali' } };
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      await Danubra.loadCfg(true);
+      UI.toast('Uložené — platí do minúty', 'ok');
     },
 
     form(id) {
@@ -491,8 +531,20 @@
             ${UI.field('smtp_host', 'SMTP server', { value: b.smtp_host || '' })}
             ${UI.field('smtp_port', 'SMTP port', { type: 'number', value: b.smtp_port || 465 })}
           </div></details>
-        ${UI.field('signature', 'Podpis', { type: 'textarea', rows: 5, value: b.signature || '',
-          placeholder: 'Štefan Varga\nPartner und Service s. r. o.\n+421 …\nwww.punds.eu' })}
+        <div class="form-section">Podpis</div>
+        ${(() => { const c = b.signature_card || {}; return `
+        ${UI.field('sig_enabled', 'Grafický podpis punds (logo, meno, kontakty)', { type: 'checkbox', value: !!c.enabled })}
+        <div class="form-grid">
+          ${UI.field('sig_name', 'Meno', { value: c.name || '', placeholder: 'Štefan Varga' })}
+          ${UI.field('sig_role', 'Funkcia', { value: c.role || '', placeholder: 'Koordinátor projektov' })}
+          ${UI.field('sig_phone', 'Telefón', { value: c.phone || '', placeholder: '+421 910 523 858' })}
+          ${UI.field('sig_lang', 'Jazyk podpisu', { value: c.lang || 'sk', options: [['sk', 'Slovensky (punds.sk)'], ['de', 'Nemecky (punds.eu)']] })}
+          ${UI.field('sig_cta_label', 'Odkaz pod podpisom (text)', { value: c.cta_label || '', placeholder: 'prázdne = podľa jazyka' })}
+          ${UI.field('sig_cta_url', 'Odkaz pod podpisom (adresa)', { value: c.cta_url || '', placeholder: 'https://punds.sk' })}
+        </div>
+        <div class="sig-preview" id="sig-preview"></div>`; })()}
+        ${UI.field('signature', 'Vlastný textový podpis (namiesto grafického)', { type: 'textarea', rows: 4, value: b.signature || '',
+          placeholder: 'Prázdne = z grafického podpisu. Text sa použije v textovej verzii e-mailu.' })}
         <div class="form-section">Kto vidí túto schránku</div>
         <div class="chk-grid">${this.members.filter(m => m.role !== 'admin').map(m => `<label class="chk"><input type="checkbox" name="acc" value="${m.user_id}" ${maPristup.has(m.user_id) ? 'checked' : ''}>
           <span>${UI.esc(m.full_name || m.email)}</span></label>`).join('') || '<span class="js-empty">Iní používatelia zatiaľ nie sú — administrátor vidí všetky schránky.</span>'}</div>
@@ -511,6 +563,21 @@
       };
       f.preset.addEventListener('change', apply);
       if (!id) apply();
+      // Náhľad grafického podpisu — mení sa pri písaní.
+      const nahlad = () => {
+        const d = UI.formData(f);
+        const box = document.getElementById('sig-preview');
+        if (!box) return;
+        const mb = { email: d.email || 'info@punds.eu', signature_card: this.cardOf(d) };
+        box.innerHTML = mb.signature_card.enabled && mb.signature_card.name
+          ? `<div class="sig-frame">${MM().sigHtml(mb, `${location.origin}/web/public`)}</div>` : '';
+      };
+      f.addEventListener('input', nahlad); f.addEventListener('change', nahlad); nahlad();
+    },
+
+    cardOf(d) {
+      return { enabled: !!d.sig_enabled, name: d.sig_name || '', role: d.sig_role || '', phone: d.sig_phone || '',
+        lang: d.sig_lang === 'de' ? 'de' : 'sk', cta_label: d.sig_cta_label || '', cta_url: d.sig_cta_url || '' };
     },
 
     payload(id) {
@@ -519,7 +586,8 @@
       return {
         mailbox: { id: id || undefined, name: d.name || d.email, email: d.email, display_name: d.display_name || null,
           username: d.username || d.email, imap_host: d.imap_host, imap_port: Number(d.imap_port) || 993, imap_secure: true,
-          smtp_host: d.smtp_host, smtp_port: Number(d.smtp_port) || 465, smtp_secure: true, signature: d.signature || null },
+          smtp_host: d.smtp_host, smtp_port: Number(d.smtp_port) || 465, smtp_secure: true, signature: d.signature || null,
+          signature_card: this.cardOf(d) },
         password: d.password || undefined,
         access: [...f.querySelectorAll('input[name=acc]:checked')].map(i => i.value),
       };
