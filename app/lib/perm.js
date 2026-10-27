@@ -123,6 +123,8 @@
     advances: 'costs',
     // Dokumenty sú PDF z obrazoviek, na ktoré človek už má právo.
     archive: 'dashboard',
+    // Návod smie čítať každý, kto smie na Prehľad.
+    navod: 'dashboard',
     // Marketing: nové firmy a e-maily patria k tomu istému ako inzercia.
     leads: 'marketing', campaigns: 'marketing', printwork: 'marketing', website: 'marketing',
     // E-maily sú to isté ako Správy; ktoré schránky vidí, určuje admin

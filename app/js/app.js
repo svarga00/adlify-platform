@@ -108,7 +108,9 @@ window.Danubra = {
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['flow', 'Ako to ide', 'repeat'],
                     // Každé PDF z appky — triedené podľa ľudí a firiem.
-                    ['archive', 'Dokumenty', 'doc']]],
+                    ['archive', 'Dokumenty', 'doc'],
+                    // Návod k appke krok za krokom (+ PDF a ťahák na A4).
+                    ['navod', 'Návod', 'help']]],
     ['ZÁKAZKY',    [['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['opportunities', 'Dopyty', 'offers', 'staffing', 'contracts'],
                     ['quotes', 'Ponuky', 'euro', 'staffing', 'contracts'],
@@ -161,6 +163,7 @@ window.Danubra = {
     dashboard: 'Čo dnes treba spraviť, či bude na výplaty a či sa na tom zarába',
     flow: 'Celá cesta od telefonátu po peniaze — a kde sa to práve zastavilo',
     archive: 'Všetky PDF — zmluvy, GDPR, objednávky, faktúry — pri ľuďoch a firmách; poslať aj viac naraz',
+    navod: 'Návod k appke krok za krokom: od dopytu po zaplatenú faktúru, s tlačidlom na každú obrazovku',
     money: 'Kde stoja naše peniaze a koľko sa z nich dá minúť a dokedy',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     messages: 'Interné poznámky a komunikácia pri zázname, ktorého sa týka',
@@ -343,7 +346,7 @@ window.Danubra = {
    */
   navParent: {
     // Poradie tu je poradím záložiek. Prehľad „čo dnes" a jeho ďalšie pohľady.
-    tasks: 'dashboard', flow: 'dashboard', archive: 'dashboard',
+    tasks: 'dashboard', flow: 'dashboard', archive: 'dashboard', navod: 'dashboard',
     // Správy: e-maily zo schránok a interné poznámky.
     messages: 'mail',
     // Zákazka: od dopytu po hodiny. Na konkrétnej zákazke je to isté ako
@@ -365,7 +368,7 @@ window.Danubra = {
   // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
   // povedať, čo na nej je — „Ľudia → Ľudia" nepovie nič.
   navTabLabel: {
-    dashboard: 'Dnes', tasks: 'Úlohy', flow: 'Ako to ide',
+    dashboard: 'Dnes', tasks: 'Úlohy', flow: 'Ako to ide', navod: 'Návod',
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
@@ -382,7 +385,7 @@ window.Danubra = {
   navTabHint: {
     dashboard: 'Čo treba dnes', tasks: 'Pripomienky', messages: 'Poznámky pri záznamoch', flow: 'Celá cesta',
     mail: 'Doručené a odoslané', mailboxes: 'Podpis a kto ich vidí',
-    archive: 'Všetky PDF',
+    archive: 'Všetky PDF', navod: 'Ako na to, krok za krokom',
     subcontracts: 'Stavby v 7 krokoch', opportunities: 'Kto chce ľudí', quotes: 'Ceny pre Nemcov',
     partners: 'Nemecké firmy', contracts: 'Zmluvy o dielo', orders: 'Od Nemca aj živnostníkom',
     timesheets: 'Kto koľko odrobil', hoursheet: 'Na podpis Nemcovi', accommodations: 'Kde ľudia bývajú',
@@ -600,6 +603,9 @@ window.Danubra = {
       set('user-initial', (nice[0] || '·').toUpperCase());
       set('user-initial-m', (nice[0] || '·').toUpperCase());
       this.renderRoute();
+      // Prvé prihlásenie: sprievodca appkou (js/components/tour.js). Sám sa
+      // ukáže len raz na človeka a zariadenie a nikdy cez otvorené okno.
+      if (window.Tour) Tour.maybeAutoStart();
     }
   },
 
