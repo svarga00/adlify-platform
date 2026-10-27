@@ -603,6 +603,9 @@ window.Danubra = {
       set('user-initial', (nice[0] || '·').toUpperCase());
       set('user-initial-m', (nice[0] || '·').toUpperCase());
       this.renderRoute();
+      // Prvé prihlásenie: sprievodca appkou (js/components/tour.js). Sám sa
+      // ukáže len raz na človeka a zariadenie a nikdy cez otvorené okno.
+      if (window.Tour) Tour.maybeAutoStart();
     }
   },
 

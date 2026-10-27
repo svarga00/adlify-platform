@@ -116,6 +116,9 @@
         <div class="hx">${html}</div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          ${window.Tour ? `<button type="button" class="btn btn-outline" onclick="UI.closeModal();Tour.start()"
+            title="Bubliny priamo v appke ukážu, kde čo je — asi minúta">
+            ${Icon('zap', 14)} Prejsť appku so sprievodcom</button>` : ''}
         </div>`, { wide: true });
     },
   };

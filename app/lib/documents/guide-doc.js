@@ -52,7 +52,7 @@
     const G = guide || {};
     const ch = G.CHAPTERS || [];
     const body = `
-      ${P().header('Návod k appke', 'DANUBRA Hub', ['Pre kolegov v kancelárii'], supplier)}
+      ${P().header('Návod k appke', '', ['Pre kolegov v kancelárii'], supplier)}
       <div class="note info">Návod ide krok za krokom tak, ako ide práca: od dopytu nemeckej firmy
         po zaplatenú faktúru. Pri každom kroku je napísané, kam v appke kliknúť. Pri každom poli
         a tlačidle, pri ktorom môže byť pochybnosť, je v appke aj otáznik s vysvetlením.</div>
@@ -67,7 +67,7 @@
       ${(G.GLOSSARY || []).length ? `<section class="gd-ch"><h2 class="ss-h"><b>${ch.length + 1}</b>Slovníček pojmov</h2>
         <dl class="gd-gl">${G.GLOSSARY.map(g => `<dt>${esc(g.term)}</dt><dd>${esc(g.text)}</dd>`).join('')}</dl></section>` : ''}
       ${P().foot(supplier)}`;
-    return P().shell('Návod k appke DANUBRA Hub', body, { css: CSS, editable: false });
+    return P().shell('Návod k appke', body, { css: CSS, editable: false });
   }
 
   /** Ťahák: jedna strana A4 — čo robiť každý deň, týždeň, mesiac a čo nikdy. */
@@ -76,7 +76,7 @@
     const box = (cls, title, list) => (list && list.length ? `<div class="ch-box ${cls}">
       <h2><i></i>${esc(title)}</h2><ul>${list.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
     const body = `
-      ${P().header('Ťahák', 'DANUBRA Hub', ['Na jednu stranu — zaveste si ho'], supplier)}
+      ${P().header('Ťahák k appke', '', ['Na jednu stranu — zaveste si ho'], supplier)}
       <div class="ch-grid">
         ${box('daily', 'Každý deň', C.daily)}
         ${box('weekly', 'Každý týždeň', C.weekly)}
@@ -86,7 +86,7 @@
       <div class="note info" style="margin-top:12px">Keď si nie ste istí: kliknite na otáznik pri poli
         alebo tlačidle. Celý návod je v appke v menu Dnes → Návod.</div>
       ${P().foot(supplier)}`;
-    return P().shell('Ťahák DANUBRA Hub', body, { css: CSS, editable: false });
+    return P().shell('Ťahák k appke', body, { css: CSS, editable: false });
   }
 
   const API = { guidePdf, cheatSheet };

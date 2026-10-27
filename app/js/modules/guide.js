@@ -12,7 +12,7 @@
 (function () {
   const G = () => window.DanubraGuide || { CHAPTERS: [], CHEAT: {}, GLOSSARY: [] };
 
-  const Guide = {
+  const Navod = {
     ch: 0,
     q: '',
 
@@ -21,18 +21,18 @@
       if (this.ch >= chapters.length) this.ch = 0;
       Danubra.setActions(`
         ${window.Tour ? `<button class="btn btn-outline btn-sm" onclick="Tour.start()">${Icon('zap', 14)} Spustiť sprievodcu</button>` : ''}
-        <button class="btn btn-outline btn-sm" onclick="Guide.cheat()">${Icon('print', 14)} Ťahák na A4</button>
-        <button class="btn btn-primary btn-sm" onclick="Guide.pdf()">${Icon('download', 14)} Návod ako PDF</button>`);
+        <button class="btn btn-outline btn-sm" onclick="Navod.cheat()">${Icon('print', 14)} Ťahák na A4</button>
+        <button class="btn btn-primary btn-sm" onclick="Navod.pdf()">${Icon('download', 14)} Návod ako PDF</button>`);
       el.innerHTML = Danubra.header('Návod', 'Krok za krokom tak, ako ide práca — od dopytu po zaplatenú faktúru')
         + `<div class="gd-layout">
           <nav class="gd-nav card card-pad" aria-label="Kapitoly návodu">
             <label class="kpi-search gd-search">${Icon('search', 14)}
               <input type="search" id="gd-q" placeholder="Hľadať v návode…" value="${UI.esc(this.q)}"
-                oninput="Guide.search(this.value)" autocomplete="off"></label>
+                oninput="Navod.search(this.value)" autocomplete="off"></label>
             <ol class="gd-chapters">${chapters.map((c, i) => `
-              <li><button type="button" class="gd-ch-btn${i === this.ch && !this.q ? ' active' : ''}" onclick="Guide.go(${i})">
+              <li><button type="button" class="gd-ch-btn${i === this.ch && !this.q ? ' active' : ''}" onclick="Navod.go(${i})">
                 <span class="gd-num">${i + 1}</span><span>${UI.esc(c.title)}</span></button></li>`).join('')}
-              ${(G().GLOSSARY || []).length ? `<li><button type="button" class="gd-ch-btn${this.ch === -1 && !this.q ? ' active' : ''}" onclick="Guide.go(-1)">
+              ${(G().GLOSSARY || []).length ? `<li><button type="button" class="gd-ch-btn${this.ch === -1 && !this.q ? ' active' : ''}" onclick="Navod.go(-1)">
                 <span class="gd-num">${Icon('help', 13)}</span><span>Slovníček pojmov</span></button></li>` : ''}
             </ol>
           </nav>
@@ -61,8 +61,8 @@
           <div><h2>${UI.esc(c.title)}</h2>${c.lead ? `<p>${UI.esc(c.lead)}</p>` : ''}</div></header>
         ${(c.steps || []).map((s, si) => this.stepHtml(s, `${i + 1}.${si + 1}`)).join('')}
         <div class="gd-pager">
-          ${i > 0 ? `<button class="btn btn-ghost" onclick="Guide.go(${i - 1})">${Icon('back', 14)} ${UI.esc(chapters[i - 1].title)}</button>` : '<span></span>'}
-          ${i < chapters.length - 1 ? `<button class="btn btn-primary" onclick="Guide.go(${i + 1})">${UI.esc(chapters[i + 1].title)} ${Icon('chevron', 14)}</button>` : ''}
+          ${i > 0 ? `<button class="btn btn-ghost" onclick="Navod.go(${i - 1})">${Icon('back', 14)} ${UI.esc(chapters[i - 1].title)}</button>` : '<span></span>'}
+          ${i < chapters.length - 1 ? `<button class="btn btn-primary" onclick="Navod.go(${i + 1})">${UI.esc(chapters[i + 1].title)} ${Icon('chevron', 14)}</button>` : ''}
         </div>`;
     },
 
@@ -103,6 +103,6 @@
     },
   };
 
-  window.Guide = Guide;
-  Danubra.views.navod = function (el) { return Guide.view(el); };
+  window.Navod = Navod;
+  Danubra.views.navod = function (el) { return Navod.view(el); };
 })();
