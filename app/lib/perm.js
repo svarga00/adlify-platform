@@ -36,7 +36,7 @@
    * právo na obrazovku a obrazovka sú tá istá vec.
    */
   const MODULES = [
-    { key: 'dashboard', label: 'Prehľad', group: 'Prehľad' },
+    { key: 'dashboard', label: 'Prehľad dňa', group: 'Prehľad' },
     { key: 'tasks', label: 'Úlohy a pripomienky', group: 'Prehľad' },
     { key: 'messages', label: 'Správy', group: 'Prehľad' },
 

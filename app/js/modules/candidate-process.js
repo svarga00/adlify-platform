@@ -23,13 +23,32 @@
 
     async load(candidateId) {
       this.candidateId = candidateId;
-      const [c, n, s] = await Promise.all([
+      const [c, n, s, pl] = await Promise.all([
         DB.list('candidate_checks', { filters: { candidate_id: candidateId }, limit: 300 }),
         DB.list('candidate_notes', { filters: { candidate_id: candidateId },
           order: { column: 'created_at', ascending: false }, limit: 200 }),
-        DB.list('subcontracts', { select: 'id,contract_number,title,site_city,status', limit: 200 }),
+        DB.list('subcontracts', { select: 'id,contract_number,title,site_city,status,date_from', limit: 200 }),
+        // Nábor, na ktorý kandidát prišiel, môže mať zákazku — na tú ho
+        // potom appka ponúkne rovno nasadiť.
+        DB.list('recruitment_plans', { select: 'id,title,subcontract_id', limit: 300 }),
       ]);
       this.checks = c.data || []; this.notes = n.data || []; this.subcontracts = s.data || [];
+      this.plans = (pl && pl.data) || [];
+    },
+
+    /**
+     * Sú hotové kroky pred nástupom (1–4, vrátane papierov)? Až vtedy je
+     * „Prijať" hlavné tlačidlo — papiere idú pred nástupom, nie po ňom.
+     */
+    readyToHire(cand, checks) {
+      const p = P.candidateProgress(cand || {}, checks || this.checks);
+      return p.steps.filter(s => s.key !== 'site').every(s => s.complete) && p.flagCount < 2;
+    },
+
+    /** Zákazka, na ktorú kandidát patrí — cez nábor, na ktorý prišiel. */
+    planSubcontract(cand) {
+      const pl = cand && cand.plan_id ? (this.plans || []).find(x => x.id === cand.plan_id) : null;
+      return (pl && pl.subcontract_id) || null;
     },
 
     isChecked(stepKey, index) {
@@ -89,9 +108,15 @@
         proof: { label: 'Pokračovať v preverovaní', onclick: `CandProc.goStep('proof')`, ico: 'check' },
         deal: { label: 'Dohodnúť podmienky', onclick: `CandProc.goStep('deal')`, ico: 'note' },
         papers: { label: 'Dobehnúť papiere', onclick: `CandProc.goStep('papers')`, ico: 'doc' },
-        site: { label: 'Nasadiť na zákazku', onclick: 'CandProc.hireForm()', ico: 'site' },
+        site: cand.outcome === 'hired'
+          ? { label: 'Nasadiť na zákazku', onclick: 'CandProc.hireForm()', ico: 'site' }
+          : { label: 'Prijať – previesť medzi ľudí', onclick: 'CandProc.hireForm()', ico: 'check' },
         flags: { label: 'Rozhodnúť — pokračovať či zamietnuť', onclick: 'CandProc.rejectForm()', ico: 'alert' },
       };
+      // „Všetko odškrtnuté, zostáva nasadiť" musí mať tlačidlo, ktorým sa to dá.
+      if (n.key === 'done' && cand.status !== 'placed' && !cand.subcontract_id) {
+        ACTION.done = ACTION.site;
+      }
       // Uzavretý kandidát nemá krok, ku ktorému by bola vysvetlivka.
       const hotovo = n.key === 'closed' || n.key === 'done';
       return Shell.now(n, {
@@ -261,6 +286,14 @@
       const cand = Cand.items.find(c => c.id === this.candidateId);
       const box = document.getElementById('cand-process');
       if (cand && box) box.innerHTML = this.render(cand);
+      // Tlačidlo „Prijať" v päte okna je hlavné, až keď sú hotové kroky pred
+      // nástupom. Po každom odškrtnutí sa to môže zmeniť.
+      const btn = document.getElementById('cand-hire-btn');
+      if (cand && btn) {
+        const ready = this.readyToHire(cand);
+        btn.classList.toggle('btn-primary', ready);
+        btn.classList.toggle('btn-outline', !ready);
+      }
     },
 
     async toggle(stepKey, index, checked) {
@@ -297,66 +330,148 @@
     },
 
     // ── Uzavretie kandidáta ───────────────────────────────────────────────
+    // ── Prijatie a nasadenie ──────────────────────────────────────────────
+    // Dve rôzne veci, ktoré tu boli zlepené do jedného tlačidla „Nastúpený":
+    //   * **prijať** = z kandidáta sa stane živnostník v zozname Živnostníci,
+    //   * **nasadiť** = zapísať ho na konkrétnu zákazku (s kontrolou dokladov).
+    // „Nastúpený" ho len previedol, nasadenie nevzniklo — a text pritom
+    // tvrdil, že sa objaví v spise zákazky. Teraz sa prijme a hneď potom sa
+    // ponúkne skutočné nasadenie. Stav „Nasadený" dostane až po ňom.
+
+    /** Zákazky, na ktoré sa dá nasadiť — najprv bežiace a dohodnuté. */
+    openSubcontracts() {
+      const open = this.subcontracts.filter(s => ['won', 'active', 'negotiation'].includes(s.status));
+      return open.length ? open : this.subcontracts;
+    },
+    scLabel(s) {
+      return `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`;
+    },
+
     hireForm() {
       const cand = Cand.items.find(c => c.id === this.candidateId);
-      const open = this.subcontracts.filter(s => ['won', 'active', 'negotiation'].includes(s.status));
-      const list = open.length ? open : this.subcontracts;
-      if (!list.length) {
-        return UI.modal('Chýba zákazka', `<div class="warnbox">${Icon('alert', 14)}
-          Nastúpený kandidát sa musí naviazať na zákazku, ale žiadna nie je založená.</div>
-          <div class="modal-actions">
-            <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-            <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('subcontracts')">
-              ${Icon('site')} Založiť zákazku</button></div>`);
+      if (!cand) return;
+      // Už prijatý — zostáva ho nasadiť.
+      if (cand.outcome === 'hired' && cand.converted_worker_id) {
+        return this.deployOffer(cand.id, this.planSubcontract(cand));
       }
+      const list = this.openSubcontracts();
+      const zPlanu = this.planSubcontract(cand);
       const check = P.canHire(cand, this.checks, 'placeholder');
-      UI.modal('Kandidát nastúpil', `
+      UI.modal('Prijať – previesť medzi ľudí', `
         <form id="hire-form" onsubmit="event.preventDefault();CandProc.hire()">
           ${check.reasons.length ? `<div class="warnbox">${Icon('alert', 14)}
-            ${check.reasons.map(r => UI.esc(r)).join(' ')} Môžete pokračovať, ale overte si to.</div>` : ''}
+            ${check.reasons.map(r => UI.esc(r)).join(' ')} Prijať ho môžete, ale na stavbu bez dokladov nepôjde.</div>` : ''}
           ${check.flagCount ? `<div class="warnbox">${Icon('alert', 14)}
             Kandidát má ${check.flagCount} ${check.flagCount === 1 ? 'červenú vlajku' : 'červené vlajky'}.</div>` : ''}
-          <div class="regimebox">Kandidát sa objaví v spise zákazky. Ak ešte nie je medzi
-          pracovníkmi, prevedieme ho tam automaticky.${UI.tip('Prevedenie = z kandidáta sa stane živnostník v zozname Živnostníci. Potom mu appka ponúkne ďalšie kroky: súhlas GDPR a zmluvu.')}</div>
+          <div class="regimebox">Kandidát sa prevedie medzi živnostníkov a dostane stav Pripravený.
+            <strong>Na stavbu ho to ešte nenasadí</strong> — nasadenie Vám appka ponúkne hneď potom.${UI.tip('Prijať = z kandidáta sa stane živnostník v zozname Živnostníci (aj s celou históriou náboru). Nasadiť = zapísať ho na konkrétnu zákazku od konkrétneho dňa; vtedy sa skontrolujú doklady a bez platných dokladov to pustí len s výnimkou admina. „Nastúpil" je až deň, keď naozaj začne robiť.')}</div>
           <div class="form-grid">
-            <div class="fld-full">${UI.field('subcontract_id', 'Na ktorú zákazku nastupuje', { required: true,
-              add: 'subcontract',
-              tip: 'Zákazka = dohodnutá práca pre konkrétneho nemeckého odberateľa na konkrétnej stavbe. Kandidát sa objaví v jej spise a hodiny sa mu budú písať na ňu.',
-              options: list.map(s => [s.id,
-                `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`]) })}</div>
-            ${UI.field('expected_start', 'Dátum nástupu', { type: 'date',
+            <div class="fld-full">${UI.field('subcontract_id', 'Na ktorú zákazku pôjde (nepovinné)', {
+              value: zPlanu || '', add: 'subcontract',
+              tip: 'Zákazka = dohodnutá práca pre konkrétneho nemeckého odberateľa na konkrétnej stavbe. Keď ju vyberiete, po prijatí Vám appka ponúkne nasadiť ho na ňu. Ak kandidát prišiel na nábor, ktorý má zákazku, je predvyplnená.',
+              options: [['', '— zatiaľ neviem —'], ...list.map(s => [s.id, this.scLabel(s)])] })}</div>
+            ${UI.field('expected_start', 'Predpokladaný nástup', { type: 'date',
               value: cand.expected_start || cand.available_from || '',
-              tip: 'Deň, keď začne na stavbe robiť. Predvyplní sa z „Možný nástup" alebo „Dostupný od", ak sú zapísané.' })}
+              tip: 'Deň, keď by mal začať na stavbe robiť. Predvyplní sa z „Možný nástup" alebo „Dostupný od" a prenesie sa do nasadenia.' })}
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-            <button type="submit" class="btn btn-primary">${Icon('check')} Nastúpený</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Prijať – previesť medzi ľudí</button>
           </div>
         </form>`);
     },
 
     async hire() {
       const d = UI.formData(document.getElementById('hire-form'));
-      if (!d.subcontract_id) return UI.toast('Vyberte zákazku', 'err');
       const cand = Cand.items.find(c => c.id === this.candidateId);
+      if (!cand) return;
 
+      // Stav „Nasadený" sa tu nenastavuje — dostane ho, až keď naozaj vznikne
+      // nasadenie na zákazke (pozri `deployNow`).
       const patch = {
-        outcome: 'hired', outcome_reason: null, status: 'placed',
-        subcontract_id: d.subcontract_id,
+        outcome: 'hired', outcome_reason: null,
+        status: cand.status === 'placed' ? 'placed' : 'ready',
         expected_start: d.expected_start || null,
       };
       const { error } = await DB.update('candidates', cand.id, patch);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(cand, patch);
 
-      // `keepStatus` — stav sme práve nastavili na 'placed', prevod ho nesmie
-      // zhodiť späť na 'ready'.
       if (!cand.converted_worker_id) {
-        await Cand.convert(cand.id, { silent: true, keepStatus: true });
+        const r = await Cand.convert(cand.id, { silent: true, keepStatus: true });
+        if (!r) return;   // chybu už ohlásil prevod
       }
       UI.closeModal();
       await Cand.load(); Danubra.renderRoute();
-      await Cand.offerNext(cand.converted_worker_id, `${cand.full_name} je nastúpený.`);
+      this.deployOffer(cand.id, d.subcontract_id || this.planSubcontract(cand));
+    },
+
+    /**
+     * Po prijatí: nasadiť teraz, alebo najprv papiere. Keď je zákazka známa
+     * (vybraná alebo z náboru), je to jedno tlačidlo; inak sa vyberie tu.
+     */
+    deployOffer(candId, scId) {
+      const cand = Cand.items.find(c => c.id === candId);
+      if (!cand) return;
+      const sc = scId ? this.subcontracts.find(s => s.id === scId) : null;
+      const list = this.openSubcontracts();
+      const canSub = window.Sub && Danubra.routeAvailable('subcontracts');
+      UI.modal(`Prijatý — ${cand.full_name}`, `
+        <div class="headline headline-ok">${Icon('check', 18)}
+          <span>${UI.esc(cand.full_name)} je medzi živnostníkmi. Na zákazku zatiaľ nasadený nie je.</span></div>
+        ${!canSub ? `<div class="regimebox">Nasadenie robí ten, kto má prístup k Zákazkám.</div>`
+          : sc ? `<p class="modal-lead">Patrí k zákazke <strong>${UI.esc(this.scLabel(sc))}</strong>.</p>`
+          : list.length ? `<div class="form-grid"><div class="fld-full">${UI.field('dep_sc', 'Na ktorú zákazku', {
+              options: list.map(s => [s.id, this.scLabel(s)]),
+              tip: 'Zákazka, na ktorú ho chcete zapísať. Na ďalšom okne vyberiete rolu, dátumy a appka skontroluje doklady.' })}</div></div>`
+          : `<div class="warnbox">${Icon('alert', 14)} Zatiaľ nie je založená žiadna zákazka — nasadiť ho
+              budete môcť, keď ju založíte (napr. z dopytu tlačidlom „Založiť zákazku").</div>`}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Nasadiť teraz: otvorí sa nasadenie na zákazku s predvyplneným človekom a dátumom. Appka skontroluje doklady (A1, živnosť, zmluva…); bez platných dokladov to pustí len s výnimkou admina. Najprv papiere: ukáže, čo mu ešte chýba (súhlas GDPR, zmluva, objednávka).')}</span>
+          <button class="btn btn-outline" onclick="CandProc.papersFirst('${cand.id}')">
+            ${Icon('doc', 14)} Najprv papiere</button>
+          ${canSub && (sc || list.length) ? `<button class="btn btn-primary" onclick="CandProc.deployNow('${cand.id}','${sc ? sc.id : ''}')">
+            ${Icon('site', 14)} Nasadiť teraz na zákazku${sc ? ` ${UI.esc(sc.contract_number || sc.title)}` : ''}</button>` : ''}
+        </div>`);
+    },
+
+    /** „Najprv papiere" — čo mu ešte chýba (GDPR, zmluva, objednávka). */
+    async papersFirst(candId) {
+      const cand = Cand.items.find(c => c.id === candId);
+      UI.closeModal();
+      if (cand) await Cand.offerNext(cand.converted_worker_id, `${cand.full_name} je medzi živnostníkmi.`);
+    },
+
+    /**
+     * Otvorí nasadenie na zákazku s predvyplneným živnostníkom a dátumom.
+     * Stav „Nasadený" a väzba na zákazku sa kandidátovi zapíšu až po uložení
+     * nasadenia — keď okno zavrie, nič sa nezmení.
+     */
+    async deployNow(candId, scId) {
+      const cand = Cand.items.find(c => c.id === candId);
+      if (!cand || !cand.converted_worker_id) return UI.toast('Kandidát ešte nie je medzi živnostníkmi', 'err');
+      const id = scId || (document.querySelector('#ui-modal [name="dep_sc"]') || {}).value;
+      if (!id) return UI.toast('Vyberte zákazku', 'err');
+      UI.modal('Pripravujem nasadenie', UI.loading());
+      // Nový živnostník v zákazkách ešte nie je — treba ich načítať znova.
+      await Sub.load();
+      const w = (Sub.workers || []).find(x => x.id === cand.converted_worker_id);
+      if (!w || !['ready', 'deployed'].includes(w.status)) {
+        UI.closeModal();
+        return UI.toast('Živnostník nemá stav Pripravený — nastavte ho na jeho karte a potom ho nasaďte', 'err');
+      }
+      Sub.addAsg(id, {
+        worker_id: cand.converted_worker_id,
+        date_from: cand.expected_start || null,
+        onSaved: async () => {
+          const patch = { status: 'placed', subcontract_id: id };
+          const { error } = await DB.update('candidates', cand.id, patch);
+          if (error) return UI.toast('Nasadený, ale kandidát sa neprepol: ' + error.message, 'err');
+          Object.assign(cand, patch);
+          Cand.loaded = false;
+        },
+      });
     },
 
     rejectForm() {

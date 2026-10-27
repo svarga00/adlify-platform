@@ -48,7 +48,7 @@
     async view(el) {
       Danubra.setActions(`
         <button class="btn btn-outline btn-sm" onclick="Opp.inquiryForm()">
-          ${Icon('mail')} Vložiť e-mail</button>
+          ${Icon('mail')} Vložiť dopyt</button>
         <button class="btn btn-primary btn-sm" onclick="Opp.form()">
           ${Icon('plus')} Zapísať dopyt</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
@@ -664,13 +664,100 @@
           </div>
         </div>
 
-        <div class="form-section">Čo z toho spraviť</div>
+        <div class="form-section">Čo z toho spraviť${UI.tip('Z dopytu sa dá pokračovať tromi smermi a dajú sa robiť aj všetky naraz: nábor = začneme hľadať ľudí; ponuka = pošleme odberateľovi cenu; zákazka = keď je dohodnuté, založí sa spis stavby. Všade sa prenesie, čo je v dopyte zapísané.')}</div>
         ${x.plan_id ? `<div class="regimebox">${Icon('check', 14)}
           Nábor je založený. ${Danubra.link('plan', x.plan_id, 'Otvoriť nábor')}</div>`
           : `<button class="btn btn-primary btn-block" onclick="Opp.makePlan('${x.id}')">
               ${Icon('zap', 17)} Spraviť z toho nábor</button>
              <div class="kit-note" style="margin-top:6px;">Zadanie sa prenesie a analýza
-               z neho spraví podklady, otázky do hovoru aj polia náboru.${UI.tip('Založí sa nábor ako koncept — nič sa nezverejní. Dopyt sa prepne na „Preverujeme". Texty inzerátov si potom spustíte v Nábore sami.')}</div>`}`;
+               z neho spraví podklady, otázky do hovoru aj polia náboru.${UI.tip('Založí sa nábor ako koncept — nič sa nezverejní. Dopyt sa prepne na „Preverujeme". Texty inzerátov si potom spustíte v Nábore sami.')}</div>`}
+        <div class="opp-next-acts" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+          <button class="btn btn-outline" onclick="Opp.toQuote('${x.id}')">
+            ${Icon('offers', 15)} Spraviť ponuku</button>
+          ${x.subcontract_id
+            ? `<span class="regimebox" style="margin:0;">${Icon('check', 14)} Zákazka je založená.
+                ${Danubra.link('subcontract', x.subcontract_id, 'Otvoriť zákazku')}</span>`
+            : `<button class="btn btn-outline" onclick="Opp.toSubcontract('${x.id}')">
+                ${Icon('site', 15)} Založiť zákazku</button>`}
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Spraviť ponuku: otvorí sa nová ponuka predvyplnená z dopytu (odberateľ, remeslo, počet ľudí, mesto, termín, sadzby). Uloží sa ako koncept, nič sa neodošle samo. Založiť zákazku: otvorí sa formulár zákazky predvyplnený z dopytu; po uložení sa dopyt označí ako vyhraný a zákazka bude vedieť, koľko ľudí treba nasadiť.')}</span>
+        </div>`;
+    },
+
+    // ── Z dopytu ponuka a zákazka ─────────────────────────────────────────
+    /**
+     * Odberateľ pre ponuku aj zákazku. Dopyt má len názov firmy a USt-IdNr,
+     * ponuka a zákazka potrebujú záznam odberateľa. Keď sa nenájde, ponúkne
+     * sa založiť ho z údajov dopytu — nič sa nezakladá bez potvrdenia.
+     *
+     * @returns {Promise<string|null>} id odberateľa, alebo null (vyberie ručne)
+     */
+    async partnerFor(x) {
+      const { data } = await DB.list('partners', { select: 'id,name,ust_idnr', limit: 500 });
+      const found = O.matchPartner(x, data || []);
+      if (found) return found.id;
+      if (!x.company_name) return null;
+      const v = await UI.askFields('Nový odberateľ z dopytu',
+        `Firma „${x.company_name}" ešte nie je medzi odberateľmi. Založte ju — údaje sú z dopytu a môžete ich opraviť. Keď zrušíte, odberateľa vyberiete vo formulári sami.`,
+        [
+          ['name', 'Názov firmy', { required: true, value: x.company_name }],
+          ['ust_idnr', 'USt-IdNr', { value: x.company_vat || '', placeholder: 'DE123456789' }],
+          ['contact_person', 'Kontaktná osoba', { value: x.contact_name || '' }],
+          ['phone', 'Telefón', { value: x.contact_phone || '' }],
+          ['email', 'E-mail', { type: 'email', value: x.contact_email || '' }],
+          ['country', 'Krajina', { value: x.company_country || 'DE',
+            options: [['DE', 'Nemecko'], ['AT', 'Rakúsko'], ['SK', 'Slovensko']] }],
+        ], { ok: 'Založiť odberateľa' });
+      if (!v) return null;
+      const row = { ...v, is_construction: true };
+      // Overenie z dopytu sa prenesie — nech sa firma nemusí overovať druhýkrát.
+      if (x.verify_result && (v.ust_idnr || '') === (x.company_vat || '')) {
+        row.vies_result = x.verify_result; row.vies_checked_at = x.verified_at || null;
+      }
+      const { data: p, error } = await DB.insert('partners', row);
+      if (error) { UI.toast('Odberateľa sa nepodarilo založiť: ' + error.message, 'err'); return null; }
+      ['Prt', 'Quo', 'Sub', 'Con'].forEach(g => { if (window[g]) window[g].loaded = false; });
+      UI.toast(`Odberateľ ${p.name} je založený`, 'ok');
+      return p.id;
+    },
+
+    /** „Spraviť ponuku" — nová ponuka predvyplnená z dopytu. */
+    async toQuote(id) {
+      const x = this.items.find(o => o.id === id);
+      if (!x || !window.Quo) return;
+      const partnerId = await this.partnerFor(x);
+      const pre = { ...O.toQuote(x, partnerId), _fromOpp: true,
+        _company: partnerId ? null : (x.company_name || null) };
+      await Quo.create(pre);
+    },
+
+    /**
+     * „Založiť zákazku" — formulár zákazky predvyplnený z dopytu. Väzbu
+     * zapíše až po uložení: dopyt dostane `subcontract_id` (podľa neho krok 2
+     * zákazky vie, koľko ľudí treba) a stav „Vyhrali sme". Keď z dopytu už
+     * je nábor, prepojí sa so zákazkou aj on — prijatého kandidáta z neho
+     * potom appka vie rovno nasadiť.
+     */
+    async toSubcontract(id) {
+      const x = this.items.find(o => o.id === id);
+      if (!x || !window.Sub) return;
+      if (x.subcontract_id) return Danubra.open('subcontract', x.subcontract_id);
+      const partnerId = await this.partnerFor(x);
+      if (!Sub.loaded) { UI.modal('Pripravujem zákazku', UI.loading()); await Sub.load(); }
+      Sub.form(null, {
+        values: O.toSubcontract(x, partnerId),
+        onCreated: async (sc) => {
+          const patch = { subcontract_id: sc.id, status: 'won' };
+          const { error } = await DB.update('opportunities', x.id, patch);
+          if (error) return UI.toast('Zákazka je založená, ale k dopytu sa nepripojila: ' + error.message, 'err');
+          Object.assign(x, patch);
+          if (x.plan_id) {
+            await DB.update('recruitment_plans', x.plan_id, { subcontract_id: sc.id });
+            if (window.Hire) Hire.loaded = false;
+          }
+          Danubra._chain = null;
+          UI.toast('Zákazka je založená a pripojená k dopytu', 'ok');
+        },
+      });
     },
 
     /** Jedno pole, ktoré sa ukladá hneď po zmene — bez tlačidla „uložiť". */

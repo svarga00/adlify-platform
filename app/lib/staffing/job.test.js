@@ -52,10 +52,19 @@ const s = (patch) => J.steps({ ...HOTOVO, ...patch });
 console.log('\nSEDEM KROKOV');
 {
   eq(J.STEPS.map(x => x.n), [1, 2, 3, 4, 5, 6, 7], 'sedem krokov, očíslované');
-  eq(J.STEPS.map(x => x.title), ['Dopyt a dohoda', 'Ľudia', 'Zmluva s Nemcom', 'Papiere ľudí',
+  eq(J.STEPS.map(x => x.title), ['Dopyt a ponuka', 'Ľudia na stavbu', 'Zmluva s Nemcom', 'Papiere ľudí',
     'Zmluvy a objednávky živnostníkom', 'Ubytovanie a doprava', 'Hodiny a faktúra'],
   'v poradí, v akom sa robia');
+  eq(J.STEPS.map(x => x.key), ['dopyt', 'ludia', 'nemec', 'papiere', 'zivnostnici', 'ubytovanie', 'peniaze'],
+    'kľúče krokov — viažu sa na ne vysvetlivky a Papiere');
   ok(J.STEPS.every(x => x.lead && x.ico), 'každý krok povie jednou vetou, čo to je');
+  ok(Object.isFrozen(J.STEPS) && J.STEPS.every(x => Object.isFrozen(x)),
+    'zoznam krokov je jeden pre celú appku a nikto si ho potichu neprepíše');
+  eq(J.stepByKey('zivnostnici').n, 5, 'objednávka živnostníkovi je krok 5 — všade');
+  eq(J.stepByKey('ubytovanie').n, 6, 'ubytovanie je krok 6 — všade');
+  eq(J.stepByKey('neexistuje'), null, 'neznámy kľúč nevráti nič');
+  eq(J.steps(HOTOVO).map(x => x.title), J.STEPS.map(x => x.title),
+    'zákazka kreslí presne tie isté názvy');
   const all = J.steps(HOTOVO);
   ok(all.every(x => x.done), 'zákazka, na ktorej je všetko, má všetko hotové',
     all.filter(x => !x.done).map(x => `${x.key}: ${x.detail}`).join(' | '));

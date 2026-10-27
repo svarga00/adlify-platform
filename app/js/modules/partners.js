@@ -220,6 +220,7 @@
         </div>
         ${!p.ust_idnr ? `<div class="warnbox">${Icon('alert', 14)}
           Bez USt-IdNr sa nedá fakturovať v režime reverse charge §13b.${UI.tip('Reverse charge (§13b) = fakturujeme bez nemeckej DPH a daň za nás odvedie odberateľ. Funguje to len vtedy, keď má platné nemecké IČ DPH (USt-IdNr). Doplňte ho cez Upraviť.')}</div>` : ''}
+        ${this.verifyHtml(p)}
         ${CommPanel.render({ contact: { phone: p.phone, email: p.email, name: p.name }, entity: { type: 'partner', id: p.id } })}
         <div class="kv">${rows.map(r => `<div><span>${r[0]}${TIPS[r[0]] ? UI.tip(TIPS[r[0]]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${p.notes ? `<div class="notebox">${UI.esc(p.notes)}</div>` : ''}
@@ -275,6 +276,60 @@
       UI.modal(p.name, body, { wide: true });
       if (window.Docs) Docs.fill(document.getElementById('ui-modal'));
       if (window.Mail) Mail.fill(document.getElementById('ui-modal'));
+    },
+
+    // ── Overenie USt-IdNr v registri (VIES) ───────────────────────────────
+    // Do teraz sa dalo overiť len pri dopyte. Z prehľadu „Otvoriť a preveriť"
+    // tak viedlo na kartu, na ktorej sa preveriť nedalo nič.
+    verifyHtml(p) {
+      const v = DanubraOpp.verification({ verify_result: p.vies_result, company_vat: p.ust_idnr });
+      return `<div class="form-section">Overenie firmy${UI.tip('Appka sa spýta oficiálneho registra EÚ (VIES), či nemecké IČ DPH odberateľa (USt-IdNr) naozaj platí a na koho je vedené. Bez platného čísla nemôžeme fakturovať v reverse charge (§13b) — daň by sme zaplatili my. Keď register neodpovie, neznamená to, že je číslo zlé; skúste to neskôr. Výsledok sa zapíše s dátumom.')}</div>`
+        + Shell.now({
+          title: v.label, what: v.detail, hot: v.state === 'invalid',
+          why: p.vies_checked_at ? `Pýtali sme sa ${UI.date(p.vies_checked_at)}. Staré overenie `
+            + 'nie je overenie — pri dlhej zákazke alebo zmene firmy ho zopakujte.' : '',
+        }, {
+          label: 'USt-IdNr v registri EÚ', help: 'card.opp.verify',
+          action: p.ust_idnr ? { ico: 'shield', onclick: `Prt.verify('${p.id}')`,
+            label: p.vies_result ? 'Preveriť znova' : 'Preveriť USt-IdNr v registri' }
+            : { ico: 'edit', onclick: `Prt.form('${p.id}')`, label: 'Doplniť USt-IdNr' },
+        });
+    },
+
+    /**
+     * Pýta sa registra cez server (`danubra-verify-company`), ktorý výsledok
+     * zapíše k odberateľovi aj s dátumom. „Register neodpovedal" sa ukáže
+     * ako neodpoveď, nie ako neplatné číslo.
+     */
+    async verify(id) {
+      const p = this.items.find(x => x.id === id);
+      if (!p || !p.ust_idnr) return UI.toast('Najprv doplňte USt-IdNr', 'err');
+      UI.toast('Pýtam sa registra…', 'ok');
+      let res;
+      try {
+        res = await fetch('/.netlify/functions/danubra-verify-company', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vat: p.ust_idnr, partnerId: id }),
+        });
+      } catch (e) {
+        return UI.toast('Server neodpovedal: ' + (e.message || e), 'err');
+      }
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) return UI.toast(`Overenie sa nepodarilo: ${out.error || res.status}`, 'err');
+
+      p.vies_result = out;
+      p.vies_checked_at = new Date().toISOString();
+      const v = DanubraOpp.verification({ verify_result: out, company_vat: p.ust_idnr });
+      UI.toast(v.label, v.state === 'valid' ? 'ok' : v.state === 'unavailable' ? 'warn' : 'err');
+      // Názov z registra je presnejší než ručne zapísaný — ale prepíše sa len
+      // so súhlasom.
+      if (out.valid && out.name && out.name !== p.name
+          && await UI.confirm(`Register firmu pozná ako „${out.name}". Prepísať názov?`, { danger: false })) {
+        const { error } = await DB.update('partners', id, { name: out.name });
+        if (error) UI.toast('Chyba: ' + error.message, 'err'); else p.name = out.name;
+      }
+      this.detail(id);
+      Danubra.renderRoute();
     },
 
     form(id) {

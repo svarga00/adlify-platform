@@ -26,6 +26,8 @@ eq(x.totals, { issued: 1240000, issuedNet: 1240000, received: 328050, costs: 900
 eq(x.missingFiles, ['Shell'], 'povie, ku ktorej prijatej faktúre chýba súbor');
 const c = B.csv(x.issued, B.COLS.issued);
 ok(c.startsWith('﻿Číslo;Vystavená') && /2026091;2026-10-01;;GU Ulm GmbH;reverse charge §13b;12400,00/.test(c), 'CSV pre Excel: stredník, desatinná čiarka, BOM');
+ok(c.split('\r\n')[1].includes(';Vystavená;'), 'stav v CSV je po slovensky (Vystavená, nie issued)');
+ok(B.csv([{ status: 'paid' }, { status: 'draft' }], B.COLS.issued).includes(';Zaplatená;'), 'zaplatená sa volá Zaplatená');
 ok(/"a;b"/.test(B.csv([{ x: 'a;b' }], [['X', r => r.x]])), 'stredník v hodnote sa uzavrie do úvodzoviek');
 eq(B.fileIn('prijate', 'Faktúra č. 5/2026.pdf', 0), 'prijate/001 Faktura c. 5-2026.pdf', 'názov súboru v balíku bez diakritiky a lomiek');
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);

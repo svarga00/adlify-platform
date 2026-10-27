@@ -66,8 +66,8 @@
       // Pre sedem krokov: z dopytu počet ľudí, zmluva s Nemcom a objednávky.
       // Keď niektorá tabuľka nie je dostupná (právo), krok len nepovie viac.
       const [op, con, wo] = await Promise.all([
-        DB.list('opportunities', { select: 'id,title,company_name,subcontract_id,headcount,status', limit: 1000 }),
-        DB.list('contracts', { select: 'id,contract_number,title,status,signed_at,partner_id', limit: 1000 }),
+        DB.list('opportunities', { select: 'id,title,company_name,subcontract_id,headcount,status,trade_key', limit: 1000 }),
+        DB.list('contracts', { select: 'id,contract_number,title,status,signed_at,partner_id,kind', limit: 1000 }),
         DB.list('work_orders', { select: 'id,kind,status,order_number,their_ref,subcontract_id,assignment_id,worker_id', limit: 3000 }),
       ]);
       this.opportunities = (op && op.data) || [];
@@ -480,7 +480,10 @@
     /** Čo je vnútri kroku, keď sa otvorí. */
     stepBody(key, c) {
       const { sc, p, asg, chk, eco, port, complianceHtml, rows } = c;
-      const live = asg.filter(a => a.status !== 'cancelled');
+      // Kto na stavbe je (alebo na ňu ide). Kto odišiel, ten už papiere ani
+      // objednávku nepotrebuje — v kroku 2 je vidieť zvlášť.
+      const live = asg.filter(a => a.status !== 'cancelled' && a.status !== 'ended');
+      const gone = asg.filter(a => a.status === 'ended');
       const b = (cls, onclick, ico, label) =>
         `<button class="btn ${cls} btn-sm" onclick="${onclick}">${Icon(ico, 14)} ${label}</button>`;
       const acts = (...x) => `<div class="js-acts">${x.filter(Boolean).join('')}</div>`;
@@ -503,7 +506,7 @@
           <div class="link-row" style="margin-top:8px;">
             ${p ? Danubra.link('partner', p.id, p.name) : ''}
             ${sc.quote_id ? Danubra.link('quote', sc.quote_id, 'Ponuka') : ''}
-            ${opp ? `<button class="link-chip" onclick="Danubra.go('opportunities')">${Icon('offers', 13)}<span>Dopyt: ${UI.esc(opp.title || opp.company_name || '')}</span></button>` : ''}
+            ${opp ? `<button class="link-chip" onclick="${window.Opp ? `Opp.detail('${opp.id}')` : "Danubra.go('opportunities')"}">${Icon('offers', 13)}<span>Dopyt: ${UI.esc(opp.title || opp.company_name || '')}</span></button>` : ''}
             ${DanubraGeo.valid(Number(sc.lat), Number(sc.lng))
               ? `<a class="link-chip" target="_blank" rel="noopener" href="${DanubraGeo.mapsUrl(sc.lat, sc.lng)}">${Icon('pin', 13)}<span>Poloha stavby</span></a>`
               : `<button class="link-chip" onclick="Sub.setCoords('${sc.id}')">${Icon('plus', 13)}<span>Doplniť polohu stavby</span></button>`}
@@ -512,24 +515,40 @@
       }
 
       if (key === 'ludia') {
-        return `${live.map(a => {
+        // Nasadený = priradený na stavbu (`planned`). Nastúpil = naozaj začal
+        // robiť (`active`, rovnako ako pri nasadení partie). Dovtedy jednotlivo
+        // nasadený človek zostal navždy `planned` — a „Ľudia na stavbách"
+        // aj kontroly na Dnes ho nevideli.
+        const row = (a) => {
           const w = this.workerOf(a.worker_id);
           const ovr = DanubraOverrides.live(this.overridesOf(a.worker_id));
+          const st = a.status || 'planned';
+          const stav = st === 'active'
+            ? UI.badge(`nastúpil${a.started_at ? ` ${UI.date(a.started_at)}` : ''}`, 'green')
+            : st === 'ended' ? UI.badge(`odišiel${a.date_to ? ` ${UI.date(a.date_to)}` : ''}`, 'gray')
+              : UI.badge('nasadený, ešte nenastúpil', 'amber');
           return `<div class="list-row">
             <span style="flex:1;font-size:13px;min-width:0;">
               ${Danubra.link('worker', a.worker_id, w?.full_name || '—', { inline: true })}
               ${a.role === 'predak' ? UI.badge('predák', 'blue') : ''}
+              ${stav}
               ${ovr.length ? UI.badge('s výnimkou', 'amber') : ''}
               <span style="color:var(--ink-mute);display:block;font-size:12px;">
                 ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
             </span>
-            <button class="btn btn-outline btn-sm" title="Záloha alebo platba pre neho" onclick="Sub.viaWrk('payMenu','${a.worker_id}')">${Icon('wallet', 14)} Záloha</button>
-            <button class="btn btn-ghost btn-sm btn-text-danger" title="Zrušiť nasadenie" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
+            ${st === 'planned' ? b('btn-primary', `Sub.startForm('${a.id}')`, 'check', 'Nastúpil') : ''}
+            ${st === 'active' ? b('btn-outline', `Sub.endForm('${a.id}')`, 'logout', 'Odišiel') : ''}
+            ${st !== 'ended' ? `<button class="btn btn-outline btn-sm" title="Záloha alebo platba pre neho" onclick="Sub.viaWrk('payMenu','${a.worker_id}')">${Icon('wallet', 14)} Záloha</button>` : ''}
+            ${st === 'planned' ? `<button class="btn btn-ghost btn-sm btn-text-danger" title="Zrušiť nasadenie (nenastúpil)" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>` : ''}
           </div>`;
-        }).join('') || '<div class="js-empty">Zatiaľ nikto nie je nasadený.</div>'}
+        };
+        return `${live.map(row).join('') || '<div class="js-empty">Zatiaľ nikto nie je nasadený.</div>'}
+          ${live.length ? `<p class="card-note">Nasadený = priradený na túto stavbu. Nastúpil = naozaj začal robiť.
+            ${UI.tip('Keď človek v prvý deň naozaj príde na stavbu, kliknite pri ňom „Nastúpil". Až potom sa počíta medzi ľudí na stavbách a appka mu stráži hodiny a doklady. Keď zo stavby odíde, kliknite „Odišiel" — nič sa nezmaže, len sa zapíše posledný deň a dôvod.')}</p>` : ''}
+          ${gone.length ? `<details class="more-block"><summary>Už odišli (${gone.length})</summary>${gone.map(row).join('')}</details>` : ''}
           ${acts(b('btn-primary', `Sub.addAsg('${sc.id}')`, 'plus', 'Nasadiť človeka'),
             b('btn-outline', `Sub.assignCrewForm('${sc.id}')`, 'workers', 'Nasadiť partiu'),
-            Danubra.routeAvailable('hiring') ? b('btn-outline', "Danubra.go('hiring')", 'zap', 'Hľadať nových ľudí') : '')}`;
+            Danubra.routeAvailable('hiring') ? b('btn-outline', `Sub.hireFor('${sc.id}')`, 'zap', 'Hľadať nových ľudí') : '')}`;
       }
 
       if (key === 'nemec') {
@@ -544,6 +563,7 @@
               ${od.map(o => Danubra.link('order', o.id, o.their_ref || o.order_number || 'Objednávka')).join('') || '<em>nepovinné — keď ju pošle, zapíšte jej číslo</em>'}</div>
           </div>
           ${acts(!con && Danubra.routeAvailable('contracts') ? b('btn-primary', `Sub.newContract('${sc.id}')`, 'note', 'Pripraviť zmluvu o dielo') : '',
+            !con && this.contractsOf(sc.partner_id).length ? b('btn-outline', `Sub.pickContract('${sc.id}')`, 'check', 'Priradiť existujúcu zmluvu') : '',
             con ? b('btn-outline', `Danubra.open('contract','${con.id}')`, 'note', 'Otvoriť zmluvu') : '',
             Danubra.routeAvailable('orders') ? b('btn-outline', `Sub.newCustomerOrder('${sc.id}')`, 'orders', 'Zapísať jeho objednávku') : '')}`;
       }
@@ -560,7 +580,7 @@
               ${mark(x.gdpr, 'GDPR')} ${mark(!x.doklady.length, x.doklady.length ? `chýba: ${x.doklady.map(meno).join(', ')}` : 'doklady')}</div>
             <div class="js-row-acts">
               ${x.gdpr ? '' : b('btn-outline', `Sub.viaWrk('gdpr','${a.worker_id}')`, 'print', 'Vytlačiť GDPR')
-                + b('btn-primary', `Sub.viaWrk('gdprForm','${a.worker_id}')`, 'check', 'Podpísaný')}
+                + b('btn-primary', `Sub.viaWrk('gdprForm','${a.worker_id}')`, 'check', 'Zapísať podpísaný')}
               ${x.doklady.length ? b('btn-outline', `Danubra.open('worker','${a.worker_id}')`, 'plus', 'Doplniť doklad') : ''}
             </div>
           </div>`;
@@ -576,19 +596,33 @@
 
       if (key === 'zivnostnici') {
         if (!live.length) return nikto;
-        return `<div class="js-rows">${live.map((a) => {
+        // „Poslať všetko naraz" je tu, ale ubytovanie je až v kroku 6. Kto ho
+        // poslal skôr, tomu infolist k ubytovaniu odišiel sivý — alebo vôbec.
+        // Hlavné tlačidlo je preto až vtedy, keď je čo poslať.
+        const lodOk = (this.lodging || []).some(l => l.subcontract_id === sc.id);
+        return `${!lodOk && window.Bundle ? `<div class="warnbox" style="margin-bottom:10px;">
+            ${Icon('alert', 14)} Najprv zapíšte ubytovanie — inak ľudia nedostanú infolist k ubytovaniu.
+            ${UI.tip('Pri „Poslať všetko naraz" sa infolist k ubytovaniu vyrobí len vtedy, keď je pri zákazke zapísané ubytovanie (krok 6). Bez neho by ľudia nevedeli, kde budú spať. Poslať sa dá aj teraz, ale ubytovanie potom treba poslať zvlášť.')}
+            <div class="js-acts">${b('btn-outline', `Sub.showStep('${sc.id}','ubytovanie')`, 'bed', 'Zapísať ubytovanie')}</div>
+          </div>` : ''}
+          <div class="js-rows">${live.map((a) => {
           const x = person(a);
+          const ready = x.zmluva && x.objednavka && lodOk;
+          const chyba = [!x.zmluva ? 'rámcová zmluva nie je zapísaná' : '',
+            !x.objednavka ? 'objednávka ešte nie je vystavená (v balíku nebude)' : '',
+            !lodOk ? 'chýba ubytovanie' : ''].filter(Boolean);
           return `<div class="js-row js-row-p">
             <div class="js-who">${Danubra.link('worker', a.worker_id, x.name, { inline: true })}
               ${mark(x.zmluva, 'rámcová zmluva')} ${mark(x.objednavka, 'objednávka')}</div>
             <div class="js-row-acts">
               ${x.zmluva ? '' : b('btn-outline', `Sub.viaWrk('zmluva','${a.worker_id}')`, 'print', 'Vytlačiť zmluvu')
-                + b('btn-primary', `Sub.viaWrk('zmluvaForm','${a.worker_id}')`, 'check', 'Podpísaná')}
+                + b('btn-primary', `Sub.viaWrk('zmluvaForm','${a.worker_id}')`, 'check', 'Zapísať podpísanú')}
               ${x.objednavka ? '' : b(x.zmluva ? 'btn-primary' : 'btn-outline', `Sub.newWorkerOrder('${a.id}')`, 'orders', 'Vystaviť objednávku')}
               ${b('btn-ghost', `Sub.siteSheet('${a.id}')`, 'doc', 'Infolist')}
               ${b('btn-ghost', `Sub.contactForm('${a.id}')`, 'phone', 'Kontakt')}
-              ${window.Bundle ? b(x.zmluva && x.objednavka ? 'btn-primary' : 'btn-outline', `Bundle.open('${a.id}')`, 'mail', 'Poslať všetko naraz') : ''}
+              ${window.Bundle ? b(ready ? 'btn-primary' : 'btn-outline', `Bundle.open('${a.id}')`, 'mail', 'Poslať všetko naraz') : ''}
             </div>
+            ${window.Bundle && !ready ? `<div class="muted-sm">Pred odoslaním: ${UI.esc(chyba.join(', '))}.</div>` : ''}
             ${this.contactLine(a)}
           </div>`;
         }).join('')}</div>
@@ -607,9 +641,10 @@
         const ts = this.timesheetsOf(sc.id);
         const neschv = ts.filter(t => !t.approved && !t.period_id);
         return `${neschv.length ? `<div class="js-row">${mark(false, `${neschv.length} ${Shell.plural(neschv.length, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')} na schválenie`)}</div>` : ''}
-          ${acts(window.HourEntry ? b('btn-primary', `HourEntry.open({ subcontractId: '${sc.id}' })`, 'upload', 'Zapísať Stundennachweis') : '',
-            Danubra.routeAvailable('timesheets') ? b('btn-outline', "Danubra.go('timesheets')", 'clock', 'Zapísať / schváliť hodiny') : '',
-            Danubra.routeAvailable('hoursheet') ? b('btn-outline', "Danubra.go('hoursheet')", 'doc', 'Výkaz pre odberateľa') : '')}
+          ${acts(window.HourEntry ? b('btn-primary', `HourEntry.open({ subcontractId: '${sc.id}' })`, 'upload', 'Zapísať hodiny') : '',
+            Danubra.routeAvailable('timesheets') && neschv.length ? b('btn-outline', `window.Tms&&(Tms.filters.subcontract_id='${sc.id}');Danubra.go('timesheets')`, 'check', 'Schváliť hodiny') : '',
+            Danubra.routeAvailable('hoursheet') ? b('btn-outline', window.HS ? `HS.openFor({ subcontractId: '${sc.id}' })` : "Danubra.go('hoursheet')", 'print', 'Výkaz pre odberateľa') : '')}
+          ${UI.tip('Zapísať hodiny = Stundennachweis podpísaný majstrom, ručne alebo z fotky. Schváliť hodiny = skontrolovať, že sedia; len schválené idú do faktúry. Výkaz pre odberateľa = ten istý týždeň na tlač, po nemecky.')}
           <div class="form-section" id="sub-periods">Obdobia a faktúry</div>
           ${this.periodsHtml(sc)}
           ${eco.length ? `<div class="form-section">Zarobíme (mesačne, orientačne pri 160 h)</div>
@@ -645,13 +680,153 @@
         contract_id: sc.contract_id || null, title: sc.title || '',
         date_from: sc.date_from, date_to: sc.date_to, price_model: 'hourly', rate: sc.charge_rate });
     },
+    /**
+     * Nová zmluva o dielo k zákazke. Dovtedy sa zmluva založila, ale zákazke
+     * sa nepriradila — `contract_id` zostal prázdny a krok 3 navždy hlásil
+     * „Zmluva o dielo zatiaľ nie je". Teraz sa po uložení priradí sama.
+     */
     async newContract(scId) {
       const sc = this.items.find(x => x.id === scId) || {};
       if (!window.Con) return Danubra.go('contracts');
       if (!Con.loaded) await Con.load();
       Con.form(null, { partner_id: sc.partner_id, title: sc.title, scope: sc.scope,
         date_from: sc.date_from, date_to: sc.date_to, charge_rate: sc.charge_rate,
-        site_name: sc.site_name, site_city: sc.site_city, site_address: sc.site_address });
+        site_name: sc.site_name, site_city: sc.site_city, site_address: sc.site_address },
+      { onSaved: (row) => this.setContract(scId, row && row.id) });
+    },
+
+    /** Priradí zákazke zmluvu (alebo ju odpojí, keď `contractId` je prázdne). */
+    async setContract(scId, contractId) {
+      if (!contractId) return UI.toast('Zmluva sa neuložila — zákazke sa nepriradila', 'err');
+      const { error } = await DB.update('subcontracts', scId, { contract_id: contractId });
+      if (error) return UI.toast('Zmluva je uložená, ale k zákazke sa nepriradila: ' + error.message, 'err');
+      UI.closeModal();
+      UI.toast('Zmluva o dielo je priradená k zákazke', 'ok');
+      await this.load();
+      this.step = 'nemec';
+      if (Danubra.route === 'subcontracts' && this.openId === scId) return Danubra.renderRoute();
+      return this.detail(scId);
+    },
+
+    /** Zmluvy odberateľa, ktoré sa dajú zákazke priradiť (bez zrušených). */
+    contractsOf(partnerId) {
+      if (!partnerId) return [];
+      return (this.contracts || []).filter(c => c.partner_id === partnerId && c.status !== 'cancelled');
+    },
+    contractLabel(c) {
+      const st = { draft: 'rozpracovaná', sent: 'odoslaná na podpis', signed: 'podpísaná',
+        active: 'prebieha', ended: 'ukončená', cancelled: 'zrušená' }[c.status] || c.status || '';
+      return [c.contract_number, c.title].filter(Boolean).join(' · ')
+        + (c.kind === 'framework' ? ' (rámcová)' : '') + (st ? ` — ${st}` : '');
+    },
+    /** Možnosti výberu zmluvy vo formulári zákazky. */
+    contractOptions(partnerId, current) {
+      const list = this.contractsOf(partnerId);
+      // Priradená zmluva musí zostať vo výbere, aj keď patrí inému odberateľovi
+      // alebo sa nenačítala (právo) — inak by ju „Uložiť" potichu odpojilo.
+      const cur = current && !list.some(c => c.id === current)
+        ? ((this.contracts || []).find(c => c.id === current) || { id: current, title: 'Priradená zmluva' }) : null;
+      return [['', partnerId ? '— zatiaľ žiadna —' : '— najprv vyberte odberateľa —'],
+        ...[...(cur ? [cur] : []), ...list].map(c => [c.id, this.contractLabel(c)])];
+    },
+    /** Po zmene odberateľa vo formulári: ponúknuť len jeho zmluvy. */
+    formContracts(partnerId) {
+      const sel = document.querySelector('#sub-form select[name="contract_id"]');
+      if (!sel) return;
+      const keep = sel.value;
+      const opts = this.contractOptions(partnerId, null);
+      sel.innerHTML = opts.map(([v, l]) => `<option value="${UI.esc(v)}">${UI.esc(l)}</option>`).join('');
+      sel.value = opts.some(o => o[0] === keep) ? keep : '';
+    },
+
+    /** Okno: priradiť zákazke zmluvu, ktorá už existuje. */
+    pickContract(scId) {
+      const sc = this.items.find(x => x.id === scId) || {};
+      const list = this.contractsOf(sc.partner_id);
+      if (!list.length) return UI.toast('Tento odberateľ zatiaľ nemá žiadnu zmluvu', 'err');
+      UI.modal('Priradiť zmluvu o dielo', `
+        <p class="modal-lead">Zmluvy odberateľa <b>${UI.esc((this.partnerOf(sc.partner_id) || {}).name || '')}</b>.
+          Vyberte tú, na ktorej táto zákazka stojí.
+          ${UI.tip('Zmluva o dielo (Werkvertrag) je dohoda s nemeckým odberateľom o tejto práci. Keď ju zákazke priradíte, krok 3 bude vedieť, či je podpísaná, a objednávky a faktúry sa na ňu odvolajú.')}</p>
+        <div class="pick-list">${list.map(c => `
+          <button type="button" class="pick-tile" onclick="Sub.setContract('${scId}','${c.id}')">
+            <span class="bdl-ico">${Icon('note', 18)}</span>
+            <span class="bdl-txt"><b>${UI.esc([c.contract_number, c.title].filter(Boolean).join(' · ') || 'Zmluva')}</b>
+              <em>${UI.esc(this.contractLabel(c).split(' — ')[1] || '')}</em></span>
+          </button>`).join('')}</div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+        </div>`);
+    },
+
+    /** Otvorí zákazku rovno na danom kroku (aj z iného okna). */
+    async showStep(scId, key) {
+      UI.closeModal();
+      await this.detail(scId);
+      this.step = key;
+      if (Danubra.route === 'subcontracts') Danubra.renderRoute();
+    },
+
+    /**
+     * „Hľadať nových ľudí" — nábor **pre túto zákazku**, nie zoznam náborov.
+     * Keď už pre ňu nábor beží, otvorí sa ten; inak sa založí nový
+     * s remeslom, mestom, termínom a počtom, ktorý ešte chýba.
+     */
+    async hireFor(scId) {
+      if (!window.Hire) return Danubra.go('hiring');
+      const sc = this.items.find(x => x.id === scId) || {};
+      if (!Hire.loaded) await Hire.load();
+      const plan = (Hire.plans || []).find(pl => pl.subcontract_id === scId
+        && ['draft', 'active', 'paused'].includes(pl.status));
+      if (plan) return Hire.detail(plan.id);
+      const opp = (this.opportunities || []).find(o => o.subcontract_id === scId) || {};
+      const n = this.asgOf(scId).filter(a => !['cancelled', 'ended'].includes(a.status)).length;
+      const need = Number(opp.headcount || sc.headcount) || 0;
+      Hire.wizard(null, 1, {
+        title: [sc.title, sc.site_city].filter(Boolean).join(' — '),
+        trade_key: opp.trade_key || '',
+        headcount: Math.max(1, need - n),
+        subcontract_id: scId,
+        city: sc.site_city || '',
+        start_date: sc.date_from || null,
+        client_rate: sc.charge_rate != null && sc.charge_rate !== '' ? Number(sc.charge_rate) : null,
+      });
+    },
+
+    /**
+     * „Vybrať zákazku" z karty človeka: okno so zákazkami, kliknutím sa
+     * otvorí nasadenie s ním už vybraným. Predtým to viedlo na zoznam
+     * zákaziek a človek musel začať odznova.
+     */
+    async pickFor(workerId) {
+      if (!this.loaded) await this.load();
+      const w = this.workerOf(workerId);
+      const open = this.items.filter(x => ['active', 'won', 'negotiation', 'draft'].includes(x.status))
+        .sort((x, y) => ['active', 'won', 'negotiation', 'draft'].indexOf(x.status)
+          - ['active', 'won', 'negotiation', 'draft'].indexOf(y.status));
+      if (!open.length) {
+        return UI.modal('Vybrať zákazku', UI.empty('site', 'Žiadna otvorená zákazka',
+          'Zákazka vzniká z dopytu alebo z ponuky. Keď nejaká beží, nasadíte ho na ňu odtiaľto.')
+          + `<div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`);
+      }
+      UI.modal(`Na ktorú zákazku — ${w ? w.full_name : 'pracovník'}`, `
+        <p class="modal-lead">Kliknite na zákazku. Otvorí sa nasadenie s ním už vybraným a skontrolujú sa mu doklady.
+          ${UI.tip('Nasadiť = priradiť na stavbu. Zatiaľ nezačal robiť — „Nastúpil" kliknete na zákazke v kroku 2, keď naozaj príde.')}</p>
+        <div class="pick-list">${open.map(sc => {
+          const uz = this.asgOf(sc.id).some(a => a.worker_id === workerId && !['cancelled', 'ended'].includes(a.status));
+          const p = this.partnerOf(sc.partner_id);
+          const sub = [p && p.name, sc.site_city, sc.date_from ? UI.dateRange(sc.date_from, sc.date_to) : '',
+            this.statusLabel(sc.status)].filter(Boolean).join(' · ');
+          return uz
+            ? `<div class="pick-tile is-static"><span class="bdl-ico">${Icon('check', 18)}</span>
+                <span class="bdl-txt"><b>${UI.esc(sc.title)}</b><em>Už je na nej nasadený · ${UI.esc(sub)}</em></span></div>`
+            : `<button type="button" class="pick-tile" onclick="Sub.addAsg('${sc.id}',{worker_id:'${workerId}'})">
+                <span class="bdl-ico">${Icon('site', 18)}</span>
+                <span class="bdl-txt"><b>${UI.esc(sc.title)}</b><em>${UI.esc(sub)}</em></span></button>`;
+        }).join('')}</div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+        </div>`, { wide: true });
     },
 
     /** Body na mape: stavba oranžovo, ubytovania modro. */
@@ -1155,19 +1330,64 @@
         skipped.length ? 'err' : 'ok');
     },
 
-    addAsg(scId) {
+    /**
+     * Koho výber „Nasadiť človeka" neukáže a prečo. Ponúkajú sa len ľudia
+     * v stave Pripravený alebo Vyslaný — ostatní predtým potichu chýbali
+     * a vyzeralo to, že človek z kartotéky zmizol.
+     */
+    hiddenWorkersHtml(shown) {
+      const ids = new Set((shown || []).map(w => w.id));
+      const rest = this.workers.filter(w => !ids.has(w.id));
+      if (!rest.length) return '';
+      const papiere = rest.filter(w => !w.status || ['candidate', 'screening'].includes(w.status)).length;
+      const neakt = rest.filter(w => w.status === 'inactive').length;
+      const zakaz = rest.filter(w => w.status === 'blacklist').length;
+      const ostatni = rest.length - papiere - neakt - zakaz;
+      const ludia = (n) => `${n} ${Shell.plural(n, 'človek', 'ľudia', 'ľudí')}`;
+      const casti = [
+        papiere ? `${ludia(papiere)} ${papiere === 1 ? 'nemá' : 'nemajú'} hotové papiere (stav Kandidát alebo V preverovaní)` : '',
+        neakt ? `${ludia(neakt)} v stave Neaktívny` : '',
+        zakaz ? `${ludia(zakaz)} s označením Nespolupracovať` : '',
+        ostatni > 0 ? `${ludia(ostatni)} v inom stave` : '',
+      ].filter(Boolean);
+      return `<p class="card-note" id="asg-hidden">${rest.length} ${Shell.plural(rest.length,
+        'človek sa v zozname nezobrazuje', 'ľudia sa v zozname nezobrazujú', 'ľudí sa v zozname nezobrazuje')}: ${UI.esc(casti.join(', '))}.
+        ${UI.tip('V zozname sú len ľudia v stave Pripravený alebo Vyslaný — tí majú papiere vybavené. Keď má niekto doklady hotové, otvorte jeho kartu v časti Ľudia, zmeňte mu stav na Pripravený a tu sa objaví.')}</p>`;
+    },
+
+    // `pre` (voliteľné) = { worker_id, date_from, onSaved(asg) } — keď sa
+    // nasadzuje odinakiaľ (napr. práve prijatý kandidát). `onSaved` sa zavolá
+    // až po skutočnom uložení nasadenia, nie pri otvorení okna.
+    addAsg(scId, pre) {
       const sc = this.items.find(x => x.id === scId);
       const free = this.workers.filter(w => ['ready', 'deployed'].includes(w.status));
-      if (!free.length) return UI.toast('Žiadni pripravení pracovníci — najprv ich pridajte a nastavte stav', 'err');
-      this._asgKey = `${free[0].id}|${sc?.date_from || ''}`;
+      // Vybraný vopred (z jeho karty) sa ponúkne vždy — či smie ísť, povie
+      // blokátor dokladov nižšie, nie jeho stav v kartotéke.
+      const preW = pre && pre.worker_id ? this.workerOf(pre.worker_id) : null;
+      if (preW && !free.some(w => w.id === preW.id)) free.unshift(preW);
+      if (!free.length) {
+        return UI.modal('Nasadiť pracovníka', UI.empty('workers', 'Nikto nie je pripravený',
+          'Nasadiť sa dajú ľudia v stave Pripravený alebo Vyslaný.')
+          + this.hiddenWorkersHtml([])
+          + `<div class="modal-actions">
+              <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+              <button type="button" class="btn btn-primary" onclick="UI.closeModal();Danubra.go('workers')">${Icon('workers', 14)} Otvoriť Ľudí</button>
+            </div>`);
+      }
+      const w0 = (pre && free.find(w => w.id === pre.worker_id)) || free[0];
+      const od = (pre && pre.date_from) || sc?.date_from;
+      this._asgDone = (pre && pre.onSaved) || null;
+      this._asgKey = `${w0.id}|${od || ''}`;
       const body = `
         <form id="asg-form" oninput="Sub.asgReady('${scId}')"
               onchange="Sub.asgReady('${scId}')"
               onsubmit="event.preventDefault();Sub.saveAsg('${scId}')">
           <div class="form-grid">
-            ${UI.field('worker_id', 'Pracovník', { required: true, add: 'worker', options: free.map(w => [w.id, w.full_name]) })}
+            ${UI.field('worker_id', 'Pracovník', { required: true, add: 'worker', value: w0.id, options: free.map(w => [w.id, w.full_name]),
+              tip: 'Ponúkajú sa ľudia v stave Pripravený alebo Vyslaný. Kto tu chýba a prečo, je napísané pod týmto poľom.' })}
+            <div class="fld-full">${this.hiddenWorkersHtml(free)}</div>
             ${UI.field('role', 'Rola', { value: 'pracovnik', options: [['pracovnik', 'Pracovník'], ['predak', 'Predák (vedie práce)']] })}
-            ${UI.field('date_from', 'Od', { type: 'date', value: sc?.date_from })}
+            ${UI.field('date_from', 'Od', { type: 'date', value: od })}
             ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to })}
             ${UI.field('charge_rate', 'Fakturačná sadzba €/h', { type: 'number', value: sc?.charge_rate,
               hint: 'Predvyplní sa pri každom nasadení na túto zákazku a z nej sa '
@@ -1179,10 +1399,10 @@
           je kľúčový dôkaz, že ide o Werkvertrag a nie o prenájom pracovnej sily.</div>
 
           <div class="form-section">Smieme ho nasadiť?</div>
-          <div id="asg-blocker">${this.asgBlockerHtml(scId, free[0].id, sc?.date_from)}</div>
+          <div id="asg-blocker">${this.asgBlockerHtml(scId, w0.id, od)}</div>
 
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Sub.detail('${scId}')">Zrušiť</button>
+            <button type="button" class="btn btn-ghost" onclick="${pre ? 'UI.closeModal()' : `UI.closeModal();Sub.detail('${scId}')`}">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Nasadiť</button>
           </div>
         </form>`;
@@ -1430,7 +1650,12 @@
       // deväť riadkov s voľným textom z nastavení — a osem z nich appka vie
       // sama z dokladov, zákazky a pobytov. Zostal jeden ručný bod a ten
       // vznikne až pri prvom odškrtnutí; dovtedy nemá čo zapisovať.
+      UI.closeModal();
       UI.toast('Pracovník nasadený', 'ok');
+      // Karta človeka (Ľudia) má nasadenia vlastné — nech si ich načíta znova.
+      if (window.Wrk) Wrk.loaded = false;
+      const done = this._asgDone; this._asgDone = null;
+      if (done) { try { await done(asg); } catch (e) { console.error('[danubra] po nasadení', e); } }
       await this.load(); this.detail(scId);
     },
 
@@ -1552,22 +1777,183 @@
       if (a) this.detail(a.subcontract_id);
     },
 
+    /**
+     * Zrušiť nasadenie, kým človek nenastúpil. Nič sa nemaže — nasadenie
+     * dostane stav „zrušené" a zostane v histórii (pravidlo firmy).
+     */
     async delAsg(id) {
       const a = this.assignments.find(x => x.id === id);
-      if (!await UI.confirm('Zrušiť toto nasadenie?')) return;
-      await DB.remove('assignments', id);
-      this.assignments = this.assignments.filter(x => x.id !== id);
-      if (a) this.detail(a.subcontract_id);
+      if (!await UI.confirm('Zrušiť toto nasadenie?', {
+        hint: 'Človek na túto stavbu nepôjde. Nič sa nezmaže — nasadenie zostane v histórii ako zrušené.' })) return;
+      const { error } = await DB.update('assignments', id, { status: 'cancelled' });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (a) {
+        a.status = 'cancelled';
+        await this.workerBackToReady(a.worker_id);
+        this.detail(a.subcontract_id);
+      }
+    },
+
+    /** Keď už nikde nie je nasadený, vráti sa v kartotéke na „Pripravený". */
+    async workerBackToReady(workerId) {
+      const inde = this.assignments.some(x => x.worker_id === workerId
+        && ['planned', 'active'].includes(x.status || 'planned'));
+      const w = this.workerOf(workerId);
+      if (inde || !w || w.status !== 'deployed') return;
+      const { error } = await DB.update('workers', workerId, { status: 'ready' });
+      if (!error) w.status = 'ready';
+      if (window.Wrk) Wrk.loaded = false;
+    },
+
+    // ── Nastúpil / Odišiel ────────────────────────────────────────────────
+    // Jednotlivo nasadený človek zostal navždy `planned` — aktívne nasadenie
+    // vytvorilo len nasadenie partie. Preto ho nevideli „Ľudia na stavbách"
+    // ani kontroly na Dnes. „Nastúpil" ho prepne na `active` (rovnaká hodnota
+    // ako pri partii) a zapíše deň nástupu (`started_at`).
+
+    /**
+     * Okno „Nastúpil". Formulár má zámerne id `asg-form` a polia
+     * `worker_id` / `date_from` — vďaka tomu blokátor dokladov aj zápis
+     * výnimky (`asgReady`, `grantAsgOverride`) fungujú presne ako pri nasadení.
+     * Doklady sa posudzujú k dňu nástupu.
+     */
+    startForm(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
+      const w = this.workerOf(a.worker_id) || {};
+      const dnes = Danubra._dayISO();
+      const od = a.date_from && a.date_from < dnes ? a.date_from : dnes;
+      this._asgKey = `${a.worker_id}|${od}`;
+      UI.modal(`Nastúpil — ${w.full_name || 'pracovník'}`, `
+        <form id="asg-form" oninput="Sub.asgReady('${a.subcontract_id}')" onchange="Sub.asgReady('${a.subcontract_id}')"
+              onsubmit="event.preventDefault();Sub.saveStart('${a.id}')">
+          <p class="modal-lead">Potvrďte, že <b>${UI.esc(w.full_name || 'pracovník')}</b> naozaj prišiel na stavbu a začal robiť.
+            ${UI.tip('Od tohto dňa sa počíta medzi ľudí na stavbách, appka mu stráži hodiny a doklady a objaví sa v kontrolách na obrazovke Dnes. Kým to nepotvrdíte, je len „nasadený" — priradený na stavbu.')}</p>
+          <input type="hidden" name="worker_id" value="${UI.esc(a.worker_id)}">
+          <div class="form-grid">
+            ${UI.field('date_from', 'Nastúpil dňa', { type: 'date', value: od, required: true,
+              tip: 'Prvý deň, keď naozaj robil na stavbe. Doklady (A1, živnosť, totožnosť) musia platiť práve k tomuto dňu.' })}
+          </div>
+          <div class="form-section">Smie nastúpiť?</div>
+          <div id="asg-blocker">${this.asgBlockerHtml(a.subcontract_id, a.worker_id, od)}</div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Áno, nastúpil</button>
+          </div>
+        </form>`, { wide: true });
+    },
+
+    async saveStart(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
+      const d = UI.formData(document.getElementById('asg-form'));
+      const den = d.date_from;
+      if (!den) return UI.toast('Zadajte deň nástupu', 'err');
+      if (den > Danubra._dayISO()) return UI.toast('Nastúpiť sa dá najneskôr dnes — budúci nástup je ešte len nasadenie', 'err');
+
+      // Rovnaké pravidlo ako pri nasadení: bez platných dokladov len so
+      // zapísanou výnimkou administrátora. Databáza zmenu stavu sama znova
+      // neposudzuje (trigger z migrácie 033 kontroluje zmenu človeka alebo
+      // dátumu), takže tu je to jediná stráž — a musí platiť.
+      const r = this.asgReadiness(a.subcontract_id, a.worker_id, den);
+      if (r) {
+        const v = Shell.evaluate([...r.ready.reasons, ...r.ready.warnings],
+          this.overridesOf(a.worker_id), den);
+        if (!v.ok) {
+          return UI.toast(`Bez platných dokladov to nepustím: ${v.open.map(x => x.label).join(', ')}. ${
+            Danubra.isAdmin() ? 'Ak to inak nejde, zapíšte výnimku s dôvodom vyššie.'
+              : 'Výnimku môže zapísať len administrátor.'}`, 'err');
+        }
+      }
+
+      const { error } = await DB.update('assignments', a.id, { status: 'active', started_at: den });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      await DB.update('workers', a.worker_id, { status: 'deployed' }).catch(() => {});
+      if (window.Wrk) Wrk.loaded = false;
+      UI.closeModal();
+      UI.toast('Zapísané — nastúpil', 'ok');
+      await this.load(); this.detail(a.subcontract_id);
+    },
+
+    /**
+     * Okno „Odišiel". Zapíše posledný deň a dôvod; nič sa nemaže. Zmena
+     * koncového dátumu je zapísaná aj s pôvodným dátumom v poznámke
+     * nasadenia, aby bolo vidieť, že sa skončilo inak, než sa plánovalo.
+     */
+    endForm(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
+      const w = this.workerOf(a.worker_id) || {};
+      const dnes = Danubra._dayISO();
+      const den = a.date_to && a.date_to < dnes ? a.date_to : dnes;
+      UI.modal(`Odišiel — ${w.full_name || 'pracovník'}`, `
+        <form id="asg-end" onsubmit="event.preventDefault();Sub.saveEnd('${a.id}')">
+          <p class="modal-lead">Zapíšte, že <b>${UI.esc(w.full_name || 'pracovník')}</b> na tejto stavbe skončil.
+            ${UI.tip('Nič sa nezmaže. Nasadenie dostane stav „odišiel", zapíše sa posledný deň a dôvod. Hodiny, ktoré odpracoval, sa normálne vyfakturujú. Ak býval v našom ubytovaní, ukončite mu pobyt v kroku 6.')}</p>
+          <div class="form-grid">
+            ${UI.field('date_to', 'Posledný deň na stavbe', { type: 'date', value: den, required: true,
+              tip: 'Posledný deň, keď na stavbe robil. Hodiny po tomto dni sa mu už zapisovať nemajú.' })}
+            ${UI.field('reason', 'Prečo skončil', { value: 'finished', options: [
+              ['finished', 'Práca pre neho skončila'], ['left', 'Odišiel sám'],
+              ['moved', 'Presunutý na inú zákazku'], ['ended_by_us', 'Ukončili sme spoluprácu'],
+              ['other', 'Iný dôvod']] })}
+          </div>
+          ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2, placeholder: 'napr. rodinné dôvody, vráti sa v marci' })}
+          ${a.date_to ? `<p class="card-note">Plánovaný koniec bol ${UI.date(a.date_to)}. Pôvodný dátum sa zapíše do poznámky nasadenia.</p>` : ''}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('logout')} Zapísať odchod</button>
+          </div>
+        </form>`);
+    },
+
+    async saveEnd(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
+      const d = UI.formData(document.getElementById('asg-end'));
+      if (!d.date_to) return UI.toast('Zadajte posledný deň', 'err');
+      const zac = a.started_at || a.date_from;
+      if (zac && d.date_to < zac) return UI.toast(`Posledný deň nemôže byť pred nástupom (${UI.date(zac)})`, 'err');
+
+      const neskor = (this.timesheets || []).filter(t => t.assignment_id === a.id && t.work_date > d.date_to);
+      if (neskor.length && !await UI.confirm(`Po ${UI.date(d.date_to)} má zapísaných ${neskor.length} ${
+        Shell.plural(neskor.length, 'deň', 'dni', 'dní')} hodín. Zapísať odchod aj tak?`, {
+        ok: 'Áno, zapísať', danger: false,
+        hint: 'Hodiny sa nezmažú. Skontrolujte ich v Hodinách — možno je posledný deň neskôr.' })) return;
+
+      const DOVOD = { finished: 'Práca pre neho skončila', left: 'Odišiel sám', moved: 'Presunutý na inú zákazku',
+        ended_by_us: 'Ukončili sme spoluprácu', other: 'Iný dôvod' };
+      const dovod = [DOVOD[d.reason] || d.reason, String(d.note || '').trim()].filter(Boolean).join(' — ');
+      const zapis = `Odišiel ${UI.date(d.date_to)}${a.date_to && a.date_to !== d.date_to
+        ? ` (plánovaný koniec bol ${UI.date(a.date_to)})` : ''}: ${dovod}`;
+      const { error } = await DB.update('assignments', a.id, {
+        status: 'ended', date_to: d.date_to, ended_reason: dovod,
+        notes: [a.notes, zapis].filter(Boolean).join('\n'),
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      a.status = 'ended';
+      await this.workerBackToReady(a.worker_id);
+      UI.closeModal();
+      UI.toast('Odchod je zapísaný', 'ok');
+      await this.load(); this.detail(a.subcontract_id);
     },
 
     // ── Formulár zákazky ──────────────────────────────────────────────────
-    form(id) {
-      const sc = id ? this.items.find(x => x.id === id) || {} : {};
+    // `pre` (voliteľné, len pri novej zákazke) = { values, onCreated(zákazka) }
+    // — predvyplnenie odinakiaľ (napr. z dopytu) a čo spraviť po založení.
+    form(id, pre) {
+      const sc = id ? this.items.find(x => x.id === id) || {} : { ...((pre && pre.values) || {}) };
+      this._onCreated = (!id && pre && pre.onCreated) || null;
       const body = `
         <form id="sub-form" onsubmit="event.preventDefault();Sub.save('${id || ''}')">
           <div class="form-grid">
             ${UI.field('title', 'Názov zákazky', { value: sc.title, required: true })}
-            ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, add: 'partner', options: [['', '— vyberte —'], ...this.partners.map(p => [p.id, p.name])] })}
+            ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, add: 'partner',
+              onchange: 'Sub.formContracts(this.value)',
+              options: [['', '— vyberte —'], ...this.partners.map(p => [p.id, p.name])] })}
+            ${UI.field('contract_id', 'Zmluva o dielo', { value: sc.contract_id || '',
+              options: this.contractOptions(sc.partner_id, sc.contract_id),
+              tip: 'Zmluva s nemeckým odberateľom, na ktorej táto zákazka stojí. Ponúkajú sa zmluvy vybraného odberateľa. Ak ešte žiadna nie je, nechajte „zatiaľ žiadna" — pripravíte ju na zákazke v kroku 3 tlačidlom „Pripraviť zmluvu o dielo" a priradí sa sama.' })}
             ${UI.field('work_type', 'Typ prác', { value: sc.work_type || 'workshop', options: WORK_TYPE,
               hint: 'Stavba znamená A1, SOKA-BAU, Bau-Mindestlohn a zrážku §48b. '
                 + 'Dielňa nič z toho — preto sa to nedá prepnúť „aby to prešlo".' })}
@@ -1621,6 +2007,7 @@
       ['charge_rate', 'fixed_price'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       ['date_from', 'date_to'].forEach(k => { if (payload[k] === '') payload[k] = null; });
       if (payload.partner_id === '') payload.partner_id = null;
+      if (payload.contract_id === '' || payload.contract_id == null) payload.contract_id = null;
 
       // Pole na odkaz nie je stĺpec v databáze — vytiahne sa z neho poloha
       // a samo sa nikam neukladá. Prázdne pole polohu nemaže; na to je
@@ -1648,6 +2035,8 @@
       }
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Zákazka vytvorená', 'ok');
+      const created = !id && this._onCreated; this._onCreated = null;
+      if (created && res.data) { try { await created(res.data); } catch (e) { console.error('[danubra] po založení zákazky', e); } }
       await this.load(); Danubra.renderRoute();
     },
 

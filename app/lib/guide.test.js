@@ -173,7 +173,9 @@ for (const k of ['daily', 'weekly', 'monthly', 'never']) {
 }
 
 // ── Sprievodca ──────────────────────────────────────────────────────────────
-ok(Array.isArray(G.TOUR) && G.TOUR.length >= 6 && G.TOUR.length <= 9, 'sprievodca má 6 až 9 krokov');
+// Desiaty krok je „Hľadať" — pole v hornom pruhu dovtedy nič nerobilo, a tak
+// v sprievodcovi nebolo. Viac ako desať bublín už nikto nedočíta.
+ok(Array.isArray(G.TOUR) && G.TOUR.length >= 6 && G.TOUR.length <= 10, 'sprievodca má 6 až 10 krokov');
 const SRC = [INDEX, APP,
   ...['js/components/shell.js', 'js/components/tour.js', 'js/ui.js']
     .filter(p => fs.existsSync(path.join(ROOT, p))).map(read)].join('\n');

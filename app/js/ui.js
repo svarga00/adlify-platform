@@ -300,7 +300,7 @@ window.UI = {
       return `<label class="fld fld-pick"><span>${this.esc(label)}${required ? ' *' : ''}${tipHtml}</span>
         <span class="pick">${input}
           <button type="button" class="pick-add"
-            onclick="Danubra.quickAdd('${add}','${name}')"
+            onclick="Danubra.quickCreate('${add}','${name}')"
             title="Založiť nový záznam" aria-label="Založiť nový záznam">
             ${window.Icon ? Icon('plus', 15) : '+'}</button>
         </span>${this.hint(hint)}</label>`;

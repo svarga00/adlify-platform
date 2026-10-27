@@ -48,7 +48,7 @@ const MAX_MS = Number.POSITIVE_INFINITY;
  * @param {string} periodFrom      - 'YYYY-MM-DD' začiatok fakturačného obdobia
  * @param {string} periodTo        - 'YYYY-MM-DD' koniec fakturačného obdobia
  * @param {string} [today]         - 'YYYY-MM-DD' dnešok (default: nefiltruje budúcnosť
- *                                    ak nie je zadaný — pre deterministické testy zadaj)
+ *                                    ak nie je zadaný — pre deterministické testy ho zadajte)
  * @returns {{ total:number, breakdown:Array }}
  */
 function calculateOngoingService(order, segments, periodFrom, periodTo, today) {

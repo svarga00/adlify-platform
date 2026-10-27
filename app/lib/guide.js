@@ -35,17 +35,17 @@
         + 'potom už budete vedieť, kam kliknúť.',
       steps: [
         {
-          title: 'Prvá obrazovka: Dnes',
-          what: 'Po prihlásení sa otvorí obrazovka Dnes (nadpis na nej je „Prehľad"). '
+          title: 'Prvá obrazovka: Prehľad dňa',
+          what: 'Po prihlásení sa otvorí obrazovka „Prehľad dňa" (v menu pod položkou Dnes). '
             + 'Odpovedá na tri otázky: čo treba dnes spraviť, či bude na výplaty a či na tom zarábame.',
           how: [
-            'Prihláste sa svojím e-mailom a heslom — otvorí sa „Dnes".',
+            'Prihláste sa svojím e-mailom a heslom — otvorí sa „Prehľad dňa".',
             'Navrchu je rámik „Čo spraviť teraz": jedna veta, prečo, a jedno tlačidlo, ktoré Vás tam zavedie.',
             'Pod ním je „Sedem krokov od dopytu po faktúru" — pri každom kroku stav a tlačidlo k práci.',
             'Nižšie sú „Čísla". Kliknite na číslo a ukáže sa zoznam, z ktorého je spočítané.',
             'Úplne dole sú karty v záložkách „Dnes", „Peniaze" a „Práca a ľudia".',
           ],
-          open: open('dashboard', 'Otvoriť Dnes'),
+          open: open('dashboard', 'Otvoriť Prehľad dňa'),
           tip: 'Keď neviete, čím začať, urobte to, čo je v rámiku „Čo spraviť teraz". '
             + 'Appka tam vždy dáva to, čo drží zvyšok práce.',
           example: null,
@@ -81,17 +81,17 @@
         },
         {
           title: 'Hľadanie',
-          what: 'Každý zoznam má vlastné pole „Hľadať…". Hľadá sa v tom, čo je na obrazovke.',
+          what: 'Pole „Hľadať mesto, meno, telefón, číslo objednávky…" v hornom pruhu hľadá naprieč appkou: '
+            + 'zákazky, ľudí, kandidátov, odberateľov, dopyty, faktúry a objednávky. Netreba vedieť, na ktorej obrazovke záznam je.',
           how: [
-            'Živnostníci: pole „Hľadať meno, telefón, mesto, IČO…".',
-            'Vydané faktúry: „Hľadať číslo faktúry alebo odberateľa…".',
-            'Odpracované hodiny: „Hľadať meno, zákazku, popis…".',
-            'Pri papieroch (tlačidlo „Papiere") sa hľadá človek alebo firma priamo v okne.',
+            'Napíšte aspoň dve písmená alebo číslice — pod poľom sa ukážu výsledky po skupinách.',
+            'Kliknite na výsledok alebo ho vyberte šípkami a stlačte Enter — otvorí sa jeho karta. Esc zoznam zavrie.',
+            'Na telefóne je to isté pole v tmavej hlavičke hore.',
+            'Každý zoznam má navyše vlastné pole „Hľadať…", ktoré zúži len to, čo je na obrazovke.',
           ],
           open: null,
-          tip: 'Pole „Hľadať mesto, meno, telefón, číslo objednávky…" v hornom pruhu zatiaľ nič nevyhľadáva. '
-            + 'Hľadajte v poli na konkrétnej obrazovke.',
-          example: 'V Ľudia napíšte do hľadania „Nitra" a v zozname zostane Ján Kováčik.',
+          tip: 'Diakritika ani medzery v telefóne nevadia: „kosice" nájde Košice a „0905 123" nájde +421 905 123 456.',
+          example: 'Napíšte hore „Kováčik" a vo výsledkoch je Ján Kováčik — kliknutím sa otvorí jeho karta.',
         },
         {
           title: 'Tlačidlo „Papiere"',
@@ -103,8 +103,7 @@
             'Papier sa otvorí v novej karte. Hore sú tlačidlá „Upraviť text", „Tlačiť", „Poslať" a „Stiahnuť PDF".',
           ],
           open: null,
-          tip: 'Do Dokumentov sa papier uloží cez „Stiahnuť PDF". Len vytlačený papier v Dokumentoch nebude '
-            + 'a nedá sa potom pridať do „Poslať všetko naraz".',
+          tip: 'Papier sa uloží do Dokumentov pri „Stiahnuť PDF" aj pri „Tlačiť". Potom sa dá pridať aj do „Poslať všetko naraz".',
           example: null,
         },
         {
@@ -140,8 +139,9 @@
             '„Podrobne" vpravo hore otvorí obrazovku „Ako to ide" s číslami ku každému kroku.',
           ],
           open: open('flow', 'Otvoriť Ako to ide'),
-          tip: 'Pozor: čísla krokov na obrazovke Dnes nie sú tie isté ako sedem krokov pri jednej zákazke. '
-            + 'Napríklad objednávka živnostníkovi je na Dnes krok 6, na zákazke krok 5.',
+          tip: 'Sedem krokov má všade rovnaké čísla aj názvy — na Dnes, v „Ako to ide", v Papieroch aj pri zákazke: '
+            + '1 Dopyt a ponuka, 2 Ľudia na stavbu, 3 Zmluva s Nemcom, 4 Papiere ľudí, 5 Zmluvy a objednávky živnostníkom, '
+            + '6 Ubytovanie a doprava, 7 Hodiny a faktúra.',
           example: null,
         },
         {
@@ -184,7 +184,7 @@
           how: [
             'V menu Zákazky → Dopyty kliknite na „Zapísať dopyt".',
             'Vyplňte „O čo ide", „Firma", „Telefón" a do „Čo potrebujú" napíšte, čo viete. Kliknite „Zapísať".',
-            'Prišiel e-mail? Kliknite „Vložiť e-mail", vložte celý text a kliknite „Rozdeliť na stavby".',
+            'Prišiel e-mail? Kliknite „Vložiť dopyt", vložte celý text a kliknite „Rozdeliť na stavby".',
             'Appka ukáže stavby, ktoré v e-maili našla. Odškrtnite, čo nechcete, a až potom sa dopyty založia.',
           ],
           open: open('opportunities', 'Otvoriť Dopyty'),
@@ -205,15 +205,16 @@
           example: 'Dopyt „Trockenbau Schulzentrum Fürth" (Baugesellschaft Mittelfranken GmbH): platia 38 €/h, dáme 21 €/h, firma preverená v registri.',
         },
         {
-          title: 'Z dopytu nábor',
-          what: 'Keď viete, že ľudí treba hľadať, spravte z dopytu nábor. Zadanie sa prenesie a appka pripraví texty inzerátov aj otázky do telefonátu.',
+          title: 'Čo z dopytu spraviť: ponuka, zákazka, nábor',
+          what: 'V otvorenom dopyte je dole časť „Čo z toho spraviť". Odtiaľ idete ďalej — údaje z dopytu sa prenesú, nič sa nepíše druhýkrát.',
           how: [
-            'V otvorenom dopyte dole v časti „Čo z toho spraviť" kliknite „Spraviť z toho nábor".',
-            'Nábor vznikne ako koncept — nič sa nezverejní.',
-            'Ďalej pokračujte v kapitole 3 (Ľudia → Nábor).',
+            '„Spraviť ponuku" otvorí novú ponuku predvyplnenú z dopytu (odberateľ, remeslo, počet ľudí, miesto, termín, sadzby). Skontrolujte ju a uložte.',
+            '„Založiť zákazku" otvorí novú zákazku predvyplnenú z dopytu. Po uložení je zákazka s dopytom prepojená a dopyt prejde na „Vyhrali sme".',
+            '„Spraviť z toho nábor" — keď ľudí treba hľadať. Nábor vznikne ako koncept, nič sa nezverejní. Ďalej pokračujte v kapitole 3.',
+            'Ak odberateľ ešte nemá kartu, appka sa spýta, či ju má založiť z údajov dopytu.',
           ],
-          open: open('hiring', 'Otvoriť Nábor'),
-          tip: 'Ponuku ani zákazku z dopytu appka nezaloží sama. Tie založíte v Ponukách a v Zákazkách (kroky nižšie).',
+          open: open('opportunities', 'Otvoriť Dopyty'),
+          tip: 'Zákazku zakladajte z dopytu, nie od nuly. Iba tak zákazka vie, koľko ľudí odberateľ chce, a krok 2 to ukáže.',
           example: null,
         },
         {
@@ -224,6 +225,7 @@
             'Vyplňte „Názov firmy", „USt-IdNr", „Kontaktná osoba", adresu a „Splatnosť (dní)".',
             'Vo formulároch ponuky alebo zákazky sa dá odberateľ založiť aj priamo — tlačidlom plus vedľa výberu.',
             'Rámcovú zmluvu s Nemcom vytlačíte v karte odberateľa tlačidlom „Rámcová zmluva SK/DE".',
+            'V karte odberateľa v časti „Overenie firmy" kliknite „Preveriť USt-IdNr v registri" — appka firmu overí v registri EÚ a výsledok si zapamätá.',
           ],
           open: open('partners', 'Otvoriť Odberateľov'),
           tip: 'Bez USt-IdNr sa nedá fakturovať bez DPH (§13b) a faktúra sa neschváli. Zapíšte ho hneď.',
@@ -255,8 +257,8 @@
             'Po podpise sa koniec platnosti a cena menia už len cez „Nový dodatok".',
           ],
           open: open('contracts', 'Otvoriť Zmluvy'),
-          tip: 'Ak ste zmluvu založili z ponuky, pri zákazke ju nezakladajte druhýkrát tlačidlom „Pripraviť zmluvu o dielo". '
-            + 'Ak zákazka zmluvu nevidí, povedzte to adminovi.',
+          tip: 'Ak ste zmluvu založili z ponuky, pri zákazke ju nezakladajte druhýkrát. V zákazke v kroku 3 kliknite '
+            + '„Priradiť existujúcu zmluvu" (alebo ju vyberte v úprave zákazky v poli „Zmluva o dielo").',
           example: 'ZML-VZOR-2026-004 (Klinikum Nord) je odoslaná na podpis. ZML-VZOR-2026-001 (Wohnanlage Isarauen) je podpísaná a predĺžená dodatkom DOD-VZOR-001.',
         },
         {
@@ -266,7 +268,7 @@
             'V menu Zákazky kliknite „Nová zákazka".',
             'Vyplňte „Názov zákazky", „Odberateľ", „Typ prác", „Remeslo", „Od" a „Do".',
             'V „Miesto výkonu" vyplňte adresu stavby a do „Odkaz z máp" vložte odkaz z Google Máp — appka z neho vezme polohu.',
-            'Vyplňte „Sadzba pre odberateľa €/h" a „Definícia diela". Kliknite „Vytvoriť zákazku".',
+            'Vyplňte „Sadzba pre odberateľa €/h" a „Definícia diela". Ak už je zmluva o dielo, vyberte ju v poli „Zmluva o dielo". Kliknite „Vytvoriť zákazku".',
             'Kliknite na zákazku v zozname — otvorí sa sedem krokov pod sebou a ten, ktorý je na rade, je otvorený.',
           ],
           open: open('subcontracts', 'Otvoriť Zákazky'),
@@ -351,12 +353,12 @@
           what: 'Keď kandidát prejde, prevedie sa medzi živnostníkov. Appka potom sama ponúkne ďalšie kroky: súhlas GDPR a zmluvu.',
           how: [
             'V kandidátovi prejdite „Náborový proces" — pri každom kroku odškrtnite, čo je hotové.',
-            'Kliknite „Nastúpený", vyberte zákazku a dátum nástupu a potvrďte „Nastúpený".',
-            'Kandidát sa stane živnostníkom v stave „Pripravený" a otvorí sa okno „Čo ďalej".',
+            'Kliknite „Prijať – previesť medzi ľudí", prípadne vyberte zákazku a predpokladaný nástup a potvrďte.',
+            'Kandidát sa stane živnostníkom v stave „Pripravený". Appka hneď ponúkne „Nasadiť teraz na zákazku" alebo „Najprv papiere".',
             'Ak nepôjde, kliknite „Zamietnuť" a napíšte dôvod.',
           ],
           open: open('candidates', 'Otvoriť Kandidátov'),
-          tip: '„Nastúpený" ho na zákazku ešte nenasadí. Nasadenie spravíte na zákazke tlačidlom „Nasadiť človeka" (kapitola 4).',
+          tip: 'Prijatie ho na zákazku ešte nenasadí. Nasadený je, až keď kliknete „Nasadiť teraz na zákazku" (alebo na zákazke „Nasadiť človeka", kapitola 4) a nasadenie sa uloží.',
           example: 'Jakub Novotný (obkladač, Brno) bol kandidát z reklamy, teraz je živnostník a nastupuje na Klinikum Nord.',
         },
         {
@@ -427,9 +429,13 @@
             'Vyberte „Pracovník" a „Rola" (Pracovník alebo „Predák (vedie práce)").',
             'Skontrolujte „Od", „Do" a „Fakturačná sadzba €/h". Doplňte ubytovanie a dopravu za mesiac.',
             'V časti „Smieme ho nasadiť?" uvidíte, či má platné doklady k dňu nástupu. Kliknite „Nasadiť".',
+            'Človek je teraz „nasadený, ešte nenastúpil". Keď naozaj začne robiť, kliknite pri ňom v kroku 2 „Nastúpil" a zadajte deň nástupu.',
+            'Keď zo stavby odíde, kliknite „Odišiel" a zadajte posledný deň a dôvod. Nasadenie, ktoré sa nekonalo, zrušíte krížikom — nič sa nemaže.',
           ],
           open: open('subcontracts', 'Otvoriť Zákazky'),
-          tip: 'V zozname sú len ľudia v stave „Pripravený" alebo „Vyslaný". Bez platných dokladov to appka nepustí — výnimku smie zapísať len admin. Aspoň jeden nasadený má byť predák.',
+          tip: 'V zozname sú len ľudia v stave „Pripravený" alebo „Vyslaný" — pod výberom appka napíše, koľko ďalších ľudí sa nezobrazuje a prečo. '
+            + 'Bez platných dokladov to appka nepustí — výnimku smie zapísať len admin. Aspoň jeden nasadený má byť predák. '
+            + 'Kým nekliknete „Nastúpil", človek sa nepočíta medzi ľudí na stavbe.',
           example: 'Jakub Novotný je nasadený na Klinikum Nord od dňa nástupu, sadzba pre odberateľa 37 €/h.',
         },
         {
@@ -537,7 +543,7 @@
           title: 'Zapísať hodiny z listu',
           what: 'Jedno okno na celý list: zákazka, týždeň a tabuľka ľudia × dni. Ľudia zo stavby sú v nej sami.',
           how: [
-            'V menu Zákazky → Hodiny kliknite „Stundennachweis" (alebo v zákazke v kroku 7 „Zapísať Stundennachweis", alebo na Dnes v „Rýchle akcie").',
+            'Kliknite „Zapísať hodiny" — v menu Zákazky → Hodiny, v zákazke v kroku 7, vo Výkaze pre odberateľa alebo na Dnes v „Rýchle akcie". Všade sa otvorí to isté okno.',
             'Vyberte „Zákazka". Týždeň (KW) prepnete šípkami — predvolený je minulý týždeň.',
             'Natukajte hodiny z listu. Dá sa písať 8, 7,5 aj 7:30.',
             'Keď robila celá partia rovnako, vyplňte prvý riadok a kliknite „Všetkým ako prvý riadok".',
@@ -586,27 +592,27 @@
           example: null,
         },
         {
-          title: 'Výkaz pre odberateľa (za partiu)',
-          what: 'Výkaz je týždenný list po nemecky pre jednu partiu — na tlač a na podpis. Hodiny v ňom sú tie isté ako v Hodinách.',
+          title: 'Výkaz pre odberateľa (na tlač)',
+          what: 'Výkaz je týždenný list po nemecky za jednu zákazku — celú alebo len jednu partiu z nej. Je len na tlač; hodiny aj podpis v ňom sú tie isté ako v okne „Zapísať hodiny".',
           how: [
-            'V menu Zákazky → Výkaz vyberte partiu a týždeň.',
-            'Hodiny sa dajú dopísať priamo v tabuľke.',
+            'V menu Zákazky → Výkaz vyberte partiu (alebo „Celá zákazka") a týždeň.',
+            'Zákazku appka zistí z nasadení partie v tom týždni. Keď sa to nedá, opýta sa — nehádá.',
             'Kliknite „Tlačiť" a list zaneste na podpis.',
-            'Keď je podpísaný, kliknite „Podpísané" a zapíšte, kto a kedy podpísal.',
+            'Keď je podpísaný, kliknite „Podpísané" — otvorí sa okno hodín a podpis zapíšete tam.',
           ],
           open: open('hoursheet', 'Otvoriť Výkaz'),
-          tip: 'Výkaz je len za partiu. Hodiny jednotlivca (bez partie) zapíšte cez „Stundennachweis".',
+          tip: 'Hodiny sa do výkazu nepíšu. Zapisujú sa len cez „Zapísať hodiny", aby podpísaný papier a faktúra tvrdili to isté.',
           example: 'Partia Kováčik má posledné dva týždne podpísané (Thomas Brandl). Výkaz Partie Szabó je pripravený, pán Neumann ho podpíše v piatok.',
         },
         {
-          title: 'Výnimky: jeden deň alebo celý týždeň ručne',
-          what: 'Na opravu jedného dňa alebo zápis bez listu sú v Hodinách ešte dve tlačidlá.',
+          title: 'Výnimka: jeden deň inej práce',
+          what: 'Deň, ktorý nebol prácou na stavbe (cesta, dielňa), alebo deň s popisom práce sa zapíše v tom istom okne.',
           how: [
-            '„Zapísať týždeň" — celý týždeň jedného nasadenia naraz.',
-            '„Jeden deň" — jeden deň jedného človeka.',
+            'Kliknite „Zapísať hodiny" a v okne „Jeden deň inej práce".',
+            'Vyberte človeka, deň, hodiny a činnosť.',
           ],
           open: open('timesheets', 'Otvoriť Hodiny'),
-          tip: 'Bežne používajte „Stundennachweis". Tieto dve tlačidlá sú na výnimky.',
+          tip: 'Bežné hodiny zo stavby píšte do tabuľky týždňa. „Jeden deň inej práce" je len na výnimky.',
           example: null,
         },
       ],
@@ -654,13 +660,13 @@
           ],
           open: open('invoices', 'Otvoriť Vydané faktúry'),
           tip: null,
-          example: 'VZOR-2026-0008 je voľná faktúra pre Krüger Innenausbau — refakturácia ubytovania Ferienwohnung Keller. VZOR-2026-0009 (Stahlbau Neumann) je ešte „Rozpracovaná".',
+          example: 'VZOR-2026-0008 je voľná faktúra pre Krüger Innenausbau — refakturácia ubytovania Ferienwohnung Keller. VZOR-2026-0009 (Stahlbau Neumann) je ešte „Návrh".',
         },
         {
           title: 'Kontrola a poslanie na schválenie',
           what: 'Pred schválením appka faktúru skontroluje: odberateľa, číslo, sumu oproti hodinám a USt-IdNr.',
           how: [
-            'Otvorte faktúru v stave „Rozpracovaná".',
+            'Otvorte faktúru v stave „Návrh".',
             '„Zobraziť faktúru (PDF)" ukáže faktúru po nemecky. „Upraviť návrh" zmení dátumy alebo položky.',
             'Pozrite časť „Pred schválením". Kým tam svieti niečo červené, schváliť sa nedá.',
             'Kliknite „Poslať na schválenie".',
@@ -934,7 +940,7 @@
             'Na Dnes v páse „V systéme sú vzorové dáta" kliknite „Vymazať vzorové dáta".',
             'Na potvrdenie napíšte VYMAZAŤ.',
           ],
-          open: open('dashboard', 'Otvoriť Dnes'),
+          open: open('dashboard', 'Otvoriť Prehľad dňa'),
           tip: null,
           example: null,
         },
@@ -988,7 +994,7 @@
   const TOUR = [
     { selector: '#sidebar-nav .nav-item[data-key="dashboard"]', route: null,
       title: 'Dnes — tu začína každý deň',
-      text: 'Prvá obrazovka po prihlásení. Hore je **jedna vec, ktorú treba spraviť teraz**, a tlačidlo, ktoré Vás k nej zavedie.' },
+      text: 'Prvá obrazovka po prihlásení — Prehľad dňa. Hore je **jedna vec, ktorú treba spraviť teraz**, a tlačidlo, ktoré Vás k nej zavedie.' },
     { selector: '.st7', route: 'dashboard',
       title: 'Sedem krokov od dopytu po faktúru',
       text: 'Celá cesta firmy na jednom mieste. Pri každom kroku je stav — **Horí**, **Čaká** alebo **V poriadku** — a tlačidlo rovno k práci.' },
@@ -1004,6 +1010,11 @@
     { selector: '.mega-btn', route: null,
       title: 'Všetko',
       text: 'Keď niečo v menu nevidíte, kliknite sem. Ukážu sa všetky obrazovky naraz a pri každej jedna veta o tom, čo na nej je.' },
+    // Hľadanie v hornom pruhu (`Danubra.searchBind`). Na telefóne je to pole
+    // v tmavej hlavičke — preto oba selektory.
+    { selector: '.searchbox, .mh-search', route: null,
+      title: 'Hľadať',
+      text: 'Napíšte mesto, meno, telefón alebo číslo objednávky. Netreba vedieť, na ktorej obrazovke záznam je.' },
     { selector: '#btn-papers', route: null,
       title: 'Papiere na dva kliky',
       text: 'Súhlas GDPR, zmluva, objednávka, infolist: vyberiete papier, vyberiete človeka a údaje sa doplnia samy.' },

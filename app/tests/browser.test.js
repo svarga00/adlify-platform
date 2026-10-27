@@ -1657,6 +1657,103 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Mobilné „+" a hľadanie v hornom pruhu ─────────────────────────────
+    // `quickAdd` bol v app.js dvakrát a druhý (založenie z poľa formulára)
+    // prepísal prvý — ťuk na „+" skončil hláškou „Toto sa takto založiť
+    // nedá". A pole „Hľadať…" v hornom pruhu nerobilo nič.
+    {
+      const ctx = await browser.newContext({
+        viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
+        isMobile: true, hasTouch: true,
+      });
+      const page = await ctx.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const plus = await page.evaluate(async () => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        const ROWS = {
+          danubra_workers: [{ id: 'w1', full_name: 'Ján Kováčik', phone: '+421 905 123 456', company_id: '53941870', city: 'Nitra' }],
+          danubra_subcontracts: [{ id: 's1', title: 'Wohnpark Feuerbach', contract_number: 'ZAK-2026-001', site_city: 'Köln' }],
+          danubra_partners: [{ id: 'p1', name: 'Hofmann Bau GmbH', ust_idnr: 'DE287451936', city: 'Stuttgart' }],
+          danubra_invoices: [{ id: 'i1', invoice_number: 'FA-2026-0042', partner_id: 'p1', total: 1200 }],
+          danubra_work_orders: [{ id: 'o1', order_number: 'OBJ-2026-007', kind: 'customer' }],
+        };
+        const q = (t) => {
+          const b = { select() { return b; }, limit() { return Promise.resolve({ data: ROWS[t] || [], error: null }); } };
+          return b;
+        };
+        DB.from = (t) => q(t.startsWith('danubra_') ? t : 'danubra_' + t);
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra._sIdx = null;
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        Danubra._buildNav();
+        const btn = document.querySelector('#bottom-nav .tab-plus');
+        if (btn) btn.click();
+        await new Promise(r => setTimeout(r, 100));
+        const m = document.getElementById('ui-modal');
+        return {
+          jeTlacidlo: !!btn,
+          menu: !!m && /Čo chcete pridať/.test(m.textContent),
+          polozky: m ? [...m.querySelectorAll('.qa-item b')].map(b => b.textContent) : [],
+          dveMena: typeof Danubra.quickAdd === 'function' && typeof Danubra.quickCreate === 'function'
+            && Danubra.quickAdd !== Danubra.quickCreate,
+        };
+      });
+      ok(plus.jeTlacidlo, 'na telefóne je dole tlačidlo „+"');
+      ok(plus.menu, '„+" otvorí menu „Čo chcete pridať?"', JSON.stringify(plus));
+      ok(plus.polozky.includes('Vložiť dopyt') && plus.polozky.includes('Zapísať hodiny'),
+        'v menu sú najčastejšie veci', plus.polozky.join(', '));
+      ok(plus.dveMena, 'menu „Pridať" a založenie z poľa sú dve rôzne funkcie');
+
+      await page.evaluate(() => UI.closeModal());
+      const inp = page.locator('.mh-search input');
+      await inp.fill('kovacik');
+      await page.waitForTimeout(500);
+      const hladanie = await page.evaluate(() => ({
+        riadky: [...document.querySelectorAll('#gs-pop .gs-row b')].map(b => b.textContent),
+        skupiny: [...document.querySelectorAll('#gs-pop .gs-group')].map(b => b.textContent),
+        sirka: (document.getElementById('gs-pop') || { getBoundingClientRect: () => ({ right: 0 }) })
+          .getBoundingClientRect().right,
+      }));
+      ok(hladanie.riadky.includes('Ján Kováčik'), 'hľadanie bez diakritiky nájde človeka',
+        JSON.stringify(hladanie));
+      ok(hladanie.sirka <= 390, 'zoznam výsledkov sa zmestí na telefón', String(hladanie.sirka));
+
+      const tel = await page.evaluate(() => Danubra.searchHits('0905 123', Danubra._sIdx).map(h => h.id));
+      ok(tel.includes('w1'), 'telefón sa nájde aj s nulou a medzerami', tel.join(','));
+      const ine = await page.evaluate(() => ({
+        ico: Danubra.searchHits('53941870', Danubra._sIdx).map(h => h.id),
+        obj: Danubra.searchHits('OBJ-2026', Danubra._sIdx).map(h => h.type),
+        fa: Danubra.searchHits('0042', Danubra._sIdx).map(h => h.type),
+        ust: Danubra.searchHits('DE2874', Danubra._sIdx).map(h => h.type),
+        mesto: Danubra.searchHits('koln', Danubra._sIdx).map(h => h.type),
+      }));
+      ok(ine.ico.includes('w1'), 'IČO človeka sa nájde', JSON.stringify(ine));
+      ok(ine.obj.includes('order') && ine.fa.includes('invoice') && ine.ust.includes('partner')
+        && ine.mesto.includes('subcontract'),
+        'nájde sa objednávka, faktúra, odberateľ podľa USt-IdNr aj zákazka podľa mesta', JSON.stringify(ine));
+
+      await inp.press('Escape');
+      const zavrete = await page.evaluate(() => !document.getElementById('gs-pop'));
+      ok(zavrete, 'Esc zoznam zavrie');
+      await inp.fill('hofmann');
+      await page.waitForTimeout(400);
+      await inp.press('Enter');
+      await page.waitForTimeout(300);
+      const otvorene = await page.evaluate(() => location.hash);
+      ok(otvorene === '#/partners/p1', 'Enter otvorí kartu nájdeného záznamu', otvorene);
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await ctx.close();
+    }
+
     // ── Založiť nový rovno pri výbere ─────────────────────────────────────
     // Celý zmysel je v jednej vete: **rozpísaný formulár sa nesmie stratiť.**
     // Keby sa pri zakladaní zavrel, bolo by to to isté ako ísť do iného modulu
@@ -1694,7 +1791,7 @@ console.log('Prehliadač');
           if (nazov) nazov.value = 'Rozpísaná ponuka';
           const tlacidiel = document.querySelectorAll('#ui-modal .pick-add').length;
 
-          Danubra.quickAdd('partner', 'partner_id');
+          Danubra.quickCreate('partner', 'partner_id');
           await new Promise(r => setTimeout(r, 120));
           const otvorene = {
             okno: !!document.getElementById('ui-ask'),
@@ -1851,56 +1948,56 @@ console.log('Prehliadač');
       });
       ok(/55667788/.test(ico), 'IČO z Nastavení sa na výkaze objaví', ico.slice(-180));
 
-      // Nepodpísaný výkaz sa tlačí a nesie na stavbu na podpis. Pole `number`
-      // musí mať hodnotu s bodkou, ale na papier pre Nemca patrí čiarka.
+      // Výkaz je len papier na tlač: hodiny sa píšu v jednom okne „Zapísať
+      // hodiny" (HourEntry), nie v tabuľke výkazu. Na papier pre Nemca ide
+      // „8,5" — a z cudzej zákazky tam nejde nič.
       const tlac = await page.evaluate(async () => {
         // Hodiny do výkazu, nech je čo formátovať. Osem a pol sa po nemecky
         // píše „8,5" — a presne to musí byť na papieri.
         const view = document.getElementById('view');
         const d = DanubraHourSheet.weekDates(HS.year, HS.week)[0].date;
         HS.timesheets = [{ id: 't1', worker_id: 'w1', assignment_id: 'a1',
-          work_date: d, hours: 8.5, time_from: '07:00', time_to: '16:30' }];
-        HS.assignments = [{ id: 'a1', worker_id: 'w1', subcontract_id: 's1', status: 'active' }];
+          work_date: d, hours: 8.5, time_from: '07:00', time_to: '16:30' },
+          // Ten istý človek, iná zákazka — na tento papier nepatrí.
+          { id: 't2', worker_id: 'w1', assignment_id: 'a2',
+            work_date: DanubraHourSheet.weekDates(HS.year, HS.week)[1].date, hours: 3 }];
+        HS.assignments = [{ id: 'a1', worker_id: 'w1', subcontract_id: 's1', status: 'active' },
+          { id: 'a2', worker_id: 'w1', subcontract_id: 's2', status: 'cancelled' }];
         // `loadWeek()` si hodiny pri každom prekreslení doťahuje z databázy
         // a prepísal by to, čo sme sem práve dali.
         HS.loadWeek = async () => {};
         await Danubra.views.hoursheet.call(Danubra, view);
         const bunky = [...view.querySelectorAll('.hs-h')];
-        const sPolom = bunky.filter(e => e.querySelector('input'));
-        const sCiarkou = bunky.find(e => (e.getAttribute('data-h') || '').includes(','));
         return {
           buniek: bunky.length,
-          sPolom: sPolom.length,
-          bezDataH: sPolom.filter(e => !e.hasAttribute('data-h')).length,
-          nemecky: sCiarkou ? sCiarkou.getAttribute('data-h') : null,
-          vPoli: sCiarkou ? sCiarkou.querySelector('input').value : null,
-          skryteVTlaci: null,
+          sPolom: bunky.filter(e => e.querySelector('input')).length,
+          texty: bunky.map(e => e.textContent.trim()),
+          projekt: (view.querySelector('.hs-meta') || { textContent: '' }).textContent.replace(/\s+/g, ' '),
+          zapis: [...document.querySelectorAll('#top-actions button, .page-actions button, button')]
+            .some(b => /Zapísať hodiny/.test(b.textContent) && /HS\.write/.test(b.getAttribute('onclick') || '')),
         };
       });
-      ok(tlac.sPolom > 0, 'nepodpísaný výkaz sa dá vyplniť priamo v tabuľke');
-      ok(tlac.bezDataH === 0,
-        'každá vyplniteľná bunka nesie aj nemecký tvar čísla pre tlač',
-        `bez neho: ${tlac.bezDataH}`);
-      ok(tlac.nemecky === '8,5',
-        'na papier ide „8,5", nie „8.5"', String(tlac.nemecky));
-      ok(tlac.vPoli === '8.5',
-        'kým pole samo musí mať bodku — inak ho prehliadač neprijme',
-        String(tlac.vPoli));
+      ok(tlac.buniek > 0 && tlac.sPolom === 0,
+        'výkaz je len na čítanie — hodiny sa nepíšu do jeho tabuľky', JSON.stringify(tlac.texty));
+      ok(tlac.texty.includes('8,5'), 'na papier ide „8,5", nie „8.5"', JSON.stringify(tlac.texty));
+      ok(!tlac.texty.includes('3') && !tlac.texty.includes('11,5'),
+        'hodiny z inej zákazky na papier nejdú', JSON.stringify(tlac.texty));
+      ok(/ZAK-1/.test(tlac.projekt), 'projekt je zákazka, na ktorej partia v týždni robila', tlac.projekt);
+      ok(tlac.zapis, 'zápis hodín je tlačidlo „Zapísať hodiny" do jedného okna');
 
-      // A pri tlači sa pole schová a ukáže sa to číslo.
-      await page.emulateMedia({ media: 'print' });
-      const vTlaci = await page.evaluate(() => {
-        const td = [...document.querySelectorAll('.hs-h[data-h]')]
-          .find(e => (e.getAttribute('data-h') || '').includes(','));
-        if (!td) return null;
-        return { pole: getComputedStyle(td.querySelector('input')).display,
-          text: getComputedStyle(td, '::after').content };
+      // Partia bez nasadenia a bez hodín: zákazka sa nehádá, appka sa opýta.
+      const bezZakazky = await page.evaluate(async () => {
+        const view = document.getElementById('view');
+        HS.timesheets = []; HS.assignments = []; HS.subId = null;
+        HS.subs = [{ id: 's1', title: 'Stavba Ulm', contract_number: 'ZAK-1', status: 'active', partner_id: 'p1' },
+          { id: 's2', title: 'Cudzia stavba', contract_number: 'ZAK-2', status: 'active', partner_id: 'p1' }];
+        await Danubra.views.hoursheet.call(Danubra, view);
+        return { site: HS.siteOf(), vyber: !!view.querySelector('select[aria-label="Zákazka výkazu"]'),
+          projekt: (view.querySelector('.hs-meta') || { textContent: '' }).textContent };
       });
-      await page.emulateMedia({ media: 'screen' });
-      ok(vTlaci && vTlaci.pole === 'none', 'pri tlači sa vstupné pole nevytlačí',
-        JSON.stringify(vTlaci));
-      ok(vTlaci && /8,5/.test(vTlaci.text), 'a na jeho mieste je nemecké číslo',
-        JSON.stringify(vTlaci));
+      ok(bezZakazky.site === null && bezZakazky.vyber,
+        'bez nasadení sa zákazka nehádá — appka dá vybrať', JSON.stringify(bezZakazky.site));
+      ok(!/ZAK-1|ZAK-2/.test(bezZakazky.projekt), 'a na papier nejde žiadny cudzí projekt', bezZakazky.projekt);
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -1972,10 +2069,10 @@ console.log('Prehliadač');
       ok(out.kroky.map(k => k.n).join(',') === '1,2,3,4,5,6,7',
         'a sú očíslované po poradí', out.kroky.map(k => k.n).join(','));
       ok(out.kroky.map(k => k.title).join(' | ')
-        === 'Dopyt na zákazku | Inzeráty a záujemcovia | Objednávka a zmluva s Nemcom'
-          + ' | Súhlas GDPR od živnostníka | Zmluva so živnostníkom'
-          + ' | Objednávka a papiere v poriadku | Ubytovanie, hodiny a faktúry',
-      'a sú to jeho kroky, nie názvy tabuliek', out.kroky.map(k => k.title).join(' | '));
+        === 'Dopyt a ponuka | Ľudia na stavbu | Zmluva s Nemcom'
+          + ' | Papiere ľudí | Zmluvy a objednávky živnostníkom'
+          + ' | Ubytovanie a doprava | Hodiny a faktúra',
+      'a sú to tie isté kroky ako na zákazke, nie názvy tabuliek', out.kroky.map(k => k.title).join(' | '));
       ok(out.drahy.length === 0, 'žiadne dráhy — je to jedna cesta zhora nadol',
         out.drahy.join(' | '));
       ok(out.kroky.every(k => k.lead && k.next),
@@ -2959,6 +3056,7 @@ console.log('Prehliadač');
           otvorene: [...view.querySelectorAll('.js-step.is-open')].map(e => e.id),
           tlacidla: view.querySelectorAll('.js-step.is-open .js-body .btn').length,
           sekTaby: view.querySelectorAll('.sec-tab').length,
+          retazec: DanubraChain.STEPS.map(k => `${k.n}. ${k.title}`).join(' | '),
         };
       });
 
@@ -2967,8 +3065,11 @@ console.log('Prehliadač');
         out.teraz.slice(0, 160));
       ok(out.kroky.length === 7, 'pod tým je sedem krokov',
         `${out.kroky.length}: ${out.kroky.join(' | ')}`);
-      ok(out.kroky[0] === '1. Dopyt a dohoda' && out.kroky[6] === '7. Hodiny a faktúra',
+      ok(out.kroky[0] === '1. Dopyt a ponuka' && out.kroky[6] === '7. Hodiny a faktúra',
         'od dopytu po faktúru', out.kroky.join(' | '));
+      // Tie isté čísla a názvy ako na „Dnes", v „Ako to ide" a na Papieroch.
+      ok(out.kroky.join(' | ') === out.retazec,
+        'kroky zákazky sa volajú rovnako ako kroky na Dnes a v Ako to ide', out.kroky.join(' | '));
       ok(out.stavy.filter(s => s === 'ok').length >= 2,
         'čo je hotové, je zelené', out.stavy.join(','));
       ok(out.otvorene.length === 1 && out.otvorene[0] === 'js-papiere',
@@ -3852,6 +3953,24 @@ console.log('Prehliadač');
         'a zapíše sa do archívu s rozumným názvom', zaz.file_name);
       ok(/uložené do dokumentov/.test(sprava), 'okno povie, že je stiahnuté a uložené', sprava);
 
+      // „Tlačiť" uloží papier do dokumentov rovnako ako „Stiahnuť PDF" a až
+      // potom otvorí tlač. Bez toho vytlačený papier v Dokumentoch chýbal.
+      await okno.evaluate(() => {
+        window.__tlac = 0; window.print = () => { window.__tlac++; };
+        // Upravený text je iný papier — musí sa uložiť znova.
+        document.querySelector('.page').dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await okno.click('button.tb-doc:has-text("Tlačiť")');
+      await okno.waitForFunction(() => window.__tlac > 0, null, { timeout: 40000 }).catch(() => null);
+      const poTlaci = await page.evaluate(() => window.__up.length);
+      const tlacRaz = await okno.evaluate(() => window.__tlac);
+      ok(tlacRaz === 1 && poTlaci === 2, 'Tlačiť najprv uloží PDF do dokumentov, potom otvorí tlač',
+        JSON.stringify({ tlac: tlacRaz, nahrate: poTlaci }));
+      await okno.click('button.tb-doc:has-text("Tlačiť")');
+      await okno.waitForFunction(() => window.__tlac > 1, null, { timeout: 5000 }).catch(() => null);
+      const znova = { tlac: await okno.evaluate(() => window.__tlac), nahrate: await page.evaluate(() => window.__up.length) };
+      ok(znova.tlac === 2 && znova.nahrate === 2, 'druhá tlač bez zmien ten istý papier neukladá znova', JSON.stringify(znova));
+
       // Strany A4: každá strana sa kreslí zvlášť, nič sa nestratí ani nerozsekne.
       const a4 = await page.evaluate(() => {
         const box = DanubraPaginate.pageBox(14);
@@ -3951,6 +4070,9 @@ console.log('Prehliadač');
         const res = {};
         await Inv.newInvoice();
         res.volby = [...document.querySelectorAll('#ui-modal .pick-tile b')].map(b => b.textContent.trim());
+        const odkaz = document.querySelector('#ui-modal .inv-self-link');
+        res.odkaz = odkaz ? { text: odkaz.textContent.replace(/\s+/g, ' ').trim(),
+          klik: odkaz.querySelector('.btn-row button') ? odkaz.querySelector('.btn-row button').getAttribute('onclick') : '' } : null;
         UI.closeModal();
 
         await Inv.freeForm();
@@ -3998,10 +4120,49 @@ console.log('Prehliadač');
         const t0 = document.querySelectorAll('.toast').length;
         await Inv.freeForm(id);
         res.schvalenaModal = !!document.getElementById('man-form');
+        UI.closeModal();
+
+        // Pri schválenej faktúre je krok späť „Vrátiť do návrhu", nie „Poslať
+        // na schválenie"; ručné „Po splatnosti" nie je nikde.
+        await Inv.detail(id);
+        res.tlacidlaSchvalena = [...document.querySelectorAll('#ui-modal .modal-actions button')].map(b => b.textContent.trim());
+        UI.closeModal();
+        Inv.items[0].status = 'issued';
+        await Inv.detail(id);
+        res.tlacidlaVystavena = [...document.querySelectorAll('#ui-modal .modal-actions button')].map(b => b.textContent.trim());
+        UI.closeModal();
+        Inv.items[0].status = 'approved';
+        const conf = UI.confirm; let otazka = '';
+        UI.confirm = async (m) => { otazka = m; return true; };
+        zapis.length = 0;
+        await Inv.backToDraft(id);
+        UI.confirm = conf;
+        res.spat = { otazka: !!otazka, kroky: zapis.filter(z => z.op === 'update' && z.t === 'invoices').map(z => z.patch.status) };
+        UI.closeModal();
+
+        // Po splatnosti appka označí sama aj odoslanú — zaplatenú nie.
+        Inv.items = [{ id: 'a', status: 'sent', due_date: '2020-01-01', partner_id: 'p1' },
+          { id: 'b', status: 'issued', due_date: '2020-01-01', partner_id: 'p1' },
+          { id: 'c', status: 'paid', due_date: '2020-01-01', partner_id: 'p1' },
+          { id: 'd', status: 'cancelled', due_date: '2020-01-01', partner_id: 'p1' }];
+        zapis.length = 0;
+        await Inv._markOverdue();
+        res.poSplatnosti = zapis.filter(z => z.op === 'update' && z.patch.status === 'overdue').map(z => z.id);
         return res;
       });
-      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za živnostníka (v jeho mene)|Za celý mesiac naraz',
-        'Vystaviť faktúru: zo zákazky, voľná Nemcovi, za živnostníka — bez starej ubytovacej agendy', out.volby.join(' | '));
+      ok(out.tlacidlaSchvalena.includes('Vrátiť do návrhu') && !out.tlacidlaSchvalena.includes('Poslať na schválenie'),
+        'schválená faktúra: „Vrátiť do návrhu", nie „Poslať na schválenie"', out.tlacidlaSchvalena.join(' | '));
+      ok(!out.tlacidlaVystavena.includes('Po splatnosti') && !out.tlacidlaSchvalena.includes('Po splatnosti'),
+        'ručné tlačidlo „Po splatnosti" sa neponúka', out.tlacidlaVystavena.join(' | '));
+      ok(out.spat.otazka && JSON.stringify(out.spat.kroky) === JSON.stringify(['pending_approval', 'draft']),
+        'Vrátiť do návrhu sa najprv opýta, potom ide dva kroky späť (schválenie sa zruší)', JSON.stringify(out.spat));
+      ok(JSON.stringify(out.poSplatnosti) === JSON.stringify(['a', 'b']),
+        'po splatnosti sa sama označí odoslaná aj vystavená, zaplatená a stornovaná nie', JSON.stringify(out.poSplatnosti));
+      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za celý mesiac naraz',
+        'Vystaviť faktúru: zo zákazky, voľná Nemcovi, za mesiac — bez starej ubytovacej agendy a bez faktúry za živnostníka', out.volby.join(' | '));
+      ok(out.odkaz && /Faktúry za živnostníkov sa vystavujú v Prijatých faktúrach/.test(out.odkaz.text)
+        && out.odkaz.klik === 'Inv.selfBill()',
+        'faktúra za živnostníka je len odkaz do Prijatých faktúr s tlačidlom', JSON.stringify(out.odkaz));
       ok(JSON.stringify(out.faktura) === JSON.stringify(['draft', 595, '2026101', 'reverse_charge', 'p1']),
         'voľná faktúra vznikne ako návrh s číslom, reverse charge', JSON.stringify(out.faktura));
       ok(JSON.stringify(out.polozky) === JSON.stringify([['Montáž zábradlia', 475, true], ['Doprava', 120, true]]),

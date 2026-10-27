@@ -11,13 +11,19 @@
 // Teraz je **všetko pri zákazke** — sedem krokov pod sebou, v poradí, v akom
 // sa robia, a pri každom jedna veta „čo chýba" a jedno tlačidlo:
 //
-//   1 Dopyt a dohoda        odberateľ, dielo, sadzba, termín
-//   2 Ľudia                 koľko treba a koľko je nasadených
-//   3 Zmluva s Nemcom       zmluva o dielo podpísaná, objednávka od neho
-//   4 Papiere ľudí          GDPR, doklady (A1, živnosť…), hlásenie Zoll
-//   5 Zmluvy a objednávky   rámcová zmluva a objednávka každému živnostníkovi
-//   6 Ubytovanie a doprava  kde ľudia bývajú a kto ich vezie
-//   7 Hodiny a faktúra      hodiny schválené, faktúra vystavená a zaplatená
+//   1 Dopyt a ponuka                   odberateľ, dielo, sadzba, termín
+//   2 Ľudia na stavbu                  koľko treba a koľko je nasadených
+//   3 Zmluva s Nemcom                  zmluva o dielo podpísaná, objednávka od neho
+//   4 Papiere ľudí                     GDPR, doklady (A1, živnosť…), hlásenie Zoll
+//   5 Zmluvy a objednávky živnostníkom rámcová zmluva a objednávka každému
+//   6 Ubytovanie a doprava             kde ľudia bývajú a kto ich vezie
+//   7 Hodiny a faktúra                 Stundennachweis, faktúra, úhrada
+//
+// **Toto poradie je v appke jediné.** Dovtedy mali „Dnes", „Ako to ide"
+// a Papiere (`lib/chain.js`) iné číslovanie než zákazka — objednávka
+// živnostníkovi bola raz krok 6, raz 5. Teraz si `chain.js` berie čísla,
+// kľúče, názvy a ikony odtiaľto (`STEPS`) a dopĺňa k nim len to, čo počíta
+// za celú firmu. Papiere (`components/papers.js`) sa odvolávajú na kľúč.
 //
 // Čisté funkcie, bez `window`. Compliance a päťfázový reťazec sa **nepočítajú
 // tu** — berú sa hotové (`staffing/compliance.js`, `staffing/site.js`), aby
@@ -26,10 +32,15 @@
 // Testy: node app/lib/staffing/job.test.js
 // ============================================================================
 (function () {
-  const STEPS = [
-    { key: 'dopyt', n: 1, title: 'Dopyt a dohoda', ico: 'offers',
+  /**
+   * Sedem krokov práce — jediný zoznam v appke (zákazka, Dnes, Ako to ide,
+   * Papiere). `key` a `n` sa nemenia potichu: viažu sa na ne vysvetlivky
+   * (`flow.<key>` v explain.js) a čísla na Papieroch.
+   */
+  const STEPS = Object.freeze([
+    { key: 'dopyt', n: 1, title: 'Dopyt a ponuka', ico: 'offers',
       lead: 'Kto potrebuje ľudí, aké dielo, za akú sadzbu a od kedy.' },
-    { key: 'ludia', n: 2, title: 'Ľudia', ico: 'workers',
+    { key: 'ludia', n: 2, title: 'Ľudia na stavbu', ico: 'workers',
       lead: 'Koľko ľudí treba a kto pôjde.' },
     { key: 'nemec', n: 3, title: 'Zmluva s Nemcom', ico: 'note',
       lead: 'Zmluva o dielo s odberateľom a jeho objednávka.' },
@@ -40,8 +51,11 @@
     { key: 'ubytovanie', n: 6, title: 'Ubytovanie a doprava', ico: 'bed',
       lead: 'Kde budú ľudia bývať a ako sa dostanú na stavbu.' },
     { key: 'peniaze', n: 7, title: 'Hodiny a faktúra', ico: 'wallet',
-      lead: 'Hodiny schváliť, vystaviť faktúru a dostať zaplatené.' },
-  ];
+      lead: 'Hodiny zo Stundennachweisu schváliť, vystaviť faktúru a dostať zaplatené.' },
+  ].map(s => Object.freeze(s)));
+
+  /** Krok podľa kľúča — `{ key, n, title, ico, lead }` alebo `null`. */
+  const stepByKey = (k) => STEPS.find(s => s.key === k) || null;
 
   const ZAVRETA = ['completed', 'lost', 'cancelled'];
   const PODPISANA = ['signed', 'active', 'completed'];
@@ -137,7 +151,10 @@
     const check = o.check || { ok: true, blockers: [], warnings: [] };
     const site = arr(o.site);
     const s = (k) => site.find(x => x.key === k) || {};
-    const asg = arr(o.assignments).filter(a => a && a.status !== 'cancelled');
+    // Kto odišiel (`ended`), ten už na stavbe nie je: nepočíta sa medzi
+    // nasadených a netreba mu papiere ani objednávku. Hodiny a faktúra sa
+    // berú z reťazca (`site`), kde jeho odpracované hodiny zostávajú.
+    const asg = arr(o.assignments).filter(a => a && a.status !== 'cancelled' && a.status !== 'ended');
     const workers = arr(o.workers);
     const orders = arr(o.orders).filter(x => x && x.status !== 'cancelled');
     const people = asg.map(a => person({
@@ -295,7 +312,7 @@
     return Math.round(2 * R * Math.asin(Math.sqrt(x)) * 10) / 10;
   }
 
-  const API = { STEPS, steps, next, progress, person, nearbySaved, plural, vykat };
+  const API = { STEPS, stepByKey, steps, next, progress, person, nearbySaved, plural, vykat };
   if (typeof window !== 'undefined') window.DanubraJob = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

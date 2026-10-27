@@ -41,10 +41,14 @@
       lead: 'Appka drží jednu vetu: od telefonátu s človekom po peniaze na účte '
         + 'je to jedna cesta a každý krok v nej má svoj záznam.',
       what: [
-        'Vľavo je navigácia zoradená podľa toho, ako práca reálne ide: najprv ľudia '
-        + '(nábor, kandidáti, živnostníci, partie), potom zákazky (ponuka, zmluva, '
-        + 'zákazka, hodiny, výkaz) a nakoniec peniaze (vydané faktúry, náklady, banka).',
-        'Prehľad je prvá obrazovka po prihlásení. Neukazuje databázu — odpovedá na '
+        'Vľavo je menu v tomto poradí: Dnes (Prehľad dňa, úlohy, Ako to ide, '
+        + 'dokumenty, návod), Zákazky (dopyty, ponuky, odberatelia, zmluvy, objednávky, '
+        + 'hodiny, výkaz, ubytovania), Ľudia (živnostníci, nábor, kandidáti, inzeráty, '
+        + 'partie), Fakturácia (vydané a prijaté faktúry, zálohy, banka), Marketing, '
+        + 'Správy a Nastavenia. Pod každou položkou sú jej záložky.',
+        'Hľadanie v hornom pruhu hľadá naprieč appkou — zákazky, ľudí, odberateľov, '
+        + 'dopyty, faktúry aj objednávky. Netreba vedieť, na ktorej obrazovke záznam je.',
+        'Prehľad dňa je prvá obrazovka po prihlásení. Neukazuje databázu — odpovedá na '
         + 'tri otázky, ktoré sa v tomto biznise pýtajú každý deň: čo dnes treba '
         + 'spraviť, bude na výplaty a zarábame na tom.',
         'Zvonček hore hovorí, čo sa stalo, kým ste sa nepozerali. Úlohy hovoria, čo '
@@ -70,13 +74,13 @@
         + 'na presnú aritmetiku. Desatinné číslo v počítači nesedí — pri troch '
         + 'faktúrach to nikto nevidí, pri tristo chýbajú eurá.',
       ],
-      links: [['dashboard', 'Prehľad'], ['tasks', 'Úlohy a pripomienky'],
+      links: [['dashboard', 'Prehľad dňa'], ['tasks', 'Úlohy a pripomienky'],
         ['settings', 'Nastavenia']],
     },
 
     // ── Prehľad ako celok ───────────────────────────────────────────────────
     'screen.dashboard': {
-      title: 'Prehľad',
+      title: 'Prehľad dňa',
       lead: 'Prvá obrazovka po prihlásení. Má odpovedať na tri otázky, nie ukázať, '
         + 'koľko je v databáze riadkov.',
       what: [
@@ -228,7 +232,7 @@
         'Kým sú v systéme, je hore pás, ktorý to hovorí.',
       ],
       how: [
-        'Mazanie ide cez evidenciu, nie cez „vymaž všetko". Takže sa dá spustiť aj '
+        'Mazanie ide cez evidenciu, nie cez „vymazať všetko". Takže sa dá spustiť aj '
         + 'vtedy, keď už v systéme sú ostré záznamy — tých sa to nedotkne.',
         'Potvrdzuje sa napísaním slova VYMAZAŤ. Jedno kliknutie na to nestačí.',
       ],
@@ -425,7 +429,7 @@
       why: ['Inzerát, ktorý vyprší, prestane zbierať dopyt a nikto si to nevšimne.'],
     },
     'screen.money': {
-      title: 'Kde sú peniaze',
+      title: 'Fakturácia',
       lead: 'Dve otázky na jednom mieste: kde stoja naše peniaze a koľko sa z nich '
         + 'dá minúť a dokedy.',
       what: [
@@ -487,16 +491,17 @@
       title: 'Postup: nový odberateľ v Nemecku — rámcová zmluva',
       lead: 'Raz na začiatku spolupráce s nemeckou firmou. Bez podpísanej rámcovej zmluvy sa na stavbu nenasadzuje.',
       steps: [
-        'Menu **Odberatelia v Nemecku** → pridajte firmu: názov, adresa, **USt-IdNr** (appka ho overí), kontaktná osoba, splatnosť faktúr.',
-        'Tlačidlo **Papiere** (hore) → **Rámcová zmluva s Nemcom** → vyberte odberateľa. Zmluva je dvojjazyčne SK/DE a údaje sa doplnia samy.',
+        '**Zákazky → Odberatelia** → pridajte firmu: názov, adresa, **USt-IdNr** (appka ho overí), kontaktná osoba, splatnosť faktúr.',
+        'Tlačidlo **Papiere** (hore) → **Rámcová zmluva s Nemcom** → vyberte odberateľa (to isté je v karte odberateľa tlačidlom **Rámcová zmluva SK/DE**). Zmluva je dvojjazyčne SK/DE a údaje sa doplnia samy.',
         'Skontrolujte ju. Ak treba niečo zmeniť len pre tento výtlačok, **Upraviť text** → prepíšte → **Hotovo**.',
-        '**Uložiť ako PDF** a pošlite ju odberateľovi na podpis. Naša pečiatka (Nastavenia) je už na nej.',
-        'Keď príde podpísaná, zapíšte ju pri odberateľovi (dátum podpisu, platnosť). Appka potom stráži, kedy končí.',
+        '**Stiahnuť PDF** — zmluva sa uloží do **Dokumentov pri odberateľovi** (jeho karta → Dokumenty) a odtiaľ ju pošlete na podpis. Naša pečiatka (Nastavenia) je už na nej.',
+        'Keď príde podpísaná, zapíšte ju v **Zákazky → Zmluvy → Nová zmluva**: druh **Rámcová zmluva**, odberateľ, **Platí od/do** a **Podpísaná dňa**. V jej detaile kliknite **Nahrať sken** a nahrajte podpísaný originál.',
       ],
       watch: [
+        'V Dokumentoch pri odberateľovi sú len PDF, ktoré vyrobila appka — podpísaný sken sa nahráva k zmluve v Zmluvách, nie tam.',
         'Zmena dátumu konca sa robí **dodatkom**, nie prepísaním — pôvodné podmienky zostávajú zapísané.',
       ],
-      links: [['partners', 'Odberatelia v Nemecku']],
+      links: [['partners', 'Odberatelia v Nemecku'], ['contracts', 'Zmluvy']],
     },
     'guide.order': {
       title: 'Postup: zákazka a objednávka od Nemca',
@@ -528,13 +533,15 @@
       lead: 'Z odpracovaných hodín na faktúru — a nikdy bez schválenia administrátorom.',
       steps: [
         '**Odpracované hodiny** — hodiny sa zapisujú priebežne a schvaľujú (podklad je Stundennachweis podpísaný odberateľom).',
-        'Na konci obdobia (napr. 14 dní) otvorte **Zákazky** → zákazka → obdobia → **Uzavrieť**. Uzavreté obdobie sa už nemení.',
-        'Pri uzavretom období kliknite **Fakturovať**. Vznikne **návrh faktúry** (nájdete ho aj v Kde sú peniaze → Vydané faktúry).',
-        'Administrátor návrh otvorí, skontroluje a dá **Schváliť**. Bez toho sa faktúra nevystaví — stráži to aj databáza.',
-        '**Vystaviť** (cez SuperFaktúru, keď bude napojená) a **Odoslať** odberateľovi.',
+        'Na konci obdobia (napr. 14 dní) otvorte **Zákazky** → zákazka → obdobia → **Uzavrieť** a v okne potvrďte **Uzavrieť obdobie**. Uzavreté obdobie sa už nemení.',
+        'Pri uzavretom období kliknite **Fakturovať**. Vznikne **návrh faktúry** (nájdete ho aj vo Fakturácia → Vydané faktúry).',
+        'Návrh otvorte, skontrolujte sumu a odberateľa a kliknite **Poslať na schválenie**.',
+        'Admin návrh otvorí, skontroluje a dá **Schváliť**. Bez toho sa faktúra nevystaví ani neodošle — stráži to aj databáza.',
+        'Schválenú faktúru **Vystaviť v SuperFaktúre** — dostane číslo a PDF — a potom **Odoslať odberateľovi**.',
         'Keď peniaze prídu, **Banka → Načítať výpis** — platba sa spáruje podľa VS a faktúra sa označí ako uhradená.',
       ],
       watch: [
+        'Faktúra sa **nikdy nevystaví ani neodošle bez schválenia adminom** — „Vystaviť v SuperFaktúre" sa ponúkne až pri schválenej faktúre a „Odoslať odberateľovi" až pri vystavenej.',
         'Nemeckým odberateľom sa fakturuje bez DPH (prenesenie daňovej povinnosti, §13b) — appka to doplní sama, ak má odberateľ USt-IdNr.',
         'Máme **Freistellungsbescheinigung §48b** — kým je v Compliance zapísaná ako platná, zrážková stavebná daň 15 % sa neuplatňuje a odberateľ zaplatí celú sumu. Na faktúre je to pre neho napísané po nemecky; kópiu Freistellung by mal mať.',
       ],
@@ -544,7 +551,7 @@
       title: 'Postup: prijaté faktúry, bločky a platby',
       lead: 'Faktúry od živnostníkov a dodávateľov, bločky — a ako ich zaplatiť naraz.',
       steps: [
-        '**Kde sú peniaze → Prijaté faktúry → Nahrať faktúry** (alebo na mobile **Odfotiť faktúru / Odfotiť bloček**).',
+        '**Fakturácia → Prijaté faktúry → Nahrať faktúry** (alebo na mobile **Odfotiť faktúru / Odfotiť bloček**).',
         'Appka doklad prečíta. Otvorte ho v karte **Na kontrolu**, skontrolujte údaje vedľa dokladu a **Potvrdiť**. Bloček zaškrtnite ako **Už zaplatené**.',
         'Faktúru od živnostníka appka porovná so schválenými hodinami. Keď nesedí, je **sporná** — schváliť sa dá len s vysvetlením.',
         'Schválené faktúry → **Pripraviť platby** → stiahnete súbor → v Business Bankingu ho nahráte a podpíšete naraz.',
@@ -661,7 +668,7 @@
         'Je to pohľad, nie zoznam úloh. Úlohy s termínmi sú na obrazovke „Úlohy '
         + 'a pripomienky" — tie si niekto zadal. Tu je to, čo vypočítala appka.',
       ],
-      links: [['dashboard', 'Prehľad'], ['tasks', 'Úlohy a pripomienky']],
+      links: [['dashboard', 'Prehľad dňa'], ['tasks', 'Úlohy a pripomienky']],
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
@@ -829,7 +836,7 @@
         'Číslo „minúť sa dá" je najnižší bod celého výhľadu, nie zostatok na konci. '
         + 'Kto sa pozerá na koniec, minie to, čo bude v treťom týždni chýbať.',
       ],
-      links: [['money', 'Kde sú peniaze'], ['bank', 'Banka a cash-flow']],
+      links: [['money', 'Fakturácia'], ['bank', 'Banka a cash-flow']],
     },
     'card.hire.now': {
       title: 'Čo spraviť teraz v nábore',
@@ -1020,7 +1027,7 @@
         'Toto je jediná obrazovka, kde sa rozhoduje o tom, či sa dá brať ďalší človek. '
         + 'Rozhodnutie podľa starého zostatku je horšie než žiadne rozhodnutie.',
       ],
-      links: [['bank', 'Banka a cash-flow'], ['money', 'Kde sú peniaze']],
+      links: [['bank', 'Banka a cash-flow'], ['money', 'Fakturácia']],
     },
 
     'card.bills.now': {
@@ -1062,7 +1069,7 @@
         'Faktúru po splatnosti appka prestane počítať do cash-flow — radšej opatrne, '
         + 'nech sa nemíňa to, čo ešte neprišlo. Keď peniaze prídu, započítajú sa späť.',
       ],
-      links: [['invoices', 'Vydané faktúry'], ['money', 'Kde sú peniaze']],
+      links: [['invoices', 'Vydané faktúry'], ['money', 'Fakturácia']],
     },
 
     'card.hours.approve': {
@@ -1174,7 +1181,7 @@
         + 'obdobie bez faktúry je hotová práca, za ktorú nikto nezaplatil — a je to '
         + 'najtichšia diera v celom reťazci.',
       ],
-      links: [['invoices', 'Vydané faktúry'], ['money', 'Kde sú peniaze']],
+      links: [['invoices', 'Vydané faktúry'], ['money', 'Fakturácia']],
     },
 
     // ── Päť krokov náboru ────────────────────────────────────────────────
@@ -1395,7 +1402,7 @@
       lead: 'Každé PDF, ktoré sa preňho v appke spravilo — súhlas GDPR, rámcová zmluva, '
         + 'objednávka, infolist, faktúra.',
       what: [
-        'Ukladá sa samo, keď pri dokumente kliknete na „Stiahnuť PDF" alebo „Poslať".',
+        'Ukladá sa samo, keď pri dokumente kliknete na „Stiahnuť PDF", „Tlačiť" alebo „Poslať".',
         'Názov je vždy dátum, druh, číslo a meno — dá sa zoradiť aj v počítači.',
       ],
       how: [
@@ -1537,15 +1544,13 @@
       links: [['crews', 'Partie']],
     },
 
-    // ── Kroky reťazca ───────────────────────────────────────────────────────
-    // Jeden k jednému s `lib/flow.js`. Vysvetľujú **prechod**, nie obrazovku:
-    // čo musí byť hotové, aby sa dalo ísť ďalej, a čo sa stane, keď to hotové
-    // nie je. To je presne tá vec, ktorú sa nový človek učí najdlhšie.
-    // ── Sedem krokov ──────────────────────────────────────────────────────
-    // Toto nie sú obrazovky appky — je to to, čo sa vo firme naozaj robí,
-    // povedané tak, ako to povedal majiteľ.
+    // ── Sedem krokov práce ────────────────────────────────────────────────
+    // Jeden k jednému s krokmi v `lib/staffing/job.js` (tie isté kľúče, čísla
+    // a názvy používa zákazka, „Dnes", „Ako to ide" aj Papiere). Vysvetľujú
+    // **prechod**, nie obrazovku: čo musí byť hotové, aby sa dalo ísť ďalej,
+    // a čo sa stane, keď to hotové nie je.
     'flow.dopyt': {
-      title: '1 · Dopyt na zákazku',
+      title: '1 · Dopyt a ponuka',
       lead: 'Niekto sa ozve, že potrebuje ľudí. Odtiaľ sa všetko ostatné odvíja.',
       what: [
         'Zapisuje to ten, kto hovor prijal — aj keď o zákazke vie zatiaľ málo. '
@@ -1563,14 +1568,15 @@
       ],
       links: [['opportunities', 'Dopyty'], ['quotes', 'Ponuky']],
     },
-    'flow.nabor': {
-      title: '2 · Inzeráty a záujemcovia',
-      lead: 'Dať o tom vedieť a ozvať sa tomu, kto sa ozval.',
+    'flow.ludia': {
+      title: '2 · Ľudia na stavbu',
+      lead: 'Dať o tom vedieť, ozvať sa tomu, kto sa ozval, a nasadiť ho na zákazku.',
       what: [
         'Zo zadania vzniknú texty na web, Bazoš a Facebook, otázky do hovoru '
         + 'aj podklady na reklamu. Spúšťa to človek, nie appka.',
         'Inzerát drží kanál, remeslo, mesto a presné znenie toho, čo sme sľúbili. '
         + 'Dobehnutý sa vypne, nemaže sa — kto zavolá o mesiac, čítal to staré.',
+        'Kto prejde, toho nasadíte na zákazku — jednotlivo alebo celú partiu.',
       ],
       how: [
         'Cieľ je ozvať sa do desiatich minút. Po nich berie prácu inde.',
@@ -1578,13 +1584,13 @@
       why: [
         'Nábor, ktorý beží bez jediného inzerátu, je najtichšia chyba v celom '
         + 'reťazci: nič nehorí, len sa nikto neozýva — a nikoho nenapadne, že je '
-        + 'to preto, že sa nemá kde ozvať.',
+        + 'to preto, že sa nemá kde ozvať. A stavba, ktorá beží bez ľudí, je červená hneď.',
       ],
-      links: [['hiring', 'Nábor'], ['ads', 'Inzeráty']],
+      links: [['hiring', 'Nábor'], ['ads', 'Inzeráty'], ['subcontracts', 'Zákazky']],
     },
     'flow.nemec': {
-      title: '3 · Objednávka a zmluva s Nemcom',
-      lead: 'Rámcová zmluva o dielo a k nej konkrétna objednávka — dvojjazyčne.',
+      title: '3 · Zmluva s Nemcom',
+      lead: 'Zmluva o dielo s odberateľom a k nej jeho objednávka — dvojjazyčne.',
       what: [
         'Dvojjazyčne zámerne: on podpisuje po nemecky, my čítame po slovensky '
         + 'a pri spore je jasné, na čom sme sa dohodli.',
@@ -1602,72 +1608,76 @@
       ],
       links: [['contracts', 'Zmluvy'], ['orders', 'Objednávky']],
     },
-    'flow.gdpr': {
-      title: '4 · Súhlas GDPR od živnostníka',
-      lead: 'Držíme jeho meno, doklady a telefón. Bez súhlasu na to nemáme právo.',
+    'flow.papiere': {
+      title: '4 · Papiere ľudí',
+      lead: 'Súhlas GDPR a platné doklady každého, kto ide na stavbu — A1, živnosť, '
+        + 'totožnosť — a hlásenie Zoll.',
       what: [
-        'Podpisuje sa raz, na začiatku spolupráce, a platí, kým ho neodvolá.',
-        'Týka sa toho, čo o ňom naozaj držíme: doklad totožnosti, A1, živnostenský '
-        + 'list, zdravotné poistenie, telefón a číslo účtu.',
+        'Súhlas GDPR sa podpisuje raz, na začiatku spolupráce, a platí, kým ho '
+        + 'neodvolá. Týka sa toho, čo o ňom naozaj držíme: doklad totožnosti, A1, '
+        + 'živnostenský list, zdravotné poistenie, telefón a číslo účtu.',
+        'Doklady sú A1, živnosť, totožnosť; k zákazke hlásenie Zoll, SOKA-BAU '
+        + 'a USt-IdNr odberateľa. Databáza ich kontroluje **k prvému dňu nástupu**, '
+        + 'nie k dnešku.',
       ],
       how: [
-        'Ukladá sa ku kartotéke človeka ako doklad — rovnako ako A1. Je teda '
-        + 'vidieť, kto ho má a kto nie.',
+        'Súhlas aj doklady sa ukladajú ku kartotéke človeka. Je teda vidieť, kto '
+        + 'ich má a kto nie. A1 sa vybavuje až 45 dní — začnite hneď, ako je jasné, kto ide.',
       ],
       why: [
-        'Človek na stavbe bez podpísaného súhlasu je červený: v tej chvíli už '
-        + 'jeho údaje posielame na nemeckú stavbu a odberateľovi.',
+        'Človek na stavbe bez súhlasu alebo bez platného A1 je červený. Keď papiere '
+        + 'chýbajú, nepokutujú živnostníka — pokutujú nás ako firmu, ktorá ho tam poslala.',
       ],
-      links: [['workers', 'Živnostníci']],
+      links: [['workers', 'Živnostníci'], ['compliance', 'Compliance']],
     },
-    'flow.zmluva': {
-      title: '5 · Zmluva so živnostníkom',
-      lead: 'Rámcová zmluva o dielo podľa §536 Obchodného zákonníka, zvyčajne '
-        + 'do konca kalendárneho roka.',
+    'flow.zivnostnici': {
+      title: '5 · Zmluvy a objednávky živnostníkom',
+      lead: 'Rámcová zmluva o dielo podľa §536 Obchodného zákonníka (zvyčajne do konca '
+        + 'roka) a k nej objednávka na každú stavbu.',
       what: [
         'Rámcová znamená, že sa podpíše raz a potom sa na ňu viažu jednotlivé '
         + 'objednávky. Neuzatvára sa znova pri každej stavbe.',
-        'Je v nej všetko, čo sa potom nemá riešiť na stavbe: fakturácia po '
-        + '14 dňoch, podklady k faktúre, A1 a Freistellung, poistenie, pokuty.',
+        'Objednávka dopĺňa to, čo je pri každej stavbe iné: čo sa robí, kde, '
+        + 'odkedy dokedy a za koľko. Vystavuje sa zo zákazky.',
       ],
       how: [
-        'Končí sa spravidla 31. decembra. Appka upozorní skôr, než sa to stane — '
-        + 'nie potom.',
-      ],
-      why: [
-        'Bez nej to nie je subdodávka, ale zamestnávanie. Pri kontrole to nesie '
-        + 'firma, nie živnostník.',
-      ],
-      links: [['workers', 'Živnostníci'], ['contracts', 'Zmluvy']],
-    },
-    'flow.objednavka': {
-      title: '6 · Objednávka a papiere v poriadku',
-      lead: 'Konkrétna objednávka na konkrétnu stavbu — a papiere, bez ktorých '
-        + 'sa tam nesmie.',
-      what: [
-        'Objednávka sa odvoláva na rámcovú zmluvu a dopĺňa to, čo je pri každej '
-        + 'stavbe iné: čo sa robí, kde, odkedy dokedy a za koľko.',
-        'Papiere sú A1, hlásenie Zoll, SOKA-BAU a USt-IdNr odberateľa. Databáza '
-        + 'ich kontroluje **k prvému dňu nástupu**, nie k dnešku.',
-      ],
-      how: [
+        'Zmluva sa končí spravidla 31. decembra. Appka upozorní skôr, než sa to '
+        + 'stane — nie potom.',
         'Freistellung podľa §48b je na živnostníkovi. Keď ho nemá, zráža sa '
         + '15 % stavebná zrážková daň — a tú si firma započíta oproti jeho faktúre.',
       ],
       why: [
-        'Keď papiere chýbajú, nepokutujú živnostníka — pokutujú nás ako firmu, '
-        + 'ktorá ho tam poslala. A1 sa vybavuje až 45 dní.',
+        'Bez zmluvy a objednávky to nie je subdodávka, ale zamestnávanie. Pri '
+        + 'kontrole to nesie firma, nie živnostník.',
       ],
-      links: [['subcontracts', 'Zákazky'], ['compliance', 'Compliance']],
+      links: [['workers', 'Živnostníci'], ['orders', 'Objednávky']],
     },
-    'flow.stavba': {
-      title: '7 · Ubytovanie, hodiny a faktúry',
-      lead: 'Človek je na stavbe. Má kde spať, hodiny sa zapisujú a z nich '
-        + 'vzniká faktúra.',
+    'flow.ubytovanie': {
+      title: '6 · Ubytovanie a doprava',
+      lead: 'Kde ľudia na stavbe bývajú a kto ich tam vezie.',
       what: [
-        'Z toho istého zápisu hodín vzniká faktúra odberateľovi aj kontrola '
-        + 'faktúry od živnostníka. Nezapisuje sa to dvakrát.',
-        'Súpis prác podpisuje poverená osoba na stavbe — bez neho nie je podklad '
+        'Pobyt sa zapisuje k ubytovaniu pri zákazke — od kedy do kedy kto kde býva. '
+        + 'Obsadenosť sa z toho počíta sama.',
+        'Ubytovanie je náklad zákazky; bez zápisu sa nedá povedať, či na nej zarábame.',
+      ],
+      how: [
+        'Uložené ubytovania sa ponúkajú podľa vzdialenosti od stavby.',
+      ],
+      why: [
+        'Človek bez strechy nad hlavou zo stavby odíde — a s ním aj hodiny, '
+        + 'ktoré sme mali fakturovať.',
+      ],
+      links: [['accommodations', 'Ubytovania'], ['subcontracts', 'Zákazky']],
+    },
+    'flow.peniaze': {
+      title: '7 · Hodiny a faktúra',
+      lead: 'Majster podpíše Stundennachweis, hodiny sa zapíšu a z nich vzniká '
+        + 'faktúra.',
+      what: [
+        'Hodiny sa zapisujú na jednom mieste — „Zapísať hodiny" (ručne alebo '
+        + 'z fotky listu). Z toho istého zápisu vzniká faktúra odberateľovi aj '
+        + 'kontrola faktúry od živnostníka.',
+        'Stundennachweis podpisuje majster na stavbe — bez neho nie je podklad '
         + 'na fakturáciu.',
       ],
       how: [
@@ -2026,7 +2036,7 @@
       how: [
         'Berie sa osemtýždňový výhľad a hľadá sa týždeň s najnižším zostatkom.',
         'Verdikt porovná najnižší bod s prahom z Nastavení. Keď je pod ním, appka '
-        + 'povie, že ďalších ľudí zatiaľ neber.',
+        + 'povie „Ďalších ľudí zatiaľ neberte".',
       ],
       why: [
         'Zostatok na konci je zlý ukazovateľ: môže byť pekný a účet pritom v treťom '
@@ -2154,7 +2164,7 @@
       lead: 'Skupina, ktorá chodí spolu, býva spolu a má jeden výkaz hodín.',
       what: [
         'Partia má vedúceho, členov a zákazku, na ktorej je.',
-        'Výkaz pre odberateľa sa robí za partiu, nie za jednotlivca.',
+        'Výkaz pre odberateľa sa robí za zákazku a týždeň — dá sa vytlačiť aj len za jednu partiu.',
       ],
       how: [
         'Človek môže byť naraz v jednej partii. Presun sa zapíše, takže je vidieť, '
@@ -2271,13 +2281,15 @@
 
     'screen.hoursheet': {
       title: 'Výkaz pre odberateľa',
-      lead: 'Týždenný Stundennachweis po nemecky — jeden za partiu, na podpis na stavbe.',
+      lead: 'Týždenný Stundennachweis po nemecky — jeden za zákazku a týždeň, na tlač a podpis na stavbe.',
       what: [
-        'Výkaz je za jeden kalendárny týždeň a jednu partiu.',
+        'Výkaz je za jeden kalendárny týždeň a jednu zákazku — celú alebo len jednu partiu z nej. '
+        + 'Zákazku appka zistí z nasadení partie v tom týždni; keď sa to nedá, opýta sa.',
         'Má nemecké hlavičky, miesto na podpis stavbyvedúceho a našu pätu s adresou.',
       ],
       how: [
-        'Hodiny sa ťahajú z modulu hodín; v tabuľke sa dajú doplniť priamo.',
+        'Je len na tlač. Hodiny aj podpis majstra sa zapisujú v jednom okne „Zapísať hodiny" '
+        + 'a výkaz ich odtiaľ číta.',
         'Týždne sú podľa ISO — pondelok až nedeľa, číslovanie ako v Nemecku (KW).',
         'Tlačí sa na šírku, má dvanásť stĺpcov.',
       ],

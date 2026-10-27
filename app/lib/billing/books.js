@@ -12,6 +12,14 @@
   const M = (typeof require !== 'undefined' && typeof module !== 'undefined')
     ? require('../money.js') : window.Money;
 
+  // Stav sa v tabuľke píše po slovensky, rovnako ako v appke — účtovníčka
+  // nečíta `pending_approval`. Popisky drží billing/invoice.js.
+  const INV = () => {
+    if (typeof window !== 'undefined' && window.DanubraInvoice) return window.DanubraInvoice;
+    try { return (typeof require !== 'undefined') ? require('./invoice.js') : null; } catch (e) { return null; }
+  };
+  const stav = (s) => { const I = INV(); return I && I.statusLabel ? I.statusLabel(s) : (s || ''); };
+
   const day = (s) => (s ? String(s).slice(0, 10) : '');
   const inRange = (d, from, to) => { const x = day(d); return !!x && x >= from && x <= to; };
 
@@ -71,7 +79,7 @@
     issued: [['Číslo', r => r.invoice_number], ['Vystavená', r => day(r.issue_date)], ['Splatnosť', r => day(r.due_date)],
       ['Odberateľ', r => r.who], ['Režim DPH', r => r.vat_regime === 'reverse_charge' ? 'reverse charge §13b' : (r.vat_regime || '')],
       ['Suma', r => r.total, 'num'], ['Zrážka §48b', r => r.withholding_amount, 'num'], ['Na úhradu', r => r.amount_net, 'num'],
-      ['Stav', r => r.status], ['Uhradená', r => day(r.paid_at)]],
+      ['Stav', r => stav(r.status)], ['Zaplatená', r => day(r.paid_at)]],
     received: [['Dodávateľ', r => r.who], ['Ich číslo', r => r.bill_number], ['VS', r => r.variable_symbol],
       ['Vystavená', r => day(r.issue_date)], ['Splatnosť', r => day(r.due_date)], ['Druh', r => r.category],
       ['Suma', r => r.amount, 'num'], ['Stav', r => r.status], ['Súbor', r => (r.storage_path ? 'áno' : 'chýba')]],

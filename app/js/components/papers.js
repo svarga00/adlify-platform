@@ -8,35 +8,39 @@
 // objednávka na Zákazke, infolist pri nasadení, rámcová zmluva s Nemcom pri
 // odberateľovi. Kto chcel papier, musel vedieť, kde ho hľadať.
 //
-// Tu je to opačne: **vyber papier, vyber človeka (alebo firmu) a je hotový.**
+// Tu je to opačne: **vyberiete papier, vyberiete človeka (alebo firmu) a je hotový.**
 // Údaje sa berú z karty človeka; keď niečo chýba, appka sa na to spýta raz,
 // uloží to k nemu a papier otvorí (`Wrk.doplnit`).
 //
 // Tlačidlo „Papiere" je v hornom pruhu na každej obrazovke.
 // ============================================================================
 (function () {
-  // Poradie je poradie krokov: najprv papiere s Nemcom (3), potom so
-  // živnostníkom (4–6). Číslo pri papieri je to isté ako v menu.
+  // Poradie je poradie krokov práce — tých istých siedmich ako na zákazke,
+  // na „Dnes" aj v „Ako to ide" (`lib/staffing/job.js`, `DanubraJob.STEPS`).
+  // Papier sa odvoláva na **kľúč kroku**, číslo a názov sa berú odtiaľ — preto
+  // sa nemôžu rozísť: zmluva s Nemcom 3, GDPR 4, rámcová zmluva a objednávka
+  // živnostníkovi 5, Stundennachweis 7.
+  const STEP = (k) => (window.DanubraJob && DanubraJob.stepByKey && DanubraJob.stepByKey(k)) || { n: '', title: '' };
   const DOCS = [
-    { key: 'rahmen', who: 'partner', ico: 'note', krok: 3,
+    { key: 'rahmen', who: 'partner', ico: 'note', step: 'nemec',
       title: 'Rámcová zmluva s Nemcom', sub: 'Dvojjazyčne SK/DE, s odberateľom.' },
-    { key: 'bestellung', who: 'order', ico: 'orders', krok: 3,
+    { key: 'bestellung', who: 'order', ico: 'orders', step: 'nemec',
       title: 'Objednávka od Nemca SK/DE', sub: 'Konkrétna objednávka k rámcovej zmluve.' },
-    { key: 'gdpr', who: 'worker', ico: 'shield', krok: 4,
+    { key: 'gdpr', who: 'worker', ico: 'shield', step: 'papiere',
       title: 'Súhlas GDPR', sub: 'Živnostník podpíše, že smieme držať jeho údaje.' },
-    { key: 'zmluva', who: 'worker', ico: 'doc', krok: 5,
+    { key: 'zmluva', who: 'worker', ico: 'doc', step: 'zivnostnici',
       title: 'Rámcová zmluva o dielo', sub: 'So živnostníkom, zvyčajne do konca roka.' },
-    { key: 'objednavka', who: 'worker', ico: 'orders', krok: 6,
+    { key: 'objednavka', who: 'worker', ico: 'orders', step: 'zivnostnici',
       title: 'Objednávka živnostníkovi', sub: 'Na konkrétnu zákazku — čo má urobiť a za koľko.' },
-    { key: 'infolist', who: 'worker', ico: 'pin', krok: 6,
+    { key: 'infolist', who: 'worker', ico: 'pin', step: 'zivnostnici',
       title: 'Infolist na stavbu', sub: 'Kam prísť, kedy, za kým a kde bude spať.' },
     // List na hodiny na týždeň — podpíše ho majster, podľa neho sa fakturuje.
-    { key: 'stundennachweis', who: 'subcontract', ico: 'clock', krok: 7,
+    { key: 'stundennachweis', who: 'subcontract', ico: 'clock', step: 'peniaze',
       title: 'Prázdny Stundennachweis', sub: 'List na hodiny na týždeň s menami ľudí zo stavby.' },
     // Všetko k nástupu v jednej správe — e-mailom, cez WhatsApp alebo SMS.
-    { key: 'balik', who: 'worker', ico: 'mail', krok: 6,
+    { key: 'balik', who: 'worker', ico: 'mail', step: 'zivnostnici',
       title: 'Všetko naraz na nástup', sub: 'Infolist na stavbu aj k ubytovaniu, objednávka a vzor faktúry v jednej správe.' },
-  ];
+  ].map(d => ({ ...d, krok: STEP(d.step).n, krokTitle: STEP(d.step).title }));
 
   const Pap = {
     DOCS,
@@ -56,7 +60,7 @@
                 <b>${UI.esc(d.title)}</b>
                 <em>${UI.esc(d.sub)}</em>
               </span>
-              <span class="pap-krok" title="Krok ${d.krok} zo 7">${d.krok}</span>
+              <span class="pap-krok" title="Krok ${d.krok} zo 7 · ${UI.esc(d.krokTitle)}">${d.krok}</span>
             </button>`).join('')}
         </div>`, { wide: true });
     },

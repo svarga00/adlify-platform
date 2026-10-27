@@ -658,7 +658,74 @@
     return { rows, missing };
   }
 
+  // ── Podpísaný výkaz: jeden zdroj pravdy ──────────────────────────────────
+  // Podpis majstra sa ukladá do `danubra_hour_sheets`. Dovtedy ho tam písali
+  // dve obrazovky inak: okno hodín (HourEntry) **podľa zákazky a týždňa**,
+  // Výkaz pre odberateľa **podľa partie a týždňa** — a podpis zapísaný na
+  // jednom mieste druhé nevidelo. Teraz sa píše len z okna hodín (zákazka +
+  // týždeň); čítajú ho obe a čítajú aj staré riadky partie, ktoré zákazku
+  // nemajú, aby sa nič zapísané nestratilo.
+
+  /**
+   * Výkaz k zákazke a týždňu z riadkov `hour_sheets`.
+   *
+   *   rows            riadky (stačia tie z daného týždňa, ostatné sa vyradia)
+   *   subcontractId   zákazka
+   *   crewIds         partie ľudí zo zákazky — kvôli starým riadkom bez zákazky
+   *   crewId          keď sa pýta konkrétna partia (Výkaz), jej riadok má prednosť
+   *   year, week      ISO týždeň
+   *
+   * Prednosť: podpísaný pred nepodpísaným (podpis sa nesmie „stratiť" za
+   * novším prázdnym riadkom), riadok so zákazkou pred starým riadkom partie,
+   * riadok tej istej partie, nakoniec novší. `null`, keď nie je žiadny.
+   */
+  function pickSheet(rows, o = {}) {
+    const y = Number(o.year), w = Number(o.week);
+    const crews = new Set((o.crewIds || []).filter(Boolean));
+    if (o.crewId) crews.add(o.crewId);
+    const tyzden = (Array.isArray(rows) ? rows : [])
+      .filter(r => r && Number(r.iso_year) === y && Number(r.iso_week) === w);
+    const kand = tyzden.filter(r => (o.subcontractId && r.subcontract_id === o.subcontractId)
+      || (!r.subcontract_id && r.crew_id && crews.has(r.crew_id)));
+    if (!kand.length) return null;
+    const score = (r) => [
+      r.signed_at ? 0 : 1,
+      o.subcontractId && r.subcontract_id === o.subcontractId ? 0 : 1,
+      o.crewId ? (r.crew_id === o.crewId ? 0 : 1) : (r.crew_id ? 1 : 0),
+    ];
+    return kand.slice().sort((a, b) => {
+      const x = score(a), z = score(b);
+      for (let i = 0; i < x.length; i++) if (x[i] !== z[i]) return x[i] - z[i];
+      return String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || ''));
+    })[0];
+  }
+
+  /**
+   * Obsah papiera v čase uloženia (`hour_sheets.snapshot`). Jeden tvar pre
+   * okno hodín aj Výkaz: slovenské kľúče, ktoré čítal Výkaz (dni, riadky,
+   * po_dnoch, spolu, projekt…), a k nim minúty z tabuľky okna hodín.
+   *
+   *   dates   [{ date }] dni týždňa
+   *   rows    [{ worker_id, name, cells: { 'YYYY-MM-DD': minúty } }]
+   */
+  function sheetSnapshot(o = {}) {
+    const dates = (o.dates || []).map(d => (typeof d === 'string' ? d : d.date));
+    const rows = (o.rows || []).map(r => {
+      const min = dates.map(d => Math.round(Number((r.cells || {})[d]) || 0));
+      return { worker_id: r.worker_id || null, meno: r.name || '',
+        hodiny: min.map(hoursDecimal), spolu: hoursDecimal(min.reduce((a, b) => a + b, 0)), minuty: min };
+    });
+    const perDay = dates.map((_, i) => rows.reduce((n, r) => n + r.minuty[i], 0));
+    const total = perDay.reduce((a, b) => a + b, 0);
+    return {
+      dni: dates, riadky: rows, po_dnoch: perDay.map(hoursDecimal), spolu: hoursDecimal(total),
+      projekt: o.project || '', baustelle: o.site || '', kunde: o.customer || '', partia: o.crewName || '',
+      casy: o.days || {}, zdroj: o.source || 'manual',
+    };
+  }
+
   const API = {
+    pickSheet, sheetSnapshot,
     TOOL, instructions, normalize, matchWorkers, check, toTimesheets,
     minutesFrom, parseHours, parsePause, parseTime, parseDate, nameScore,
     hoursDecimal, hoursDe, hm, isoWeek, mondayOfWeek, WD, MATCH_MIN, MATCH_GAP,

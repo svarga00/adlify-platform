@@ -131,6 +131,13 @@
         <form id="bdl-form" onsubmit="event.preventDefault();Bundle.run()">
           <p class="modal-lead">Jedna správa namiesto piatich. Zaškrtnite papiere a cestu, akou ich má dostať.
             ${UI.tip('E-mail: jedna správa, všetky PDF ako prílohy. WhatsApp a SMS: jedna správa s krátkym odkazom, za ktorým sú všetky PDF naraz. Odkaz platí 30 dní a nikto iný ho nevidí, kým ho od Vás nedostane.')}</p>
+          ${!c.lodging ? `<div class="warnbox" style="margin-bottom:10px;">
+            ${Icon('alert', 14)} Najprv zapíšte ubytovanie — inak ${UI.esc(w.full_name || 'živnostník')} nedostane infolist k ubytovaniu.
+            ${UI.tip('Ubytovanie sa k zákazke zapisuje v kroku 6 (Ubytovanie a doprava). Kým tam nie je, infolist k ubytovaniu sa nedá vyrobiť a v balíku bude chýbať. Poslať sa dá aj tak, ale ubytovanie mu potom treba poslať zvlášť.')}
+            <div class="btn-row" style="margin-top:6px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="Sub.showStep('${c.a.subcontract_id}','ubytovanie')">${Icon('bed', 14)} Zapísať ubytovanie</button>
+            </div>
+          </div>` : ''}
           <div class="form-section">Papiere</div>
           <div class="bdl-list">${its.map(it => `
             <label class="bdl-it${it.off ? ' is-off' : ''}${it.bad ? ' is-bad' : ''}">
