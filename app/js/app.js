@@ -237,8 +237,6 @@ window.Danubra = {
     task:       { route: 'tasks',        handle: 'Tsk',   ico: 'tasks',     what: 'Úloha', method: 'form' },
     accommodation: { route: 'accommodations', handle: 'Acc', ico: 'bed',    what: 'Ubytovanie' },
     order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka' },
-    // Dopyt — kvôli hľadaniu v hornom pruhu; `#/opportunities/<id>` otvorí jeho kartu.
-    opportunity:{ route: 'opportunities', handle: 'Opp', ico: 'offers',    what: 'Dopyt' },
   },
 
   /** Vie sa na tento typ záznamu vôbec preklikať? */
@@ -1148,8 +1146,8 @@ window.Danubra = {
   // nič nerobilo. Hľadá sa naprieč hlavnými záznamami naraz — netreba vedieť,
   // na ktorej obrazovke záznam je. Klik alebo Enter otvorí jeho detail.
   //
-  // Zoznam sa načíta raz (malé dotazy, len stĺpce na hľadanie) a drží sa dve
-  // minúty; filtruje sa v prehliadači, takže „kosice" nájde Košice a
+  // Zoznam sa načíta raz (malé dotazy, len stĺpce na hľadanie) a drží sa
+  // minútu; filtruje sa v prehliadači, takže „kosice" nájde Košice a
   // „0905 123" nájde +421 905 123 456. Hľadá sa len v tom, kam má človek
   // právo — záznam, ktorý by sa nedal otvoriť, sa neponúkne.
   SEARCH: [
@@ -1169,7 +1167,11 @@ window.Danubra = {
       select: 'id,name,ust_idnr,city',
       fields: ['name', 'ust_idnr', 'city'],
       main: r => r.name, sub: r => [r.ust_idnr && `USt-IdNr ${r.ust_idnr}`, r.city] },
+    // Dopyt nie je v `entities` zámerne: `Opp.detail` si kartu otvára sám
+    // (cez `openId`) a router by mu ju pri prepnutí na `#/opportunities`
+    // hneď zavrel (`_closeOpenRecord`). Preto vlastné otvorenie.
     { type: 'opportunity', group: 'Dopyty', table: 'opportunities', ico: 'offers',
+      route: 'opportunities', open: (id) => Opp.detail(id), avail: () => !!window.Opp,
       select: 'id,title,company_name,city',
       fields: ['title', 'company_name', 'city'],
       main: r => r.title || r.company_name, sub: r => [r.company_name, r.city] },
@@ -1219,9 +1221,11 @@ window.Danubra = {
 
   /** Zoznam na hľadanie. Čo sa nenačíta (právo, sieť), je len prázdne. */
   async _searchIndex() {
-    if (this._sIdx && Date.now() - this._sAt < 120000) return this._sIdx;
+    if (this._sIdx && Date.now() - this._sAt < 60000) return this._sIdx;
     if (this._sLoading) return this._sLoading;
-    const src = this.SEARCH.filter(s => this.canOpen(s.type, 'x'));
+    const src = this.SEARCH.filter(s => (s.open
+      ? this.routeAvailable(s.route) && s.avail()
+      : this.canOpen(s.type, 'x')));
     const get = async (table, select) => {
       try {
         const { data, error } = await DB.from(table).select(select).limit(2000);
@@ -1273,7 +1277,7 @@ window.Danubra = {
         const main = String(s.main(r) || '').trim();
         // Čo sa začína hľadaným textom, ide prvé — „Ko" chce Košice, nie Bratislavu-Koliba.
         const score = Shell.norm(main).startsWith(nq) ? 0 : 1;
-        return { type: s.type, id: r.id, group: s.group, ico: s.ico, score,
+        return { type: s.type, id: r.id, group: s.group, ico: s.ico, score, open: s.open || null,
           main: main || '—',
           sub: (s.sub(r, idx) || []).filter(Boolean).join(' · ') };
       }).sort((a, b) => a.score - b.score || a.main.localeCompare(b.main, 'sk'));
@@ -1401,6 +1405,12 @@ window.Danubra = {
     if (el) { el.value = ''; el.blur(); }
     UI.closeModal();
     if (document.getElementById('mega')) this.toggleMega(false);
+    if (h.open) {
+      return Promise.resolve().then(() => h.open(h.id)).catch((e) => {
+        console.error('[danubra] záznam z hľadania sa neotvoril', h.type, h.id, e);
+        UI.toast('Záznam sa nepodarilo otvoriť.', 'err');
+      });
+    }
     this.open(h.type, h.id);
   },
 

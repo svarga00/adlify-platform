@@ -3056,6 +3056,7 @@ console.log('Prehliadač');
           otvorene: [...view.querySelectorAll('.js-step.is-open')].map(e => e.id),
           tlacidla: view.querySelectorAll('.js-step.is-open .js-body .btn').length,
           sekTaby: view.querySelectorAll('.sec-tab').length,
+          retazec: DanubraChain.STEPS.map(k => `${k.n}. ${k.title}`).join(' | '),
         };
       });
 
@@ -3064,8 +3065,11 @@ console.log('Prehliadač');
         out.teraz.slice(0, 160));
       ok(out.kroky.length === 7, 'pod tým je sedem krokov',
         `${out.kroky.length}: ${out.kroky.join(' | ')}`);
-      ok(out.kroky[0] === '1. Dopyt a dohoda' && out.kroky[6] === '7. Hodiny a faktúra',
+      ok(out.kroky[0] === '1. Dopyt a ponuka' && out.kroky[6] === '7. Hodiny a faktúra',
         'od dopytu po faktúru', out.kroky.join(' | '));
+      // Tie isté čísla a názvy ako na „Dnes", v „Ako to ide" a na Papieroch.
+      ok(out.kroky.join(' | ') === out.retazec,
+        'kroky zákazky sa volajú rovnako ako kroky na Dnes a v Ako to ide', out.kroky.join(' | '));
       ok(out.stavy.filter(s => s === 'ok').length >= 2,
         'čo je hotové, je zelené', out.stavy.join(','));
       ok(out.otvorene.length === 1 && out.otvorene[0] === 'js-papiere',
