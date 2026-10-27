@@ -66,7 +66,7 @@
       </section>`).join('')}
       ${(G.GLOSSARY || []).length ? `<section class="gd-ch"><h2 class="ss-h"><b>${ch.length + 1}</b>Slovníček pojmov</h2>
         <dl class="gd-gl">${G.GLOSSARY.map(g => `<dt>${esc(g.term)}</dt><dd>${esc(g.text)}</dd>`).join('')}</dl></section>` : ''}
-      ${P().foot(supplier)}`;
+      ${P().footSigned(supplier, 'sk', 'Interný návod pre kolegov — nie je to doklad')}`;
     return P().shell('Návod k appke', body, { css: CSS, editable: false });
   }
 
@@ -85,7 +85,7 @@
       </div>
       <div class="note info" style="margin-top:12px">Keď si nie ste istí: kliknite na otáznik pri poli
         alebo tlačidle. Celý návod je v appke v menu Dnes → Návod.</div>
-      ${P().foot(supplier)}`;
+      ${P().footSigned(supplier, 'sk', 'Interný návod pre kolegov — nie je to doklad')}`;
     return P().shell('Ťahák k appke', body, { css: CSS, editable: false });
   }
 
