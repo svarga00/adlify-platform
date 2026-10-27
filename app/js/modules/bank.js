@@ -136,7 +136,7 @@
       // presne tá faktúra, na ktorú sa čaká, nie len zoznam faktúr.
       const TYPE = { invoice: 'invoice', bill: 'bill' };
       const row = (it) => `
-        <div class="list-row" style="cursor:default;align-items:flex-start;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${it.overdue ? 'red' : Money.toCents(it.amount) > 0 ? 'green' : ''}"
                 style="margin-top:6px;"></span>
           <span style="flex:1;font-size:13px;min-width:0;">
@@ -166,7 +166,7 @@
       const row = (t) => {
         const cents = Money.toCents(t.amount);
         const matched = t.matched_invoice_id || t.matched_bill_id || t.matched_cost_id;
-        return `<div class="list-row" onclick="Bank.txDetail('${t.id}')">
+        return `<div class="list-row" role="button" tabindex="0" onclick="Bank.txDetail('${t.id}')">
           <span class="dot ${t.match_status === 'unmatched' ? 'amber'
             : t.match_status === 'ignored' ? '' : 'green'}"></span>
           <span style="flex:1;font-size:13px;">

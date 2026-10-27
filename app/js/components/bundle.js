@@ -98,6 +98,9 @@
         : { key: 'objednavka', title: 'Objednávka', on: false, off: true, note: 'Objednávka ešte nie je vystavená.' });
       out.push({ key: 'vzor_faktury', title: c.worker.self_billing_prefix ? 'Ako fakturujeme za Vás (samofakturácia)' : 'Vzor faktúry — ako nám fakturovať',
         on: c.worker.legal_form !== 'employee', make: true, note: 'S jeho sadzbou a našimi údajmi.' });
+      // Prázdny Stundennachweis — „toto im musíme posielať prázdne aj s infolistami".
+      out.push({ key: 'stundennachweis', title: 'Prázdny Stundennachweis', on: true, make: true,
+        note: 'List na hodiny na celý týždeň — podpíše ho majster, podľa neho fakturujeme.' });
       const zml = c.archived('ramcova');
       out.push(zml ? { key: 'zmluva', title: 'Rámcová zmluva', on: false, row: zml, note: 'Z dokumentov — zvyčajne už podpísaná osobne.' }
         : { key: 'zmluva', title: 'Rámcová zmluva', on: false, off: true, note: 'V dokumentoch zatiaľ nie je PDF.' });
@@ -132,7 +135,7 @@
           <div class="bdl-list">${its.map(it => `
             <label class="bdl-it${it.off ? ' is-off' : ''}${it.bad ? ' is-bad' : ''}">
               <input type="checkbox" name="it_${it.key}" ${it.on && !it.off ? 'checked' : ''} ${it.off ? 'disabled' : ''}>
-              <span class="bdl-ico">${Icon(it.key === 'ubytovanie' ? 'bed' : it.key === 'objednavka' ? 'orders' : it.key === 'vzor_faktury' ? 'invoices' : it.key === 'gdpr' ? 'shield' : 'doc', 17)}</span>
+              <span class="bdl-ico">${Icon(it.key === 'ubytovanie' ? 'bed' : it.key === 'objednavka' ? 'orders' : it.key === 'vzor_faktury' ? 'invoices' : it.key === 'gdpr' ? 'shield' : it.key === 'stundennachweis' ? 'clock' : 'doc', 17)}</span>
               <span class="bdl-txt"><b>${UI.esc(it.title)}</b><em>${UI.esc(it.note || '')}</em></span>
             </label>`).join('')}</div>
           <div class="form-section">Kolegovia a kontakt ${UI.tip('Na infoliste a v správe uvidí, komu zavolať na stavbe: členov svojej partie, alebo kontaktnú osobu, ktorú mu vyberiete pri nasadení.')}</div>
@@ -174,6 +177,16 @@
       if (key === 'vzor_faktury') {
         return { html: P().invoiceGuide({ worker: c.worker, assignment: c.a, subcontract: c.sc, supplier: c.supplier }),
           meta: { ...base, kind: 'invoice_guide', title: 'Vzor faktúry' } };
+      }
+      if (key === 'stundennachweis') {
+        const HSL = window.DanubraHourSheet;
+        const start = c.a.date_from && c.a.date_from > new Date().toISOString().slice(0, 10) ? c.a.date_from : new Date().toISOString().slice(0, 10);
+        const week = HSL ? HSL.isoWeek(new Date(`${start}T12:00:00Z`)) : null;
+        const names = [c.worker, ...((c.colleagues && c.colleagues.people) || [])].filter(Boolean)
+          .map(p => ({ full_name: p.full_name || p.name })).filter(p => p.full_name);
+        return { html: P().stundennachweis({ supplier: c.supplier, subcontract: c.sc, partner: c.partner,
+          week, workers: names, rows: Math.max(6, names.length) }),
+          meta: { ...base, kind: 'stundennachweis', title: 'Stundennachweis', lang: 'de' } };
       }
       if (key === 'objednavka' && c.order) {
         const o = c.order;

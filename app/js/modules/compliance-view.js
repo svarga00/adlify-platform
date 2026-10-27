@@ -120,7 +120,7 @@
 
         ${missing.length ? `
         <div class="form-section">Čo ešte chýba zaevidovať</div>
-        ${missing.map(k => `<div class="list-row" style="cursor:default;align-items:flex-start;">
+        ${missing.map(k => `<div class="list-row" style="align-items:flex-start;">
           <span class="dot amber" style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;"><strong>${UI.esc(k[1])}</strong>${UI.tip(KIND_TIP[k[0]] || '')}
             ${k[2] ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(k[2])}</span>` : ''}</span>
@@ -129,7 +129,7 @@
 
         ${a1Problems.length ? `
         <div class="form-section">A1 pracovníkov${UI.tip(TIP_A1 + ' Vybavenie trvá až 45 dní, preto treba žiadať včas.')}</div>
-        ${a1Problems.map(x => `<div class="list-row" style="cursor:default;">
+        ${a1Problems.map(x => `<div class="list-row">
           <span class="dot ${x.st === 'expiring' ? 'amber' : 'red'}"></span>
           <span style="flex:1;font-size:13px;"><strong>${UI.esc(x.worker.full_name)}</strong>
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
@@ -160,7 +160,7 @@
       const st = this.state(i);
       const kind = KINDS.find(k => k[0] === i.kind);
       return `
-        <div class="list-row" onclick="Cmp.form('${i.id}')" style="align-items:flex-start;">
+        <div class="list-row" role="button" tabindex="0" onclick="Cmp.form('${i.id}')" style="align-items:flex-start;">
           <span class="dot ${st === 'valid' ? 'green' : st === 'expiring' ? 'amber' : 'red'}" style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(this.kindLabel(i.kind))}</strong>${UI.tip(KIND_TIP[i.kind] || '')}

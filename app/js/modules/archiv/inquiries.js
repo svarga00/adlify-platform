@@ -78,7 +78,7 @@
       const nights = UI.nights(i.date_from, i.date_to);
       const noReply = !i.first_response_at && (i.status || 'new') === 'new';
       return `
-        <div class="acc-card card" onclick="Inq.detail('${i.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Inq.detail('${i.id}')">
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${UI.esc(i.target_city || 'Bez mesta')}${i.urgent ? ` <span style="color:var(--red);">${Icon('zap', 14)}</span>` : ''}</div>

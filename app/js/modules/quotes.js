@@ -51,7 +51,7 @@
         const m = rev.margin;
         const tone = m.perHour < 0 ? 'red' : (rev.warnings.length ? 'amber' : 'green');
         return `
-          <div class="card card-pad list-card" onclick="Quo.detail('${q.id}')">
+          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Quo.detail('${q.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(q.title)}</div>
               ${UI.badge(Enums.label('quote_status', q.status), this.statusKind(q.status))}

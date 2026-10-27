@@ -235,7 +235,7 @@
       const mins = this.responseMinutes(c);
       const waiting = c.status === 'new' && !c.first_contact_at;
       const pr = this.progressOf(c);
-      return `<div class="kanban-card${c.outcome ? ' is-closed' : ''}" onclick="Cand.detail('${c.id}')">
+      return `<div class="kanban-card${c.outcome ? ' is-closed' : ''}" role="button" tabindex="0" onclick="Cand.detail('${c.id}')">
         <div style="font-weight:700;font-size:13px;">
           ${UI.esc(c.full_name)}
           ${c.type === 'crew' ? UI.badge(`partia ${c.crew_size || ''}`.trim(), 'blue') : ''}
@@ -268,7 +268,7 @@
       return rows.map(c => {
         const mins = this.responseMinutes(c);
         const pr = this.progressOf(c);
-        return `<div class="list-row${c.outcome ? ' is-closed' : ''}" onclick="Cand.detail('${c.id}')">
+        return `<div class="list-row${c.outcome ? ' is-closed' : ''}" role="button" tabindex="0" onclick="Cand.detail('${c.id}')">
           <span class="dot ${pr.flagCount ? 'red' : ['ready', 'placed'].includes(c.status) ? 'green'
             : c.status === 'new' && !c.first_contact_at ? 'amber' : ''}"></span>
           <span style="flex:1;font-size:13px;">
@@ -317,7 +317,7 @@
         ${veta ? `<div style="font-size:13px;color:var(--ink-sub);margin:0 0 8px;">
           ${UI.esc(veta)}</div>` : ''}
         ${rows.map(r => `
-          <div class="list-row" style="cursor:default;align-items:center;">
+          <div class="list-row" style="align-items:center;">
             <span style="flex:0 0 190px;font-size:13px;min-width:0;">
               <strong>${UI.esc(r.label)}</strong>
               <span style="display:block;color:var(--ink-mute);font-size:11.5px;">

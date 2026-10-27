@@ -375,7 +375,7 @@
     detail(id) {
       const s = this.sendsOf(id);
       const T = { queued: 'čaká', sent: 'odoslané', failed: 'chyba', skipped: 'preskočené' };
-      UI.modal('Adresáti', `<div class="mf-list">${s.map(x => `<div class="mf-row" style="cursor:default;">
+      UI.modal('Adresáti', `<div class="mf-list">${s.map(x => `<div class="mf-row">
         <span class="mf-main"><b>${UI.esc(x.name || x.email)}</b><em>${UI.esc(x.email)}${x.error ? ` · ${UI.esc(x.error)}` : ''}</em></span>
         <span class="mf-sum">${T[x.status] || x.status}${x.sent_at ? ` · ${UI.date(x.sent_at)}` : ''}</span></div>`).join('') || '<div class="js-empty">Bez adresátov.</div>'}</div>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });

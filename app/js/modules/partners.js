@@ -137,7 +137,7 @@
     card(p) {
       const subs = this.subsOf(p.id);
       return `
-        <div class="acc-card card" onclick="Prt.detail('${p.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Prt.detail('${p.id}')">
           <div class="acc-card-head">
             <div class="w-head" style="min-width:0;">
               ${this.logo(p)}

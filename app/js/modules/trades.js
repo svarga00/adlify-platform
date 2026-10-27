@@ -344,7 +344,7 @@
       const card = (t) => {
         const c = this.stateOf(t);
         const tone = c.ready ? 'green' : (c.questions < DanubraTrade.QUESTIONS_MIN ? 'red' : 'amber');
-        return `<div class="card card-pad trade-card" onclick="Trades.open('${t.key}')">
+        return `<div class="card card-pad trade-card" role="button" tabindex="0" onclick="Trades.open('${t.key}')">
           <div class="card-head">
             <div class="card-title">${UI.esc(t.name_sk)}</div>
             ${t.regulated ? UI.badge('regulované', 'amber') + UI.tip('Toto remeslo smie cudzinec v Nemecku robiť len po ohlásení remeselnej komore (Handwerkskammer, §9 HwO).') : ''}
@@ -394,7 +394,7 @@
       const pend = rows.filter(c => c.active === false);
       const live = rows.filter(c => c.active !== false);
 
-      const row = (c) => `<div class="list-row" onclick="Trades.chipForm('${c.id}')" style="align-items:center;">
+      const row = (c) => `<div class="list-row" role="button" tabindex="0" onclick="Trades.chipForm('${c.id}')" style="align-items:center;">
         <span class="chip chip-${c.polarity} on static" style="margin-right:8px;">${UI.esc(c.label)}</span>
         <span style="flex:1;font-size:12px;color:var(--ink-mute);">
           ${SEG[c.segment] || c.segment} · ${UI.esc(this.tradeName(c.trade_key))}
@@ -490,7 +490,7 @@
 
     qRow(q) {
       const k = KIND[q.kind] || KIND.knowledge;
-      return `<div class="list-row" onclick="Trades.qForm('${q.id}')" style="align-items:flex-start;">
+      return `<div class="list-row" role="button" tabindex="0" onclick="Trades.qForm('${q.id}')" style="align-items:flex-start;">
         <span style="flex:1;font-size:13px;">
           <strong>${UI.esc(q.question_sk)}</strong>
           <span style="display:block;color:var(--ink-mute);font-size:12px;margin-top:2px;">

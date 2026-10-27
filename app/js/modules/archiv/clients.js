@@ -68,7 +68,7 @@
     card(c) {
       const r = regime(c);
       return `
-        <div class="acc-card card" onclick="Cli.detail('${c.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Cli.detail('${c.id}')">
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${UI.esc(c.name)}</div>

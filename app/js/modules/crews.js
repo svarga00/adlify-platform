@@ -50,7 +50,7 @@
         });
         const problems = rev.reasons.length + rev.warnings.length;
         return `
-          <div class="card card-pad list-card" onclick="Crews.detail('${c.id}')">
+          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Crews.detail('${c.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(c.name)}</div>
               ${UI.badge(this.statusLabel(c.status), this.statusKind(c.status))}
@@ -105,7 +105,7 @@
         const ready = DanubraDocs.readiness({
           docs, workType: 'construction', regulated: !!(w && w.regulated_trade),
         });
-        return `<div class="list-row" onclick="UI.closeModal();Wrk.detail('${m.worker_id}')">
+        return `<div class="list-row" role="button" tabindex="0" onclick="UI.closeModal();Wrk.detail('${m.worker_id}')">
           <span class="dot ${ready.ok ? 'green' : 'red'}"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(w ? w.full_name : '(neznámy)')}</strong>
@@ -122,7 +122,7 @@
 
       const pastRow = (m) => {
         const w = this.workerOf(m.worker_id);
-        return `<div class="list-row" style="cursor:default;opacity:.7;">
+        return `<div class="list-row" style="opacity:.7;">
           <span class="dot"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(w ? w.full_name : '(neznámy)')}</strong>

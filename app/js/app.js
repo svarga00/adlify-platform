@@ -1963,6 +1963,8 @@ window.Danubra = {
         Keď idete naostro, vymažte ich; ostrých dát sa to nedotkne.
       </span>
       ${Help.btn('dash.demo')}
+      ${window.DemoDocs ? `<button class="btn btn-outline btn-sm" onclick="DemoDocs.run()">
+        ${Icon('doc', 14)} Vyrobiť dokumenty</button>${UI.tip('Ku všetkým vzorovým ľuďom, zákazkám, objednávkam, ponukám a faktúram vyrobí PDF v novom vzhľade a uloží ich do Dokumentov. Ostrých záznamov sa to nedotkne.')}` : ''}
       <button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
         ${Icon('trash', 14)} Vymazať vzorové dáta</button>
     </div>`;
@@ -2122,7 +2124,7 @@ window.Danubra = {
       ${this._cardHead('zap', 'Rýchle akcie', '', '', '', 'card.actions')}
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${act('Guide.startCall()', 'phone', 'Zdvihol som telefón', true)}
-        ${act("Danubra.go('timesheets')", 'clock', 'Zapísať hodiny')}
+        ${act(window.HourEntry ? 'HourEntry.open()' : "Danubra.go('timesheets')", 'clock', 'Zapísať hodiny (Stundennachweis)')}
         ${act("Danubra.go('quotes')", 'offers', 'Nová ponuka odberateľovi')}
         ${act("Danubra.go('bank')", 'upload', 'Načítať výpis z účtu')}
         ${act('Hire.wizard()', 'zap', 'Nový nábor')}
@@ -3027,7 +3029,7 @@ window.Danubra = {
         Shell.plural(b.sites, 'zákazke', 'zákazkách', 'zákazkách')} s ${b.people} ${
         Shell.plural(b.people, 'človekom', 'ľuďmi', 'ľuďmi')}.</p>
       ${this._bookRows(x).slice(0, 5).map(r => `
-        <div class="list-row" style="cursor:default;">
+        <div class="list-row">
           <span class="dot ${r.days ? 'green' : 'amber'}"></span>
           <span style="flex:1;min-width:0;">
             ${Danubra.link('subcontract', r.id, r.title)}
@@ -3099,7 +3101,7 @@ window.Danubra = {
         Shell.plural(h.plans, 'bežiacom nábore', 'bežiacich náboroch', 'bežiacich náboroch')}${
         h.urgent ? `, z toho ${h.urgent} s nástupom do dvoch týždňov` : ''}.</p>
       ${h.rows.map(r => `
-        <div class="list-row" style="cursor:default;" onclick="Danubra.go('hiring')">
+        <div class="list-row" role="button" tabindex="0" onclick="Danubra.go('hiring')">
           <span class="dot ${r.urgent ? 'red' : 'amber'}"></span>
           <span style="flex:1;min-width:0;">
             <strong>${UI.esc(r.city)}</strong>
@@ -3130,7 +3132,7 @@ window.Danubra = {
         `<span class="badge" style="background:var(--amber-50);color:var(--amber);">${alerts.length}</span>`,
         'alerts')}
       ${head.map(r => `
-        <div class="list-row" style="align-items:flex-start;cursor:default;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${r.dot}" style="margin-top:6px;"></span>
           <span style="flex:1;min-width:0;">
             <button class="link-inline" style="color:var(--ink);font-weight:600;display:block;text-align:left;"
@@ -3145,7 +3147,7 @@ window.Danubra = {
       ${rest.length ? `<details class="more-block">
         <summary>Ďalších ${rest.length} ${Shell.plural(rest.length, 'vec', 'veci', 'vecí')}</summary>
         ${rest.map(r => `
-          <div class="list-row" style="align-items:flex-start;cursor:default;">
+          <div class="list-row" style="align-items:flex-start;">
             <span class="dot ${r.dot}" style="margin-top:6px;"></span>
             <span style="flex:1;min-width:0;">
               <button class="link-inline" style="color:var(--ink);font-weight:600;display:block;text-align:left;"
@@ -3179,7 +3181,7 @@ window.Danubra = {
       ${shown.length ? shown.map(g => `
         <div class="form-section" style="margin-top:10px;">${UI.esc(g.label)}</div>
         ${g.tasks.map(t => `
-          <div class="list-row" style="align-items:flex-start;cursor:default;">
+          <div class="list-row" style="align-items:flex-start;">
             <span class="dot ${g.tone === 'red' ? 'red' : g.tone === 'amber' ? 'amber' : ''}"
                   style="margin-top:6px;"></span>
             <span style="flex:1;min-width:0;">
@@ -3221,7 +3223,7 @@ window.Danubra = {
         { aria: 'Priebeh zostatku na osem týždňov',
           color: f.negativeFrom ? DanubraChart.OUT : DanubraChart.IN })}
       ${[...s.reasons, ...s.warnings].slice(0, 3).map(r => `
-        <div class="list-row" style="cursor:default;align-items:flex-start;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${r.severity === 'block' ? 'red' : 'amber'}" style="margin-top:5px;"></span>
           <span style="flex:1;font-size:12.5px;"><strong>${UI.esc(r.label)}</strong>
             <span style="color:var(--ink-mute);display:block;">${UI.esc(r.detail || '')}</span></span>

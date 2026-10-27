@@ -30,6 +30,9 @@
       title: 'Objednávka živnostníkovi', sub: 'Na konkrétnu zákazku — čo má urobiť a za koľko.' },
     { key: 'infolist', who: 'worker', ico: 'pin', krok: 6,
       title: 'Infolist na stavbu', sub: 'Kam prísť, kedy, za kým a kde bude spať.' },
+    // List na hodiny na týždeň — podpíše ho majster, podľa neho sa fakturuje.
+    { key: 'stundennachweis', who: 'subcontract', ico: 'clock', krok: 7,
+      title: 'Prázdny Stundennachweis', sub: 'List na hodiny na týždeň s menami ľudí zo stavby.' },
     // Všetko k nástupu v jednej správe — e-mailom, cez WhatsApp alebo SMS.
     { key: 'balik', who: 'worker', ico: 'mail', krok: 6,
       title: 'Všetko naraz na nástup', sub: 'Infolist na stavbu aj k ubytovaniu, objednávka a vzor faktúry v jednej správe.' },
@@ -60,6 +63,7 @@
 
     available(d) {
       if (d.who === 'worker') return !!window.Wrk && Danubra.routeAvailable('workers');
+      if (d.who === 'subcontract') return !!window.HourEntry && Danubra.routeAvailable('subcontracts');
       if (d.who === 'partner') return !!window.Prt && Danubra.routeAvailable('partners');
       if (d.who === 'order') return !!window.Ord && Danubra.routeAvailable('orders');
       return false;
@@ -70,6 +74,9 @@
       this.doc = DOCS.find(d => d.key === key);
       this.q = '';
       if (!this.doc) return;
+      // Stundennachweis patrí zákazke a týždňu — vyberá sa v okne hodín,
+      // ktoré má tlačidlo „Prázdny list na tlač".
+      if (this.doc.who === 'subcontract') { UI.closeModal(); return HourEntry.open(); }
       const mod = { worker: window.Wrk, partner: window.Prt, order: window.Ord }[this.doc.who];
       if (mod && !mod.loaded) {
         UI.modal(this.doc.title, UI.loading());

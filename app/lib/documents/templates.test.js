@@ -746,5 +746,45 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(/runfoot plain/.test(self) && !/class="brand-word"/.test(self), 'faktúra za živnostníka je jeho — bez našej značky');
 }
 
+// ── Stundennachweis (list na hodiny, na šírku) ──────────────────────────────
+{
+  const SUP = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, 940 71 Nové Zámky', company_id: '57553921' };
+  const SUB = { title: 'Wohnpark Feuerbach', contract_number: 'ZAK-2026-0003', site_name: 'Haus C', site_city: 'Stuttgart' };
+  const strip = (h) => h.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+  const blank = P.stundennachweis({ supplier: SUP, subcontract: SUB, partner: { name: 'GU Ulm GmbH' },
+    week: { year: 2026, week: 43 }, workers: [{ full_name: 'Peter Mynárik' }, { full_name: 'Ákos Papp' }], rows: 6 });
+  const t = strip(blank);
+  ok(/<html lang="de" data-orient="landscape">/.test(blank), 'list je označený na šírku (pre PDF)');
+  ok(/@page\{size:A4 landscape/.test(blank), 'aj pre tlač');
+  ok(/Stundennachweis/.test(t) && /KW 43 2026/.test(t) && /19\.10\. – 24\.10\.2026/.test(t), 'KW a dátumy týždňa', t.slice(0, 300));
+  ok(/Montag/.test(t) && /Samstag/.test(t) && !/Sonntag/.test(t) && /Insgesamt/.test(t), 'stĺpce Po–So a Insgesamt, nedeľa nie');
+  ok(/Stunden \(von – bis\)/.test(t) && /Pause/.test(t) && /Datum/.test(t), 'riadky Datum, von–bis, Pause');
+  ok(/Wohnpark Feuerbach/.test(t) && /Haus C, Stuttgart/.test(t) && /GU Ulm GmbH/.test(t), 'Projekt, Baustelle, Kunde sú predvyplnené');
+  ok(/1 Peter Mynárik/.test(t) && /2 Ákos Papp/.test(t), 'mená sú v riadkoch');
+  eq((blank.match(/<tr class="hn-p">/g) || []).length, 6, 'šesť riadkov — zvyšok prázdny na dopísanie');
+  ok(/Name in Druckbuchstaben/.test(t) && /Unterschrift des Kunden/.test(t), 'miesto na meno a podpis odberateľa');
+  ok(t.includes(P.STUNDEN_LEGAL), 'veta o potvrdení hodín a bezchybného diela');
+  ok(/IČO 57553921/.test(t), 'päta s našimi údajmi');
+  const empty = strip(P.stundennachweis({ supplier: SUP }));
+  ok(!/\d{2}\.\d{2}\.\d{4}/.test(empty.replace(/IČO \d+/, '')), 'bez týždňa nie sú na liste dátumy');
+
+  const S = require('../staffing/hourscan');
+  const raw = {
+    days: [1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, date_text: `${18 + weekday}.10.`, from: '06:00', to: '17:00', pause_min: 45 })),
+    rows: [{ name_raw: 'Popović T.', per_day: ['10', '10', '/', '10', '10 STD/15 min', '6'].map((hours_text, i) => ({ weekday: i + 1, hours_text })) }],
+    signed: true, signer_name: 'K. Vogel', confidence: 'high',
+  };
+  const n = S.normalize(raw, { year: 2026 });
+  const filled = { ...n, rows: S.matchWorkers(n.rows, [{ id: 'w5', full_name: 'Tihomir Popović' }]) };
+  const fh = P.stundennachweis({ supplier: SUP, subcontract: SUB, workers: [{ id: 'w5', full_name: 'Tihomir Popović' }], filled });
+  const ft = strip(fh);
+  ok(/KW 43 2026/.test(ft), 'vyplnený list berie týždeň z prečítaného');
+  ok(/1 Tihomir Popović 10 10 – 10 10,25 6 46,25/.test(ft), 'hodiny po dňoch, voľný deň pomlčkou, súčet riadku', ft.slice(ft.indexOf('Tihomir') - 10, ft.indexOf('Tihomir') + 80));
+  ok(/Gesamt 10 10 – 10 10,25 6 46,25/.test(ft), 'súčty po dňoch a spolu');
+  ok(/06:00 – 17:00/.test(ft) && /45 min/.test(ft), 'čas od–do a pauza');
+  ok(/K\. Vogel/.test(ft) && /im Original unterschrieben/.test(ft) && /Abschrift/.test(ft), 'prepis podpísaného originálu');
+  eq((fh.match(/<tr class="hn-p">/g) || []).length, 1, 'prepis má len riadky z papiera');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

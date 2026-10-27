@@ -85,7 +85,7 @@
         const promise = A().promiseLines(x);
         return `
           <div class="card card-pad list-card ad-card${x.running ? ' is-running' : ''}"
-               onclick="Ads.detail('${x.id}')">
+               role="button" tabindex="0" onclick="Ads.detail('${x.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(x.title)}</div>
               <span style="display:flex;gap:6px;align-items:center;">${x.web_published ? UI.badge('na webe', 'blue') : ''}${x.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}</span>
