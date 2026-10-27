@@ -224,10 +224,28 @@
       this.detail(id);
     },
 
-    form(id) {
-      const q = id ? this.items.find(x => x.id === id) || {} : {};
+    /**
+     * Nová ponuka odkiaľkoľvek — z prehľadu (rýchla akcia) aj z dopytu.
+     * Prepne na Ponuky, počká na odberateľov (bez nich by bol výber prázdny)
+     * a otvorí rovno formulár, nie zoznam.
+     *
+     * `pre` = predvyplnené polia (napr. z `DanubraOpp.toQuote`).
+     */
+    async create(pre) {
+      UI.closeModal();
+      if (Danubra.route !== 'quotes') Danubra.go('quotes');
+      if (!this.loaded) await this.load();
+      this.form(null, pre || {});
+    },
+
+    form(id, pre) {
+      const q = id ? this.items.find(x => x.id === id) || {} : { ...(pre || {}) };
       const body = `
         <form id="quo-form" onsubmit="event.preventDefault();Quo.save('${id || ''}')">
+          ${!id && pre && pre._fromOpp ? `<div class="regimebox">
+            ${Icon('offers', 14)} Predvyplnené z dopytu — skontrolujte sadzby a doplňte réžiu.${UI.tip('Z dopytu sa prenieslo, čo v ňom bolo zapísané: odberateľ, remeslo, počet ľudí, mesto, termín a sadzby. Čo v dopyte chýbalo, ostalo prázdne. Ponuka sa uloží ako koncept — nikam sa neodošle sama.')}</div>` : ''}
+          ${!id && pre && pre._company && !pre.partner_id ? `<div class="warnbox">
+            ${Icon('alert', 14)} Firma „${UI.esc(pre._company)}" z dopytu ešte nie je medzi odberateľmi. Pridajte ju tlačidlom „+" pri poli Odberateľ.</div>` : ''}
           <div class="form-grid">
             ${UI.field('title', 'Názov ponuky', { value: q.title, required: true,
               placeholder: 'napr. Sadrokartón — Leipzig, 4 ľudia' })}

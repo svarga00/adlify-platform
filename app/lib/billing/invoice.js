@@ -10,7 +10,7 @@
 // Freistellungsbescheinigung zrazí nemecký odberateľ 15 % a odvedie ich
 // svojmu finančnému úradu. Do SuperFaktúry ide **plná suma** — zrážka nie je
 // zľava, je to daňová povinnosť odberateľa. Appka ju musí ukázať skôr, než
-// faktúru schváliš, lebo mení to, koľko reálne príde na účet.
+// faktúru schválite, lebo mení to, koľko reálne príde na účet.
 //
 // Peniaze v celých centoch (lib/money.js). Čistá logika, žiadna sieť.
 //
@@ -34,9 +34,45 @@
 
   function canGo(from, to) { return (FLOW[from] || []).includes(to); }
 
-  /** Čo sa dá s faktúrou práve teraz spraviť. Vstup pre tlačidlá. */
+  /**
+   * Jednotné slovenské popisky stavov vydanej faktúry — pre zoznam, detail,
+   * filtre aj tabuľky pre účtovníčku. Mení sa len to, čo vidí človek;
+   * hodnoty v databáze zostávajú (`draft`, `paid`…).
+   *
+   *   Návrh → Čaká na schválenie → Schválená → Vystavená → Odoslaná → Zaplatená
+   *   mimo poradia: Po splatnosti, Stornovaná
+   */
+  const STATUS_LABEL = {
+    draft: 'Návrh',
+    draft_pending_approval: 'Čaká na schválenie',
+    pending_approval: 'Čaká na schválenie',
+    approved: 'Schválená',
+    issued: 'Vystavená',
+    sent: 'Odoslaná',
+    paid: 'Zaplatená',
+    overdue: 'Po splatnosti',
+    cancelled: 'Stornovaná',
+  };
+  function statusLabel(s) { return STATUS_LABEL[s] || (s ? String(s) : ''); }
+
+  /**
+   * Faktúry, ktoré appka sama označí „Po splatnosti": vystavené aj odoslané
+   * s uplynutou splatnosťou. Zaplatené, stornované a návrhy nikdy.
+   */
+  const MOZE_PO_SPLATNOSTI = ['issued', 'sent'];
+  function becameOverdue(invoices = [], today) {
+    const dnes = today ? String(today).slice(0, 10) : new Date().toISOString().slice(0, 10);
+    return (invoices || []).filter(x => x && MOZE_PO_SPLATNOSTI.includes(x.status)
+      && x.due_date && String(x.due_date).slice(0, 10) < dnes);
+  }
+
+  /**
+   * Čo sa dá s faktúrou práve teraz spraviť. Vstup pre tlačidlá.
+   * „Po splatnosti" medzi nimi nie je: ten stav dáva appka sama
+   * (`becameOverdue`), ručné tlačidlo len mýlilo.
+   */
   function nextSteps(inv = {}) {
-    return (FLOW[inv.status] || []).filter(s => s !== 'cancelled');
+    return (FLOW[inv.status] || []).filter(s => s !== 'cancelled' && s !== 'overdue');
   }
 
   // ── §48b ──────────────────────────────────────────────────────────────────
@@ -69,7 +105,7 @@
    *      schválenia neodíde, takže tu peniaze stoja kvôli nám.
    *   2. **po splatnosti** — peniaze, ktoré mali byť na účte. Stojí to na
    *      odberateľovi, ale zavolať mu musíme my.
-   *   3. **rozpracované** — podklad, ktorý ešte nikto neposlal na schválenie.
+   *   3. **návrhy** — faktúra, ktorú ešte nikto neposlal na schválenie.
    *
    * Po splatnosti sa neberie len podľa stavu: stav prepisuje nočná úloha,
    * takže faktúra so zajtrajším dátumom a dnešnou splatnosťou by sa inak
@@ -114,10 +150,11 @@
       };
     } else if (drafts.length) {
       next = {
-        key: 'draft', title: 'Dokončiť rozpracované',
-        what: `${drafts.length} ${plural(drafts.length, 'podklad', 'podklady', 'podkladov')} `
+        key: 'draft', title: drafts.length === 1 ? 'Skontrolovať návrh' : 'Skontrolovať návrhy',
+        what: `${drafts.length} ${plural(drafts.length, 'návrh faktúry', 'návrhy faktúr', 'návrhov faktúr')} `
           + 'nikto neposlal na schválenie',
-        why: 'Rozpracovaná faktúra je hotová práca, za ktorú ešte nikto nezaplatil.',
+        why: 'Návrh faktúry je hotová práca, za ktorú ešte nikto nezaplatil. Skontrolujte ho '
+          + 'a pošlite na schválenie.',
         hot: false, invoice: prvy(drafts), count: drafts.length, cents: suma(drafts),
       };
     }
@@ -481,7 +518,7 @@
   }
 
   const API = {
-    FLOW, canGo, nextSteps, queue, SCHVALENIE,
+    FLOW, canGo, nextSteps, queue, SCHVALENIE, STATUS_LABEL, statusLabel, becameOverdue,
     withholding, withholdingApplies, sumLines,
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe,

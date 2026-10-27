@@ -210,7 +210,9 @@
       });
       return Shell.filterRows(pre, {
         q: f.q,
-        fields: ['full_name', 'phone', 'city', 'email', 'ico',
+        // IČO je v `company_id` (migrácia 014) — stĺpec `ico` neexistuje,
+        // takže hľadanie podľa IČO dovtedy nenašlo nikoho.
+        fields: ['full_name', 'phone', 'city', 'email', 'company_id',
           (w) => this.professionLabel(w.profession)],
       });
     },
@@ -392,7 +394,8 @@
       }
       if (i.needs === 'assign') {
         return Danubra.routeAvailable('subcontracts')
-          ? b('btn-primary', "UI.closeModal();Danubra.go('subcontracts')", 'site', 'Vybrať zákazku') : '';
+          // Okno so zákazkami a rovno nasadenie s ním vybraným — nie zoznam zákaziek.
+          ? b('btn-primary', window.Sub ? `Sub.pickFor('${w.id}')` : "UI.closeModal();Danubra.go('subcontracts')", 'site', 'Vybrať zákazku') : '';
       }
       const infolist = b('btn-outline', `Wrk.paperSiteSheet('${w.id}')`, 'pin', 'Infolist na stavbu')
         + (window.Bundle && this.activeAsg(w.id).length ? b('btn-primary', `Wrk.bundle('${w.id}')`, 'mail', 'Poslať všetko naraz') : '');

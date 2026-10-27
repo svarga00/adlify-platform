@@ -493,11 +493,14 @@
     },
 
     // ── Sprievodca ────────────────────────────────────────────────────────
-    wizard(id, step) {
+    // `preset` (voliteľné, len pri novom nábore) = predvyplnené polia, napr.
+    // zo zákazky („Hľadať nových ľudí" → Sub.hireFor).
+    wizard(id, step, preset) {
       this.editing = id ? { ...this.plans.find(p => p.id === id) } : {
         title: '', trade_key: '', headcount: 1, skill_level: 'fachwerker', legal_form: 'szco',
         country: 'DE', accommodation_provided: true, transport_provided: false,
         advance_possible: false, channels: [], status: 'draft', step: 1,
+        ...(preset || {}),
       };
       this.step = step || this.editing.step || 1;
       UI.modal(id ? 'Nábor krok za krokom' : 'Nový nábor', this.wizardHtml(), { wide: true });

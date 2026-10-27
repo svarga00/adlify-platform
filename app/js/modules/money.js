@@ -271,7 +271,10 @@
      */
     actsHtml() {
       const inv = this.invoices || [];
-      const naSchvalenie = inv.filter(x => ['draft', 'pending_approval', 'draft_pending_approval'].includes(x.status)).length;
+      // Návrh a „čaká na schválenie" sú dva rôzne stavy — návrh ešte nikto
+      // neposlal na schválenie, tak sa ani nevolá „na schválenie".
+      const navrhy = inv.filter(x => x.status === 'draft').length;
+      const naSchvalenie = inv.filter(x => ['pending_approval', 'draft_pending_approval'].includes(x.status)).length;
       const poSplatnosti = inv.filter(x => x.status === 'overdue').length;
       const tile = (cls, ico, title, sub, onclick, n) => `
         <button class="mon-act${cls}" onclick="${onclick}">
@@ -279,12 +282,14 @@
           ${n ? `<span class="subtab-n">${n}</span>` : ''}</button>`;
       const can = (k) => Danubra.routeAvailable(k);
       return `<div class="mon-acts">
-        ${can('invoices') ? tile(' is-main', 'plus', 'Vystaviť faktúru', 'Zo zákazky, voľnú Nemcovi alebo za živnostníka',
+        ${can('invoices') ? tile(' is-main', 'plus', 'Vystaviť faktúru', 'Zo zákazky alebo voľnú Nemcovi',
           "Danubra.go('invoices');setTimeout(()=>Inv.newInvoice(),350)") : ''}
         ${can('invoices') ? tile('', 'invoices', 'Vydané faktúry',
-          naSchvalenie || poSplatnosti
-            ? [naSchvalenie ? `${naSchvalenie} na schválenie` : '', poSplatnosti ? `${poSplatnosti} po splatnosti` : ''].filter(Boolean).join(' · ')
-            : 'Pozrieť, upraviť návrh, PDF', "Danubra.go('invoices')", naSchvalenie + poSplatnosti) : ''}
+          navrhy || naSchvalenie || poSplatnosti
+            ? [navrhy ? `${navrhy} ${Shell.plural(navrhy, 'návrh', 'návrhy', 'návrhov')}` : '',
+              naSchvalenie ? `${naSchvalenie} na schválenie` : '',
+              poSplatnosti ? `${poSplatnosti} po splatnosti` : ''].filter(Boolean).join(' · ')
+            : 'Pozrieť, upraviť návrh, PDF', "Danubra.go('invoices')", navrhy + naSchvalenie + poSplatnosti) : ''}
         ${can('costs') ? tile('', 'upload', 'Nahrať faktúru / bloček', 'PDF alebo fotka — appka ich prečíta', "Danubra.go('costs')") : ''}
         ${can('bank') ? tile('', 'wallet', 'Zaplatiť a banka', 'Príkazy na úhradu, výpis z účtu', "Danubra.go('bank')") : ''}
       </div>

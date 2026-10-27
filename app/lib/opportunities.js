@@ -228,9 +228,84 @@
     return many;
   }
 
+  // ── Z dopytu ďalej: ponuka a zákazka ──────────────────────────────────────
+  // Dopyt nemá odberateľa ako záznam — má len názov firmy a USt-IdNr, ako ich
+  // niekto zapísal z telefónu. Ponuka aj zákazka sa ale viažu na odberateľa
+  // (`partner_id`). Preto sa ho tu skúsime nájsť: najprv podľa USt-IdNr
+  // (to je jednoznačné), potom podľa názvu bez právnej formy. Keď nesedí nič,
+  // vráti sa `null` — vymýšľať sa nesmie, radšej nech ho človek vyberie.
+
+  function cisloDph(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function menoFirmy(v) {
+    return String(v || '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/\b(gmbh|ag|kg|ohg|ug|mbh|co|e\.?k|s\.?r\.?o|a\.?s)\b/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  /** Odberateľ, ktorý zodpovedá firme z dopytu — alebo `null`. */
+  function matchPartner(opp = {}, partners = []) {
+    const list = (partners || []).filter(Boolean);
+    const vat = cisloDph(opp.company_vat);
+    if (vat) {
+      const p = list.find(x => cisloDph(x.ust_idnr) === vat);
+      if (p) return p;
+    }
+    const meno = menoFirmy(opp.company_name);
+    if (!meno) return null;
+    return list.find(x => menoFirmy(x.name) === meno) || null;
+  }
+
+  /**
+   * Predvyplnenie novej ponuky z dopytu. Prenáša sa len to, čo v dopyte je —
+   * prázdne pole ostane prázdne, nevymýšľa sa.
+   */
+  function toQuote(opp = {}, partnerId = null) {
+    const ludia = Number(opp.headcount) || null;
+    return {
+      title: opp.title || null,
+      partner_id: partnerId || null,
+      trade_key: opp.trade_key || null,
+      headcount: ludia || 1,
+      work_type: 'construction',
+      site_city: opp.city || null,
+      country: opp.country || 'DE',
+      date_from: opp.start_date || null,
+      charge_rate: opp.rate_client ?? null,
+      worker_rate: opp.rate_worker ?? null,
+      notes: opp.company_name && !partnerId
+        ? `Z dopytu: ${opp.title || ''} (firma „${opp.company_name}" zatiaľ nie je medzi odberateľmi)`
+        : (opp.title ? `Z dopytu: ${opp.title}` : null),
+    };
+  }
+
+  /**
+   * Predvyplnenie novej zákazky z dopytu. Väzba dopyt → zákazka sa neukladá
+   * do zákazky, ale do dopytu (`danubra_opportunities.subcontract_id`) — podľa
+   * nej krok 2 zákazky vie, koľko ľudí treba.
+   *
+   * Typ prác je stavebný: dopyty sú stavby, a prísnejší režim je bezpečnejší
+   * omyl než mierny (dielňa by ticho vypustila A1, SOKA aj §48b).
+   */
+  function toSubcontract(opp = {}, partnerId = null) {
+    return {
+      title: opp.title || null,
+      partner_id: partnerId || null,
+      work_type: 'construction',
+      trade: opp.trade_key || null,
+      date_from: opp.start_date || null,
+      site_city: opp.city || null,
+      charge_rate: opp.rate_client ?? null,
+      notes: opp.headcount
+        ? `Z dopytu: ${opp.title || ''} — treba ${opp.headcount} ${plural(Number(opp.headcount), 'človeka', 'ľudí', 'ľudí')}`
+        : (opp.title ? `Z dopytu: ${opp.title}` : null),
+    };
+  }
+
   const API = {
     STATUS, ZAVRETE, CHYBA,
     status, statusLabel, missing, verification, margin, nowNext, summary, plural,
+    matchPartner, toQuote, toSubcontract,
   };
   if (typeof window !== 'undefined') window.DanubraOpp = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

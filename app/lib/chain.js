@@ -6,8 +6,9 @@
 // V `docs/FLOW.md` to napísané je — lenže to je dokument, nie obrazovka, a kto
 // má appku používať, ten ho nečíta.
 //
-// Táto knižnica je ten istý reťazec ako **dáta**: sedem krokov tak, ako ich
-// povedal majiteľ, a pri každom kroku odpoveď na dve otázky:
+// Táto knižnica je ten istý reťazec ako **dáta**: tých istých sedem krokov
+// ako na zákazke (`staffing/job.js` — jedno poradie, jedny čísla a názvy
+// v celej appke) a pri každom kroku odpoveď na dve otázky:
 //
 //   „koľko toho tu je"      — aby bolo vidieť, že krok existuje a žije
 //   „koľko čaká na teba"    — aby bolo vidieť, kde sa to práve zastavilo
@@ -36,33 +37,45 @@
   }
 
   // ── Sedem krokov ─────────────────────────────────────────────────────────
-  // Toto nie je mapa databázy. Je to **to, čo sa vo firme naozaj robí**,
-  // povedané tak, ako to povedal majiteľ:
+  // Toto nie je mapa databázy. Je to **to, čo sa vo firme naozaj robí** —
+  // a je to **to isté poradie ako na zákazke** (`staffing/job.js`):
   //
-  //   1. máme dopyt na zákazku
-  //   2. treba spraviť inzeráty a osloviť záujemcov
-  //   3. objednávka a zmluva s Nemcom
-  //   4. súhlas GDPR od živnostníka
-  //   5. zmluva so živnostníkom, zvyčajne do konca roka
-  //   6. objednávka živnostníkovi a papiere v poriadku
-  //   7. ubytovanie, hodiny a faktúry
+  //   1. dopyt a ponuka
+  //   2. ľudia na stavbu (inzeráty, záujemcovia, nasadenie)
+  //   3. zmluva s Nemcom (zmluva o dielo a jeho objednávka)
+  //   4. papiere ľudí (súhlas GDPR, A1, živnosť, hlásenie Zoll)
+  //   5. zmluvy a objednávky živnostníkom (rámcová zmluva, objednávka)
+  //   6. ubytovanie a doprava
+  //   7. hodiny a faktúra
   //
-  // Dovtedy ich tu bolo **štrnásť v štyroch dráhach** — rozpísané podľa toho,
-  // čo je v databáze (ponuka, zmluva, zákazka, nasadenie, obdobie, faktúra,
-  // úhrada). Všetko to v appke stále je; len sa to už netvári, že je to sedem
-  // ďalších vecí na učenie. Krok otvorí obrazovku, kde sa to rieši.
+  // Dovtedy tu boli kroky po svojom („objednávka živnostníkovi" krok 6, na
+  // zákazke 5; ubytovanie 7, na zákazke 6) a človek, ktorý prešiel zo „Dnes"
+  // na zákazku, sa v číslach stratil. Kľúč, číslo, názov a ikona sa preto
+  // berú zo `staffing/job.js` — tu sa k nim dopĺňa len to, čo sa počíta za
+  // celú firmu. Krok otvorí obrazovku, kde sa to rieši.
   //
   // `have`  — koľko je toho v systéme (informácia, nie úloha)
-  // `todo`  — { n, text, state } čo čaká na teba. `n: 0` znamená „tu je čisto".
-  const STEPS = [
-    {
-      n: 1, key: 'dopyt', ico: 'offers', route: 'opportunities',
-      title: 'Dopyt na zákazku',
+  // `todo`  — { n, text, state, focus } čo čaká na Vás. `n: 0` = „tu je čisto".
+  //           `focus` je filter na Živnostníkoch (nogdpr / nocontract / noorder).
+  const JOB = (typeof module !== 'undefined' && module.exports && typeof require === 'function')
+    ? require('./staffing/job.js')
+    : (typeof window !== 'undefined' ? window.DanubraJob : null);
+  const BASE = (JOB && JOB.STEPS) || [];
+
+  /** Ľudia s bežiacim nasadením na bežiacej zákazke. */
+  function naStavbe(x) {
+    const bezia = new Set(arr(x.subcontracts).filter(s => s.status === 'active').map(s => s.id));
+    return arr(x.assignments).filter(a => a && a.status === 'active' && bezia.has(a.subcontract_id));
+  }
+
+  const FIRM = {
+    dopyt: {
+      route: 'opportunities',
       hint: 'Zapíšte, kto potrebuje ľudí — koľko, kam, od kedy a za koľko.',
       cta: ['Odpovedať na dopyty', 'Vložiť dopyt'],
       lead: 'Niekto sa ozve, že potrebuje ľudí. Zapíše to ten, kto to prijal — '
-        + 'aj keď o tom vie málo.',
-      next: 'Keď to dáva zmysel, ide von ponuka.',
+        + 'aj keď o tom vie málo. Keď to dáva zmysel, ide von ponuka.',
+      next: 'Z prijatej ponuky vznikne zákazka a hľadajú sa ľudia.',
       have: (x) => arr(x.opportunities).filter(o => !['won', 'lost'].includes(o.status)).length
         + arr(x.quotes).filter(q => q.status === 'sent').length,
       haveText: (n) => `${n} ${plural(n, 'otvorený dopyt', 'otvorené dopyty', 'otvorených dopytov')}`,
@@ -88,16 +101,15 @@
         return { n: 0, state: CALM, text: 'Nič nečaká na odpoveď.' };
       },
     },
-    {
-      n: 2, key: 'nabor', ico: 'marketing', route: 'hiring',
-      title: 'Inzeráty a záujemcovia',
-      hint: 'Spustite inzeráty a každému, kto sa ozve, zavolajte späť do desiatich minút.',
+    ludia: {
+      route: 'hiring',
+      hint: 'Spustite inzeráty, ozvite sa záujemcom do desiatich minút a nasaďte ich.',
       cta: ['Ozvať sa ľuďom', 'Otvoriť nábor'],
-      lead: 'Zo zadania vzniknú texty na web, Bazoš a Facebook. Kto sa ozve, '
-        + 'tomu sa treba ozvať späť do desiatich minút.',
-      next: 'Zo záujemcu, ktorý prejde, bude živnostník.',
-      have: (x) => arr(x.ads).filter(a => a.active !== false).length,
-      haveText: (n) => `${n} ${plural(n, 'bežiaci inzerát', 'bežiace inzeráty', 'bežiacich inzerátov')}`,
+      lead: 'Zo zadania vzniknú inzeráty na web, Bazoš a Facebook. Kto sa ozve, '
+        + 'tomu sa treba ozvať späť do desiatich minút — a kto prejde, ide na stavbu.',
+      next: 'Keď je jasné, kto pôjde, podpisuje sa zmluva s Nemcom.',
+      have: (x) => naStavbe(x).length,
+      haveText: (n) => `${n} ${plural(n, 'človek na stavbách', 'ľudia na stavbách', 'ľudí na stavbách')}`,
       todo(x) {
         // Nábor bez inzerátu je najtichšia chyba v celom reťazci: nič nehorí,
         // len sa nikto neozýva — a nikoho nenapadne, že je to preto, že sa
@@ -114,6 +126,12 @@
           return { n: cakaju.length, state: BAD,
             text: `${cakaju.length} ${plural(cakaju.length, 'človek čaká', 'ľudia čakajú', 'ľudí čaká')} na prvý telefonát` };
         }
+        const obsadene = new Set(naStavbe(x).map(a => a.subcontract_id));
+        const prazdne = arr(x.subcontracts).filter(s => s.status === 'active' && !obsadene.has(s.id));
+        if (prazdne.length) {
+          return { n: prazdne.length, state: BAD,
+            text: `${prazdne.length} ${plural(prazdne.length, 'stavba beží', 'stavby bežia', 'stavieb beží')} a nie je na nej nikto` };
+        }
         const visia = arr(x.candidates).filter(c => c.first_contact_at
           && !c.converted_worker_id
           && !['rejected', 'hired', 'converted'].includes(c.status));
@@ -121,17 +139,16 @@
           return { n: visia.length, state: WATCH,
             text: `${visia.length} ${plural(visia.length, 'záujemca čaká', 'záujemcovia čakajú', 'záujemcov čaká')} na rozhodnutie` };
         }
-        return { n: 0, state: CALM, text: bezia ? 'Inzeráty bežia a nikto nečaká.' : 'Žiadny nábor nebeží.' };
+        return { n: 0, state: CALM, text: bezia ? 'Inzeráty bežia a nikto nečaká.' : 'Nikto nečaká a žiadny nábor nebeží.' };
       },
     },
-    {
-      n: 3, key: 'nemec', ico: 'note', route: 'contracts',
-      title: 'Objednávka a zmluva s Nemcom',
-      hint: 'Rámcová zmluva a objednávka s nemeckou firmou — po slovensky aj po nemecky.',
+    nemec: {
+      route: 'contracts',
+      hint: 'Zmluva o dielo a objednávka s nemeckou firmou — po slovensky aj po nemecky.',
       cta: ['Doriešiť zmluvy', 'Zmluvy s odberateľmi'],
       lead: 'Dvojjazyčne: on podpisuje po nemecky, my čítame po slovensky. '
         + 'Je to dielo, nie hodiny — inak hrozí Arbeitnehmerüberlassung.',
-      next: 'Z dohodnutej zmluvy vznikne konkrétna stavba.',
+      next: 'S podpísanou zmluvou sa chystajú papiere ľudí.',
       have: (x) => arr(x.contracts).length,
       haveText: (n) => `${n} ${plural(n, 'zmluva', 'zmluvy', 'zmlúv')}`,
       todo(x) {
@@ -156,98 +173,106 @@
         return { n: 0, state: CALM, text: 'Zmluvy sú podpísané.' };
       },
     },
-    {
-      n: 4, key: 'gdpr', ico: 'shield', route: 'workers',
-      title: 'Súhlas GDPR od živnostníka',
-      hint: 'Živnostník podpíše súhlas, že smieme držať jeho údaje a doklady.',
-      cta: ['Doplniť súhlasy', 'Otvoriť živnostníkov'],
-      lead: 'Držíme jeho meno, doklady a telefón. Bez jeho súhlasu na to nemáme právo.',
-      next: 'So súhlasom sa s ním dá spísať zmluva.',
+    papiere: {
+      route: 'workers',
+      hint: 'Súhlas GDPR a platné doklady (A1, živnosť) u každého, kto ide na stavbu.',
+      cta: ['Doplniť papiere', 'Otvoriť živnostníkov'],
+      lead: 'Držíme meno, doklady a telefón človeka — bez súhlasu GDPR na to nemáme '
+        + 'právo. Bez platného A1 a hlásenia Zoll sa na stavbu nesmie.',
+      next: 'S papiermi v poriadku sa so živnostníkom spíše zmluva a objednávka.',
       have: (x) => poctyDokladov(x, 'gdpr').maju,
-      haveText: (n) => `${n} ${plural(n, 'súhlas', 'súhlasy', 'súhlasov')}`,
+      haveText: (n) => `${n} ${plural(n, 'súhlas GDPR', 'súhlasy GDPR', 'súhlasov GDPR')}`,
       todo(x) {
         const { chybaNasadenym, chyba } = poctyDokladov(x, 'gdpr');
         if (chybaNasadenym) {
-          return { n: chybaNasadenym, state: BAD,
-            text: `${chybaNasadenym} ${plural(chybaNasadenym, 'človek je', 'ľudia sú', 'ľudí je')} na stavbe bez podpísaného súhlasu` };
+          return { n: chybaNasadenym, state: BAD, focus: 'nogdpr',
+            text: `${chybaNasadenym} ${plural(chybaNasadenym, 'človek je', 'ľudia sú', 'ľudí je')} na stavbe bez podpísaného súhlasu GDPR` };
         }
-        if (chyba) {
-          return { n: chyba, state: WATCH,
-            text: `${chyba} ${plural(chyba, 'živnostník nepodpísal', 'živnostníci nepodpísali', 'živnostníkov nepodpísalo')} súhlas` };
-        }
-        return { n: 0, state: CALM, text: 'Súhlasy sú podpísané.' };
-      },
-    },
-    {
-      n: 5, key: 'zmluva', ico: 'doc', route: 'workers',
-      title: 'Zmluva so živnostníkom',
-      hint: 'Rámcová zmluva o dielo so živnostníkom, zvyčajne do 31. 12.',
-      cta: ['Doplniť zmluvy', 'Otvoriť živnostníkov'],
-      lead: 'Rámcová zmluva o dielo, zvyčajne do konca kalendárneho roka. '
-        + 'Bez nej je to zamestnávanie, nie subdodávka.',
-      next: 'Na zmluvu sa viaže konkrétna objednávka.',
-      have: (x) => poctyDokladov(x, 'contract').maju,
-      haveText: (n) => `${n} ${plural(n, 'zmluva', 'zmluvy', 'zmlúv')}`,
-      todo(x) {
-        const { chybaNasadenym, chyba, koncia } = poctyDokladov(x, 'contract');
-        if (chybaNasadenym) {
-          return { n: chybaNasadenym, state: BAD,
-            text: `${chybaNasadenym} ${plural(chybaNasadenym, 'človek je', 'ľudia sú', 'ľudí je')} na stavbe bez zmluvy` };
-        }
-        if (koncia) {
-          return { n: koncia, state: WATCH,
-            text: `${koncia} ${plural(koncia, 'zmluve sa končí', 'zmluvám sa končí', 'zmluvám sa končí')} platnosť` };
-        }
-        if (chyba) {
-          return { n: chyba, state: WATCH,
-            text: `${chyba} ${plural(chyba, 'živnostník nemá', 'živnostníci nemajú', 'živnostníkov nemá')} zmluvu` };
-        }
-        return { n: 0, state: CALM, text: 'Zmluvy platia.' };
-      },
-    },
-    {
-      n: 6, key: 'objednavka', ico: 'orders', route: 'subcontracts',
-      title: 'Objednávka a papiere v poriadku',
-      hint: 'Objednávka na konkrétnu stavbu a k nej A1, Zoll a ostatné papiere.',
-      cta: ['Doriešiť papiere', 'Otvoriť stavby'],
-      lead: 'Konkrétna objednávka na konkrétnu stavbu — a k nej A1, hlásenie Zoll '
-        + 'a ostatné papiere, bez ktorých sa tam nesmie.',
-      next: 'S papiermi v poriadku môže nastúpiť.',
-      have: (x) => {
-        const bezia = new Set(arr(x.subcontracts).filter(s => s.status === 'active').map(s => s.id));
-        return arr(x.assignments).filter(a => a.status === 'active' && bezia.has(a.subcontract_id)).length;
-      },
-      haveText: (n) => `${n} ${plural(n, 'človek na stavbách', 'ľudia na stavbách', 'ľudí na stavbách')}`,
-      todo(x) {
-        const zle = arr(x.documents).filter(d => d.validity === 'expired');
+        // Zmluva o dielo je doklad tiež, ale patrí do kroku 5.
+        const doklady = arr(x.documents).filter(d => d.kind !== 'contract');
+        const zle = doklady.filter(d => d.validity === 'expired');
         if (zle.length) {
           const ludi = new Set(zle.map(d => d.worker_id)).size;
           return { n: ludi, state: BAD,
             text: `${ludi} ${plural(ludi, 'človek nemá', 'ľudia nemajú', 'ľudí nemá')} platné doklady — nasadiť sa nedá` };
         }
-        const bezia = arr(x.subcontracts).filter(s => s.status === 'active');
-        const obsadene = new Set(arr(x.assignments)
-          .filter(a => a.status === 'active').map(a => a.subcontract_id));
-        const prazdne = bezia.filter(s => !obsadene.has(s.id));
-        if (prazdne.length) {
-          return { n: prazdne.length, state: BAD,
-            text: `${prazdne.length} ${plural(prazdne.length, 'stavba beží', 'stavby bežia', 'stavieb beží')} a nie je na nej nikto` };
+        if (chyba) {
+          return { n: chyba, state: WATCH, focus: 'nogdpr',
+            text: `${chyba} ${plural(chyba, 'živnostník nepodpísal', 'živnostníci nepodpísali', 'živnostníkov nepodpísalo')} súhlas GDPR` };
         }
-        const konci = arr(x.documents).filter(d => d.validity === 'expiring').length;
+        const konci = doklady.filter(d => d.validity === 'expiring').length;
         if (konci) {
           return { n: konci, state: WATCH,
             text: `${konci} ${plural(konci, 'dokladu sa končí', 'dokladom sa končí', 'dokladom sa končí')} platnosť` };
         }
-        return { n: 0, state: CALM, text: 'Papiere sú v poriadku.' };
+        return { n: 0, state: CALM, text: 'Súhlasy aj doklady sú v poriadku.' };
       },
     },
-    {
-      n: 7, key: 'stavba', ico: 'clock', route: 'timesheets',
-      title: 'Ubytovanie, hodiny a faktúry',
-      hint: 'Kde spí, koľko odrobil a faktúra Nemcovi — každý týždeň.',
+    zivnostnici: {
+      route: 'workers',
+      hint: 'Rámcová zmluva o dielo (zvyčajne do 31. 12.) a objednávka na každú stavbu.',
+      cta: ['Doplniť zmluvy a objednávky', 'Otvoriť živnostníkov'],
+      lead: 'Rámcová zmluva o dielo sa podpíše raz, zvyčajne do konca roka; na každú '
+        + 'stavbu k nej ide objednávka. Bez nich je to zamestnávanie, nie subdodávka.',
+      next: 'S objednávkou v ruke treba ľuďom zariadiť bývanie a dopravu.',
+      have: (x) => poctyDokladov(x, 'contract').maju,
+      haveText: (n) => `${n} ${plural(n, 'rámcová zmluva', 'rámcové zmluvy', 'rámcových zmlúv')}`,
+      todo(x) {
+        const { chybaNasadenym, chyba, koncia } = poctyDokladov(x, 'contract');
+        if (chybaNasadenym) {
+          return { n: chybaNasadenym, state: BAD, focus: 'nocontract',
+            text: `${chybaNasadenym} ${plural(chybaNasadenym, 'človek je', 'ľudia sú', 'ľudí je')} na stavbe bez rámcovej zmluvy` };
+        }
+        // Objednávky sa kontrolujú len vtedy, keď ich niekto načítal —
+        // chýbajúci zoznam nie je „nikto nemá objednávku".
+        if (Array.isArray(x.orders)) {
+          const maju = new Set(x.orders.filter(o => o && o.kind === 'worker' && o.status !== 'cancelled')
+            .map(o => o.assignment_id));
+          const bez = naStavbe(x).filter(a => !maju.has(a.id));
+          if (bez.length) {
+            const ludi = new Set(bez.map(a => a.worker_id)).size;
+            return { n: ludi, state: WATCH, focus: 'noorder',
+              text: `${ludi} ${plural(ludi, 'človek je', 'ľudia sú', 'ľudí je')} na stavbe bez objednávky` };
+          }
+        }
+        if (koncia) {
+          return { n: koncia, state: WATCH, focus: 'nocontract',
+            text: `${koncia} ${plural(koncia, 'zmluve sa končí', 'zmluvám sa končí', 'zmluvám sa končí')} platnosť` };
+        }
+        if (chyba) {
+          return { n: chyba, state: WATCH, focus: 'nocontract',
+            text: `${chyba} ${plural(chyba, 'živnostník nemá', 'živnostníci nemajú', 'živnostníkov nemá')} rámcovú zmluvu` };
+        }
+        return { n: 0, state: CALM, text: 'Zmluvy platia a objednávky sú vystavené.' };
+      },
+    },
+    ubytovanie: {
+      route: 'accommodations',
+      hint: 'Kde ľudia na stavbe spia a kto ich tam vezie.',
+      cta: ['Zapísať ubytovanie', 'Otvoriť ubytovania'],
+      lead: 'Každý, kto je na stavbe, má mať zapísané, kde býva. Ubytovanie je náklad '
+        + 'zákazky — a človek bez strechy nad hlavou zo stavby odíde.',
+      next: 'Keď ľudia robia, zapisujú sa hodiny zo Stundennachweisu.',
+      have: (x) => naStavbe(x).filter(a => byva(x, a)).length,
+      haveText: (n) => `${n} ${plural(n, 'človek má', 'ľudia majú', 'ľudí má')} kde bývať`,
+      todo(x) {
+        // Pobyty sa kontrolujú len vtedy, keď ich niekto načítal.
+        if (!Array.isArray(x.stays)) return { n: 0, state: CALM, text: 'Nikto nečaká na ubytovanie.' };
+        const bez = naStavbe(x).filter(a => !byva(x, a));
+        if (bez.length) {
+          const ludi = new Set(bez.map(a => a.worker_id)).size;
+          return { n: ludi, state: WATCH,
+            text: `${ludi} ${plural(ludi, 'človek na stavbe nemá', 'ľudia na stavbe nemajú', 'ľudí na stavbe nemá')} zapísané ubytovanie` };
+        }
+        return { n: 0, state: CALM, text: 'Ubytovanie je zapísané.' };
+      },
+    },
+    peniaze: {
+      route: 'timesheets',
+      hint: 'Hodiny zo Stundennachweisu, faktúra Nemcovi a úhrada — každý týždeň.',
       cta: ['Vybaviť hodiny a faktúry', 'Zapísať hodiny'],
-      lead: 'Človek je na stavbe: má kde spať, hodiny sa zapisujú a z nich vzniká '
-        + 'faktúra odberateľovi aj kontrola faktúry od neho.',
+      lead: 'Majster podpíše Stundennachweis, hodiny sa zapíšu a z nich vzniká '
+        + 'faktúra odberateľovi aj kontrola faktúry od živnostníka.',
       next: 'Úhradou na účet sa to uzavrie.',
       have: (x) => arr(x.invoices).filter(i => i.status === 'paid').length,
       haveText: (n) => `${n} ${plural(n, 'zaplatená faktúra', 'zaplatené faktúry', 'zaplatených faktúr')}`,
@@ -286,7 +311,16 @@
         return { n: 0, state: CALM, text: 'Hodiny aj faktúry sú vybavené.' };
       },
     },
-  ];
+  };
+
+  /** Spoločný krok (číslo, názov, ikona) + to, čo sa počíta za firmu. */
+  const STEPS = BASE.map(b => ({ ...b, ...(FIRM[b.key] || {}) }));
+
+  /** Býva človek z tohto nasadenia niekde pri tejto zákazke? */
+  function byva(x, a) {
+    return arr(x.stays).some(s => s && s.worker_id === a.worker_id && s.is_current !== false
+      && (!s.subcontract_id || s.subcontract_id === a.subcontract_id));
+  }
 
   /**
    * Koľkí živnostníci majú daný papier — a koľkým chýba.
@@ -339,6 +373,7 @@
       cta: (todo.n ? (s.cta || [])[0] : (s.cta || [])[1]) || 'Otvoriť',
       have, haveText: s.haveText(have),
       todo: todo.n || 0, todoText: todo.text || '', state: todo.state || CALM,
+      focus: (todo.n && todo.focus) || '',
     };
   }
 
@@ -398,11 +433,15 @@
   const ROUTE_STEPS = {
     opportunities: [1], quotes: [1],
     hiring: [2], candidates: [2], ads: [2], marketing: [2], recruiting: [2], trades: [2],
+    // Partia je skupina ľudí, ktorá ide na stavbu spolu.
+    crews: [2],
     contracts: [3], partners: [3],
-    // Súhlas aj zmluva sa robia na karte toho istého človeka.
-    workers: [4, 5], crews: [4, 5],
-    subcontracts: [6], orders: [6], compliance: [6],
-    timesheets: [7], hoursheet: [7], accommodations: [7],
+    // Papiere aj zmluva sa robia na karte toho istého človeka.
+    workers: [4, 5], compliance: [4],
+    // Objednávka živnostníkovi sa vystavuje zo zákazky.
+    subcontracts: [5], orders: [5],
+    accommodations: [6],
+    timesheets: [7], hoursheet: [7],
     money: [7], invoices: [7], costs: [7], bank: [7],
   };
 
@@ -422,7 +461,7 @@
   }
 
   // ── Čo ešte treba pri jednom človeku ─────────────────────────────────────
-  // Kroky 4 až 6 sa nerobia „pre firmu", ale pre konkrétneho živnostníka:
+  // Kroky 4 a 5 sa nerobia „pre firmu", ale pre konkrétneho živnostníka:
   // jeho súhlas, jeho zmluva, jeho objednávka. Reťazec povie, že trom ľuďom
   // chýba zmluva; karta človeka má povedať, **čo ešte chýba práve jemu** —
   // a v akom poradí.
@@ -468,7 +507,7 @@
             : 'Vytlačte zmluvu, nechajte ju podpísať a zapíšte to.'),
       },
       {
-        key: 'objednavka', n: 6, title: 'Stavba a objednávka',
+        key: 'objednavka', n: 5, title: 'Stavba a objednávka',
         done: asg.length > 0 && bezObj.length === 0,
         needs: !asg.length ? 'assign' : (bezObj.length ? 'order' : null),
         assignmentId: bezObj.length ? bezObj[0].id : null,

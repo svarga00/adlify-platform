@@ -74,15 +74,24 @@
         Shell.periodSlug({ field: 'work_date', key: f.period, from: f.from, to: f.to })]);
     },
 
+    /**
+     * Jediné tlačidlo na zápis hodín. Stundennachweis je 99 % prípadov: list
+     * s hodinami celej partie alebo jedného človeka za týždeň, podpísaný
+     * majstrom — ručne alebo z fotky (components/hourentry.js). Dovtedy tu
+     * boli tri tlačidlá („Stundennachweis", „Zapísať týždeň", „Jeden deň")
+     * a v appke ďalšie tri inak pomenované; „Jeden deň" je teraz voľba
+     * v tom istom okne. Zákazka z filtra sa predvyplní.
+     */
+    entryCall() {
+      const sub = this.filters.subcontract_id;
+      return window.HourEntry
+        ? `HourEntry.open(${sub ? `{ subcontractId: '${sub}' }` : ''})` : 'Tms.form()';
+    },
+
     async view(el) {
-      // Týždeň je prvý, pretože to je ten bežný prípad: človek odrobí šesť
-      // dní a predtým sa to zapisovalo šesťkrát otvorením okna.
-      // Stundennachweis je 99 % prípadov: list s hodinami celej partie alebo
-      // jedného človeka za týždeň, podpísaný majstrom (components/hourentry.js).
       Danubra.setActions(`
-        ${window.HourEntry ? `<button class="btn btn-primary btn-sm" onclick="HourEntry.open()">${Icon('upload', 14)} Stundennachweis</button>` : ''}
-        <button class="btn btn-outline btn-sm" onclick="Tms.weekForm()">${Icon('calendar', 14)} Zapísať týždeň</button>
-        <button class="btn btn-outline btn-sm" onclick="Tms.form()">${Icon('plus')} Jeden deň</button>`);
+        <button class="btn btn-primary btn-sm" onclick="${this.entryCall()}">${Icon('upload', 14)} Zapísať hodiny</button>
+        ${UI.tip('Hodiny sa zapisujú zo Stundennachweisu, ktorý podpísal majster: natukáte ich do tabuľky zákazky a týždňa, alebo nahráte fotku listu. Deň inej práce (cesta, dielňa) je v tom istom okne ako „Jeden deň inej práce". Schvaľuje sa zvlášť — fajkou pri riadku alebo „Schváliť" hore.')}`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
       const share = DanubraMargin.constructionShare(rows);
@@ -139,7 +148,7 @@
               ? UI.empty('search', 'Filtru nič nesedí',
                   `V databáze je ${this.items.length} záznamov o hodinách, ale ani jeden nevyhovuje.`)
               : UI.empty('clock', 'Žiadne hodiny', 'Zapíšte odpracované hodiny pre vybrané obdobie.',
-                  `<button class="btn btn-primary" onclick="Tms.form()">${Icon('plus')} Zapísať hodiny</button>`))
+                  `<button class="btn btn-primary" onclick="${this.entryCall()}">${Icon('upload')} Zapísať hodiny</button>`))
           : rows.map(t => this.row(t)).join('')}`;
     },
 
@@ -178,8 +187,7 @@
             + 'nevšimne, nie je s čím porovnať.',
         }, {
           help: 'card.hours.approve',
-          action: window.HourEntry ? { label: 'Zapísať Stundennachweis', ico: 'upload', onclick: 'HourEntry.open()' }
-            : { label: 'Zapísať týždeň', ico: 'calendar', onclick: 'Tms.weekForm()' },
+          action: { label: 'Zapísať hodiny', ico: 'upload', onclick: this.entryCall() },
         });
       }
       const h = Math.round(rows.reduce((s, t) => s + Number(t.hours || 0), 0));
@@ -335,7 +343,7 @@
               hint: 'Dátum sa sám zarovná na pondelok toho týždňa.',
               onchange: 'Tms.weekForm(Tms.weekField("assignment_id"), this.value)' })}
             ${UI.field('activity_type', 'Činnosť', { value: 'construction',
-              hint: 'Platí pre celý týždeň. Jeden deň iného druhu dopíšte cez „Jeden deň".',
+              hint: 'Platí pre celý týždeň. Jeden deň iného druhu dopíšte cez „Zapísať hodiny" → „Jeden deň inej práce".',
               options: ACTIVITY.map(a => [a[0], a[1]]), tip: 'Stavba = práca priamo na stavenisku. Dielňa = výroba alebo príprava mimo stavby (napr. v hale). Cesta = presun, do pomeru stavba/dielňa sa nepočíta. Pomer rozhoduje, či treba platiť SOKA-BAU.' })}
           </div>
 
@@ -428,10 +436,17 @@
       await this.load(); Danubra.renderRoute();
     },
 
-    form() {
-      const active = this.assignments.filter(a => a.status !== 'cancelled');
+    /**
+     * Jeden deň jedného človeka — výnimka (cesta, dielňa, popis práce).
+     * Otvára sa z okna „Zapísať hodiny"; `o.subcontractId` obmedzí výber na
+     * nasadenia tej zákazky, `o.date` predvyplní deň.
+     */
+    form(o = {}) {
+      const all = this.assignments.filter(a => a.status !== 'cancelled');
+      const onSub = o.subcontractId ? all.filter(a => a.subcontract_id === o.subcontractId) : [];
+      const active = onSub.length ? onSub : all;
       if (!active.length) return UI.toast('Najprv nasaďte pracovníka na zákazku', 'err');
-      const today = new Date().toISOString().slice(0, 10);
+      const today = o.date || new Date().toISOString().slice(0, 10);
       const body = `
         <form id="tms-form" onsubmit="event.preventDefault();Tms.save()">
           <div class="form-grid">
@@ -458,7 +473,7 @@
             <button type="submit" class="btn btn-primary">Zapísať</button>
           </div>
         </form>`;
-      UI.modal('Zápis hodín', body, { wide: true });
+      UI.modal('Jeden deň inej práce', body, { wide: true });
     },
 
     async save() {

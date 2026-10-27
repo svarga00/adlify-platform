@@ -10,7 +10,10 @@
 //     `2026-10-23 Rámcová zmluva 2026-093 – Jozef Malý.pdf`,
 //   * súbor sa zároveň uloží do archívu k človeku / firme / zákazke,
 //   * „Poslať" otvorí na telefóne ponuku zdieľania (Mail, WhatsApp…),
-//     v archíve sa dá vybrať viac dokumentov a poslať ich naraz.
+//     v archíve sa dá vybrať viac dokumentov a poslať ich naraz,
+//   * „Tlačiť" papier najprv uloží do archívu rovnakou cestou ako „Stiahnuť
+//     PDF" a až potom otvorí tlač — inak by vytlačený papier v Dokumentoch
+//     chýbal a nedal by sa poslať cez „Poslať všetko naraz".
 //
 // Názvy a triedenie sú v `lib/documents/archive.js` (s testami).
 // ============================================================================
@@ -40,6 +43,9 @@
       if (!meta || !meta.kind || typeof okno.document.createElement !== 'function') return okno;
       okno.__meta = meta;
       okno.__doc = (mode) => this.run(okno, mode);
+      // Upravený text („Upraviť text") je iný papier, než aký je uložený —
+      // ďalšia tlač alebo poslanie ho musí uložiť znova.
+      try { okno.document.addEventListener('input', () => { okno.__dirty = true; }); } catch (e) { /* okno zavreté */ }
       try { okno.document.body.classList.add('has-doc'); } catch (e) { /* okno zavreté */ }
       const sc = okno.document.createElement('script');
       sc.src = new URL(PDF_LIB, location.href).href;
@@ -162,22 +168,39 @@
       return new Blob([await blob.arrayBuffer()], { type: 'application/pdf' });
     },
 
-    /** Tlačidlo v okne dokumentu: 'pdf' = stiahnuť, 'share' = poslať. */
+    /**
+     * Tlačidlo v okne dokumentu: 'pdf' = stiahnuť, 'share' = poslať,
+     * 'print' = uložiť do dokumentov a vytlačiť.
+     */
     async run(okno, mode) {
       const meta = okno.__meta || {};
+      const hotovy = okno.__file && !okno.__dirty;
       // Druhé kliknutie na „Poslať" po príprave — súbor je hotový, posiela sa hneď.
-      if (mode === 'share' && okno.__file) return this.shareFrom(okno, [okno.__file], okno.__row);
+      if (mode === 'share' && hotovy) return this.shareFrom(okno, [okno.__file], okno.__row);
+      // Tento papier už v dokumentoch je (bez zmien) — druhý raz sa neukladá.
+      if (mode === 'print' && hotovy && okno.__row) return this.printNow(okno);
+      if (mode === 'pdf' && hotovy && okno.__row) {
+        this.download(window, okno.__file);
+        return this.msg(okno, `Stiahnuté, v dokumentoch už je: <b>${UI.esc(okno.__file.name)}</b>`);
+      }
       if (okno.__busy) return;
       okno.__busy = true;
-      this.msg(okno, 'Pripravujem PDF…');
+      this.msg(okno, mode === 'print' ? 'Ukladám do dokumentov, potom sa otvorí tlač…' : 'Pripravujem PDF…');
       try {
         const blob = await this.makePdf(okno);
         const name = A().fileName({ ...meta, date: new Date() });
         const file = new File([blob], name, { type: 'application/pdf' });
         okno.__file = file;
+        okno.__dirty = false;
         const row = await this.store(blob, { ...meta, file_name: name });
         okno.__row = row;
-        if (mode === 'pdf') {
+        if (mode === 'print') {
+          // Keď sa uložiť nepodarilo, `store` to už povedal hláškou; tlač
+          // sa aj tak otvorí — papier treba, aj keď archív práve nejde.
+          // Hláška sa pri tlači skryje (@media print), na papier nepríde.
+          if (row) this.msg(okno, `Uložené do dokumentov: <b>${UI.esc(name)}</b>`);
+          this.printNow(okno);
+        } else if (mode === 'pdf') {
           // Okno dokumentu nemá vlastnú adresu (about:blank) a prehliadač
           // v ňom názov súboru zahodí — stiahne sa preto z appky.
           this.download(window, file);
@@ -187,9 +210,20 @@
         }
       } catch (e) {
         console.error('[danubra] PDF', e);
-        this.msg(okno, `PDF sa nepodarilo spraviť: ${UI.esc(e.message || e)}
-          <button class="btn btn-primary btn-sm" onclick="window.print()">Tlačiť namiesto toho</button>`);
+        if (mode === 'print') {
+          // Tlač nesmie zlyhať len preto, že sa nepodarilo PDF do archívu.
+          this.msg(okno, `Do dokumentov sa papier neuložil: ${UI.esc(e.message || e)}. Tlač sa otvorí aj tak.`);
+          this.printNow(okno);
+        } else {
+          this.msg(okno, `PDF sa nepodarilo spraviť: ${UI.esc(e.message || e)}
+            <button class="btn btn-primary btn-sm" onclick="window.print()">Tlačiť namiesto toho</button>`);
+        }
       } finally { okno.__busy = false; }
+    },
+
+    /** Otvorí tlač prehliadača v okne dokumentu. */
+    printNow(okno) {
+      try { okno.focus(); okno.print(); } catch (e) { console.error('[danubra] tlač', e); }
     },
 
     download(win, file) {
@@ -512,7 +546,7 @@
           ${x.rows.map(r => this.rowHtml(r)).join('')}
         </div>`).join('')
           : UI.empty('doc', 'Zatiaľ žiadne dokumenty',
-            'Keď pri zmluve, GDPR, objednávke či faktúre kliknete na „Stiahnuť PDF", uloží sa sem — k človeku a k firme.')}`;
+            'Keď pri zmluve, GDPR, objednávke či faktúre kliknete na „Stiahnuť PDF" alebo „Tlačiť", uloží sa sem — k človeku a k firme.')}`;
     },
   };
 

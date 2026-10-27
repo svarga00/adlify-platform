@@ -307,7 +307,7 @@
         rule: 'cash_negative',
         label: `Podľa výhľadu spadne účet do mínusu ${f.negativeFrom.from}`,
         detail: `Najnižší bod je ${M.format(f.lowest.balance)}. Ďalších ľudí `
-          + 'neber, kým to nesedí — výplaty sa odložiť nedajú.',
+          + 'neberte, kým to nesedí — výplaty sa odložiť nedajú.',
         severity: 'block',
       });
     } else if (f.lowest.balance < buffer) {
@@ -395,7 +395,7 @@
         key: 'negative', title: 'Účet spadne do mínusu',
         what: `Podľa výhľadu ${f.negativeFrom.from}, najnižší bod ${M.format(f.lowest.balance)}.`,
         why: 'Výplaty sa odložiť nedajú. Najskôr peniaze, ktoré už mali prísť — '
-          + 'ďalších ľudí neber, kým to nesedí.',
+          + 'ďalších ľudí neberte, kým to nesedí.',
         hot: true, count: 1,
       };
     }

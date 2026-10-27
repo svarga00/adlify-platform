@@ -35,17 +35,17 @@
         + 'potom už budete vedieť, kam kliknúť.',
       steps: [
         {
-          title: 'Prvá obrazovka: Dnes',
-          what: 'Po prihlásení sa otvorí obrazovka Dnes (nadpis na nej je „Prehľad"). '
+          title: 'Prvá obrazovka: Prehľad dňa',
+          what: 'Po prihlásení sa otvorí obrazovka „Prehľad dňa" (v menu pod položkou Dnes). '
             + 'Odpovedá na tri otázky: čo treba dnes spraviť, či bude na výplaty a či na tom zarábame.',
           how: [
-            'Prihláste sa svojím e-mailom a heslom — otvorí sa „Dnes".',
+            'Prihláste sa svojím e-mailom a heslom — otvorí sa „Prehľad dňa".',
             'Navrchu je rámik „Čo spraviť teraz": jedna veta, prečo, a jedno tlačidlo, ktoré Vás tam zavedie.',
             'Pod ním je „Sedem krokov od dopytu po faktúru" — pri každom kroku stav a tlačidlo k práci.',
             'Nižšie sú „Čísla". Kliknite na číslo a ukáže sa zoznam, z ktorého je spočítané.',
             'Úplne dole sú karty v záložkách „Dnes", „Peniaze" a „Práca a ľudia".',
           ],
-          open: open('dashboard', 'Otvoriť Dnes'),
+          open: open('dashboard', 'Otvoriť Prehľad dňa'),
           tip: 'Keď neviete, čím začať, urobte to, čo je v rámiku „Čo spraviť teraz". '
             + 'Appka tam vždy dáva to, čo drží zvyšok práce.',
           example: null,
@@ -81,17 +81,17 @@
         },
         {
           title: 'Hľadanie',
-          what: 'Každý zoznam má vlastné pole „Hľadať…". Hľadá sa v tom, čo je na obrazovke.',
+          what: 'Pole „Hľadať mesto, meno, telefón, číslo objednávky…" v hornom pruhu hľadá naprieč appkou: '
+            + 'zákazky, ľudí, kandidátov, odberateľov, dopyty, faktúry a objednávky. Netreba vedieť, na ktorej obrazovke záznam je.',
           how: [
-            'Živnostníci: pole „Hľadať meno, telefón, mesto, IČO…".',
-            'Vydané faktúry: „Hľadať číslo faktúry alebo odberateľa…".',
-            'Odpracované hodiny: „Hľadať meno, zákazku, popis…".',
-            'Pri papieroch (tlačidlo „Papiere") sa hľadá človek alebo firma priamo v okne.',
+            'Napíšte aspoň dve písmená alebo číslice — pod poľom sa ukážu výsledky po skupinách.',
+            'Kliknite na výsledok alebo ho vyberte šípkami a stlačte Enter — otvorí sa jeho karta. Esc zoznam zavrie.',
+            'Na telefóne je to isté pole v tmavej hlavičke hore.',
+            'Každý zoznam má navyše vlastné pole „Hľadať…", ktoré zúži len to, čo je na obrazovke.',
           ],
           open: null,
-          tip: 'Pole „Hľadať mesto, meno, telefón, číslo objednávky…" v hornom pruhu zatiaľ nič nevyhľadáva. '
-            + 'Hľadajte v poli na konkrétnej obrazovke.',
-          example: 'V Ľudia napíšte do hľadania „Nitra" a v zozname zostane Ján Kováčik.',
+          tip: 'Diakritika ani medzery v telefóne nevadia: „kosice" nájde Košice a „0905 123" nájde +421 905 123 456.',
+          example: 'Napíšte hore „Kováčik" a vo výsledkoch je Ján Kováčik — kliknutím sa otvorí jeho karta.',
         },
         {
           title: 'Tlačidlo „Papiere"',
@@ -184,7 +184,7 @@
           how: [
             'V menu Zákazky → Dopyty kliknite na „Zapísať dopyt".',
             'Vyplňte „O čo ide", „Firma", „Telefón" a do „Čo potrebujú" napíšte, čo viete. Kliknite „Zapísať".',
-            'Prišiel e-mail? Kliknite „Vložiť e-mail", vložte celý text a kliknite „Rozdeliť na stavby".',
+            'Prišiel e-mail? Kliknite „Vložiť dopyt", vložte celý text a kliknite „Rozdeliť na stavby".',
             'Appka ukáže stavby, ktoré v e-maili našla. Odškrtnite, čo nechcete, a až potom sa dopyty založia.',
           ],
           open: open('opportunities', 'Otvoriť Dopyty'),
@@ -351,12 +351,12 @@
           what: 'Keď kandidát prejde, prevedie sa medzi živnostníkov. Appka potom sama ponúkne ďalšie kroky: súhlas GDPR a zmluvu.',
           how: [
             'V kandidátovi prejdite „Náborový proces" — pri každom kroku odškrtnite, čo je hotové.',
-            'Kliknite „Nastúpený", vyberte zákazku a dátum nástupu a potvrďte „Nastúpený".',
-            'Kandidát sa stane živnostníkom v stave „Pripravený" a otvorí sa okno „Čo ďalej".',
+            'Kliknite „Prijať – previesť medzi ľudí", prípadne vyberte zákazku a predpokladaný nástup a potvrďte.',
+            'Kandidát sa stane živnostníkom v stave „Pripravený". Appka hneď ponúkne „Nasadiť teraz na zákazku" alebo „Najprv papiere".',
             'Ak nepôjde, kliknite „Zamietnuť" a napíšte dôvod.',
           ],
           open: open('candidates', 'Otvoriť Kandidátov'),
-          tip: '„Nastúpený" ho na zákazku ešte nenasadí. Nasadenie spravíte na zákazke tlačidlom „Nasadiť človeka" (kapitola 4).',
+          tip: 'Prijatie ho na zákazku ešte nenasadí. Nasadený je, až keď kliknete „Nasadiť teraz na zákazku" (alebo na zákazke „Nasadiť človeka", kapitola 4) a nasadenie sa uloží.',
           example: 'Jakub Novotný (obkladač, Brno) bol kandidát z reklamy, teraz je živnostník a nastupuje na Klinikum Nord.',
         },
         {
@@ -934,7 +934,7 @@
             'Na Dnes v páse „V systéme sú vzorové dáta" kliknite „Vymazať vzorové dáta".',
             'Na potvrdenie napíšte VYMAZAŤ.',
           ],
-          open: open('dashboard', 'Otvoriť Dnes'),
+          open: open('dashboard', 'Otvoriť Prehľad dňa'),
           tip: null,
           example: null,
         },
@@ -988,7 +988,7 @@
   const TOUR = [
     { selector: '#sidebar-nav .nav-item[data-key="dashboard"]', route: null,
       title: 'Dnes — tu začína každý deň',
-      text: 'Prvá obrazovka po prihlásení. Hore je **jedna vec, ktorú treba spraviť teraz**, a tlačidlo, ktoré Vás k nej zavedie.' },
+      text: 'Prvá obrazovka po prihlásení — Prehľad dňa. Hore je **jedna vec, ktorú treba spraviť teraz**, a tlačidlo, ktoré Vás k nej zavedie.' },
     { selector: '.st7', route: 'dashboard',
       title: 'Sedem krokov od dopytu po faktúru',
       text: 'Celá cesta firmy na jednom mieste. Pri každom kroku je stav — **Horí**, **Čaká** alebo **V poriadku** — a tlačidlo rovno k práci.' },
@@ -1004,6 +1004,11 @@
     { selector: '.mega-btn', route: null,
       title: 'Všetko',
       text: 'Keď niečo v menu nevidíte, kliknite sem. Ukážu sa všetky obrazovky naraz a pri každej jedna veta o tom, čo na nej je.' },
+    // Hľadanie v hornom pruhu (`Danubra.searchBind`). Na telefóne je to pole
+    // v tmavej hlavičke — preto oba selektory.
+    { selector: '.searchbox, .mh-search', route: null,
+      title: 'Hľadať',
+      text: 'Napíšte mesto, meno, telefón alebo číslo objednávky. Netreba vedieť, na ktorej obrazovke záznam je.' },
     { selector: '#btn-papers', route: null,
       title: 'Papiere na dva kliky',
       text: 'Súhlas GDPR, zmluva, objednávka, infolist: vyberiete papier, vyberiete človeka a údaje sa doplnia samy.' },

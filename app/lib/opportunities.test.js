@@ -176,5 +176,34 @@ console.log('\nČÍSLA NAD ZOZNAMOM');
   eq(O.summary([]).live, 0, 'prázdny vstup nespadne');
 }
 
+console.log('\nZ dopytu ponuka a zákazka');
+{
+  const P = [
+    { id: 'p1', name: 'Bauer Ausbau GmbH', ust_idnr: 'DE 111 222 333' },
+    { id: 'p2', name: 'GU Ulm GmbH', ust_idnr: null },
+  ];
+  eq(O.matchPartner({ company_vat: 'de111222333', company_name: 'iný názov' }, P)?.id, 'p1',
+    'odberateľ sa nájde podľa USt-IdNr aj s medzerami a malými písmenami');
+  eq(O.matchPartner({ company_name: 'gu ulm' }, P)?.id, 'p2',
+    'a podľa názvu bez právnej formy');
+  eq(O.matchPartner({ company_name: 'Neznáma firma' }, P), null,
+    'keď nesedí nič, nevymýšľa sa — človek ho vyberie');
+  eq(O.matchPartner({}, P), null, 'prázdny dopyt nespadne');
+
+  const q = O.toQuote(PLNA, 'p2');
+  eq([q.title, q.partner_id, q.trade_key, q.headcount, q.site_city, q.date_from, q.charge_rate, q.worker_rate],
+    ['Kotolňa Wörthsee', 'p2', 'zvarac', 4, 'Wörthsee', '2026-11-03', 34, 22],
+    'ponuka prevezme odberateľa, profesiu, počet ľudí, miesto, termín a sadzby');
+  eq(O.toQuote({ title: 'X' }).headcount, 1, 'bez počtu ľudí ponuka počíta s jedným');
+  ok(/nie je medzi odberateľmi/.test(O.toQuote({ title: 'X', company_name: 'Nová GmbH' }).notes),
+    'keď odberateľ nie je v zozname, ponuka to povie v poznámke');
+
+  const s = O.toSubcontract(PLNA, 'p2');
+  eq([s.title, s.partner_id, s.trade, s.site_city, s.date_from, s.charge_rate, s.work_type],
+    ['Kotolňa Wörthsee', 'p2', 'zvarac', 'Wörthsee', '2026-11-03', 34, 'construction'],
+    'zákazka prevezme údaje z dopytu a je stavebná');
+  ok(/4 ľudí/.test(s.notes), 'v poznámke zákazky je, koľko ľudí treba');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo\n`);
 process.exit(failed ? 1 : 0);

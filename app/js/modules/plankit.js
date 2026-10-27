@@ -451,7 +451,7 @@
           povedať, ktorý kanál ľudí priniesol.
           <div style="margin-top:8px;">
             <button class="btn btn-outline btn-sm"
-              onclick="Danubra.quickAdd('ad')">${Icon('plus', 14)} Zapísať inzerát</button>
+              onclick="Danubra.quickCreate('ad')">${Icon('plus', 14)} Zapísať inzerát</button>
           </div></div>`;
       }
       const kand = (adId) => (Hire.candidates || []).filter(c => c.ad_id === adId).length;
@@ -472,7 +472,7 @@
           </div>`).join('')}
         <div style="margin-top:8px;">
           <button class="btn btn-outline btn-sm"
-            onclick="Danubra.quickAdd('ad')">${Icon('plus', 14)} Zapísať ďalší</button>
+            onclick="Danubra.quickCreate('ad')">${Icon('plus', 14)} Zapísať ďalší</button>
         </div>`;
     },
 

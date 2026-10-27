@@ -371,10 +371,13 @@
     /**
      * @param {string} id      úprava existujúcej
      * @param {Object} preset  predvyplnenie z prijatej ponuky
+     * @param {Object} [opts]  { onSaved(zmluva) } — čo spraviť po založení
+     *   novej zmluvy (napr. priradiť ju zákazke). Volá sa až po uložení.
      */
-    form(id, preset) {
+    form(id, preset, opts = {}) {
       const c = id ? this.items.find(x => x.id === id) || {} : (preset || {});
       const locked = id ? this.isLocked(c) : false;
+      this._onSaved = !id && opts && typeof opts.onSaved === 'function' ? opts.onSaved : null;
 
       // Chránené pole sa nekreslí ako editovateľné. Nie „zakázané po kliknutí",
       // ale rovno bez možnosti písať — aby bolo jasné, že cesta vedie dodatkom.
@@ -518,7 +521,14 @@
       const res = id ? await DB.update('contracts', id, payload) : await DB.insert('contracts', payload);
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Zmluva vytvorená', 'ok');
-      this.loaded = false; await this.load(); Danubra.renderRoute();
+      const after = !id ? this._onSaved : null;
+      this._onSaved = null;
+      this.loaded = false; await this.load();
+      // Kto zmluvu zakladal odinakiaľ (zákazka), ten si obrazovku prekreslí sám.
+      if (after) {
+        try { await after(res.data); return; } catch (e) { console.error('[danubra] po založení zmluvy', e); }
+      }
+      Danubra.renderRoute();
     },
 
     /** ZML-2026-0001, pridelené transakčne v databáze. */

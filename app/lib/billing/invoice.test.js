@@ -63,6 +63,32 @@ console.log('Vydaná faktúra');
   eq(I.nextSteps({ status: 'paid' }), [], 'z uhradenej niet kam');
   eq(I.nextSteps({ status: 'nieco' }), [], 'neznámy stav nezhodí');
   ok(!I.canGo('nieco', 'issued'), 'z neznámeho stavu sa nikam nedostane');
+  // „Po splatnosti" dáva appka sama — ručné tlačidlo sa neponúka.
+  eq(I.nextSteps({ status: 'issued' }), ['sent', 'paid'], 'vystavená: odoslať alebo zaplatená, bez ručného „Po splatnosti"');
+  eq(I.nextSteps({ status: 'sent' }), ['paid'], 'odoslaná: len zaplatená');
+  ok(I.canGo('sent', 'overdue'), 'appka smie odoslanú označiť po splatnosti (trigger to dovolí)');
+}
+
+// ── Popisky stavov a automatické „Po splatnosti" ───────────────────────────
+{
+  eq(['draft', 'pending_approval', 'approved', 'issued', 'sent', 'paid', 'overdue', 'cancelled'].map(I.statusLabel),
+    ['Návrh', 'Čaká na schválenie', 'Schválená', 'Vystavená', 'Odoslaná', 'Zaplatená', 'Po splatnosti', 'Stornovaná'],
+    'jednotné popisky stavov v celej fakturácii');
+  eq(I.statusLabel('draft_pending_approval'), 'Čaká na schválenie', 'aj stav z v1');
+  eq(I.statusLabel('nieco'), 'nieco', 'neznámy stav sa ukáže tak, ako je');
+
+  const dnes = '2026-10-27';
+  const late = I.becameOverdue([
+    { id: 'a', status: 'issued', due_date: '2026-10-01' },
+    { id: 'b', status: 'sent', due_date: '2026-10-26' },
+    { id: 'c', status: 'sent', due_date: '2026-10-27' },
+    { id: 'd', status: 'paid', due_date: '2026-09-01' },
+    { id: 'e', status: 'cancelled', due_date: '2026-09-01' },
+    { id: 'f', status: 'approved', due_date: '2026-09-01' },
+    { id: 'g', status: 'sent', due_date: null },
+    { id: 'h', status: 'overdue', due_date: '2026-09-01' },
+  ], dnes).map(x => x.id);
+  eq(late, ['a', 'b'], 'po splatnosti sa označí vystavená aj odoslaná — nie zaplatená, stornovaná ani v deň splatnosti');
 }
 
 // ── §48b ────────────────────────────────────────────────────────────────────

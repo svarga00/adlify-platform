@@ -120,7 +120,8 @@
       const body = document.querySelector('#ui-modal .modal-body') || document.querySelector('#ui-modal .modal-card');
       const html = `
         <div class="regimebox">Pri každej zákazke appka spraví, čo treba: založí obdobie za mesiac,
-          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Schvaľuje ich admin, ako vždy.${
+          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Návrhy potom skontrolujete
+          a pošlete na schválenie — schvaľuje ich admin, ako vždy.${
           UI.tip('Obdobie = úsek dní (tu celý mesiac), za ktorý sa fakturuje. Uzavrieť ho znamená zmraziť '
             + 'schválené hodiny aj sadzbu, aby sa suma faktúry už nemenila.')}</div>
         <div class="form-grid">
@@ -144,8 +145,9 @@
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" id="mf-go" ${robit.length ? '' : 'disabled'} onclick="Inv.runMonthly()">
             ${Icon('check', 14)} Pripraviť ${robit.length} ${Shell.plural(robit.length, 'návrh', 'návrhy', 'návrhov')} · ${Money.format(spolu)}</button>${
-            UI.tip('Uzavrie obdobia zaškrtnutých zákaziek a vytvorí z nich návrhy faktúr. Odberateľovi nič '
-              + 'neodíde — každý návrh ešte schvaľuje admin.')}
+            UI.tip('Uzavrie obdobia zaškrtnutých zákaziek a vytvorí z nich návrhy faktúr (stav Návrh). '
+              + 'Odberateľovi nič neodíde — každý návrh treba skontrolovať, poslať na schválenie a admin ho '
+              + 'musí schváliť. Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
         </div>`;
       UI.modal('Mesačná fakturácia', html, { wide: true });
     },
@@ -179,10 +181,18 @@
       if (window.Sub) Sub.loaded = false;
       await this.load(); Danubra.renderRoute();
       UI.modal('Mesačná fakturácia', `
-        <div class="${chyby.length ? 'warnbox' : 'regimebox'}">Pripravených ${ok} ${Shell.plural(ok, 'návrh', 'návrhy', 'návrhov')} faktúr.
-          ${ok ? 'Čakajú na schválenie vo Vydaných faktúrach.' : ''}</div>
+        <div class="${chyby.length ? 'warnbox' : 'regimebox'}">${ok
+          ? `Vzniklo ${ok} ${Shell.plural(ok, 'návrh', 'návrhy', 'návrhov')} faktúr. Skontrolujte ich vo Vydaných
+            faktúrach a pošlite na schválenie.${UI.tip('Návrh je len v appke — odberateľ o ňom nevie. '
+              + 'V detaile faktúry skontrolujte sumu a odberateľa a kliknite „Poslať na schválenie". '
+              + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}`
+          : 'Nevznikol žiadny návrh faktúry.'}</div>
         ${chyby.length ? `<div class="form-section">Nepodarilo sa</div>${chyby.map(c => `<div class="js-row">${UI.esc(c)}</div>`).join('')}` : ''}
-        <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Hotovo</button></div>`, { wide: true });
+        <div class="modal-actions">
+          ${ok ? `<button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+            <button class="btn btn-primary" onclick="UI.closeModal();Inv.filters.status='draft';Danubra.go('invoices')">${Icon('invoices', 14)} Otvoriť návrhy</button>`
+            : '<button class="btn btn-primary" onclick="UI.closeModal()">Hotovo</button>'}
+        </div>`, { wide: true });
     },
 
     // ── Prehľad pre účtovníčku ────────────────────────────────────────────
@@ -220,7 +230,7 @@
         ${x.missingFiles.length ? `<div class="warnbox">${Icon('alert', 14)} K ${x.missingFiles.length}
           ${Shell.plural(x.missingFiles.length, 'prijatej faktúre', 'prijatým faktúram', 'prijatým faktúram')} chýba súbor: ${UI.esc(x.missingFiles.slice(0, 5).join(', '))}${x.missingFiles.length > 5 ? '…' : ''}.</div>` : ''}
         <p class="muted-sm">Balík obsahuje tabuľky pre Excel (vydané, prijaté, náklady) a súbory: PDF prijatých faktúr
-          a PDF vydaných faktúr, ktoré sa už raz stiahli (sú v Dokumentoch).</p>
+          a PDF vydaných faktúr, ktoré sa už raz stiahli alebo vytlačili (sú v Dokumentoch).</p>
         <div id="bk-log" class="muted-sm"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
@@ -263,7 +273,7 @@
         let j = 0;
         for (const inv of x.issued) {
           const r = pdf.get(inv.invoice_number);
-          if (!r) { chyba.push(`Vydaná ${inv.invoice_number}: PDF ešte nebolo stiahnuté — otvorte ju a dajte „Stiahnuť PDF"`); continue; }
+          if (!r) { chyba.push(`Vydaná ${inv.invoice_number}: PDF ešte nie je v Dokumentoch — otvorte ju a dajte „Stiahnuť PDF" alebo „Tlačiť"`); continue; }
           if (log) log.textContent = `Sťahujem vydané faktúry… ${j + 1}`;
           try { files.push({ name: DanubraBooks.fileIn('vydane', r.file_name, j), data: await stiahni(r.storage_path) }); }
           catch (e) { chyba.push(`Vydaná ${inv.invoice_number}: súbor sa nestiahol`); }

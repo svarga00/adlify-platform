@@ -247,7 +247,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${CSS}${land ? CSS_LANDSCAPE : ''}${css}</style></head><body>
 ${toolbar ? `<div class="toolbar"><span class="tb-title">${esc(title)}</span>
-<span class="tb-acts">${upravit}<button class="tb-2 tb-doc" onclick="window.print()">Tlačiť</button><button class="tb-2 tb-doc" onclick="window.__doc&&window.__doc('share')">Poslať</button><button class="tb-doc" onclick="window.__doc&&window.__doc('pdf')">Stiahnuť PDF</button><button class="tb-print-only" onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
+<span class="tb-acts">${upravit}<button class="tb-2 tb-doc" onclick="window.__doc?window.__doc('print'):window.print()">Tlačiť</button><button class="tb-2 tb-doc" onclick="window.__doc&&window.__doc('share')">Poslať</button><button class="tb-doc" onclick="window.__doc&&window.__doc('pdf')">Stiahnuť PDF</button><button class="tb-print-only" onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
 <div class="tb-msg" id="tb-msg"></div>
 ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. Zmena platí pre tento dokument — potom „Stiahnuť PDF".</div>' : ''}` : ''}
 <div class="page"><table class="pf"><thead><tr><td><div class="pf-sp"></div></td></tr></thead>

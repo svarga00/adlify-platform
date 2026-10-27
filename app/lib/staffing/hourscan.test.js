@@ -263,5 +263,49 @@ console.log('Stundennachweis z fotky');
   eq([junk.rows.length, junk.signed, junk.confidence], [0, false, 'low'], 'prázdny vstup nespadne');
 }
 
+// ── Podpis majstra: jeden zdroj pravdy ──────────────────────────────────────
+// Okno hodín ukladalo výkaz podľa zákazky, Výkaz pre odberateľa podľa partie —
+// podpis z jedného miesta druhé nevidelo. Teraz sa číta jedným pravidlom.
+console.log('Výkaz k zákazke a týždňu');
+{
+  const R = [
+    { id: 'old', crew_id: 'c1', subcontract_id: null, iso_year: 2026, iso_week: 43, signed_at: '2026-10-23T12:00:00Z', signed_by_name: 'Brandl' },
+    { id: 'new', crew_id: null, subcontract_id: 's1', iso_year: 2026, iso_week: 43, signed_at: null },
+    { id: 'cudzi', crew_id: 'c2', subcontract_id: 's2', iso_year: 2026, iso_week: 43, signed_at: '2026-10-23T12:00:00Z' },
+    { id: 'iny-tyzden', crew_id: null, subcontract_id: 's1', iso_year: 2026, iso_week: 42, signed_at: '2026-10-16T12:00:00Z' },
+  ];
+  eq((S.pickSheet(R, { subcontractId: 's1', crewIds: ['c1'], year: 2026, week: 43 }) || {}).id, 'old',
+    'starý podpísaný riadok partie (bez zákazky) sa nájde — podpis sa nestratí');
+  eq((S.pickSheet(R, { subcontractId: 's1', crewIds: [], year: 2026, week: 43 }) || {}).id, 'new',
+    'bez partie sa vezme riadok zákazky');
+  eq(S.pickSheet(R, { subcontractId: 's9', crewIds: [], year: 2026, week: 43 }), null,
+    'cudzia zákazka sa nikdy nevezme');
+  eq((S.pickSheet(R, { subcontractId: 's2', crewIds: ['c1'], year: 2026, week: 43 }) || {}).id, 'cudzi',
+    'riadok inej partie so zákazkou patrí tej zákazke');
+  eq((S.pickSheet(R, { subcontractId: 's1', year: '2026', week: '42' }) || {}).id, 'iny-tyzden',
+    'týždeň aj ako text');
+  eq(S.pickSheet(null, { subcontractId: 's1', year: 2026, week: 43 }), null, 'bez riadkov nespadne');
+  const dva = [
+    { id: 'a', crew_id: 'c1', subcontract_id: 's1', iso_year: 2026, iso_week: 43, updated_at: '2026-10-20' },
+    { id: 'b', crew_id: 'c2', subcontract_id: 's1', iso_year: 2026, iso_week: 43, updated_at: '2026-10-21' },
+  ];
+  eq(S.pickSheet(dva, { subcontractId: 's1', crewId: 'c1', year: 2026, week: 43 }).id, 'a',
+    'keď sa pýta partia, jej riadok má prednosť');
+
+  const snap = S.sheetSnapshot({
+    dates: [{ date: '2026-10-19' }, { date: '2026-10-20' }],
+    rows: [{ worker_id: 'w1', name: 'Ján Novák', cells: { '2026-10-19': 600, '2026-10-20': 510 } },
+      { worker_id: 'w2', name: 'Peter Kováč', cells: { '2026-10-19': 615 } }],
+    project: 'ZAK-1', site: 'Ulm', customer: 'GU Ulm', source: 'scan',
+  });
+  eq(snap.dni, ['2026-10-19', '2026-10-20'], 'dni výkazu');
+  eq(snap.riadky.map(r => [r.meno, r.hodiny, r.spolu]),
+    [['Ján Novák', ['10.00', '8.50'], '18.50'], ['Peter Kováč', ['10.25', '0.00'], '10.25']],
+    'hodiny po dňoch bez desatinných chýb (z minút)');
+  eq([snap.po_dnoch, snap.spolu], [['20.25', '8.50'], '28.75'], 'súčty po dňoch a spolu');
+  eq([snap.projekt, snap.baustelle, snap.kunde, snap.zdroj], ['ZAK-1', 'Ulm', 'GU Ulm', 'scan'],
+    'hlavička papiera je v snímke');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

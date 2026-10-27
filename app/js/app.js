@@ -104,6 +104,9 @@ window.Danubra = {
     // (`lib/staffing/job.js`) a z každého je tlačidlo priamo na to, čo treba.
     // Menu preto odpovedá na štyri otázky: čo dnes, ktorá stavba, ktorí ľudia,
     // aké peniaze. Všetko ostatné je záložkou jednej z nich a funguje ďalej.
+    // Sekcia v menu je „Dnes", jej prvá obrazovka „Prehľad dňa" — rovnako
+    // v rozbalenom menu, na záložke aj v nadpise (`DASH_TITLE`). Predtým sa
+    // tá istá obrazovka volala „Dnes" na záložke a „Prehľad" v nadpise.
     ['DNES',       [['dashboard', 'Dnes', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['flow', 'Ako to ide', 'repeat'],
@@ -227,11 +230,15 @@ window.Danubra = {
     candidate:  { route: 'candidates',   handle: 'Cand',  ico: 'user',      what: 'Kandidát' },
     ad:         { route: 'ads',          handle: 'Ads',   ico: 'marketing', what: 'Inzerát' },
     quote:      { route: 'quotes',       handle: 'Quo',   ico: 'offers',    what: 'Ponuka' },
+    // Náborový plán. Bez neho bol odkaz „Otvoriť nábor" v dopyte len štítok.
+    plan:       { route: 'hiring',       handle: 'Hire',  ico: 'zap',       what: 'Nábor' },
     contract:   { route: 'contracts',    handle: 'Con',   ico: 'note',      what: 'Zmluva' },
     // Úloha nemá „detail" — otvára sa rovno formulár, v ktorom sa dá upraviť.
     task:       { route: 'tasks',        handle: 'Tsk',   ico: 'tasks',     what: 'Úloha', method: 'form' },
     accommodation: { route: 'accommodations', handle: 'Acc', ico: 'bed',    what: 'Ubytovanie' },
     order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka' },
+    // Dopyt — kvôli hľadaniu v hornom pruhu; `#/opportunities/<id>` otvorí jeho kartu.
+    opportunity:{ route: 'opportunities', handle: 'Opp', ico: 'offers',    what: 'Dopyt' },
   },
 
   /** Vie sa na tento typ záznamu vôbec preklikať? */
@@ -357,7 +364,7 @@ window.Danubra = {
     // Ľudia: kartotéka, nábor nových a partie.
     hiring: 'workers', candidates: 'workers', ads: 'workers', recruiting: 'workers',
     crews: 'workers',
-    // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede.
+    // Fakturácia: vydané, prijaté, zálohy a banka — všetko o peniazoch.
     invoices: 'money', costs: 'money', advances: 'money', bank: 'money',
     trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
     mailboxes: 'settings',
@@ -368,7 +375,7 @@ window.Danubra = {
   // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
   // povedať, čo na nej je — „Ľudia → Ľudia" nepovie nič.
   navTabLabel: {
-    dashboard: 'Dnes', tasks: 'Úlohy', flow: 'Ako to ide', navod: 'Návod',
+    dashboard: 'Prehľad dňa', tasks: 'Úlohy', flow: 'Ako to ide', navod: 'Návod',
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
@@ -419,7 +426,7 @@ window.Danubra = {
    *
    * **Keď na rodiča právo nie je, záložka sa stane samostatnou položkou menu.**
    * Bez toho by zmizla úplne: koordinátor má prijaté faktúry, ale nie banku —
-   * a „Kde sú peniaze" sa pýta na právo banky. Záložka bez rodiča by sa
+   * a „Fakturácia" sa pýta na právo banky. Záložka bez rodiča by sa
    * nenakreslila nikde a obrazovka by sa dala otvoriť len cez adresu.
    */
   parentOf(key) {
@@ -481,6 +488,8 @@ window.Danubra = {
       .filter(i => this.topRoutes.includes(i[0]) && this.can(i[0]));
   },
   labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'Dnes'; },
+  /** Nadpis obrazovky Dnes — to isté meno ako jej záložka a riadok v menu. */
+  DASH_TITLE: 'Prehľad dňa',
 
   // ── Nastavenia: jeden riadok, jedno miesto ────────────────────────────────
   // Nastavenia sa predtým načítavali na štyroch miestach (`Cfg`, `Invoicing`,
@@ -581,6 +590,7 @@ window.Danubra = {
     const pp = document.getElementById('btn-papers');
     if (pp) pp.innerHTML = `${Icon('doc', 16)}<span>Papiere</span>`;
     const pm = document.getElementById('btn-papers-m'); if (pm) pm.innerHTML = Icon('doc', 18);
+    this.searchBind();
     this._buildNav();
     this._render();
     window.addEventListener('hashchange', () => this._syncRoute());
@@ -635,6 +645,8 @@ window.Danubra = {
     this.user = null;
     // Udalosti sú o dátach, ku ktorým už odhlásený človek nemá prístup.
     this.events = []; this.eventsAt = 0; this.bellOpen = false;
+    // Zoznam na hľadanie tiež — je z dát predchádzajúceho človeka.
+    this._sIdx = null; this._sAt = 0; this.searchClose();
     this.renderBell();
     this._render();
   },
@@ -1060,18 +1072,336 @@ window.Danubra = {
     if (mod && 'openId' in mod) mod.openId = null;
   },
 
+  // ── Menu „Pridať" (mobilné tlačidlo „+") ─────────────────────────────────
+  // Dovtedy „+" rovno otvoril formulár podľa obrazovky — a mimo nej vždy
+  // nového pracovníka, aj keď človek chcel zapísať hodiny. Teraz je to menu:
+  // navrchu to, čo patrí k otvorenej obrazovke, pod tým najčastejšie veci.
+  //
+  // [route, label, veta, ikona, čo spustiť, len na tejto obrazovke?]
+  ADD_MENU: [
+    ['opportunities', 'Vložiť dopyt', 'Kto chce ľudí — z telefonátu alebo e-mailu', 'offers', () => Opp.inquiryForm()],
+    ['subcontracts', 'Nová zákazka', 'Stavba pre odberateľa', 'site', () => Sub.form()],
+    ['workers', 'Pridať pracovníka', 'Živnostník do kartotéky', 'workers', () => Wrk.form()],
+    ['candidates', 'Nový kandidát', 'Niekto sa ozval na inzerát alebo na odporúčanie', 'user', () => Cand.form()],
+    ['timesheets', 'Zapísať hodiny', 'Stundennachweis za týždeň', 'clock',
+      () => (window.HourEntry ? HourEntry.open() : Tms.form())],
+    ['tasks', 'Nová úloha', 'Pripomienka pre Vás alebo kolegu', 'tasks', () => Tsk.form()],
+    ['quotes', 'Nová ponuka odberateľovi', 'Cena pre odberateľa — marža je vidieť hneď', 'euro', () => Quo.create()],
+    ['invoices', 'Nová faktúra', 'Návrh — vystaví sa až po schválení adminom', 'invoices', () => Inv.newInvoice()],
+    ['bank', 'Načítať výpis z účtu', 'XML alebo CSV z banky — platby sa samy spárujú', 'upload', () => Bank.importForm()],
+    ['partners', 'Nový odberateľ', 'Nemecká firma, ktorej fakturujeme', 'clients', () => Prt.form(), true],
+    ['hiring', 'Nový nábor', 'Koho a koľko ľudí hľadáme', 'zap', () => Hire.wizard(), true],
+    ['accommodations', 'Nové ubytovanie', 'Kde budú ľudia bývať', 'bed', () => Acc.form(), true],
+    ['trades', 'Nové remeslo', 'Otázky pri nábore pre ďalšie remeslo', 'wrench', () => Trades.tForm(), true],
+    ['marketing', 'Nový inzerát na portáli', 'Kde inzerujeme a čo to stojí', 'chart', () => Mkt.listingForm(), true],
+  ],
+
+  /** Položky menu „Pridať", ktoré sa dajú spustiť. Otvorená obrazovka ide prvá. */
+  addMenuItems() {
+    const here = this.route;
+    const ok = this.ADD_MENU.filter(([route, , , , , only]) =>
+      this.routeAvailable(route) && (!only || route === here));
+    return [...ok.filter(i => i[0] === here), ...ok.filter(i => i[0] !== here)];
+  },
+
   quickAdd() {
-    // rýchle pridanie podľa toho, kde práve stojíme
-    const map = {
-      accommodations: () => Acc.form(), workers: () => Wrk.form(),
-      subcontracts: () => Sub.form(), partners: () => Prt.form(),
-      timesheets: () => Tms.form(), tasks: () => Tsk.form(),
-      candidates: () => Cand.form(), hiring: () => Hire.wizard(),
-      trades: () => Trades.tForm(),
-      invoices: () => Inv.newInvoice(), marketing: () => Mkt.listingForm(),
+    const items = this.addMenuItems();
+    this._addItems = items;
+    if (!items.length) return UI.toast('Na pridávanie tu nemáte prístup.', 'err');
+    UI.modal('Čo chcete pridať?', `
+      <div class="qa-list">
+        ${items.map(([route, label, sub, ico], i) => `
+          <button class="qa-item${route === this.route ? ' is-here' : ''}" onclick="Danubra.addMenuRun(${i})">
+            <span class="gs-ico">${Icon(ico, 17)}</span>
+            <span class="gs-txt"><b>${UI.esc(label)}</b><em>${UI.esc(sub)}</em></span>
+            ${route === this.route ? '<span class="gs-what">tu</span>' : Icon('chevron', 14)}
+          </button>`).join('')}
+      </div>`);
+  },
+
+  addMenuRun(i) {
+    const it = (this._addItems || [])[Number(i)];
+    if (!it) return;
+    return this.runOn(it[0], it[4]);
+  },
+
+  /**
+   * Prepne na obrazovku, počká na jej dáta a až potom spustí akciu. Formulár
+   * otvorený nad neprepnutou obrazovkou by nemal z čoho vyberať (zoznam
+   * zákaziek, ľudí) — a router by ho pri prepnutí hneď zavrel.
+   */
+  async runOn(route, fn) {
+    UI.closeModal();
+    if (route && this.route !== route) {
+      this.go(route);
+      await new Promise(r => setTimeout(r, 0));
+      try { await this._routeReady; } catch { /* obrazovka hlási chybu sama */ }
+    }
+    try { await fn(); } catch (e) {
+      console.error('[danubra] akcia sa nespustila', route, e);
+      UI.toast('Nepodarilo sa to otvoriť.', 'err');
+    }
+  },
+
+  // ── Hľadanie v hornom pruhu ──────────────────────────────────────────────
+  // Pole „Hľadať mesto, meno, telefón…" bolo v hornom pruhu od začiatku, ale
+  // nič nerobilo. Hľadá sa naprieč hlavnými záznamami naraz — netreba vedieť,
+  // na ktorej obrazovke záznam je. Klik alebo Enter otvorí jeho detail.
+  //
+  // Zoznam sa načíta raz (malé dotazy, len stĺpce na hľadanie) a drží sa dve
+  // minúty; filtruje sa v prehliadači, takže „kosice" nájde Košice a
+  // „0905 123" nájde +421 905 123 456. Hľadá sa len v tom, kam má človek
+  // právo — záznam, ktorý by sa nedal otvoriť, sa neponúkne.
+  SEARCH: [
+    { type: 'subcontract', group: 'Zákazky', table: 'subcontracts', ico: 'site',
+      select: 'id,title,contract_number,site_city,status',
+      fields: ['title', 'contract_number', 'site_city'],
+      main: r => r.title || r.contract_number, sub: r => [r.contract_number, r.site_city] },
+    { type: 'worker', group: 'Ľudia', table: 'workers', ico: 'workers',
+      select: 'id,full_name,phone,company_id,city',
+      fields: ['full_name', 'phone', 'company_id', 'city'], phone: 'phone',
+      main: r => r.full_name, sub: r => [r.phone, r.company_id && `IČO ${r.company_id}`, r.city] },
+    { type: 'candidate', group: 'Kandidáti', table: 'candidates', ico: 'user',
+      select: 'id,full_name,phone,city',
+      fields: ['full_name', 'phone', 'city'], phone: 'phone',
+      main: r => r.full_name, sub: r => [r.phone, r.city] },
+    { type: 'partner', group: 'Odberatelia', table: 'partners', ico: 'clients',
+      select: 'id,name,ust_idnr,city',
+      fields: ['name', 'ust_idnr', 'city'],
+      main: r => r.name, sub: r => [r.ust_idnr && `USt-IdNr ${r.ust_idnr}`, r.city] },
+    { type: 'opportunity', group: 'Dopyty', table: 'opportunities', ico: 'offers',
+      select: 'id,title,company_name,city',
+      fields: ['title', 'company_name', 'city'],
+      main: r => r.title || r.company_name, sub: r => [r.company_name, r.city] },
+    { type: 'invoice', group: 'Faktúry', table: 'invoices', ico: 'invoices',
+      select: 'id,invoice_number,partner_id,total',
+      fields: ['invoice_number'],
+      main: r => r.invoice_number,
+      sub: (r, x) => [x.partnerName(r.partner_id), r.total != null ? UI.money(r.total) : ''] },
+    { type: 'order', group: 'Objednávky', table: 'work_orders', ico: 'orders',
+      select: 'id,order_number,their_ref,title,kind',
+      fields: ['order_number', 'their_ref'],
+      main: r => r.order_number || r.their_ref || r.title,
+      sub: r => [r.their_ref && r.their_ref !== r.order_number ? `ich č. ${r.their_ref}` : '',
+        { customer: 'od odberateľa', worker: 'živnostníkovi' }[r.kind] || '', r.title] },
+  ],
+  _sIdx: null, _sAt: 0, _sHits: [], _sActive: -1, _sInput: null,
+
+  searchBind() {
+    const inputs = [document.getElementById('global-search'),
+      document.querySelector('.mh-search input')].filter(Boolean);
+    for (const el of inputs) {
+      if (el._sBound || typeof el.setAttribute !== 'function') continue;
+      el._sBound = true;
+      el.setAttribute('autocomplete', 'off');
+      el.setAttribute('role', 'combobox');
+      el.setAttribute('aria-autocomplete', 'list');
+      el.setAttribute('aria-expanded', 'false');
+      el.setAttribute('aria-controls', 'gs-pop');
+      if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', 'Hľadať v appke');
+      el.addEventListener('input', () => {
+        clearTimeout(this._sT);
+        this._sT = setTimeout(() => this.searchRun(el), 220);
+      });
+      el.addEventListener('focus', () => { if (el.value.trim().length >= 2) this.searchRun(el); });
+      el.addEventListener('keydown', (e) => this._searchKey(e, el));
+      // O chvíľu neskôr — klik do zoznamu musí stihnúť dobehnúť.
+      el.addEventListener('blur', () => setTimeout(() => {
+        if (document.activeElement !== el) this.searchClose();
+      }, 150));
+    }
+    if (!this._sGlobal) {
+      this._sGlobal = true;
+      window.addEventListener('hashchange', () => this.searchClose());
+      window.addEventListener('resize', () => this._searchPlace());
+    }
+  },
+
+  /** Zoznam na hľadanie. Čo sa nenačíta (právo, sieť), je len prázdne. */
+  async _searchIndex() {
+    if (this._sIdx && Date.now() - this._sAt < 120000) return this._sIdx;
+    if (this._sLoading) return this._sLoading;
+    const src = this.SEARCH.filter(s => this.canOpen(s.type, 'x'));
+    const get = async (table, select) => {
+      try {
+        const { data, error } = await DB.from(table).select(select).limit(2000);
+        if (error) { console.warn('[danubra] hľadanie:', table, error.message); return []; }
+        return data || [];
+      } catch (e) { console.warn('[danubra] hľadanie:', table, e); return []; }
     };
-    if (map[this.route]) return map[this.route]();
-    return this.area === 'staffing' ? Wrk.form() : Acc.form();
+    this._sLoading = (async () => {
+      const needNames = src.some(s => s.type === 'invoice');
+      const [rows, prt] = await Promise.all([
+        Promise.all(src.map(s => get(s.table, s.select))),
+        needNames ? get('partners', 'id,name') : Promise.resolve([]),
+      ]);
+      const names = new Map(prt.map(p => [p.id, p.name]));
+      this._sIdx = {
+        src, rows,
+        partnerName: (id) => names.get(id) || '',
+      };
+      this._sAt = Date.now();
+      return this._sIdx;
+    })().finally(() => { this._sLoading = null; });
+    return this._sLoading;
+  },
+
+  /** Čísla bez medzier a predvoľby: „0905 123" aj „+421 905 123" → „905123". */
+  _digits(v) {
+    let d = String(v || '').replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    for (const cc of ['421', '420', '49', '43']) {
+      if (d.startsWith(cc) && d.length > cc.length + 6) { d = d.slice(cc.length); break; }
+    }
+    return d.replace(/^0+/, '');
+  },
+
+  /** Čisté hľadanie nad načítaným zoznamom — bez DOM, aby sa dalo overiť. */
+  searchHits(q, idx, perGroup = 5) {
+    const query = String(q || '').trim();
+    if (query.length < 2 || !idx) return [];
+    const nq = Shell.norm(query);
+    const phoneQ = /^[+\d\s/()-]+$/.test(query) && query.replace(/\D/g, '').length >= 3
+      ? this._digits(query) : '';
+    const out = [];
+    idx.src.forEach((s, i) => {
+      const rows = idx.rows[i] || [];
+      const hits = rows.filter((r) => {
+        if (Shell.matches(r, query, s.fields)) return true;
+        return !!(phoneQ && s.phone && r[s.phone] && this._digits(r[s.phone]).includes(phoneQ));
+      }).map((r) => {
+        const main = String(s.main(r) || '').trim();
+        // Čo sa začína hľadaným textom, ide prvé — „Ko" chce Košice, nie Bratislavu-Koliba.
+        const score = Shell.norm(main).startsWith(nq) ? 0 : 1;
+        return { type: s.type, id: r.id, group: s.group, ico: s.ico, score,
+          main: main || '—',
+          sub: (s.sub(r, idx) || []).filter(Boolean).join(' · ') };
+      }).sort((a, b) => a.score - b.score || a.main.localeCompare(b.main, 'sk'));
+      out.push(...hits.slice(0, perGroup));
+    });
+    return out;
+  },
+
+  async searchRun(el) {
+    this._sInput = el;
+    const q = el.value.trim();
+    if (q.length < 2) return this.searchClose();
+    if (!this._sIdx) this._searchShow('<div class="gs-empty">Hľadám…</div>');
+    let idx;
+    try { idx = await this._searchIndex(); } catch (e) {
+      console.error('[danubra] hľadanie', e);
+      return this._searchShow(`<div class="gs-empty">${Icon('alert', 15)}
+        <span>Zoznam na hľadanie sa nepodarilo načítať. Skúste to o chvíľu znova.</span></div>`);
+    }
+    // Medzitým sa mohlo písať ďalej — kreslí sa len k poslednému textu.
+    if (el.value.trim() !== q || this._sInput !== el) return;
+    this._sHits = this.searchHits(q, idx);
+    this._sQ = q;
+    this._sActive = this._sHits.length ? 0 : -1;
+    if (!this._sHits.length) {
+      return this._searchShow(`<div class="gs-empty">${Icon('search', 15)}
+        <span>Pre „${UI.esc(q)}" sa nič nenašlo. Hľadá sa v zákazkách, ľuďoch, kandidátoch,
+        odberateľoch, dopytoch, faktúrach a objednávkach — skúste časť mena, mesta
+        alebo čísla.</span></div>`);
+    }
+    let last = '';
+    const html = this._sHits.map((h, i) => {
+      const head = h.group !== last ? `<div class="gs-group">${UI.esc(h.group)}</div>` : '';
+      last = h.group;
+      return `${head}<button type="button" class="gs-row${i === this._sActive ? ' is-active' : ''}"
+        id="gs-o-${i}" role="option" aria-selected="${i === this._sActive}"
+        onmousedown="event.preventDefault()" onclick="Danubra.searchOpen(${i})">
+        <span class="gs-ico">${Icon(h.ico, 16)}</span>
+        <span class="gs-txt"><b>${UI.esc(h.main)}</b>${h.sub ? `<em>${UI.esc(h.sub)}</em>` : ''}</span>
+      </button>`;
+    }).join('');
+    this._searchShow(html + `<div class="gs-foot">Šípkami vyberiete, Enter otvorí, Esc zavrie.</div>`);
+  },
+
+  _searchShow(html) {
+    let pop = document.getElementById('gs-pop');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'gs-pop';
+      pop.className = 'gs-pop no-print';
+      pop.setAttribute('role', 'listbox');
+      pop.setAttribute('aria-label', 'Výsledky hľadania');
+      document.body.appendChild(pop);
+    }
+    pop.innerHTML = html;
+    if (this._sInput) {
+      this._sInput.setAttribute('aria-expanded', 'true');
+      if (this._sActive >= 0) this._sInput.setAttribute('aria-activedescendant', `gs-o-${this._sActive}`);
+      else this._sInput.removeAttribute('aria-activedescendant');
+    }
+    this._searchPlace();
+  },
+
+  /** Zoznam stojí pod poľom, do ktorého sa píše (na mobile cez celú šírku). */
+  _searchPlace() {
+    const pop = document.getElementById('gs-pop');
+    const el = this._sInput;
+    if (!pop || !el) return;
+    const box = el.closest('.searchbox, .mh-search') || el;
+    const r = box.getBoundingClientRect();
+    pop.style.top = `${Math.round(r.bottom + 6)}px`;
+    pop.style.left = `${Math.round(Math.max(16, Math.min(r.left, window.innerWidth - pop.offsetWidth - 16)))}px`;
+  },
+
+  searchClose() {
+    document.getElementById('gs-pop')?.remove();
+    this._sHits = []; this._sActive = -1; this._sQ = null;
+    for (const el of [document.getElementById('global-search'), document.querySelector('.mh-search input')]) {
+      if (el && el.setAttribute) { el.setAttribute('aria-expanded', 'false'); el.removeAttribute('aria-activedescendant'); }
+    }
+  },
+
+  _searchKey(e, el) {
+    const open = !!document.getElementById('gs-pop');
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      // Prvé Esc zavrie zoznam, druhé vymaže, čo je napísané.
+      if (open) this.searchClose(); else { el.value = ''; el.blur(); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!open) { if (el.value.trim().length >= 2) this.searchRun(el); return; }
+      if (!this._sHits.length) return;
+      e.preventDefault();
+      const n = this._sHits.length;
+      this._sActive = (this._sActive + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      document.querySelectorAll('#gs-pop .gs-row').forEach((b, i) => {
+        b.classList.toggle('is-active', i === this._sActive);
+        b.setAttribute('aria-selected', String(i === this._sActive));
+        if (i === this._sActive) b.scrollIntoView({ block: 'nearest' });
+      });
+      el.setAttribute('aria-activedescendant', `gs-o-${this._sActive}`);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(this._sT);
+      const q = el.value.trim();
+      if (open && this._sQ === q && this._sHits[this._sActive]) return this.searchOpen(this._sActive);
+      // Enter hneď po písaní: zoznam k poslednému textu ešte nemusí byť
+      // nakreslený — dohľadá sa a otvorí sa prvý výsledok.
+      if (q.length >= 2) {
+        return this.searchRun(el).then(() => {
+          if (this._sQ === q && this._sHits.length) this.searchOpen(Math.max(0, this._sActive));
+        });
+      }
+    }
+  },
+
+  searchOpen(i) {
+    const h = this._sHits[Number(i)];
+    if (!h) return;
+    const el = this._sInput;
+    this.searchClose();
+    if (el) { el.value = ''; el.blur(); }
+    UI.closeModal();
+    if (document.getElementById('mega')) this.toggleMega(false);
+    this.open(h.type, h.id);
   },
 
   _syncRoute() {
@@ -1240,7 +1570,7 @@ window.Danubra = {
   crumbs(trail = []) {
     if (this.route === 'dashboard' && !trail.length) return '';
     const parts = [
-      `<button onclick="Danubra.go('dashboard')">Dnes</button>`,
+      `<button onclick="Danubra.go('dashboard')">${UI.esc(this.DASH_TITLE)}</button>`,
       ...(this.route === 'dashboard' || !trail.length ? [] : [
         `<button onclick="Danubra.go('${this.route}')">${UI.esc(this.labelOf(this.route))}</button>`,
       ]),
@@ -1332,8 +1662,10 @@ window.Danubra = {
     if (s.key === 'nemec' && !caka && this.routeAvailable('partners')) {
       return "Danubra.go('partners')";
     }
-    if (['gdpr', 'zmluva'].includes(s.key) && window.Wrk && this.routeAvailable('workers')) {
-      const f = caka ? (s.key === 'gdpr' ? 'nogdpr' : 'nocontract') : '';
+    // Krok 4 (papiere) a 5 (zmluvy a objednávky) sa robia na karte človeka —
+    // filter povie reťazec (`focus`: nogdpr / nocontract / noorder).
+    if (['papiere', 'zivnostnici'].includes(s.key) && window.Wrk && this.routeAvailable('workers')) {
+      const f = caka ? (s.focus || '') : '';
       return `Wrk.openId=null;Wrk.filters.doc='${f}';Danubra.go('workers')`;
     }
     return this.routeAvailable(s.route) ? `Danubra.go('${s.route}')` : '';
@@ -1971,8 +2303,9 @@ window.Danubra = {
       ${Help.btn('dash.demo')}
       ${window.DemoDocs ? `<button class="btn btn-outline btn-sm" onclick="DemoDocs.run()">
         ${Icon('doc', 14)} Vyrobiť dokumenty</button>${UI.tip('Ku všetkým vzorovým ľuďom, zákazkám, objednávkam, ponukám a faktúram vyrobí PDF v novom vzhľade a uloží ich do Dokumentov. Ostrých záznamov sa to nedotkne.')}` : ''}
-      <button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
-        ${Icon('trash', 14)} Vymazať vzorové dáta</button>
+      ${this.can('demo.purge') ? `<button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
+        ${Icon('trash', 14)} Vymazať vzorové dáta</button>${UI.tip('Mazanie vzorových dát smie spustiť len admin. Ostrých záznamov sa to nedotkne.')}`
+        : UI.tip('Vzorové dáta môže vymazať len admin (Nastavenia → Používatelia).')}
     </div>`;
   },
 
@@ -1981,6 +2314,7 @@ window.Danubra = {
    * dá spustiť aj vtedy, keď už v systéme sú ostré záznamy.
    */
   async purgeDemo() {
+    if (!this.can('demo.purge')) return UI.toast('Vzorové dáta môže vymazať len admin.', 'err');
     const answer = await UI.ask(
       'Vymažú sa všetky vzorové dáta. Ostrých záznamov sa to nedotkne — '
       + 'maže sa len to, čo appka sama vložila.\n\n'
@@ -2052,8 +2386,8 @@ window.Danubra = {
               onclick="Danubra.moveDashCard('${c.key}','down');Danubra.editDash()">${Icon('chevron', 13)}</button>
           </div>`).join('')}`;
     };
-    UI.modal('Poskladaj si prehľad', `
-      <p class="hx-lead" style="margin-bottom:14px;">Odškrtni, čo nepoužívaš, a posuň
+    UI.modal('Poskladajte si prehľad', `
+      <p class="hx-lead" style="margin-bottom:14px;">Odškrtnite, čo nepoužívate, a posuňte
         hore to, na čo sa pozeráte prvé. Platí to len pre Vás a pre toto zariadenie.</p>
       <div class="dl-list">${DanubraDash.GROUPS.map(block).join('')}</div>
       <div class="modal-actions">
@@ -2130,9 +2464,12 @@ window.Danubra = {
       ${this._cardHead('zap', 'Rýchle akcie', '', '', '', 'card.actions')}
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${act('Guide.startCall()', 'phone', 'Zdvihol som telefón', true)}
-        ${act(window.HourEntry ? 'HourEntry.open()' : "Danubra.go('timesheets')", 'clock', 'Zapísať hodiny (Stundennachweis)')}
-        ${act("Danubra.go('quotes')", 'offers', 'Nová ponuka odberateľovi')}
-        ${act("Danubra.go('bank')", 'upload', 'Načítať výpis z účtu')}
+        ${act(window.HourEntry ? 'HourEntry.open()' : "Danubra.go('timesheets')", 'clock', 'Zapísať hodiny')}
+        ${act('Quo.create()', 'offers', 'Nová ponuka odberateľovi')}
+        ${this.routeAvailable('bank') && window.Bank
+          // Rovno okno na nahratie výpisu — nie zoznam pohybov, kde by sa
+          // tlačidlo „Načítať výpis" muselo ešte hľadať.
+          ? act("Danubra.runOn('bank', () => Bank.importForm())", 'upload', 'Načítať výpis z účtu') : ''}
         ${act('Hire.wizard()', 'zap', 'Nový nábor')}
         ${act("Danubra.go('compliance')", 'shield', 'Compliance pred nasadením')}
       </div>
@@ -2355,8 +2692,12 @@ window.Danubra = {
   /**
    * Otvorí okno nad formulárom, založí záznam a **rovno ho vyberie** v tom
    * poli, od ktorého sa to spustilo.
+   *
+   * Volalo sa to tiež `quickAdd` — a keďže objekt nemôže mať dve metódy
+   * s jedným menom, táto prepísala menu „Pridať" z mobilného tlačidla „+".
+   * Ťuk na „+" potom skončil hláškou „Toto sa takto založiť nedá".
    */
-  async quickAdd(kind, fieldName) {
+  async quickCreate(kind, fieldName) {
     const def = this.NEW[kind];
     if (!def) return UI.toast('Toto sa takto založiť nedá.', 'err');
     let ctx = {};
@@ -3213,7 +3554,7 @@ window.Danubra = {
     const f = x.forecast, s = x.scale;
     const tone = s.reasons.length ? 'red' : (s.warnings.length ? 'amber' : 'green');
     const verdict = s.reasons.length
-      ? 'Ďalších ľudí zatiaľ neber'
+      ? 'Ďalších ľudí zatiaľ neberte'
       : (s.warnings.length ? 'Vyjde to, ale tesne' : 'Na výplaty aj na ďalších ľudí to vyjde');
 
     return `<div class="card card-pad">
@@ -3273,7 +3614,7 @@ window.Danubra = {
   // `DanubraChain`; tu sa len kreslí.
 
   async _flowLoad() {
-    const [opp, ads, plans, cands, wrk, docs, prt, quo, con, subs, asg, ts, per, inv, bills] =
+    const [opp, ads, plans, cands, wrk, docs, prt, quo, con, subs, asg, ts, per, inv, bills, wo, stays] =
       await Promise.all([
         // Odstránené dopyty (migrácia 048) sa do reťazca nepočítajú.
         DB.list('opportunities', { select: 'id,status,archived_at', limit: 300 }),
@@ -3298,8 +3639,15 @@ window.Danubra = {
         DB.list('periods', { select: 'id,status,period_to', limit: 500 }),
         DB.list('invoices', { select: 'id,status,due_date', limit: 1000 }),
         DB.list('bills', { select: 'id,status', limit: 1000 }),
+        // Krok 5 (objednávka živnostníkovi) a 6 (ubytovanie) — tie isté
+        // kroky ako na zákazke.
+        DB.list('work_orders', { select: 'id,kind,status,assignment_id', limit: 3000 }),
+        DB.list('v_worker_stay', { select: 'worker_id,subcontract_id,is_current', limit: 2000 }),
       ]);
     const S = (r) => r.data || [];
+    // Nenačítané (právo, chyba) ≠ prázdne: krok potom len nepovie viac,
+    // namiesto „nikto nemá objednávku".
+    const M = (r) => (r && !r.error && Array.isArray(r.data) ? r.data : undefined);
     return {
       today: this._dayISO(),
       opportunities: S(opp).filter(o => !o.archived_at),
@@ -3307,6 +3655,7 @@ window.Danubra = {
       documents: S(docs), partners: S(prt), quotes: S(quo), contracts: S(con),
       subcontracts: S(subs), assignments: S(asg), timesheets: S(ts),
       periods: S(per), invoices: S(inv), bills: S(bills),
+      orders: M(wo), stays: M(stays),
     };
   },
 
@@ -3369,7 +3718,7 @@ window.Danubra = {
     async dashboard(view) {
       const today = new Date().toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' });
       const datum = UI.esc(today.charAt(0).toUpperCase() + today.slice(1));
-      view.innerHTML = this.header('Prehľad', datum) + UI.loading();
+      view.innerHTML = this.header(this.DASH_TITLE, datum) + UI.loading();
 
       // Reťazec sa ťahá spolu s prehľadom, nie až na obrazovke „Ako to ide".
       // Prehľad má ako prvú vec povedať, **čo spraviť teraz** — inak sa to
@@ -3417,7 +3766,7 @@ window.Danubra = {
       // Číslo v hlavičke je to isté, ktoré je na dlaždici — nie druhý výpočet.
       const naStavbach = (kpis.find(d => d.key === 'deployed') || {}).total || 0;
       view.innerHTML =
-        this.header('Prehľad', `${datum} · ${naStavbach} ${
+        this.header(this.DASH_TITLE, `${datum} · ${naStavbach} ${
           Shell.plural(naStavbach, 'človek na stavbách', 'ľudia na stavbách', 'ľudí na stavbách')}`) + `
         <!-- Vidieť len na papieri. Bez toho by v PDF nebolo napísané, čoho
              sa tie čísla týkajú, a o týždeň by to nikto nevedel. -->

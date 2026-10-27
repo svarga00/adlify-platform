@@ -6,16 +6,20 @@
 (function () {
   // Stavy z v1 (`draft_pending_approval`) aj z v2. Faktúry v1 majú vlastný
   // tok a bežia v prevádzke — nové pravidlá sa na ne nevzťahujú.
+  // Popisky sú jednotné pre celú fakturáciu (lib/billing/invoice.js):
+  // Návrh → Čaká na schválenie → Schválená → Vystavená → Odoslaná → Zaplatená;
+  // Po splatnosti; Stornovaná. Hodnoty v databáze sa nemenia.
+  const L = (s) => DanubraInvoice.statusLabel(s);
   const STATUS = [
-    ['draft', 'Rozpracovaná', 'gray'],
-    ['draft_pending_approval', 'Čaká na schválenie', 'amber'],
-    ['pending_approval', 'Čaká na schválenie', 'amber'],
-    ['approved', 'Schválená', 'blue'],
-    ['issued', 'Vystavená', 'blue'],
-    ['sent', 'Odoslaná', 'blue'],
-    ['paid', 'Uhradená', 'green'],
-    ['overdue', 'Po splatnosti', 'red'],
-    ['cancelled', 'Stornovaná', 'gray'],
+    ['draft', L('draft'), 'gray'],
+    ['draft_pending_approval', L('draft_pending_approval'), 'amber'],
+    ['pending_approval', L('pending_approval'), 'amber'],
+    ['approved', L('approved'), 'blue'],
+    ['issued', L('issued'), 'blue'],
+    ['sent', L('sent'), 'blue'],
+    ['paid', L('paid'), 'green'],
+    ['overdue', L('overdue'), 'red'],
+    ['cancelled', L('cancelled'), 'gray'],
   ];
   const TYPE = {
     service_fee: 'Sprostredkovanie', ongoing_service: 'Priebežná služba',
@@ -26,7 +30,7 @@
   };
   // Otáznik pri stave faktúry: čo ten stav znamená a čo bude ďalej.
   const STATUS_TIP = {
-    draft: 'Rozpracovaná: faktúra je len pripravená a nikto ju ešte neposlal na schválenie. '
+    draft: 'Návrh: faktúra je len pripravená a nikto ju ešte neposlal na schválenie. '
       + 'Dá sa voľne upravovať, odberateľ o nej nevie.',
     pending_approval: 'Čaká na schválenie: faktúru musí pozrieť a schváliť administrátor. '
       + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
@@ -35,9 +39,10 @@
     issued: 'Vystavená: faktúra je platný doklad s číslom. Odberateľovi ešte e-mailom neodišla, '
       + 'kým ju neodošlete.',
     sent: 'Odoslaná: faktúra odišla odberateľovi e-mailom. Čaká sa na peniaze; keď prídu na účet '
-      + 'a spárujú sa v Banke, faktúra sa označí ako uhradená.',
-    paid: 'Uhradená: peniaze prišli na účet. Faktúra je uzavretá, už sa s ňou nič nerobí.',
-    overdue: 'Po splatnosti: dátum splatnosti uplynul a peniaze neprišli. Appka to označí sama. '
+      + 'a spárujú sa v Banke, faktúra sa označí ako zaplatená.',
+    paid: 'Zaplatená: peniaze prišli na účet. Faktúra je uzavretá, už sa s ňou nič nerobí.',
+    overdue: 'Po splatnosti: dátum splatnosti uplynul a peniaze neprišli. Appka to označí sama '
+      + '(vystavenú aj odoslanú faktúru, nikdy zaplatenú ani stornovanú). '
       + 'Treba odberateľovi zavolať alebo poslať upomienku.',
     cancelled: 'Stornovaná: faktúra je zrušená a nepočíta sa do žiadnych súm.',
   };
@@ -79,13 +84,17 @@
       if (this.loadReminders) await this.loadReminders();
     },
 
-    /** Faktúry po splatnosti označ automaticky (§7 denný cron robí to isté serverovo). */
+    /**
+     * Faktúry po splatnosti appka označí sama (§7 denný cron robí to isté
+     * serverovo). Vystavené aj odoslané — odoslaná je najčastejší prípad,
+     * na ktorý sa predtým zabúdalo. Zaplatené a stornované nikdy.
+     */
     async _markOverdue() {
-      const today = new Date().toISOString().slice(0, 10);
-      const late = this.items.filter(x => x.status === 'issued' && x.due_date && x.due_date < today);
+      const late = DanubraInvoice.becameOverdue(this.items, Danubra._dayISO());
       for (const x of late) {
-        await DB.update('invoices', x.id, { status: 'overdue' }).catch(() => {});
-        x.status = 'overdue';
+        // Keď databáza zmenu odmietne, obrazovka nesmie tvrdiť opak.
+        const r = await DB.update('invoices', x.id, { status: 'overdue' }).catch(e => ({ error: e }));
+        if (!(r && r.error)) x.status = 'overdue';
       }
     },
 
@@ -121,7 +130,7 @@
       const q = DanubraInvoice.queue(this.items, Danubra._dayISO());
 
       el.innerHTML = Danubra.header(Danubra.labelOf('invoices'),
-        `${this.items.length} celkom · neuhradené ${UI.money(unpaidSum)}`) +
+        `${this.items.length} celkom · nezaplatené ${UI.money(unpaidSum)}`) +
         this.nowHtml(q) + `
         <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
           <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Inv.setF('status','')">Všetky</button>
@@ -129,8 +138,9 @@
             const n = this.items.filter(x => x.status === s[0]).length;
             return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inv.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
           }).join('')}
-          ${UI.tip('Faktúra ide krokmi: Rozpracovaná → Čaká na schválenie → Schválená → Vystavená → '
-            + 'Odoslaná → Uhradená. Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
+          ${UI.tip('Faktúra ide krokmi: Návrh → Čaká na schválenie → Schválená → Vystavená → '
+            + 'Odoslaná → Zaplatená. Mimo poradia sú Po splatnosti (appka označí sama) a Stornovaná. '
+            + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
         </div>
         ${Shell.filterbar({
           search: { value: this.filters.q, placeholder: 'Hľadať číslo faktúry alebo odberateľa…',
@@ -157,7 +167,7 @@
     nowHtml(q) {
       const n = q.next || this.nicNecaka();
       const label = { approve: 'Otvoriť na schválenie', overdue: 'Otvoriť najstaršiu',
-        draft: 'Otvoriť podklad' }[n.key] || 'Otvoriť';
+        draft: 'Otvoriť návrh' }[n.key] || 'Otvoriť';
       return Shell.now(n, {
         help: 'card.inv.now',
         action: n.invoice ? { label, ico: n.key === 'overdue' ? 'phone' : 'check',
@@ -280,7 +290,7 @@
         ['Režim DPH', regime, '„SK bez DPH" = klient je na Slovensku; nie sme platiteľ DPH, takže ju '
           + 'nepripočítavame. „Reverse charge" = klient v inej krajine EÚ s IČ DPH; daň si odvedie sám.'],
         ['Obdobie', x.billing_period_from ? `${UI.date(x.billing_period_from)} – ${UI.date(x.billing_period_to)}` : null],
-        ['Uhradená', x.paid_at ? new Date(x.paid_at).toLocaleString('sk-SK') : null],
+        ['Zaplatená', x.paid_at ? new Date(x.paid_at).toLocaleString('sk-SK') : null],
       ].filter(r => r[1] != null && r[1] !== '');
 
       const body = `
@@ -311,8 +321,8 @@
                  UI.tip('Otvorí faktúru na tlač alebo do PDF. QR kód klient naskenuje v mobilnom '
                    + 'bankovníctve a platba sa mu vyplní sama — suma, IBAN aj variabilný symbol.')}
                ${x.status !== 'paid'
-                 ? `<button class="btn btn-primary" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť uhradenú</button>${
-                   UI.tip('Kliknite, keď peniaze prišli na účet. Faktúra sa uzavrie a zmizne z neuhradených. '
+                 ? `<button class="btn btn-primary" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť ako zaplatenú</button>${
+                   UI.tip('Kliknite, keď peniaze prišli na účet. Faktúra sa uzavrie a zmizne z nezaplatených. '
                      + 'Keď platbu spárujete v Banke, stane sa to samo.')}`
                  : ''}`}
         </div>`;
@@ -344,7 +354,7 @@
       const now = new Date().toISOString();
       await DB.update('invoices', id, { status: 'paid', paid_at: now });
       Object.assign(x, { status: 'paid', paid_at: now });
-      UI.toast('Označená ako uhradená', 'ok');
+      UI.toast('Označená ako zaplatená', 'ok');
       this.detail(id);
       Danubra.renderRoute();
     },
@@ -360,10 +370,13 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zahodiť tento návrh faktúry?')) return;
-      await DB.remove('invoices', id);
-      this.items = this.items.filter(i => i.id !== id);
-      UI.closeModal(); UI.toast('Návrh zahodený', 'ok');
+      if (!await UI.confirm('Zahodiť tento návrh faktúry?\n\nNávrh sa nezmaže — dostane stav Stornovaná a zostane v histórii.')) return;
+      // Nič sa fyzicky nemaže: zahodený návrh je stornovaný, nie preč.
+      const { error } = await DB.update('invoices', id, { status: 'cancelled' });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const x = this.items.find(i => i.id === id);
+      if (x) x.status = 'cancelled';
+      UI.closeModal(); UI.toast('Návrh zahodený (stornovaný)', 'ok');
       Danubra.renderRoute();
     },
 
@@ -380,8 +393,13 @@
         <div class="pick-list">
           ${opt('site', 'Zo zákazky — z odpracovaných hodín', 'Z uzavretého obdobia. Suma je z hodín, reverse charge §13b. Najčastejšie.', 'Inv.pickPeriod()')}
           ${opt('clients', 'Voľná faktúra nemeckej firme', 'Vlastné položky — paušál, materiál, doprava, čokoľvek. Vyberiete odberateľa a napíšete riadky.', 'Inv.freeForm()')}
-          ${opt('workers', 'Za živnostníka (v jeho mene)', 'Keď faktúru za neho vystavujeme my — z jeho schválených hodín, potvrdí ju odkazom.', 'Inv.selfBill()')}
           ${opt('calendar', 'Za celý mesiac naraz', 'Všetky zákazky za mesiac: obdobia sa uzavrú a vzniknú návrhy faktúr jedným klikom.', 'Inv.monthly()')}
+        </div>
+        <div class="notebox inv-self-link">Faktúry za živnostníkov sa vystavujú v Prijatých faktúrach.${
+          UI.tip('Faktúra za živnostníka (samofakturácia) je faktúra, ktorú nám vystavuje živnostník — len ju '
+            + 'v jeho mene pripravíme my. Pre nás je to prijatá faktúra, preto patrí do Prijatých faktúr '
+            + 'a odtiaľ sa aj platí.')}
+          <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Inv.selfBill()">${Icon('receipt', 14)} Otvoriť faktúry za živnostníkov</button></div>
         </div>
         <div class="regimebox">Každá faktúra vznikne ako <b>návrh</b>. Kým ju admin neschváli,
           dá sa upraviť; po schválení sa už nemení.${UI.tip('Faktúra sa nikdy nevystaví ani neodošle bez '
@@ -685,25 +703,32 @@
       const revV = Shell.evaluate(rev.reasons,
         DanubraOverrides.forEntity(this.overrides, 'invoice', x.id));
 
+      // Zo schválenej faktúry vedie krok `pending_approval` naspäť, nie
+      // dopredu — tlačidlo „Poslať na schválenie" tam klamalo. Je to návrat
+      // a volá sa tak; `draft` z čakajúcej je ten istý návrat.
+      const spat = (to) => (to === 'pending_approval' && x.status === 'approved') || to === 'draft';
       const act = (to) => {
-        const map = {
+        const map = spat(to) ? ['Vrátiť do návrhu', 'btn-ghost'] : {
           pending_approval: ['Poslať na schválenie', 'btn-outline'],
           approved: ['Schváliť', 'btn-primary'],
-          draft: ['Vrátiť na prepracovanie', 'btn-ghost'],
           issued: ['Vystaviť v SuperFaktúre', 'btn-primary'],
           sent: ['Odoslať odberateľovi', 'btn-primary'],
-          paid: ['Označiť uhradenú', 'btn-outline'],
-          overdue: ['Po splatnosti', 'btn-ghost'],
+          paid: ['Označiť ako zaplatenú', 'btn-outline'],
         }[to];
         if (!map) return '';
         // Čo tlačidlo spraví — pri nevratných krokoch hlavne to, že sa to
         // nedá vziať späť.
-        const tip = UI.tip({
+        const tip = UI.tip(spat(to)
+          ? (x.status === 'approved'
+            ? 'Faktúra sa vráti do stavu Návrh: schválenie sa zruší, dá sa znova upraviť a potom ju treba '
+              + 'poslať na schválenie — admin ju musí schváliť znova. Odberateľ ju ešte nemá, nič sa nestornuje.'
+            : 'Faktúra prestane čakať na schválenie a bude znova Návrh — dá sa upraviť a potom znova '
+              + 'poslať na schválenie.')
+          : {
           pending_approval: 'Faktúra pôjde administrátorovi na kontrolu. Kým ju neschváli, '
             + 'nevystaví sa ani neodošle.',
           approved: 'Schválením faktúru „zamknete" — odteraz sa už nemení, opraviť sa dá len dobropisom '
             + '(opravnou faktúrou). Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
-          draft: 'Vráti faktúru do rozpracovaných. Schválenie sa zmaže a po úprave ju treba schváliť znova.',
           issued: 'Faktúra sa zapíše do SuperFaktúry (fakturačný program) a stane sa platným dokladom. '
             + 'Odberateľovi ešte nič nepríde — to je ďalší krok.',
           sent: 'SuperFaktúra pošle faktúru odberateľovi e-mailom (po nemecky). Poslaný e-mail sa nedá '
@@ -717,7 +742,8 @@
           return `<button class="btn btn-primary" disabled title="${
             UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>${tip}`;
         }
-        const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
+        const fn = spat(to) ? `Inv.backToDraft('${x.id}')`
+          : to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
           : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
           : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
           : `Inv.setStatusV2('${x.id}','${to}')`;
@@ -726,8 +752,8 @@
       // Päta okna: tiché kroky pred hlavnými, hlavné tlačidlo je posledné.
       const RANK = { 'btn-ghost': 0, 'btn-outline': 1, 'btn-primary': 2 };
       const rank = (to) => {
-        const cls = { pending_approval: 'btn-outline', approved: 'btn-primary', draft: 'btn-ghost',
-          issued: 'btn-primary', sent: 'btn-primary', paid: 'btn-outline', overdue: 'btn-ghost' }[to];
+        const cls = spat(to) ? 'btn-ghost' : { pending_approval: 'btn-outline', approved: 'btn-primary',
+          issued: 'btn-primary', sent: 'btn-primary', paid: 'btn-outline' }[to];
         return RANK[cls] ?? 1;
       };
       const kroky = steps.slice().sort((a, b) => rank(a) - rank(b));
@@ -868,7 +894,7 @@
       });
       if (!rows.length) {
         return UI.toast(skipped.length
-          ? 'Toto výnimka nerieši — oprav to, na čo appka ukazuje'
+          ? 'Toto výnimka nerieši — opravte to, na čo appka ukazuje'
           : 'Niet čo povoliť — nič neblokuje', 'err');
       }
       const { error } = await DB.from('overrides').insert(rows);
@@ -889,6 +915,40 @@
       this.overrides = ovr.data || this.overrides;
       UI.toast('Výnimka zrušená, záznam zostal', 'ok');
       this.detail(invoiceId);
+    },
+
+    /**
+     * „Vrátiť do návrhu" — zo schválenej aj z čakajúcej faktúry. Len krok
+     * späť: databáza pri ňom schválenie zmaže (trigger 018), takže faktúra
+     * musí ísť cez schválenie znova. Zo schválenej vedie povolená cesta cez
+     * „Čaká na schválenie" — idú sa preto dva kroky, oba späť. Keď druhý
+     * zlyhá, faktúra ostane čakať na schválenie, nikdy nie schválená.
+     */
+    async backToDraft(id) {
+      const x = this.items.find(i => i.id === id);
+      if (!x || !['approved', 'pending_approval'].includes(x.status)) {
+        return UI.toast('Tento krok sa z aktuálneho stavu nedá spraviť', 'err');
+      }
+      const msg = x.status === 'approved'
+        ? 'Vrátiť schválenú faktúru do návrhu?\n\nSchválenie sa zruší. Po úprave ju treba poslať na schválenie '
+          + 'a admin ju musí schváliť znova.'
+        : 'Vrátiť faktúru do návrhu?\n\nPrestane čakať na schválenie a dá sa upraviť.';
+      if (!await UI.confirm(msg)) return;
+      const kroky = x.status === 'approved' ? ['pending_approval', 'draft'] : ['draft'];
+      let stav = x.status;
+      for (const to of kroky) {
+        if (!DanubraInvoice.canGo(stav, to)) break;
+        const { error } = await DB.update('invoices', id, { status: to });
+        if (error) {
+          UI.toast('Chyba: ' + error.message, 'err');
+          break;
+        }
+        stav = to;
+      }
+      if (stav === 'draft') UI.toast('Faktúra je znova návrh', 'ok');
+      else if (stav === 'pending_approval') UI.toast('Schválenie je zrušené — faktúra čaká na schválenie', 'warn');
+      this.loaded = false; await this.load();
+      this.detail(id); Danubra.renderRoute();
     },
 
     async setStatusV2(id, to) {
@@ -929,7 +989,7 @@
         return UI.toast(json && json.error ? json.error : 'Nepodarilo sa', 'err');
       }
       UI.toast({ issue: 'Faktúra vystavená', send: 'Faktúra odoslaná',
-        pay: 'Označená ako uhradená' }[action] || 'Hotovo', 'ok');
+        pay: 'Označená ako zaplatená' }[action] || 'Hotovo', 'ok');
       this.loaded = false; await this.load();
       this.detail(id); Danubra.renderRoute();
     },
@@ -955,11 +1015,23 @@
         action: `UI.closeModal();Inv.fromPeriod('${p.id}')` })).join('')}</div>`, { wide: true });
     },
 
+    /**
+     * Faktúra za živnostníka patrí do Prijatých faktúr — tam sa aj platí.
+     * Vo Vydaných je len odkaz: presmeruje do Prijatých a otvorí tam okno
+     * „Vystaviť za živnostníkov".
+     */
     async selfBill() {
       UI.closeModal();
-      if (!window.Cost) return Danubra.go('costs');
-      if (!Cost.loaded) await Cost.load();
-      Cost.selfForm();
+      if (Danubra.routeAvailable && !Danubra.routeAvailable('costs')) {
+        return UI.toast('Prijaté faktúry nemáte sprístupnené — požiadajte administrátora', 'err');
+      }
+      if (window.Cost) {
+        Cost.tab = 'bills';
+        if (!Cost.loaded) await Cost.load();
+      }
+      Danubra.go('costs');
+      // Okno sa otvorí až po prekreslení obrazovky, inak by ho prepínanie zavrelo.
+      setTimeout(() => { if (window.Cost) Cost.selfForm(); }, 350);
     },
 
     // ── Voľná faktúra nemeckej firme / úprava návrhu ──────────────────────
@@ -1053,7 +1125,7 @@
         const { error: e2 } = await DB.insertMany('invoice_items', f.items.map(i => ({ ...i, invoice_id: inv.id })));
         if (e2) return UI.toast('Faktúra vznikla, ale položky sa nezapísali: ' + e2.message, 'err');
         UI.closeModal();
-        UI.toast(`Návrh faktúry ${n} je pripravený — čaká na schválenie`, 'ok');
+        UI.toast(`Návrh faktúry ${n} je pripravený — skontrolujte ho a pošlite na schválenie`, 'ok');
         this.loaded = false; await this.load(); Danubra.renderRoute();
         return setTimeout(() => this.detail(inv.id), 200);
       }
@@ -1119,7 +1191,7 @@
     async fromPeriod(periodId) {
       const { data, error } = await DB.rpc('invoice_from_period', { p_period_id: periodId });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.toast('Faktúra vytvorená z podkladu', 'ok');
+      UI.toast('Návrh faktúry vznikol z podkladu — skontrolujte ho a pošlite na schválenie', 'ok');
       this.loaded = false; this.v2.loaded = false;
       await this.load();
       Danubra.go('invoices');

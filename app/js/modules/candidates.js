@@ -136,7 +136,7 @@
 
       el.innerHTML = Danubra.header(Danubra.labelOf('candidates'),
         `${this.items.length} ${Shell.plural(this.items.length, 'kandidát', 'kandidáti', 'kandidátov')}`
-        + (placed ? ` · ${placed} nastúpilo` : '')) +
+        + (placed ? ` · ${placed} ${Shell.plural(placed, 'nasadený', 'nasadení', 'nasadených')}` : '')) +
         (waiting.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${waiting.length} ${waiting.length === 1 ? 'kandidát čaká' : 'kandidátov čaká'}
           na prvý kontakt — cieľ je ozvať sa do desiatich minút.</div>` : '') + `
@@ -153,7 +153,7 @@
           <input class="fb-search" placeholder="Hľadať meno, telefón, mesto…" value="${UI.esc(this.filters.q)}"
             oninput="Cand.setF('q',this.value)">
           <select onchange="Cand.setF('outcome',this.value)">
-            ${[['active', 'V procese'], ['hired', 'Nastúpení'], ['rejected', 'Zamietnutí'], ['', 'Všetci']]
+            ${[['active', 'V procese'], ['hired', 'Prijatí'], ['rejected', 'Zamietnutí'], ['', 'Všetci']]
               .map(([v, l]) => `<option value="${v}" ${this.filters.outcome === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
           <select onchange="Cand.setF('source',this.value)">
@@ -206,7 +206,7 @@
           avg == null ? 'zatiaľ nemeriame' : `${avg} min`,
           avg == null ? 'nikomu sme sa ešte neozvali' : 'cieľ do 10 minút',
           avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)')}
-        ${kpi(`Nastúpili${UI.tip('Koľko kandidátov má stav Nasadený. Percento je z uzavretých — tých, pri ktorých je už rozhodnuté (nastúpili, odmietnutí alebo stratení).')}`, placed,
+        ${kpi(`Nasadení${UI.tip('Koľko kandidátov je už nasadených na zákazke (stav Nasadený). Percento je z uzavretých — tých, pri ktorých je už rozhodnuté (prijatí, odmietnutí alebo stratení).')}`, placed,
           uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(Math.round(placed / uzavreti * 1000) / 10)}`
             : 'zatiaľ sa nedá počítať',
           placed ? 'var(--green)' : null)}
@@ -251,7 +251,7 @@
           <span style="font-size:11px;color:var(--ink-mute);">${UI.pct(pr.percent)}</span>
         </div>
         <div style="font-size:11.5px;color:var(--ink-mute);margin-top:3px;">
-          ${c.outcome === 'hired' ? 'nastúpil' : c.outcome === 'rejected' ? 'zamietnutý'
+          ${c.outcome === 'hired' ? (c.status === 'placed' ? 'nasadený' : 'prijatý') : c.outcome === 'rejected' ? 'zamietnutý'
             : pr.currentStep ? UI.esc(pr.currentStep.title) : 'proces hotový'}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;align-items:center;">
           <span style="color:var(--ink-sub);" title="Odkiaľ prišiel">${UI.esc(this.adLabel(c))}</span>
@@ -282,7 +282,7 @@
               ${pr.total ? ` · ${UI.pct(pr.percent)}${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
           </span>
           ${pr.flagCount ? UI.badge(`${pr.flagCount} ${pr.flagCount === 1 ? 'varovanie' : pr.flagCount < 5 ? 'varovania' : 'varovaní'}`, 'red') : ''}
-          ${c.outcome === 'hired' ? UI.badge('nastúpil', 'green')
+          ${c.outcome === 'hired' ? UI.badge(c.status === 'placed' ? 'nasadený' : 'prijatý', 'green')
             : c.outcome === 'rejected' ? UI.badge('zamietnutý', 'gray') : this.badge(c.status)}
         </div>`;
       }).join('');
@@ -392,10 +392,13 @@
         ${regulated ? `<div class="warnbox">${Icon('alert', 14)}
           Regulované remeslo — pred nasadením treba oznámenie Handwerkskammer podľa §9 HwO.${UI.tip('Handwerkskammer je nemecká remeselná komora. Niektoré remeslá (napr. elektrikár) smie cudzinec v Nemecku robiť, len keď to komore vopred ohlási (§9 zákona o remeslách, HwO).')}</div>` : ''}
         ${c.outcome ? `<div class="regimebox">
-          ${c.outcome === 'hired' ? 'Kandidát nastúpil.' : 'Kandidát bol zamietnutý.'}
+          ${c.outcome === 'hired'
+            ? (c.status === 'placed' ? 'Kandidát je prijatý a nasadený na zákazku.'
+              : 'Kandidát je prijatý a prevedený medzi živnostníkov. Na zákazku zatiaľ nasadený nie je.')
+            : 'Kandidát bol zamietnutý.'}
           ${c.outcome_reason ? UI.esc(c.outcome_reason) : ''}
           <button class="btn btn-ghost btn-sm" style="margin-left:6px;"
-            onclick="CandProc.reopen('${c.id}')">Vrátiť do procesu</button>${UI.tip('Zruší „nastúpil/zamietnutý" a kandidát bude znova medzi rozpracovanými, v stave Kontaktovaný. Nič sa nezmaže.')}</div>` : ''}
+            onclick="CandProc.reopen('${c.id}')">Vrátiť do procesu</button>${UI.tip('Zruší „prijatý/zamietnutý" a kandidát bude znova medzi rozpracovanými, v stave Kontaktovaný. Nič sa nezmaže.')}</div>` : ''}
         ${CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.full_name }, entity: { type: 'candidate', id: c.id } })}
 
         <div class="form-section">Náborový proces${UI.tip('Kroky, ktorými musí každý kandidát prejsť, kým ide na stavbu. Pri každom kroku odškrtávate, čo je hotové. Červené varovanie = niečo, čo by ho mohlo vyradiť.')}</div>
@@ -429,8 +432,12 @@
             ${Icon('phone')} ${c.screening_score != null ? 'Pokračovať v hovore' : 'Prejsť hovor'}</button>
           ${!c.outcome ? `
             <button class="btn btn-outline" onclick="CandProc.rejectForm()">Zamietnuť</button>
+            <button id="cand-hire-btn" class="btn ${CandProc.readyToHire(c, this.checksOf(c.id)) ? 'btn-primary' : 'btn-outline'}"
+              onclick="CandProc.hireForm()">
+              ${Icon('check')} Prijať – previesť medzi ľudí</button><span style="align-self:center;display:inline-flex;">${UI.tip('Zamietnuť: kandidát odíde z procesu s dôvodom. Prijať: kandidát sa prevedie medzi živnostníkov (na stavbu ho to ešte nenasadí) a hneď potom Vám appka ponúkne nasadiť ho na zákazku. Hlavným tlačidlom sa to stane, až keď sú hotové kroky 1 až 4 vrátane papierov. Oboje sa dá vrátiť cez „Vrátiť do procesu".')}</span>`
+            : (c.outcome === 'hired' && c.converted_worker_id && c.status !== 'placed' ? `
             <button class="btn btn-primary" onclick="CandProc.hireForm()">
-              ${Icon('check')} Nastúpený</button><span style="align-self:center;display:inline-flex;">${UI.tip('Zamietnuť: kandidát odíde z procesu s dôvodom. Nastúpený: vyberiete zákazku a dátum nástupu a kandidát sa prevedie medzi živnostníkov. Oboje sa dá vrátiť cez „Vrátiť do procesu".')}</span>` : ''}
+              ${Icon('site')} Nasadiť na zákazku</button><span style="align-self:center;display:inline-flex;">${UI.tip('Kandidát je už medzi živnostníkmi. Nasadenie = zapíšete ho na konkrétnu zákazku od konkrétneho dňa. Appka pri tom skontroluje doklady; bez platných dokladov sa nasadiť nedá, len s výnimkou admina.')}</span>` : '')}
         </div>`;
       UI.modal(c.full_name, body, { wide: true });
 
