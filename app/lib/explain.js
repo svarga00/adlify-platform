@@ -1402,7 +1402,7 @@
       lead: 'Každé PDF, ktoré sa preňho v appke spravilo — súhlas GDPR, rámcová zmluva, '
         + 'objednávka, infolist, faktúra.',
       what: [
-        'Ukladá sa samo, keď pri dokumente kliknete na „Stiahnuť PDF" alebo „Poslať".',
+        'Ukladá sa samo, keď pri dokumente kliknete na „Stiahnuť PDF", „Tlačiť" alebo „Poslať".',
         'Názov je vždy dátum, druh, číslo a meno — dá sa zoradiť aj v počítači.',
       ],
       how: [

@@ -1228,7 +1228,9 @@ window.Danubra = {
       : this.canOpen(s.type, 'x')));
     const get = async (table, select) => {
       try {
-        const { data, error } = await DB.from(table).select(select).limit(2000);
+        // Keď server neodpovie, nech pole nevisí navždy na „Hľadám…".
+        const late = new Promise((r) => setTimeout(() => r({ data: null, error: { message: 'neodpovedá' } }), 8000));
+        const { data, error } = await Promise.race([DB.from(table).select(select).limit(2000), late]);
         if (error) { console.warn('[danubra] hľadanie:', table, error.message); return []; }
         return data || [];
       } catch (e) { console.warn('[danubra] hľadanie:', table, e); return []; }

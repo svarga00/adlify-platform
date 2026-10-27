@@ -103,8 +103,7 @@
             'Papier sa otvorí v novej karte. Hore sú tlačidlá „Upraviť text", „Tlačiť", „Poslať" a „Stiahnuť PDF".',
           ],
           open: null,
-          tip: 'Do Dokumentov sa papier uloží cez „Stiahnuť PDF". Len vytlačený papier v Dokumentoch nebude '
-            + 'a nedá sa potom pridať do „Poslať všetko naraz".',
+          tip: 'Papier sa uloží do Dokumentov pri „Stiahnuť PDF" aj pri „Tlačiť". Potom sa dá pridať aj do „Poslať všetko naraz".',
           example: null,
         },
         {
@@ -140,8 +139,9 @@
             '„Podrobne" vpravo hore otvorí obrazovku „Ako to ide" s číslami ku každému kroku.',
           ],
           open: open('flow', 'Otvoriť Ako to ide'),
-          tip: 'Pozor: čísla krokov na obrazovke Dnes nie sú tie isté ako sedem krokov pri jednej zákazke. '
-            + 'Napríklad objednávka živnostníkovi je na Dnes krok 6, na zákazke krok 5.',
+          tip: 'Sedem krokov má všade rovnaké čísla aj názvy — na Dnes, v „Ako to ide", v Papieroch aj pri zákazke: '
+            + '1 Dopyt a ponuka, 2 Ľudia na stavbu, 3 Zmluva s Nemcom, 4 Papiere ľudí, 5 Zmluvy a objednávky živnostníkom, '
+            + '6 Ubytovanie a doprava, 7 Hodiny a faktúra.',
           example: null,
         },
         {
@@ -205,15 +205,16 @@
           example: 'Dopyt „Trockenbau Schulzentrum Fürth" (Baugesellschaft Mittelfranken GmbH): platia 38 €/h, dáme 21 €/h, firma preverená v registri.',
         },
         {
-          title: 'Z dopytu nábor',
-          what: 'Keď viete, že ľudí treba hľadať, spravte z dopytu nábor. Zadanie sa prenesie a appka pripraví texty inzerátov aj otázky do telefonátu.',
+          title: 'Čo z dopytu spraviť: ponuka, zákazka, nábor',
+          what: 'V otvorenom dopyte je dole časť „Čo z toho spraviť". Odtiaľ idete ďalej — údaje z dopytu sa prenesú, nič sa nepíše druhýkrát.',
           how: [
-            'V otvorenom dopyte dole v časti „Čo z toho spraviť" kliknite „Spraviť z toho nábor".',
-            'Nábor vznikne ako koncept — nič sa nezverejní.',
-            'Ďalej pokračujte v kapitole 3 (Ľudia → Nábor).',
+            '„Spraviť ponuku" otvorí novú ponuku predvyplnenú z dopytu (odberateľ, remeslo, počet ľudí, miesto, termín, sadzby). Skontrolujte ju a uložte.',
+            '„Založiť zákazku" otvorí novú zákazku predvyplnenú z dopytu. Po uložení je zákazka s dopytom prepojená a dopyt prejde na „Vyhrali sme".',
+            '„Spraviť z toho nábor" — keď ľudí treba hľadať. Nábor vznikne ako koncept, nič sa nezverejní. Ďalej pokračujte v kapitole 3.',
+            'Ak odberateľ ešte nemá kartu, appka sa spýta, či ju má založiť z údajov dopytu.',
           ],
-          open: open('hiring', 'Otvoriť Nábor'),
-          tip: 'Ponuku ani zákazku z dopytu appka nezaloží sama. Tie založíte v Ponukách a v Zákazkách (kroky nižšie).',
+          open: open('opportunities', 'Otvoriť Dopyty'),
+          tip: 'Zákazku zakladajte z dopytu, nie od nuly. Iba tak zákazka vie, koľko ľudí odberateľ chce, a krok 2 to ukáže.',
           example: null,
         },
         {
@@ -224,6 +225,7 @@
             'Vyplňte „Názov firmy", „USt-IdNr", „Kontaktná osoba", adresu a „Splatnosť (dní)".',
             'Vo formulároch ponuky alebo zákazky sa dá odberateľ založiť aj priamo — tlačidlom plus vedľa výberu.',
             'Rámcovú zmluvu s Nemcom vytlačíte v karte odberateľa tlačidlom „Rámcová zmluva SK/DE".',
+            'V karte odberateľa v časti „Overenie firmy" kliknite „Preveriť USt-IdNr v registri" — appka firmu overí v registri EÚ a výsledok si zapamätá.',
           ],
           open: open('partners', 'Otvoriť Odberateľov'),
           tip: 'Bez USt-IdNr sa nedá fakturovať bez DPH (§13b) a faktúra sa neschváli. Zapíšte ho hneď.',
@@ -255,8 +257,8 @@
             'Po podpise sa koniec platnosti a cena menia už len cez „Nový dodatok".',
           ],
           open: open('contracts', 'Otvoriť Zmluvy'),
-          tip: 'Ak ste zmluvu založili z ponuky, pri zákazke ju nezakladajte druhýkrát tlačidlom „Pripraviť zmluvu o dielo". '
-            + 'Ak zákazka zmluvu nevidí, povedzte to adminovi.',
+          tip: 'Ak ste zmluvu založili z ponuky, pri zákazke ju nezakladajte druhýkrát. V zákazke v kroku 3 kliknite '
+            + '„Priradiť existujúcu zmluvu" (alebo ju vyberte v úprave zákazky v poli „Zmluva o dielo").',
           example: 'ZML-VZOR-2026-004 (Klinikum Nord) je odoslaná na podpis. ZML-VZOR-2026-001 (Wohnanlage Isarauen) je podpísaná a predĺžená dodatkom DOD-VZOR-001.',
         },
         {
@@ -266,7 +268,7 @@
             'V menu Zákazky kliknite „Nová zákazka".',
             'Vyplňte „Názov zákazky", „Odberateľ", „Typ prác", „Remeslo", „Od" a „Do".',
             'V „Miesto výkonu" vyplňte adresu stavby a do „Odkaz z máp" vložte odkaz z Google Máp — appka z neho vezme polohu.',
-            'Vyplňte „Sadzba pre odberateľa €/h" a „Definícia diela". Kliknite „Vytvoriť zákazku".',
+            'Vyplňte „Sadzba pre odberateľa €/h" a „Definícia diela". Ak už je zmluva o dielo, vyberte ju v poli „Zmluva o dielo". Kliknite „Vytvoriť zákazku".',
             'Kliknite na zákazku v zozname — otvorí sa sedem krokov pod sebou a ten, ktorý je na rade, je otvorený.',
           ],
           open: open('subcontracts', 'Otvoriť Zákazky'),
@@ -427,9 +429,13 @@
             'Vyberte „Pracovník" a „Rola" (Pracovník alebo „Predák (vedie práce)").',
             'Skontrolujte „Od", „Do" a „Fakturačná sadzba €/h". Doplňte ubytovanie a dopravu za mesiac.',
             'V časti „Smieme ho nasadiť?" uvidíte, či má platné doklady k dňu nástupu. Kliknite „Nasadiť".',
+            'Človek je teraz „nasadený, ešte nenastúpil". Keď naozaj začne robiť, kliknite pri ňom v kroku 2 „Nastúpil" a zadajte deň nástupu.',
+            'Keď zo stavby odíde, kliknite „Odišiel" a zadajte posledný deň a dôvod. Nasadenie, ktoré sa nekonalo, zrušíte krížikom — nič sa nemaže.',
           ],
           open: open('subcontracts', 'Otvoriť Zákazky'),
-          tip: 'V zozname sú len ľudia v stave „Pripravený" alebo „Vyslaný". Bez platných dokladov to appka nepustí — výnimku smie zapísať len admin. Aspoň jeden nasadený má byť predák.',
+          tip: 'V zozname sú len ľudia v stave „Pripravený" alebo „Vyslaný" — pod výberom appka napíše, koľko ďalších ľudí sa nezobrazuje a prečo. '
+            + 'Bez platných dokladov to appka nepustí — výnimku smie zapísať len admin. Aspoň jeden nasadený má byť predák. '
+            + 'Kým nekliknete „Nastúpil", človek sa nepočíta medzi ľudí na stavbe.',
           example: 'Jakub Novotný je nasadený na Klinikum Nord od dňa nástupu, sadzba pre odberateľa 37 €/h.',
         },
         {
@@ -654,13 +660,13 @@
           ],
           open: open('invoices', 'Otvoriť Vydané faktúry'),
           tip: null,
-          example: 'VZOR-2026-0008 je voľná faktúra pre Krüger Innenausbau — refakturácia ubytovania Ferienwohnung Keller. VZOR-2026-0009 (Stahlbau Neumann) je ešte „Rozpracovaná".',
+          example: 'VZOR-2026-0008 je voľná faktúra pre Krüger Innenausbau — refakturácia ubytovania Ferienwohnung Keller. VZOR-2026-0009 (Stahlbau Neumann) je ešte „Návrh".',
         },
         {
           title: 'Kontrola a poslanie na schválenie',
           what: 'Pred schválením appka faktúru skontroluje: odberateľa, číslo, sumu oproti hodinám a USt-IdNr.',
           how: [
-            'Otvorte faktúru v stave „Rozpracovaná".',
+            'Otvorte faktúru v stave „Návrh".',
             '„Zobraziť faktúru (PDF)" ukáže faktúru po nemecky. „Upraviť návrh" zmení dátumy alebo položky.',
             'Pozrite časť „Pred schválením". Kým tam svieti niečo červené, schváliť sa nedá.',
             'Kliknite „Poslať na schválenie".',
