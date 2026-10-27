@@ -3017,10 +3017,8 @@ window.Danubra = {
           .map(i => [
             i.invoice_number || '', x.partnerName(i.partner_id) || '', i.due_date || '',
             // Stav sa v CSV píše po slovensky — účtovníčka nečíta `pending_approval`.
-            ({ draft: 'Rozpracovaná', pending_approval: 'Čaká na schválenie',
-              draft_pending_approval: 'Čaká na schválenie', approved: 'Schválená',
-              issued: 'Vystavená', sent: 'Odoslaná', paid: 'Uhradená',
-              overdue: 'Po splatnosti', cancelled: 'Stornovaná' }[i.status] || i.status),
+            (window.DanubraInvoice && DanubraInvoice.statusLabel
+              ? DanubraInvoice.statusLabel(i.status) : i.status),
             E.money(Money.toCents(i.total)),
             i.due_date && i.due_date < x.today ? 'áno' : 'nie',
           ]),
