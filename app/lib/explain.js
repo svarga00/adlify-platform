@@ -2164,7 +2164,7 @@
       lead: 'Skupina, ktorá chodí spolu, býva spolu a má jeden výkaz hodín.',
       what: [
         'Partia má vedúceho, členov a zákazku, na ktorej je.',
-        'Výkaz pre odberateľa sa robí za partiu, nie za jednotlivca.',
+        'Výkaz pre odberateľa sa robí za zákazku a týždeň — dá sa vytlačiť aj len za jednu partiu.',
       ],
       how: [
         'Človek môže byť naraz v jednej partii. Presun sa zapíše, takže je vidieť, '
@@ -2281,13 +2281,15 @@
 
     'screen.hoursheet': {
       title: 'Výkaz pre odberateľa',
-      lead: 'Týždenný Stundennachweis po nemecky — jeden za partiu, na podpis na stavbe.',
+      lead: 'Týždenný Stundennachweis po nemecky — jeden za zákazku a týždeň, na tlač a podpis na stavbe.',
       what: [
-        'Výkaz je za jeden kalendárny týždeň a jednu partiu.',
+        'Výkaz je za jeden kalendárny týždeň a jednu zákazku — celú alebo len jednu partiu z nej. '
+        + 'Zákazku appka zistí z nasadení partie v tom týždni; keď sa to nedá, opýta sa.',
         'Má nemecké hlavičky, miesto na podpis stavbyvedúceho a našu pätu s adresou.',
       ],
       how: [
-        'Hodiny sa ťahajú z modulu hodín; v tabuľke sa dajú doplniť priamo.',
+        'Je len na tlač. Hodiny aj podpis majstra sa zapisujú v jednom okne „Zapísať hodiny" '
+        + 'a výkaz ich odtiaľ číta.',
         'Týždne sú podľa ISO — pondelok až nedeľa, číslovanie ako v Nemecku (KW).',
         'Tlačí sa na šírku, má dvanásť stĺpcov.',
       ],
