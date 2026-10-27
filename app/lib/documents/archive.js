@@ -34,6 +34,7 @@
     self_invoice: { label: 'Faktúra',                group: 'faktury' },
     mahnung:      { label: 'Upomienka',              group: 'faktury' },
     list:         { label: 'List',                   group: 'ine' },
+    navod:        { label: 'Návod',                  group: 'ine' },
     ine:          { label: 'Dokument',               group: 'ine' },
   };
   const GROUPS = [

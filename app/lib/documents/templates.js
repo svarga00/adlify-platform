@@ -2184,8 +2184,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, header, foot, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, header, foot, shell, esc, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();
