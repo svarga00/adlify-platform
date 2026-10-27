@@ -35,8 +35,9 @@ const safe = (s) => String(s || 'priloha').normalize('NFD').replace(/[̀-ͯ]/g, 
 
 async function entities() {
   const [w, p, l] = await Promise.all([
-    supabase.from('danubra_workers').select('id,email').not('email', 'is', null).limit(5000),
-    supabase.from('danubra_partners').select('id,email').not('email', 'is', null).limit(5000),
+    // Service role — archivovaní (migrácia 066) sa k e-mailu nepriradia.
+    supabase.from('danubra_workers').select('id,email').not('email', 'is', null).is('archived_at', null).limit(5000),
+    supabase.from('danubra_partners').select('id,email').not('email', 'is', null).is('archived_at', null).limit(5000),
     supabase.from('danubra_leads').select('id,email').not('email', 'is', null).limit(10000),
   ]);
   return { workers: w.data || [], partners: p.data || [], leads: l.data || [] };

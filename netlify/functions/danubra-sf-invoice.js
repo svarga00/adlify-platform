@@ -147,7 +147,8 @@ async function issue(inv) {
   // Platná Freistellung §48b (register compliance) — na faktúru ide veta,
   // že sa zrážka neuplatňuje.
   const { data: fsRows } = await supabase.from('danubra_compliance')
-    .select('reference,valid_from,valid_to,status').eq('kind', 'freistellung_48b').eq('scope', 'company');
+    .select('reference,valid_from,valid_to,status').eq('kind', 'freistellung_48b').eq('scope', 'company')
+    .is('archived_at', null);   // service role — archivovaná Freistellung na faktúru nejde
   const dnes = new Date().toISOString().slice(0, 10);
   const fs = (fsRows || []).find(f => !['pending', 'expired', 'not_required'].includes(f.status)
     && (!f.valid_from || f.valid_from <= dnes) && (!f.valid_to || f.valid_to >= dnes)) || null;

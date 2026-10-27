@@ -2597,6 +2597,32 @@
       links: [['settings', 'Nastavenia']],
     },
 
+    'screen.archiv': {
+      title: 'Archív',
+      lead: 'Čo bolo archivované. Nič sa nemaže — administrátor tu záznam vie vrátiť späť.',
+      what: [
+        'Tlačidlo „Archivovať" pri zázname ho nevymaže: záznam zmizne zo zoznamov, '
+        + 'ale v databáze ostane celý, aj s časom a s tým, kto ho archivoval.',
+        'Hore vyberiete druh záznamov (zákazky, ľudia, kandidáti, odberatelia…) a pod tým '
+        + 'je zoznam toho, čo je v archíve, od najnovšieho.',
+      ],
+      how: [
+        '„Vrátiť späť" vráti záznam tam, kde bol — aj s tým, čo sa archivovalo spolu '
+        + 's ním (napríklad nasadenia pri zákazke alebo odpovede pri otázke na pohovor).',
+        'Na kom ešte niečo živé visí (napríklad odberateľ so zákazkami), ten sa archivovať '
+        + 'nedá — najprv treba archivovať to, čo naň odkazuje.',
+      ],
+      why: [
+        'Pravidlo firmy: nič sa fyzicky nemaže. Omyl sa dá vždy vrátiť a história '
+        + '(faktúry, hodiny, zmluvy) nikdy nestratí, na koho sa odvolávala.',
+      ],
+      watch: [
+        'Archív vidí a vracia len administrátor. Výnimkou sú vzorové dáta — tlačidlo '
+        + '„Vymazať vzorové dáta" ich zmaže naozaj.',
+      ],
+      links: [['settings', 'Nastavenia'], ['members', 'Používatelia']],
+    },
+
     'screen.settings': {
       title: 'Nastavenia',
       lead: 'Údaje firmy, moduly a prepojenia na okolité služby.',

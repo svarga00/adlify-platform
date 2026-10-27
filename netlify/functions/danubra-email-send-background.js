@@ -74,7 +74,8 @@ exports.handler = async (event) => {
   const partnerIds = (sends || []).map(s => s.partner_id).filter(Boolean);
   const [{ data: leads }, { data: partners }] = await Promise.all([
     leadIds.length ? supabase.from('danubra_leads').select('id,name,city,trade').in('id', leadIds) : { data: [] },
-    partnerIds.length ? supabase.from('danubra_partners').select('id,name,city').in('id', partnerIds) : { data: [] },
+    partnerIds.length ? supabase.from('danubra_partners').select('id,name,city').in('id', partnerIds)
+      .is('archived_at', null) : { data: [] },   // service role — archivovaných vynechať ručne
   ]);
   const ludia = new Map([...(leads || []), ...(partners || [])].map(x => [x.id, x]));
 

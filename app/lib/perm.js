@@ -96,7 +96,10 @@
    * obrazovka aj právomoc naraz — a prideliť sa nedá, takže sa nesmie
    * objaviť medzi zaškrtávacími poľami.
    */
-  const ROUTE_POWER = { members: 'members.manage' };
+  // Archív (nič sa nemaže, admin vracia späť) je časť Nastavení a smie naň
+  // len administrátor — rovnako ako na zápis nastavení. Databáza to stráži
+  // zvlášť: RPC danubra_archived/danubra_unarchive overujú danubra_is_admin().
+  const ROUTE_POWER = { members: 'members.manage', archiv: 'settings.write' };
 
   /**
    * Obrazovky, ktoré nemajú vlastné právo, lebo neukazujú nič navyše — sú to

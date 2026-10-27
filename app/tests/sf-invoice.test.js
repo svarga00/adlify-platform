@@ -22,6 +22,8 @@ const fakeClient = {
       _update: null,
       select() { return q; },
       eq() { return q; },
+      // Filtre `.is('archived_at', null)` (migrácia 066) — mock ich len prepustí.
+      is() { return q; },
       maybeSingle: async () => ({ data: INVOICE, error: null }),
       update(payload) { q._update = payload; updates.push(payload); return q; },
       then(resolve) { return Promise.resolve({ data: null, error: null }).then(resolve); },

@@ -41,7 +41,9 @@ insert into _arch_tables values
   -- deti, ktoré sa doteraz mazali kaskádou s rodičom
   ('danubra_assignments'), ('danubra_stays'), ('danubra_screening_answers'),
   ('danubra_candidate_checks'), ('danubra_candidate_notes'), ('danubra_crew_members'),
-  ('danubra_offer_variants'), ('danubra_plan_assets');
+  ('danubra_offer_variants');
+-- danubra_plan_assets sem nepatrí: verzie textov k náboru už archived_at majú
+-- a archivujú ich appka aj server samy (unikátny index „živá verzia").
 
 -- ── 2. Trigger: zmazanie → archív ───────────────────────────────────────────
 create or replace function danubra_archive_instead_of_delete()

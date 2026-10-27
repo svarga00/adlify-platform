@@ -90,8 +90,9 @@ exports.handler = async (event) => {
     }
 
     const f = X.normalize(raw);
+    // Service role — archivovaní ľudia (migrácia 066) sa k faktúre nepriradia.
     const { data: workers } = await supabase.from('danubra_workers')
-      .select('id,full_name,company_name,company_id,bank_iban').limit(1000);
+      .select('id,full_name,company_name,company_id,bank_iban').is('archived_at', null).limit(1000);
     const m = X.matchWorker(f, workers || []);
     const patch = X.billPatch(f, { worker: m.worker });
 
