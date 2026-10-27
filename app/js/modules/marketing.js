@@ -132,7 +132,7 @@
             ${e.note ? `<span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(e.note)}</span>` : ''}
           </span>
           <strong style="font-variant-numeric:tabular-nums;">${UI.money(e.amount)}</strong>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Zmazať výdavok" aria-label="Zmazať výdavok" onclick="Mkt.delExpense('${e.id}')">${Icon('x', 15)}</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Archivovať výdavok" aria-label="Archivovať výdavok" onclick="Mkt.delExpense('${e.id}')">${Icon('archive', 15)}</button>
         </div>`).join('');
     },
 
@@ -158,7 +158,7 @@
               placeholder: 'Koľko dopytov priniesol, či sa oplatí obnoviť…' })}</div>
           </div>
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger" onclick="Mkt.delListing('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Mkt.delListing('${id}')">${Icon('archive', 14)} Archivovať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
@@ -177,10 +177,11 @@
     },
 
     async delListing(id) {
-      if (!await UI.confirm('Zmazať tento inzerát?')) return;
-      await DB.remove('marketing_listings', id);
+      if (!await UI.confirmArchive('Presunúť tento inzerát do archívu?')) return;
+      const { error } = await DB.archive('marketing_listings', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.listings = this.listings.filter(x => x.id !== id);
-      UI.closeModal(); Danubra.renderRoute();
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok'); Danubra.renderRoute();
     },
 
     expenseForm() {
@@ -215,10 +216,11 @@
     },
 
     async delExpense(id) {
-      if (!await UI.confirm('Zmazať tento výdavok?')) return;
-      await DB.remove('marketing_expenses', id);
+      if (!await UI.confirmArchive('Presunúť tento výdavok do archívu?')) return;
+      const { error } = await DB.archive('marketing_expenses', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.expenses = this.expenses.filter(x => x.id !== id);
-      Danubra.renderRoute();
+      UI.toast(UI.ARCHIVED, 'ok'); Danubra.renderRoute();
     },
 
     /** Nastavenia z jedného miesta — `Danubra.loadCfg()`. */

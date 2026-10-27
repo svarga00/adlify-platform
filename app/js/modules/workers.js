@@ -715,7 +715,8 @@
             </span>
           </span>
           ${this.thumbHtml(d)}
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Wrk.delDoc('${d.id}')">${Icon('x', 15)}</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Archivovať doklad"
+            aria-label="Archivovať doklad" onclick="Wrk.delDoc('${d.id}')">${Icon('archive', 15)}</button>
         </div>`;
       };
       return `<div class="card card-pad">
@@ -1144,10 +1145,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tohto pracovníka?')) return;
-      const { error } = await DB.remove('workers', id);
+      if (!await UI.confirmArchive('Presunúť tohto pracovníka do archívu?')) return;
+      const { error } = await DB.archive('workers', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
 
@@ -1492,8 +1493,10 @@
 
     async delDoc(docId) {
       const doc = this.docs.find(d => d.id === docId);
-      if (!await UI.confirm('Zmazať tento doklad?')) return;
-      await DB.remove('worker_documents', docId);
+      if (!await UI.confirmArchive('Presunúť tento doklad do archívu?')) return;
+      const { error } = await DB.archive('worker_documents', docId);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(UI.ARCHIVED, 'ok');
       this.docs = this.docs.filter(d => d.id !== docId);
       if (doc) this.detail(doc.worker_id);
     },
@@ -1519,7 +1522,8 @@
 
       const { error: e2 } = await DB.update('worker_documents', docId, { storage_path: path });
       if (e2) {
-        // Súbor je nahratý, ale väzba nevznikla — nenechávaj v úložisku smeti.
+        // Súbor je nahratý, ale väzba nevznikla. Súbor v úložisku ostane
+        // (nič sa nemaže) — removeDoc je dnes len zámer, nie mazanie.
         await DB.removeDoc(path).catch(() => {});
         return UI.toast('Sken sa nepodarilo priradiť: ' + e2.message, 'err');
       }

@@ -197,6 +197,18 @@ window.UI = {
     }).then(v => v === true);
   },
 
+  // ── Archivácia ────────────────────────────────────────────────────────────
+  // Pravidlo firmy: „nič sa fyzicky nemaže". `DB.remove` záznam len presunie
+  // do archívu (migrácia 066) a admin ho vie vrátiť v Nastaveniach → Archív.
+  // Jedno znenie na všetkých miestach, aby sa človek nebál, že niečo stratí.
+  ARCHIVE_HINT: 'Záznam zmizne zo zoznamov, ale nič sa nemaže — admin ho vie v Nastaveniach → Archív vrátiť späť.',
+  ARCHIVED: 'Presunuté do archívu',
+
+  /** @returns {Promise<boolean>} */
+  confirmArchive(question = 'Presunúť do archívu?', o = {}) {
+    return this.confirm(question, { hint: this.ARCHIVE_HINT, ok: 'Archivovať', ...o });
+  },
+
   _sheet(o) {
     return new Promise((resolve) => {
       this._closeAsk();

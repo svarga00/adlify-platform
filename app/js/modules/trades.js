@@ -458,7 +458,7 @@
           <div class="regimebox">Varovanie s váhou 3 zamieta kandidáta samo osebe — napríklad
           „tvrdí, že A1 netreba". Používajte ho striedmo.</div>
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger" onclick="Trades.chipDel('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Trades.chipDel('${id}')">${Icon('archive', 14)} Archivovať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
@@ -482,8 +482,10 @@
     },
 
     async chipDel(id, quiet) {
-      if (!quiet && !await UI.confirm('Zmazať toto pole? Zápisy pri kandidátoch zostanú.')) return;
-      await DB.remove('call_chips', id);
+      if (!quiet && !await UI.confirmArchive('Presunúť toto pole do archívu? Zápisy pri kandidátoch zostanú.')) return;
+      const { error } = await DB.archive('call_chips', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (!quiet) UI.toast(UI.ARCHIVED, 'ok');
       this.chips = this.chips.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();
     },
@@ -636,7 +638,7 @@
           že sa ňou preveruje. Najlepšie fungujú konkrétne čísla a názvy, ktoré si človek z praxe
           pamätá, ale z inzerátu sa ich nenaučí.</div>
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger" onclick="Trades.qDel('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Trades.qDel('${id}')">${Icon('archive', 14)} Archivovať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
@@ -663,8 +665,10 @@
     },
 
     async qDel(id) {
-      if (!await UI.confirm('Zmazať túto otázku? Odpovede kandidátov na ňu sa stratia.')) return;
-      await DB.remove('screening_questions', id);
+      if (!await UI.confirmArchive('Presunúť túto otázku do archívu? Odpovede kandidátov na ňu sa archivujú spolu s ňou.')) return;
+      const { error } = await DB.archive('screening_questions', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(UI.ARCHIVED, 'ok');
       this.questions = this.questions.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();
     },

@@ -277,7 +277,7 @@
         <label class="fld"><textarea id="offer-text" rows="12" readonly>${UI.esc(this.buildText(o, vs, accs, c, inq))}</textarea></label>
         <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Offers.copyText()">${Icon('copy')} Skopírovať text</button></div>
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Offers.del('${o.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Offers.del('${o.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${o.status !== 'accepted'
             ? `<button class="btn btn-primary" onclick="Offers.accept('${o.id}')">Akceptovaná ${Icon('chevron', 14)} objednávka</button>${
@@ -408,10 +408,10 @@
     _resolvePick(id) { this._pickResolver?.(id); },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať túto ponuku aj s variantmi?')) return;
-      const { error } = await DB.remove('offers', id);
+      if (!await UI.confirmArchive('Presunúť túto ponuku do archívu aj s variantmi?')) return;
+      const { error } = await DB.archive('offers', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
 

@@ -423,7 +423,7 @@
         ${c.converted_worker_id ? `<div class="regimebox">
           Kandidát bol prevedený medzi pracovníkov ${UI.date(c.converted_at)}.</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Cand.del('${c.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Cand.del('${c.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Cand.form('${c.id}')">Upraviť</button>
           ${!c.first_contact_at ? `<button class="btn btn-outline" onclick="Cand.markContacted('${c.id}')">
@@ -631,10 +631,11 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tohto kandidáta?')) return;
-      await DB.remove('candidates', id);
+      if (!await UI.confirmArchive('Presunúť tohto kandidáta do archívu?')) return;
+      const { error } = await DB.archive('candidates', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.items = this.items.filter(x => x.id !== id);
-      UI.closeModal(); Danubra.renderRoute();
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok'); Danubra.renderRoute();
     },
   };
 

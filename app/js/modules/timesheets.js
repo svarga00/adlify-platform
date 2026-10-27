@@ -253,7 +253,7 @@
               title="${t.approved ? 'Schválené' : 'Schváliť'}"
               style="color:${t.approved ? 'var(--green)' : 'var(--ink-mute)'};">${Icon('check', 15)}</button>
             <button class="btn btn-ghost btn-sm tap tap-far" style="color:var(--red);"
-              title="Zmazať" onclick="Tms.del('${t.id}')">${Icon('x', 15)}</button>
+              title="Archivovať" aria-label="Archivovať záznam hodín" onclick="Tms.del('${t.id}')">${Icon('archive', 15)}</button>
           </span>
         </div>`;
     },
@@ -505,10 +505,13 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tento záznam?')) return;
-      await DB.remove('timesheets', id);
+      if (!await UI.confirmArchive('Presunúť tento záznam hodín do archívu?')) return;
+      // Hodiny v uzavretom období stráži trigger v databáze — jeho hláška
+      // ide človeku tak, ako je, aby vedel, prečo sa nič nestalo.
+      const { error } = await DB.archive('timesheets', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.items = this.items.filter(x => x.id !== id);
-      Danubra.renderRoute();
+      UI.toast(UI.ARCHIVED, 'ok'); Danubra.renderRoute();
     },
   };
 

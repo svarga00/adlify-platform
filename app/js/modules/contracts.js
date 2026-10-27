@@ -299,7 +299,8 @@
 
       const { error: e2 } = await DB.update('contracts', contractId, { storage_path: path });
       if (e2) {
-        // Súbor je nahratý, ale väzba nevznikla — nenechávaj v úložisku smeti.
+        // Súbor je nahratý, ale väzba nevznikla. Súbor v úložisku ostane
+        // (nič sa nemaže) — removeDoc dnes nič nespraví.
         await DB.removeDoc(path).catch(() => {});
         return UI.toast('Sken sa nepodarilo priradiť: ' + e2.message, 'err');
       }

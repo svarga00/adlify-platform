@@ -657,10 +657,11 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať túto úlohu?')) return;
-      await DB.remove('tasks', id);
+      if (!await UI.confirmArchive('Presunúť túto úlohu do archívu?')) return;
+      const { error } = await DB.archive('tasks', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.items = this.items.filter(x => x.id !== id);
-      Danubra.renderRoute();
+      UI.toast(UI.ARCHIVED, 'ok'); Danubra.renderRoute();
     },
   };
 

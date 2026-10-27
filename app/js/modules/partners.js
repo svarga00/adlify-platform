@@ -266,7 +266,7 @@
         ${window.Mail ? Mail.slot('partner', p.id, p.email) : ''}
 
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Prt.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Prt.del('${p.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <span style="align-self:center;display:inline-flex;">${UI.tip('Rámcová zmluva = spoločné podmienky spolupráce s týmto odberateľom (splatnosť, záruky…), dvojjazyčne slovensky a nemecky. Otvorí sa na tlač; ak niečo chýba, appka povie čo.')}</span>
           <button class="btn btn-outline" onclick="Prt.rahmen('${p.id}')">
@@ -400,10 +400,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tohto odberateľa?')) return;
-      const { error } = await DB.remove('partners', id);
+      if (!await UI.confirmArchive('Presunúť tohto odberateľa do archívu?')) return;
+      const { error } = await DB.archive('partners', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
   };

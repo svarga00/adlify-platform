@@ -904,12 +904,12 @@
 
         <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:18px;">
           ${UI.tip(p.status === 'active'
-            ? 'Uzavrieť nábor: stav sa zmení na Uzavretý a pri telefonátoch sa už neponúka. Kandidáti ostanú. Zmazať: nábor zmizne natrvalo aj s podkladmi a textami.'
-            : 'Spustiť nábor: stav sa zmení na Beží a nábor sa ponúkne pri telefonátoch. Zmazať: nábor zmizne natrvalo aj s podkladmi a textami.')}
+            ? 'Uzavrieť nábor: stav sa zmení na Uzavretý a pri telefonátoch sa už neponúka. Kandidáti ostanú. Archivovať: nábor zmizne zo zoznamov aj s podkladmi a textami, ale nič sa nemaže — admin ho vie vrátiť v Nastaveniach → Archív.'
+            : 'Spustiť nábor: stav sa zmení na Beží a nábor sa ponúkne pri telefonátoch. Archivovať: nábor zmizne zo zoznamov aj s podkladmi a textami, ale nič sa nemaže — admin ho vie vrátiť v Nastaveniach → Archív.')}
           ${p.status === 'active'
             ? `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','done')">Uzavrieť nábor</button>`
             : `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','active')">Spustiť nábor</button>`}
-          <button class="btn btn-danger btn-sm" onclick="Hire.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-danger btn-sm" onclick="Hire.del('${p.id}')">${Icon('archive', 14)} Archivovať</button>
         </div>`;
     },
 
@@ -973,7 +973,7 @@
           </div>`).join('')}` : ''}
         ${t ? this.tradeCard(t) : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Hire.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Hire.del('${p.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${p.status === 'active'
             ? `<button class="btn btn-outline" onclick="Hire.setStatus('${p.id}','done')">Uzavrieť</button>`
@@ -990,8 +990,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tento nábor? Podklady a texty k nemu zmiznú s ním.')) return;
-      await DB.remove('recruitment_plans', id);
+      if (!await UI.confirmArchive('Presunúť tento nábor do archívu? Podklady a texty k nemu sa archivujú spolu s ním.')) return;
+      const { error } = await DB.archive('recruitment_plans', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(UI.ARCHIVED, 'ok');
       this.plans = this.plans.filter(x => x.id !== id);
       if (this.openId === id) this.openId = null;
       UI.closeModal(); Danubra.renderRoute();
