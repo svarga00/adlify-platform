@@ -147,7 +147,8 @@ console.log('Výnimky');
     .map(f => fs.readFileSync(path.join(migDir, f), 'utf8')).join('\n');
 
   const enumKeys = new Set(
-    [...sql.matchAll(/\('override_rule'\s*,\s*'([a-z0-9_]+)'/g)].map(m => m[1]));
+    // `values ('override_rule', 'x', …)` aj `select 'override_rule', 'x', …` (067).
+    [...sql.matchAll(/(?:\(|select\s+)'override_rule'\s*,\s*'([a-z0-9_]+)'/g)].map(m => m[1]));
   ok(enumKeys.size >= 7, 'číselník pravidiel je v migráciách',
     `našiel som ${enumKeys.size}`);
 
@@ -166,7 +167,7 @@ console.log('Výnimky');
 // nestane.
 {
   // Doklady: požiadavky plus expirovaný doklad, ktorý vzniká za behu.
-  const docRules = new Set(['expired_document']);
+  const docRules = new Set(['expired_document', 'missing_scan']);
   for (const ctx of ['assignment', 'construction', 'workshop', 'regulated']) {
     for (const req of Docs.requirementsFor([ctx])) {
       if (req.blocks) docRules.add(req.rule);

@@ -103,12 +103,42 @@
     return [...seen.values()];
   }
 
+  // ── Je doklad naozaj nahratý? ─────────────────────────────────────────────
+  // „Doklady k živnostníkom by bolo dobré, keby sa reálne nahrávali, a to by
+  // bola kontrola." Zapísať druh a dátumy vie ktokoľvek; papier ukáže až sken.
+  // Od migrácie 067 databáza (`danubra_doc_blockers`) doklad bez súboru
+  // neráta — tu to musí byť rovnako, inak by obrazovka pustila, čo databáza
+  // zastaví.
+  //
+  // Riadok, ktorý stĺpce `storage_path` ani `file_url` vôbec nemá (výber bez
+  // nich, ručne poskladaný objekt), sa za nenahratý nepovažuje: neznáme nie je
+  // chýbajúce. Riadok z databázy ich má vždy — aj keď sú prázdne.
+
+  /** Má doklad nahratý súbor? `false` len keď vieme, že nemá. */
+  function hasScan(doc) {
+    if (!doc) return false;
+    if (!('storage_path' in doc) && !('file_url' in doc)) return true;
+    return !!(String(doc.storage_path || '').trim() || String(doc.file_url || '').trim());
+  }
+
   // ── Platnosť jedného dokladu ──────────────────────────────────────────────
 
   /**
-   * @returns {'missing'|'not_yet'|'valid'|'expiring'|'expired'}
+   * Stav dokladu k danému dňu. `no_scan` = dátumovo platí (alebo čoskoro
+   * vyprší), ale nie je nahratý — a teda sa pri nasadení neráta. Expirovaný
+   * a ešte neplatný doklad ostáva `expired` / `not_yet`: to je väčší problém
+   * a rieši sa inak.
+   *
+   * @returns {'missing'|'not_yet'|'valid'|'expiring'|'expired'|'no_scan'}
    */
   function state(doc, today = today0()) {
+    const st = dateState(doc, today);
+    if ((st === 'valid' || st === 'expiring') && !hasScan(doc)) return 'no_scan';
+    return st;
+  }
+
+  /** Platnosť len podľa dátumov — bez ohľadu na sken. */
+  function dateState(doc, today = today0()) {
     if (!doc) return 'missing';
     const from = day(doc.valid_from), to = day(doc.valid_to);
     if (from && from > today) return 'not_yet';
@@ -117,6 +147,13 @@
     if (daysBetween(today, to) <= horizonOf(doc)) return 'expiring';
     return 'valid';
   }
+
+  /**
+   * Poradie stavov: čím vyššie, tým lepšie. Doklad so skenom má prednosť pred
+   * dokladom bez skenu, aj keby ten bez skenu platil dlhšie — rozhoduje to,
+   * čo vieme ukázať pri kontrole. Sedí s poradím v `danubra_doc_blockers`.
+   */
+  const RANK = { valid: 5, expiring: 4, no_scan: 3, not_yet: 2, expired: 1, missing: 0 };
 
   /** Koľko dní platnosti zostáva. `null` pri doklade bez konca. */
   function daysLeft(doc, today = today0()) {
@@ -128,20 +165,20 @@
   function describe(doc, today = today0()) {
     const st = state(doc, today);
     return { doc, kind: doc && doc.kind, state: st, daysLeft: daysLeft(doc, today),
-      horizon: horizonOf(doc) };
+      horizon: horizonOf(doc), scanned: !!doc && hasScan(doc) };
   }
 
   /**
    * Najlepší doklad daného druhu. Keď má človek dva živnostenské listy,
    * rozhoduje ten, ktorý platí najdlhšie — nie ten, čo bol nahraný naposledy.
+   * Nahratý doklad má prednosť pred zapísaným bez skenu.
    */
   function best(docs, kind, today = today0()) {
-    const rank = { valid: 4, expiring: 3, not_yet: 2, expired: 1, missing: 0 };
     let pick = null, pickRank = -1, pickTo = null;
     for (const d of (docs || [])) {
       if (!d || d.kind !== kind) continue;
       const st = state(d, today);
-      const r = rank[st] || 0;
+      const r = RANK[st] || 0;
       const to = day(d.valid_to) || '9999-12-31';
       if (r > pickRank || (r === pickRank && to > pickTo)) {
         pick = d; pickRank = r; pickTo = to;
@@ -196,19 +233,29 @@
 
       // Chýbajúci a expirovaný doklad sú dva rôzne problémy a človek
       // s nimi robí dve rôzne veci: jeden treba vybaviť, druhý obnoviť.
-      const rule = st === 'expired' ? 'expired_document' : req.rule;
+      // Doklad bez skenu je tretia vec: papier možno existuje, ale nikto ho
+      // nevidel — stačí ho odfotiť a nahrať.
+      const rule = st === 'expired' ? 'expired_document'
+        : st === 'no_scan' ? 'missing_scan' : req.rule;
 
       const entry = {
         rule,
         label: st === 'missing' ? `Chýba: ${req.label}`
           : st === 'expired' ? `Expiroval: ${req.label}`
           : st === 'not_yet' ? `Zatiaľ neplatí: ${req.label}`
+          : st === 'no_scan' ? `Nie je nahratý: ${req.label}`
           : `Blíži sa koniec: ${req.label}`,
         detail: st === 'expiring'
           ? `Platí ešte ${item.daysLeft} ${plural(item.daysLeft, 'deň', 'dni', 'dní')}. ${req.why}`
+          : st === 'no_scan' ? NO_SCAN_TEXT
           : req.why,
         severity: (req.blocks && st !== 'expiring') ? 'block' : 'warn',
         kind: req.kind, state: st,
+        // Pravidlo požiadavky (napr. `missing_a1`) aj pri expirovanom či
+        // nenahratom doklade — checklist pred nástupom sa drží požiadavky.
+        baseRule: req.rule,
+        // Ktorý doklad treba doplniť skenom — tlačidlo „Nahrať sken" ho potrebuje.
+        docId: (doc && doc.id) || null,
       };
       (entry.severity === 'block' ? reasons : warnings).push(entry);
     }
@@ -217,8 +264,11 @@
   }
 
   function rankOf(st) {
-    return { valid: 4, expiring: 3, not_yet: 2, expired: 1, missing: 0 }[st] || 0;
+    return RANK[st] || 0;
   }
+
+  /** Veta pre človeka pri doklade bez skenu. Rovnaká na karte aj pri nasadení. */
+  const NO_SCAN_TEXT = 'Doklad je zapísaný, ale nie je nahratý — nahrajte fotku alebo PDF.';
 
   function plural(n, one, few, many) {
     const a = Math.abs(Number(n) || 0);
@@ -271,24 +321,33 @@
   // ── Čo treba riešiť naprieč kartotékou ────────────────────────────────────
 
   /**
-   * Doklady, ktoré expirovali alebo sa im blíži koniec, najurgentnejšie prvé.
+   * Doklady, ktoré expirovali, nie sú nahraté alebo sa im blíži koniec,
+   * najurgentnejšie prvé: expirované, potom bez skenu, potom končiace.
    * Toto je vstup pre dashboard a pre úlohy vo F9.
    */
   function attention(docs, today = today0()) {
+    const ORDER = { expired: 0, no_scan: 1, expiring: 2 };
     return (docs || [])
       .map(d => describe(d, today))
-      .filter(x => x.state === 'expired' || x.state === 'expiring')
+      .filter(x => x.state in ORDER)
       .sort((a, b) => {
-        if (a.state !== b.state) return a.state === 'expired' ? -1 : 1;
+        if (a.state !== b.state) return ORDER[a.state] - ORDER[b.state];
         return (a.daysLeft ?? 0) - (b.daysLeft ?? 0);
       });
   }
 
+  /** Krátky štítok stavu pre UI: text a farba. Jedno miesto pre celú appku. */
+  const STATE_LABEL = {
+    valid: ['platné', 'green'], expiring: ['čoskoro vyprší', 'amber'],
+    no_scan: ['bez skenu', 'amber'], expired: ['neplatné', 'red'],
+    not_yet: ['ešte neplatí', 'gray'], missing: ['chýba', 'red'],
+  };
+
   const API = {
-    state, daysLeft, describe, best, byKind, horizonOf,
+    state, dateState, hasScan, daysLeft, describe, best, byKind, horizonOf,
     contextsFor, requirementsFor, readiness,
     billingReady, attention,
-    HORIZON, HORIZON_DEFAULT, REQUIRED, BILLING_FIELDS,
+    HORIZON, HORIZON_DEFAULT, REQUIRED, BILLING_FIELDS, RANK, STATE_LABEL, NO_SCAN_TEXT,
   };
   window.DanubraDocs = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

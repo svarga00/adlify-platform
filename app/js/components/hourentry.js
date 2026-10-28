@@ -384,24 +384,8 @@
       }
     },
 
-    /** Zmenší fotku na najviac `max` px na dlhšej strane (JPEG). */
-    shrink(file, max) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-          const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-          if (k >= 1 && file.size < 2.5 * 1024 * 1024) { URL.revokeObjectURL(url); return resolve(file); }
-          const c = document.createElement('canvas');
-          c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
-          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          URL.revokeObjectURL(url);
-          c.toBlob((b) => (b ? resolve(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })) : reject(new Error('blob'))), 'image/jpeg', 0.85);
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
-        img.src = url;
-      });
-    },
+    /** Zmenší fotku na najviac `max` px na dlhšej strane (JPEG). Spoločné s doklady ľudí. */
+    shrink(file, max) { return UI.shrinkImage(file, max); },
 
     /** Prečítaný list → týždeň, časy, riadky. Nepriradené mená ostanú na výber. */
     async applySheet(sheet) {

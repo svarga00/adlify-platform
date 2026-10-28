@@ -728,9 +728,9 @@
         + 'informovaný súhlas a neplatí.',
       ],
       how: [
-        'Vytlačí sa, podpíše sa oboma stranami a až potom sa zapíše do appky. '
-        + 'Vytlačiť neznamená podpísať — dokým papier nemá podpis, reťazec '
-        + 'správne hlási, že súhlas chýba.',
+        'Vytlačí sa, podpíše sa oboma stranami a až potom sa zapíše do appky '
+        + 'aj s fotkou podpísaného papiera — bez nej sa nezapíše. Vytlačiť neznamená '
+        + 'podpísať — dokým papier nemá podpis, reťazec správne hlási, že súhlas chýba.',
       ],
       why: [
         'Súhlas nemá platnosť „do": platí, kým ho človek neodvolá. Odvolanie '
@@ -1439,7 +1439,7 @@
       title: 'Papiere od nás — GDPR, zmluva, objednávka',
       lead: 'Kroky 4, 5 a 6 z reťazca — pre tohto jedného človeka a v tomto poradí.',
       what: [
-        '**Súhlas GDPR** — vytlačíte, on podpíše, zapíšete dátum podpisu.',
+        '**Súhlas GDPR** — vytlačíte, on podpíše, odfotíte podpísaný papier a zapíšete dátum podpisu.',
         '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Číslo sa navrhne '
         + 'samo ako ďalšie voľné; vytlačená a zapísaná zmluva majú to isté.',
         '**Stavba a objednávka** — nasadíte ho na stavbu a vystavíte mu objednávku. '
@@ -1463,6 +1463,8 @@
         'Posudzuje sa živnostenský list, A1, doklad totožnosti, zmluva o dielo '
         + 'a podľa remesla aj doklad o odbornosti (§9 HwO).',
         'Varovanie nie je prekážka — poistenie chýbať môže, A1 nie.',
+        'Doklad sa ráta, len keď je **nahratý** (fotka alebo PDF). Zapísaný bez skenu '
+        + 'blokuje rovnako ako chýbajúci — pri ňom je tlačidlo **Nahrať sken**.',
       ],
       how: [
         'Doklady sa posudzujú **k prvému dňu nasadenia**, nie k dnešku. Doklad, '
@@ -1477,10 +1479,16 @@
     },
     'card.worker.docs': {
       title: 'Doklady a platnosti',
-      lead: 'Čo od neho máme, dokedy to platí a čo je naskenované.',
-      what: ['Pri každom doklade je dátum platnosti a sken. Sken je dôležitý: '
-        + 'pri kontrole ho treba vedieť ukázať, nie hľadať v e-maile.'],
-      how: ['Keď sa platnosť blíži ku koncu, appka sama vyrobí úlohu s termínom. '
+      lead: 'Čo od neho máme, dokedy to platí a či je to naozaj nahraté.',
+      what: ['Doklad sa ráta, až keď je nahratý. Zapísaný druh a dátumy bez fotky '
+        + 'alebo PDF sú len tvrdenie — pri nasadení sa nerátajú a svietia ako „bez skenu".',
+        'Pri kontrole na stavbe treba doklad vedieť ukázať, nie hľadať v e-maile.'],
+      how: ['**Pridať doklad** → **Odfotiť** alebo **Vybrať súbor**. Appka doklad '
+        + 'prečíta a predvyplní druh, číslo a platnosť; upozorní, keď meno nesedí, doklad '
+        + 'už neplatí alebo si nie je istá. Porovnajte údaje so skenom a uložte — vaše meno '
+        + 'sa zapíše ako kontrola.',
+        'Pri starom doklade bez súboru kliknite **Chýba sken — nahrať**.',
+        'Keď sa platnosť blíži ku koncu, appka sama vyrobí úlohu s termínom. '
         + 'A1 sa vybavuje až 45 dní, preto sa upozorňuje s predstihom.'],
       why: ['Doklad sa nemaže ani po expirácii — pri spätnej kontrole treba vedieť '
         + 'dokázať, čo platilo vtedy, nie čo platí dnes.'],

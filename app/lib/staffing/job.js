@@ -109,21 +109,39 @@
    * nástup (z `Shell.evaluate`). Zmluva o dielo sa z nich vyberá — patrí
    * do piateho kroku, nie medzi doklady, inak by ju appka hlásila dvakrát.
    */
+  /**
+   * Je doklad nahratý? Od migrácie 067 sa zapísaný doklad bez fotky či PDF
+   * pri nasadení neráta. Riadok bez stĺpcov so súborom (výber bez nich) sa
+   * za nenahratý nepovažuje — rovnako ako `DanubraDocs.hasScan`.
+   */
+  function nahraty(d) {
+    if (!d) return false;
+    if (!('storage_path' in d) && !('file_url' in d)) return true;
+    return !!(String(d.storage_path || '').trim() || String(d.file_url || '').trim());
+  }
+
   function person(o) {
     const a = o.assignment || {};
     const w = o.worker || {};
     const today = day(o.today) || day(new Date().toISOString());
     const docs = arr(o.docs).filter(d => d && d.worker_id === a.worker_id
       && !['requested', 'missing'].includes(d.status));
-    const gdpr = docs.some(d => d.kind === 'gdpr');
-    const zmluvy = docs.filter(d => d.kind === 'contract');
-    const zmluva = zmluvy.some(d => !day(d.valid_to) || day(d.valid_to) >= today);
+    const gdprs = docs.filter(d => d.kind === 'gdpr');
+    const gdpr = gdprs.some(nahraty);
+    const zmluvy = docs.filter(d => d.kind === 'contract')
+      .filter(d => !day(d.valid_to) || day(d.valid_to) >= today);
+    const zmluva = zmluvy.some(nahraty);
     const objednavka = arr(o.orders).some(x => x && x.kind === 'worker'
       && x.status !== 'cancelled' && x.assignment_id === a.id);
     const doklady = arr(o.missing).filter(r => r !== 'missing_contract');
+    // Zapísané, ale nenahraté: súhlas, zmluva alebo doklad, ktorý blokuje.
+    // Na to netreba nový papier — stačí k zápisu nahrať sken.
+    const gdprBezSkenu = !gdpr && gdprs.length > 0;
+    const zmluvaBezSkenu = !zmluva && zmluvy.length > 0;
     return {
       assignmentId: a.id, workerId: a.worker_id, name: w.full_name || '—',
       gdpr, zmluva, objednavka, doklady,
+      gdprBezSkenu, zmluvaBezSkenu, bezSkenu: doklady.includes('missing_scan'),
       papiereOk: gdpr && doklady.length === 0,
       zmluvyOk: zmluva && objednavka,
     };
@@ -200,40 +218,49 @@
     };
 
     // ── 4. Papiere ľudí ─────────────────────────────────────────────────────
-    const bezGdpr = people.filter(p => !p.gdpr);
+    const bezGdpr = people.filter(p => !p.gdpr && !p.gdprBezSkenu);
     const bezDokl = people.filter(p => p.doklady.length);
+    // Zapísané, ale nenahraté doklady sú iná práca než chýbajúce: netreba
+    // nič vybavovať, len odfotiť a nahrať. Preto vlastná veta.
+    const nenahrate = people.filter(p => p.bezSkenu || p.gdprBezSkenu);
+    const chybaju = bezDokl.filter(p => p.doklady.some(r => r !== 'missing_scan'));
     // Podmienky, ktoré nie sú o jednom človeku: hlásenie Zoll, USt-IdNr…
     const firemne = arr(check.blockers).filter(b => !b.worker_id && b.scope !== 'worker');
     const casti = [];
     if (bezGdpr.length) casti.push(`bez GDPR: ${mena(bezGdpr.map(p => p.name))}`);
-    if (bezDokl.length) casti.push(`chýba doklad: ${mena(bezDokl.map(p => p.name))}`);
+    if (chybaju.length) casti.push(`chýba doklad: ${mena(chybaju.map(p => p.name))}`);
+    if (nenahrate.length) casti.push(`doklad nie je nahratý: ${mena(nenahrate.map(p => p.name))}`);
     if (firemne.length) casti.push(firemne.slice(0, 2).map(b => b.label).join(', '));
     r.papiere = {
-      done: n > 0 && !bezGdpr.length && !bezDokl.length && !!check.ok,
+      done: n > 0 && !bezGdpr.length && !bezDokl.length && !nenahrate.length && !!check.ok,
       detail: !n ? 'Najprv treba nasadiť ľudí.'
         : casti.length ? casti.join(' · ')
           : 'GDPR aj doklady sú v poriadku, podmienky vyslania splnené.',
       todo: !n ? null
-        : bezDokl.length ? `${ludi(bezDokl.length)} bez platného dokladu — doplňte ho alebo zapíšte výnimku.`
+        : chybaju.length ? `${ludi(chybaju.length)} bez platného dokladu — doplňte ho alebo zapíšte výnimku.`
+          : nenahrate.length ? `${ludi(nenahrate.length)} ${plural(nenahrate.length, 'má', 'majú', 'má')} doklad zapísaný, ale nenahratý — nahrajte sken.`
           : bezGdpr.length ? `Nechajte podpísať súhlas GDPR (${mena(bezGdpr.map(p => p.name))}).`
             : !check.ok ? ((check.blockers[0] && (check.blockers[0].fix || check.blockers[0].label)) || 'Doplňte podmienky vyslania.')
               : null,
       // Ľudia už sú na stavbe a papiere nie sú — za to pokutujú nás.
-      hot: zive && (bezDokl.length > 0 || !check.ok),
+      hot: zive && (bezDokl.length > 0 || nenahrate.length > 0 || !check.ok),
     };
 
     // ── 5. Zmluvy a objednávky živnostníkom ────────────────────────────────
-    const bezZml = people.filter(p => !p.zmluva);
+    const bezZml = people.filter(p => !p.zmluva && !p.zmluvaBezSkenu);
+    const zmlBezSkenu = people.filter(p => p.zmluvaBezSkenu);
     const bezObj = people.filter(p => !p.objednavka);
     const z = [];
     if (bezZml.length) z.push(`bez zmluvy: ${mena(bezZml.map(p => p.name))}`);
+    if (zmlBezSkenu.length) z.push(`zmluva nie je nahratá: ${mena(zmlBezSkenu.map(p => p.name))}`);
     if (bezObj.length) z.push(`bez objednávky: ${mena(bezObj.map(p => p.name))}`);
     r.zivnostnici = {
-      done: n > 0 && !bezZml.length && !bezObj.length,
+      done: n > 0 && !bezZml.length && !zmlBezSkenu.length && !bezObj.length,
       detail: !n ? 'Najprv treba nasadiť ľudí.'
         : z.length ? z.join(' · ') : 'Každý má rámcovú zmluvu aj objednávku.',
       todo: !n ? null
         : bezZml.length ? `Vytlačte rámcovú zmluvu a zapíšte podpísanú (${mena(bezZml.map(p => p.name))}).`
+          : zmlBezSkenu.length ? `Nahrajte sken podpísanej zmluvy (${mena(zmlBezSkenu.map(p => p.name))}).`
           : bezObj.length ? `Vystavte objednávku (${mena(bezObj.map(p => p.name))}).` : null,
     };
 

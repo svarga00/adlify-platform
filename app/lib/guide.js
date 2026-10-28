@@ -377,27 +377,28 @@
         },
         {
           title: 'Doklady: A1, živnosť, totožnosť',
-          what: 'Bez platných dokladov appka človeka na stavbu nepustí. Platnosť sa posudzuje k dňu nástupu, nie k dnešku.',
+          what: 'Doklad sa ráta, až keď je nahratý — bez fotky alebo PDF appka človeka na stavbu nepustí. Platnosť sa posudzuje k dňu nástupu, nie k dnešku.',
           how: [
-            'Na karte živnostníka otvorte záložku „Doklady".',
-            'V „Doklady a platnosti" kliknite „Pridať", vyberte druh (A1, živnostenský list, občiansky…), číslo a platnosť.',
-            'Pri doklade kliknite „Nahrať sken" a nahrajte fotku alebo PDF.',
-            'Karta „Smieme ho nasadiť?" hneď povie, či je všetko v poriadku.',
+            'Na karte živnostníka otvorte záložku „Doklady" a kliknite „Pridať doklad".',
+            'Kliknite „Odfotiť" (na mobile sa otvorí fotoaparát) alebo „Vybrať súbor" a nahrajte fotku či PDF dokladu.',
+            'Appka doklad prečíta a predvyplní druh, číslo a platnosť. Upozorní, keď meno nesedí, doklad už neplatí alebo si nie je istá.',
+            'Porovnajte údaje so skenom, opravte, čo nesedí, a kliknite „Skontrolované — uložiť doklad". Vaše meno sa zapíše ako kontrola.',
+            'Pri starom doklade bez skenu kliknite „Chýba sken — nahrať". Karta „Smieme ho nasadiť?" hneď povie, či je všetko v poriadku.',
           ],
           open: open('workers', 'Otvoriť Ľudí'),
-          tip: 'Doklad, ktorý končí do 30 dní, svieti oranžovo. Vybavte nový hneď, nie v deň, keď vyprší.',
+          tip: 'Bez nahratého dokladu sa nič neuloží. Keď appka doklad prečítať nevie, vyplňte údaje ručne podľa skenu. Doklad, ktorý končí do 30 dní, svieti oranžovo.',
           example: 'Gáborovi Nagyovi vypršalo A1 pred tromi dňami (nové je podané). Petrovi Balážovi končí A1 o 20 dní. Igor Šimko má A1 po platnosti a ako elektrikár potrebuje oznámenie §9 HwO.',
         },
         {
           title: 'Súhlas GDPR a rámcová zmluva',
           what: 'Každý živnostník podpíše súhlas so spracovaním údajov a rámcovú zmluvu o dielo (zvyčajne do konca roka).',
           how: [
-            'Na karte v „Papiere od nás" kliknite „Vytlačiť súhlas". Keď ho podpíše, kliknite „Zapísať podpísaný".',
-            'Potom kliknite „Vytlačiť zmluvu". Keď ju podpíše, kliknite „Zapísať podpísanú" a doplňte dátum.',
+            'Na karte v „Papiere od nás" kliknite „Vytlačiť súhlas". Keď ho podpíše, kliknite „Zapísať podpísaný" a podpísaný papier odfoťte.',
+            'Potom kliknite „Vytlačiť zmluvu". Keď ju podpíše, kliknite „Zapísať podpísanú", odfoťte ju a skontrolujte dátumy.',
             'Ak za neho budeme vystavovať faktúry, najprv v „Upraviť" zaškrtnite „Faktúry zaňho vystavujeme my" — až potom tlačte zmluvu.',
           ],
           open: open('workers', 'Otvoriť Ľudí'),
-          tip: 'Vytlačiť ešte neznamená podpísať. „Zapísať podpísaný" kliknite, až keď podpis naozaj máte.',
+          tip: 'Vytlačiť ešte neznamená podpísať. „Zapísať podpísaný" kliknite, až keď podpis naozaj máte — bez fotky podpísaného papiera sa nezapíše.',
           example: 'Michal Horváth (murár, Komárno) je „V preverovaní" — chýba mu A1 aj podpísaná zmluva.',
         },
         {
@@ -455,7 +456,7 @@
           what: 'Krok 4 zákazky ukazuje pri každom človeku súhlas GDPR a doklady a pod tým podmienky celej zákazky (Zoll, SOKA-BAU, §48b).',
           how: [
             'Otvorte krok 4 „Papiere ľudí". Kto nemá GDPR, má tlačidlá „Vytlačiť GDPR" a „Podpísaný".',
-            'Komu chýba doklad, kliknite „Doplniť doklad" — otvorí sa jeho karta.',
+            'Komu chýba doklad, kliknite „Doplniť doklad". Kto má doklad zapísaný bez skenu, kliknite „Nahrať sken".',
             'Pri stavbe kliknite „Zapísať hlásenie Zoll" a vložte Meldungs-ID z meldeportal-mindestlohn.de.',
             '„Test rizika ANÜ" overí, či zákazka nevyzerá ako požičiavanie ľudí.',
             'Rozbaľte „Checklist pred nástupom (po ľuďoch)". Ručne sa odškrtáva len odovzdanie pokynov — ostatné appka vie sama.',
@@ -970,7 +971,7 @@
       'Novým kandidátom zavolajte do 10 minút (Ľudia → Kandidáti).',
       'Na nový dopyt sa ozvite ako prví (Zákazky → Dopyty).',
       'Pozrite zvonček a úlohy po termíne.',
-      'Doklad po platnosti: človek nejde na stavbu, kým ho nedoplníte.',
+      'Doklad po platnosti alebo bez skenu: človek nejde na stavbu, kým ho nedoplníte.',
       'Prijaté faktúry „Na kontrolu" skontrolujte a potvrďte.',
     ],
     weekly: [
@@ -1063,6 +1064,7 @@
     { term: 'Kontaktná osoba', text: 'Človek, ktorému živnostník zavolá, keď prvý deň nevie, kam ísť — kolega zo stavby alebo majster odberateľa. Je na infoliste.' },
     { term: 'Balík („Poslať všetko naraz")', text: 'Jedna správa so všetkými papiermi na nástup: infolist na stavbu a k ubytovaniu, objednávka, vzor faktúry a prázdny Stundennachweis.' },
     { term: 'Archív', text: 'Miesto, kam sa odkladá to, čo už v zoznamoch nemá byť. V appke sa nič nemaže: „Archivovať" záznam len skryje a admin ho v Nastaveniach → Archív vie vrátiť späť aj s tým, čo sa archivovalo spolu s ním.' },
+    { term: 'Sken dokladu', text: 'Fotka alebo PDF dokladu nahratá do appky. Doklad bez skenu sa pri nasadení neráta — kontrola verí papieru, nie zápisu. Kto údaje podľa skenu potvrdí, ten sa zapíše.' },
     { term: 'Výnimka', text: 'Admin vedome povolí, čo by appka inak nepustila (napríklad nasadenie bez dokladu). Vždy s dôvodom, ktorý zostane zapísaný.' },
   ];
 

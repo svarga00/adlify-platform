@@ -437,6 +437,14 @@
     },
 
     /** Údaje pre sedem krokov jednej zákazky (`lib/staffing/job.js`). */
+    /**
+     * Kľúč prekážky pre kroky zákazky. Všetko o zmluve o dielo (chýba,
+     * expirovala, nie je nahratá) patrí do piateho kroku — preto sa zlúči na
+     * `missing_contract`, ktorý štvrtý krok vynecháva. Inak by sa jedna
+     * zmluva hlásila dvakrát.
+     */
+    stepRule(r) { return r && r.kind === 'contract' ? 'missing_contract' : r.rule; },
+
     jobSteps(sc) {
       const asg = this.asgOf(sc.id).filter(a => a.status !== 'cancelled');
       const ids = new Set(asg.map(a => a.id));
@@ -445,7 +453,7 @@
         const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
         if (!st) continue;
         missing[a.worker_id] = Shell.evaluate(st.ready.reasons,
-          this.overridesOf(a.worker_id), a.date_from || undefined).open.map(r => r.rule);
+          this.overridesOf(a.worker_id), a.date_from || undefined).open.map(this.stepRule);
       }
       const housed = asg.filter(a => this.stays.some(s => s.worker_id === a.worker_id && s.is_current
         && this.lodging.some(l => l.id === s.lodging_id && l.subcontract_id === sc.id))).length;
@@ -494,7 +502,7 @@
         missing: (() => {
           const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
           return st ? Shell.evaluate(st.ready.reasons, this.overridesOf(a.worker_id),
-            a.date_from || undefined).open.map(r => r.rule) : [];
+            a.date_from || undefined).open.map(this.stepRule) : [];
         })(),
       });
       const nikto = '<div class="js-empty">Zatiaľ nikto nie je nasadený — najprv krok 2.</div>';
@@ -575,13 +583,24 @@
           || (window.DanubraOverrides && DanubraOverrides.meta(r)?.label) || r).replace(/^Platné /, '');
         return `<div class="js-rows">${live.map((a) => {
           const x = person(a);
+          // Doklady, ktoré sú zapísané, ale nenahraté (migrácia 067). Pri
+          // nasadení sa nerátajú — a vybaviť ich znamená len odfotiť papier.
+          const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+          const bezSkenu = st ? st.ready.reasons.filter(r => r.rule === 'missing_scan' && r.docId
+            && r.kind !== 'contract') : [];
+          const gdprDoc = x.gdprBezSkenu ? this.workerDocs.find(d => d.worker_id === a.worker_id && d.kind === 'gdpr') : null;
+          const chyba = x.doklady.filter(r => r !== 'missing_scan');
           return `<div class="js-row js-row-p">
             <div class="js-who">${Danubra.link('worker', a.worker_id, x.name, { inline: true })}
-              ${mark(x.gdpr, 'GDPR')} ${mark(!x.doklady.length, x.doklady.length ? `chýba: ${x.doklady.map(meno).join(', ')}` : 'doklady')}</div>
+              ${mark(x.gdpr, x.gdprBezSkenu ? 'GDPR nie je nahratý' : 'GDPR')} ${mark(!chyba.length, chyba.length ? `chýba: ${chyba.map(meno).join(', ')}` : 'doklady')}
+              ${bezSkenu.length ? mark(false, `doklad nie je nahratý: ${bezSkenu.map(r => r.label.replace(/^Nie je nahratý: /, '')).join(', ')}`) : ''}</div>
             <div class="js-row-acts">
-              ${x.gdpr ? '' : b('btn-outline', `Sub.viaWrk('gdpr','${a.worker_id}')`, 'print', 'Vytlačiť GDPR')
+              ${x.gdpr || x.gdprBezSkenu ? '' : b('btn-outline', `Sub.viaWrk('gdpr','${a.worker_id}')`, 'print', 'Vytlačiť GDPR')
                 + b('btn-primary', `Sub.viaWrk('gdprForm','${a.worker_id}')`, 'check', 'Zapísať podpísaný')}
-              ${x.doklady.length ? b('btn-outline', `Danubra.open('worker','${a.worker_id}')`, 'plus', 'Doplniť doklad') : ''}
+              ${gdprDoc ? b('btn-primary', `Sub.pickScan('${gdprDoc.id}')`, 'upload', 'Nahrať sken GDPR') : ''}
+              ${bezSkenu.map(r => b('btn-primary', `Sub.pickScan('${r.docId}')`, 'upload',
+                `Nahrať sken: ${UI.esc(r.label.replace(/^Nie je nahratý: /, ''))}`)).join('')}
+              ${chyba.length ? b('btn-outline', `Danubra.open('worker','${a.worker_id}')`, 'plus', 'Doplniť doklad') : ''}
             </div>
           </div>`;
         }).join('')}</div>
@@ -615,7 +634,13 @@
             <div class="js-who">${Danubra.link('worker', a.worker_id, x.name, { inline: true })}
               ${mark(x.zmluva, 'rámcová zmluva')} ${mark(x.objednavka, 'objednávka')}</div>
             <div class="js-row-acts">
-              ${x.zmluva ? '' : b('btn-outline', `Sub.viaWrk('zmluva','${a.worker_id}')`, 'print', 'Vytlačiť zmluvu')
+              ${x.zmluva ? '' : x.zmluvaBezSkenu
+                ? (() => {
+                  const z = this.workerDocs.filter(d => d.worker_id === a.worker_id && d.kind === 'contract')
+                    .find(d => !DanubraDocs.hasScan(d));
+                  return z ? b('btn-primary', `Sub.pickScan('${z.id}')`, 'upload', 'Nahrať sken zmluvy') : '';
+                })()
+                : b('btn-outline', `Sub.viaWrk('zmluva','${a.worker_id}')`, 'print', 'Vytlačiť zmluvu')
                 + b('btn-primary', `Sub.viaWrk('zmluvaForm','${a.worker_id}')`, 'check', 'Zapísať podpísanú')}
               ${x.objednavka ? '' : b(x.zmluva ? 'btn-primary' : 'btn-outline', `Sub.newWorkerOrder('${a.id}')`, 'orders', 'Vystaviť objednávku')}
               ${b('btn-ghost', `Sub.siteSheet('${a.id}')`, 'doc', 'Infolist')}
@@ -661,12 +686,30 @@
     },
 
     /** Akcia z iného modulu, ktorý ešte nemusí mať načítané dáta. */
-    async viaWrk(fn, workerId) {
+    async viaWrk(fn, workerId, ...rest) {
       if (!window.Wrk || typeof Wrk[fn] !== 'function') return UI.toast('Kartotéka nie je dostupná', 'err');
       if (!Wrk.loaded) await Wrk.load();
       const scId = this.openId;
       Wrk.returnTo = { workerId, at: Date.now(), fn: async () => { await this.load(); this.detail(scId); } };
-      return Wrk[fn](workerId);
+      return Wrk[fn](workerId, ...rest);
+    },
+
+    /**
+     * „Nahrať sken" k dokladu, ktorý je zapísaný bez neho. Výber súboru sa
+     * otvorí hneď (prehliadač ho pustí len priamo po kliknutí); po nahratí
+     * sa zákazka prekreslí s novými dokladmi.
+     */
+    pickScan(docId) {
+      if (!window.Wrk || typeof Wrk.pickScanFor !== 'function') return UI.toast('Kartotéka nie je dostupná', 'err');
+      Wrk.pickScanFor(docId, () => this.afterScan());
+    },
+
+    /** Po nahratí skenu: nové doklady a prekreslenie (aj otvoreného nasadenia). */
+    async afterScan(scId) {
+      const wd = await DB.list('worker_documents', { limit: 2000 });
+      if (wd && wd.data) this.workerDocs = wd.data;
+      if (scId && document.getElementById('asg-form')) { this._asgKey = null; return this.asgReady(scId); }
+      Danubra.renderRoute();
     },
     async newWorkerOrder(asgId) {
       if (!window.Ord) return UI.toast('Objednávky nie sú dostupné', 'err');
@@ -1265,8 +1308,10 @@
       const r = this.asgReadiness(scId, workerId, dateFrom);
       if (!r) return '';
       const admin = Danubra.isAdmin();
+      const scan = window.Wrk && typeof Wrk.withScanActs === 'function'
+        ? (list) => Wrk.withScanActs(list, `()=>Sub.afterScan('${scId}')`) : (list) => list;
       return Shell.blocker({
-        reasons: [...r.ready.reasons, ...r.ready.warnings],
+        reasons: scan([...r.ready.reasons, ...r.ready.warnings]),
         overrides: this.overridesOf(workerId),
         today: dateFrom || undefined,
         onOverride: admin ? `Sub.grantAsgOverride('${scId}')` : '',
@@ -1534,8 +1579,11 @@
       const fsOk = DanubraCompliance.freistellung(this.companyItems(), Danubra._dayISO()).ok;
       const rows = DanubraChecks.build({
         assignment: a, subcontract: fsOk ? { ...sc, freistellung_verified: true } : sc, worker: w || {},
-        blocking: v.open.map(r => r.rule),
-        waived: v.waived.map(r => r.rule),
+        // Expirovaný alebo nenahratý doklad má vlastný kľúč (expired_document,
+        // missing_scan); checklist sa drží požiadavky (napr. „Platné A1").
+        blocking: v.open.flatMap(r => [r.rule, r.baseRule].filter(Boolean)),
+        waived: v.waived.flatMap(r => [r.rule, r.baseRule].filter(Boolean)),
+        noScan: v.open.filter(r => r.rule === 'missing_scan').map(r => r.baseRule).filter(Boolean),
         stays: this.stays, checks: this.assignmentChecks,
       });
       const p = DanubraChecks.progress(rows);

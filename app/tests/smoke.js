@@ -1108,6 +1108,8 @@ async function profileCheck() {
 
   t('doklady sú v profile', /Formulár A1|A1-118/.test(h));
   t('doklad bez skenu ponúka nahratie', /Wrk\.uploadScan\('d1'/.test(h));
+  t('doklad bez skenu je výrazne označený (067)', /Chýba sken — nahrať/.test(h));
+  t('doklad sa pridáva odfotením', /Pridať doklad/.test(h));
   t('doklad so skenom ponúka otvorenie', /Wrk\.openScan\('d2'/.test(h));
   t('hodiny sú v profile', /Odpracované hodiny/.test(h));
   t('zálohy sú v profile', /Wrk\.advanceForm\('w1'\)/.test(h));

@@ -320,6 +320,32 @@ window.UI = {
     return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}${tipHtml}</span>${input}${this.hint(hint)}</label>`;
   },
 
+  // ── Zmenšenie fotky pred nahratím ─────────────────────────────────────────
+  // Fotka z mobilu má aj 10 MB. Na prečítanie aj na kontrolu stačí 2000 px
+  // na dlhšej strane — menšia sa rýchlejšie nahrá cez mobilné dáta a model
+  // ju prečíta v časovom limite. Používa to zápis hodín z fotky aj doklady
+  // ľudí. PDF a iné súbory sa nemenia (vráti sa pôvodný súbor).
+  /** @returns {Promise<File>} JPEG najviac `max` px, alebo pôvodný súbor */
+  shrinkImage(file, max = 2000) {
+    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type || '')) return Promise.resolve(file);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        if (k >= 1 && file.size < 2.5 * 1024 * 1024) { URL.revokeObjectURL(url); return resolve(file); }
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => (b ? resolve(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }))
+          : reject(new Error('blob'))), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
+      img.src = url;
+    });
+  },
+
   // ── Otáznik s krátkym vysvetlením ─────────────────────────────────────────
   // „Ku všetkému, čo môže spôsobiť minimálne pochyby, priložte otáznik
   // s vysvetlením." Na rozdiel od `Help.btn` (celá vysvetlivka v okne) je to

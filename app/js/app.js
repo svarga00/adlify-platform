@@ -1782,7 +1782,8 @@ window.Danubra = {
     this._eventsLoading = (async () => {
       const [docs, inv, bills, per, cands, tx, tasks, wrk, prt, subs] = await Promise.all([
         DB.list('v_worker_documents', {
-          select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to', limit: 500 }),
+          // `storage_path, file_url` — doklad bez skenu sa pri nasadení neráta (067).
+          select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to,storage_path,file_url', limit: 500 }),
         DB.list('invoices', {
           select: 'id,invoice_number,status,issue_date,due_date,paid_at,partner_id', limit: 300 }),
         DB.list('bills', { select: 'id,worker_id,status,issue_date,note', limit: 300 }),
@@ -1972,7 +1973,7 @@ window.Danubra = {
         limit: 1000 }),
       DB.list('v_worker_documents', {
         // `kind`, nie `doc_type` — pohľad preberá stĺpce z danubra_worker_documents.
-        select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to', limit: 1000,
+        select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to,storage_path,file_url', limit: 1000,
       }),
       DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
       DB.list('recruitment_plans', {
@@ -3641,7 +3642,7 @@ window.Danubra = {
         DB.list('workers', { select: 'id,status', limit: 1000 }),
         // `kind` kvôli tomu istému: súhlas GDPR a zmluva sú doklady ako A1,
         // len sa pýtame na iný druh.
-        DB.list('v_worker_documents', { select: 'id,worker_id,kind,validity', limit: 2000 }),
+        DB.list('v_worker_documents', { select: 'id,worker_id,kind,validity,storage_path,file_url', limit: 2000 }),
         DB.list('partners', { select: 'id,country,ust_idnr', limit: 300 }),
         DB.list('quotes', { select: 'id,status,valid_until', limit: 300 }),
         DB.list('contracts', { select: 'id,status,signed_at', limit: 300 }),

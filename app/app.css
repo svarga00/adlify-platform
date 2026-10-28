@@ -4359,3 +4359,44 @@ label.mf-row:not(.is-off):hover { border-color: var(--brand-line); background: v
   .tour.is-ready .tour-spot, .tour.is-ready .tour-card { transition: none; }
 }
 @media print { .tour { display: none !important; } }
+
+/* ── Doklad sa ráta, až keď je nahratý (migrácia 067) ─────────────────────── */
+/* Pole „Fotka alebo PDF dokladu" vo formulároch dokladu, GDPR a zmluvy. */
+.scan-flow { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 12px; padding: 0;
+  list-style: none; counter-reset: sf; font-size: 12.5px; color: var(--ink-sub); }
+.scan-flow li { counter-increment: sf; display: flex; align-items: center; gap: 6px; }
+.scan-flow li::before { content: counter(sf); display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; background: var(--blue-50); color: var(--blue);
+  font-weight: 700; font-size: 11px; }
+.scan-fld { border: 1px dashed var(--border); border-radius: var(--radius); padding: 12px 14px;
+  margin: 12px 0; background: var(--field); }
+.scan-head { display: flex; align-items: center; gap: 4px; font-size: 13px; margin-bottom: 8px; }
+.scan-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.scan-btns label.btn { cursor: pointer; }
+.scan-st { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; color: var(--ink-mute); }
+.scan-st.is-ok { color: var(--green); font-weight: 600; }
+.scan-st.is-bad { color: var(--red); font-weight: 600; }
+.scan-st svg { flex: none; }
+.scan-ai { margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12.5px;
+  background: var(--card); border: 1px solid var(--border); color: var(--ink-sub); overflow-wrap: anywhere; }
+.scan-ai.is-busy, .scan-ai.is-off { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.scan-ai.is-off { background: var(--amber-50); border-color: #F3D6BB; color: var(--amber); }
+.scan-ai.is-ok { border-color: var(--green); }
+.scan-ai.is-warn { border-color: var(--amber); }
+.scan-ai.is-bad { border-color: var(--red); background: var(--red-50); }
+.scan-ai-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--ink); }
+.scan-ai-kv { margin: 0; }
+.scan-warn { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.scan-warn li { display: flex; gap: 6px; align-items: flex-start; }
+.scan-warn li svg { flex: none; margin-top: 2px; }
+.scan-warn li.is-bad { color: var(--red); font-weight: 600; }
+.scan-warn li.is-warn { color: var(--amber); font-weight: 600; }
+.scan-warn li.is-info { color: var(--ink-sub); }
+.scan-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-sub); }
+/* Pole predvyplnené z dokladu — oko hneď vidí, čo treba porovnať so skenom. */
+.fld input.is-ai, .fld select.is-ai { background: var(--blue-50); border-color: var(--blue); }
+/* „Chýba sken — nahrať" pri doklade bez súboru: výrazne, nie ako nenápadný odkaz. */
+.btn.scan-missing { background: var(--amber-50); color: var(--amber); border: 1px solid var(--amber);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.btn.scan-missing:hover { background: var(--amber); color: #fff; }
+.bl-list li .bl-act { margin-top: 6px; }

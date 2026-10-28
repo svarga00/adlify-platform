@@ -52,6 +52,15 @@ console.log('Checklist pred nasadením');
   eq(stav(bez, 'id'), 'open', 'aj chýbajúci doklad totožnosti');
   eq(stav(bez, 'contract'), 'ok', 'zmluva, ktorá neblokuje, je hotová');
 
+  // Migrácia 067: zapísané, ale nenahraté A1 je otvorené a povie sa prečo.
+  const r = Docs.readiness({ docs: [
+    { kind: 'a1', id: 'x', valid_from: '2026-01-01', valid_to: '2027-12-31', storage_path: null, file_url: null },
+  ], today: '2026-10-01' }).reasons.find(x => x.rule === 'missing_scan');
+  const sken = C.build({ assignment: asg, subcontract: sc, worker: {},
+    blocking: [r.rule, r.baseRule], noScan: [r.baseRule] });
+  eq(stav(sken, 'a1'), 'open', 'A1 bez skenu je v checkliste otvorené');
+  ok(/nie je nahratý/.test(sken.find(x => x.key === 'a1').detail), 'a pri ňom je, že nie je nahraté');
+
   // Výnimka nie je to isté ako splnené — a nesmie sa tak ukázať.
   const vynimka = C.build({ assignment: asg, subcontract: sc, worker: {},
     waived: ['missing_a1'] });

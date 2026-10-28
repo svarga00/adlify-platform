@@ -429,10 +429,16 @@
     const v = evaluate(o.reasons, o.overrides, o.today);
     const inputId = o.inputId || 'ovr-reason';
 
+    // `r.act` = { label, onclick, ico } — keď sa prekážka dá odstrániť jedným
+    // klikom priamo tu (napr. „Nahrať sken" k zapísanému dokladu). Lepšie než
+    // výnimka: prekážka zmizne, nie je obídená.
+    const act = (r) => (r.act && r.act.onclick && r.act.label)
+      ? `<button type="button" class="btn btn-outline btn-sm bl-act" onclick="${r.act.onclick}">${
+        Icon(r.act.ico || 'upload', 14)} ${esc(r.act.label)}</button>` : '';
     const item = (r, kind) => `<li class="bl-${kind}">
       ${Icon(kind === 'waived' ? 'check' : (kind === 'warn' ? 'shield' : 'x'), 14)}
       <div><b>${esc(r.label)}</b>${r.detail ? `<span>${esc(r.detail)}</span>` : ''}
-      ${kind === 'waived' ? '<em>povolené výnimkou</em>' : ''}</div></li>`;
+      ${kind === 'waived' ? '<em>povolené výnimkou</em>' : ''}${kind !== 'waived' ? act(r) : ''}</div></li>`;
 
     const warn = v.warnings.length
       ? `<ul class="bl-list">${v.warnings.map(r => item(r, 'warn')).join('')}</ul>` : '';

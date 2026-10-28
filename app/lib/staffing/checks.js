@@ -115,6 +115,7 @@
    *   worker        { regulated_trade }
    *   blocking      kľúče pravidiel, ktoré práve blokujú (z blokátora)
    *   waived        kľúče pravidiel, ktoré sú povolené výnimkou
+   *   noScan        kľúče požiadaviek, ktorých doklad je zapísaný, ale nenahratý
    *   stays         záznamy „kto kde býva"
    *   checks        riadky z danubra_assignment_checks pre toto nasadenie
    * @returns {Array} [{ ...check, state, detail, canTick, row }]
@@ -130,6 +131,7 @@
     };
     const blocking = new Set(o.blocking || []);
     const waived = new Set(o.waived || []);
+    const noScan = new Set(o.noScan || []);
     const rows = (o.checks || []).filter(c => c && c.assignment_id === a.id);
 
     return CHECKS.filter(c => applies(c, ctx)).map((c) => {
@@ -139,6 +141,7 @@
         state = blocking.has(c.rule) ? 'open' : (waived.has(c.rule) ? 'waived' : 'ok');
         detail = state === 'ok' ? 'Doklad je v kartotéke a platí.'
           : state === 'waived' ? 'Povolené zapísanou výnimkou.'
+          : noScan.has(c.rule) ? 'Doklad je zapísaný, ale nie je nahratý — nahrajte sken na karte živnostníka.'
           : 'Chýba alebo neplatí — doplňte v kartotéke živnostníka.';
       } else if (c.source === 'subcontract') {
         state = sc[c.field] ? 'ok' : 'open';
