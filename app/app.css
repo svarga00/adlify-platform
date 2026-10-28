@@ -1016,6 +1016,16 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .modal-x { background: none; border: 0; font-size: 18px; cursor: pointer; color: var(--ink-mute); }
 .modal-body { padding: 18px 20px 24px; }
 .modal-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 18px; }
+/* Aj na telefóne sú tlačidlá okna prilepené dole — pri dlhom formulári sa
+   inak muselo rolovať až na koniec listu, aby sa dalo uložiť. */
+@media (max-width: 860px) {
+  .modal-body > .modal-actions:last-child,
+  .modal-body > form > .modal-actions:last-child {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 18px -20px -24px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: #fff; border-top: 1px solid var(--border);
+  }
+}
 /* Na počítači je okno väčšie a vzdušnejšie: „na desktope by mohol byť každý
    modal väčší a prehľadnejší". Telefón zostáva pri liste zdola cez celú
    šírku. Tlačidlá okna sú prilepené dole, takže pri dlhom formulári sa
