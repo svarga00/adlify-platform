@@ -113,7 +113,13 @@
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${w && w.profession ? UI.esc(Wrk.professionLabel(w.profession)) + ' · ' : ''}
               v partii od ${UI.date(m.joined_at)}
-              ${ready.ok ? '' : ` · ${ready.reasons.length} ${DanubraCrews.plural(ready.reasons.length, 'doklad chýba', 'doklady chýbajú', 'dokladov chýba')}`}</span>
+              ${ready.ok ? '' : (() => {
+                // Zapísaný, ale nenahratý doklad (067) nie je „chýba" — stačí ho nahrať.
+                const sken = ready.reasons.filter(r => r.rule === 'missing_scan').length;
+                const chyba = ready.reasons.length - sken;
+                return [chyba ? ` · ${chyba} ${DanubraCrews.plural(chyba, 'doklad chýba', 'doklady chýbajú', 'dokladov chýba')}` : '',
+                  sken ? ` · ${sken} ${DanubraCrews.plural(sken, 'doklad nie je nahratý', 'doklady nie sú nahraté', 'dokladov nie je nahratých')}` : ''].join('');
+              })()}</span>
           </span>
           <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();Crews.leave('${m.id}')"
             title="Ukončiť členstvo">${Icon('logout', 15)}</button>

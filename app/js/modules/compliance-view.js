@@ -46,6 +46,9 @@
       this.loaded = true;
     },
 
+    /** Po nahratí skenu A1 odinakiaľ: nové doklady a prekreslenie. */
+    async reload() { await this.load(); Danubra.renderRoute(); },
+
     kindLabel(k) { const x = KINDS.find(y => y[0] === k); return x ? x[1] : k; },
     workerOf(id) { return this.workers.find(w => w.id === id); },
 
@@ -56,7 +59,8 @@
     },
     stateBadge(st) {
       const map = { valid: ['Platné', 'green'], expiring: ['Čoskoro vyprší', 'amber'],
-        expired: ['Neplatné', 'red'], missing: ['Chýba', 'red'], not_yet: ['Ešte neplatí', 'gray'] };
+        expired: ['Neplatné', 'red'], missing: ['Chýba', 'red'], not_yet: ['Ešte neplatí', 'gray'],
+        no_scan: ['Bez skenu', 'amber'] };
       const m = map[st] || map.missing;
       return UI.badge(m[0], m[1]);
     },
@@ -79,7 +83,12 @@
       }
       const activeWorkers = this.workers.filter(w => ['ready', 'deployed'].includes(w.status));
       const a1Problems = activeWorkers.map(w => ({ worker: w, doc: a1ByWorker.get(w.id) }))
-        .map(x => ({ ...x, st: DanubraCompliance.docState(x.doc, today, 45) }))
+        .map(x => {
+          let st = DanubraCompliance.docState(x.doc, today, 45);
+          // Zapísané, ale nenahraté A1 sa pri nasadení neráta (migrácia 067).
+          if ((st === 'valid' || st === 'expiring') && !DanubraDocs.hasScan(x.doc)) st = 'no_scan';
+          return { ...x, st };
+        })
         .filter(x => x.st !== 'valid');
 
       // ktoré povinné položky vôbec chýbajú
@@ -109,7 +118,7 @@
             <div class="kpi-value" style="color:${problems.length ? 'var(--red)' : 'var(--green)'};">${problems.length}</div>
             <div class="kpi-delta">blokujú prácu</div></div>
           <div class="kpi"><div class="kpi-label">Problémy s A1${UI.tip('Koľko ľudí pripravených alebo na stavbe '
-            + 'nemá A1, má ho po platnosti alebo mu skončí do 45 dní. ' + TIP_A1)}</div>
+            + 'nemá A1, má ho po platnosti, nemá ho nahraté alebo mu skončí do 45 dní. ' + TIP_A1)}</div>
             <div class="kpi-value" style="color:${a1Problems.length ? 'var(--red)' : 'var(--green)'};">${a1Problems.length}</div>
             <div class="kpi-delta">u aktívnych ľudí</div></div>
         </div>
@@ -130,13 +139,14 @@
         ${a1Problems.length ? `
         <div class="form-section">A1 pracovníkov${UI.tip(TIP_A1 + ' Vybavenie trvá až 45 dní, preto treba žiadať včas.')}</div>
         ${a1Problems.map(x => `<div class="list-row">
-          <span class="dot ${x.st === 'expiring' ? 'amber' : 'red'}"></span>
+          <span class="dot ${['expiring', 'no_scan'].includes(x.st) ? 'amber' : 'red'}"></span>
           <span style="flex:1;font-size:13px;"><strong>${UI.esc(x.worker.full_name)}</strong>
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${x.st === 'missing' ? 'nemá zaevidované A1' :
-                x.st === 'expired' ? `A1 skončilo ${UI.date(x.doc.valid_to)}` :
-                `A1 platí do ${UI.date(x.doc.valid_to)}`}
-              · vystavenie trvá až 45 dní</span></span>
+              ${x.st === 'missing' ? 'nemá zaevidované A1 · vystavenie trvá až 45 dní' :
+                x.st === 'expired' ? `A1 skončilo ${UI.date(x.doc.valid_to)} · vystavenie trvá až 45 dní` :
+                x.st === 'no_scan' ? 'A1 je zapísané, ale nie je nahraté — bez skenu sa pri nasadení neráta' :
+                `A1 platí do ${UI.date(x.doc.valid_to)} · vystavenie trvá až 45 dní`}</span></span>
+          ${x.st === 'no_scan' && window.Wrk ? `<button class="btn btn-outline btn-sm" onclick="Wrk.pickScanFor('${x.doc.id}',()=>Cmp.reload())">${Icon('upload', 14)} Nahrať sken</button>` : ''}
           ${this.stateBadge(x.st)}
         </div>`).join('')}` : ''}`;
     },

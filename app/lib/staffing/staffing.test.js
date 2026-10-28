@@ -204,6 +204,22 @@ const TODAY = '2026-08-11';
 }
 
 {
+  // Migrácia 067: A1 je zapísané, ale nie je nahraté — nasadiť sa nesmie.
+  const r = C.checkSubcontract({
+    today: TODAY,
+    subcontract: { work_type: 'workshop', scope: 'Zváranie oceľových konštrukcií podľa výkresu, 120 kusov', billing_model: 'unit' },
+    assignments: [{ worker_id: 'w1', status: 'planned', role: 'predak' }],
+    workers: [{ id: 'w1', full_name: 'Ján Kováč' }],
+    workerDocs: [{ worker_id: 'w1', kind: 'a1', valid_from: '2026-01-01', valid_to: '2027-01-01',
+      storage_path: null, file_url: null }],
+    companyItems: [{ kind: 'ust_idnr', valid_from: '2026-01-01' }, { kind: 'insurance', valid_to: '2027-01-01' }],
+  });
+  ok(!r.ok, 'A1 bez skenu zákazku nepustí');
+  ok(r.blockers.some(b => b.label === 'Ján Kováč: A1 nie je nahraté' && b.worker_id === 'w1'),
+    'blokátor povie, že A1 nie je nahraté, a patrí k človeku');
+}
+
+{
   // A1 čoskoro vyprší a nepokrýva nasadenie
   const r = C.checkSubcontract({
     today: TODAY,

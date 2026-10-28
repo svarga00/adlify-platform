@@ -91,7 +91,7 @@
     avatarFlag(w) {
       const st = this.docStatus(w.id).state;
       if (['missing', 'expired'].includes(st)) return { kind: 'bad', icon: 'x' };
-      if (st === 'expiring') return { kind: 'warn', icon: 'alert' };
+      if (st === 'expiring' || st === 'no_scan') return { kind: 'warn', icon: 'alert' };
       return null;
     },
 
@@ -181,8 +181,15 @@
       const today = new Date().toISOString().slice(0, 10);
       const a1 = this.docsOf(workerId).filter(d => d.kind === 'a1')
         .sort((a, b) => String(b.valid_to || '').localeCompare(String(a.valid_to || '')))[0];
-      const st = DanubraCompliance.docState(a1, today);
+      let st = DanubraCompliance.docState(a1, today);
+      // Zapísané, ale nenahraté A1 sa pri nasadení neráta (migrácia 067).
+      if ((st === 'valid' || st === 'expiring') && !DanubraDocs.hasScan(a1)) st = 'no_scan';
       return { a1, state: st };
+    },
+
+    /** Doklady človeka, ktoré sú zapísané, ale nie sú nahraté. */
+    unscannedOf(workerId) {
+      return this.docsOf(workerId).filter(d => !DanubraDocs.hasScan(d));
     },
 
     filtered() {
@@ -197,6 +204,9 @@
           if (f.doc === 'problem' && !['missing', 'expired'].includes(st)) return false;
           if (f.doc === 'expiring' && st !== 'expiring') return false;
           if (f.doc === 'ok' && st !== 'valid') return false;
+          // Zapísané doklady bez fotky alebo PDF — kontrola pri nasadení ich
+          // neráta, kým sa nenahrajú.
+          if (f.doc === 'noscan' && !this.unscannedOf(w.id).length) return false;
           // Kroky 4–6 reťazca. Na tieto filtre vedú tlačidlá z Prehľadu,
           // preto rátajú presne tak ako on: ľudia, s ktorými už nerobíme,
           // sa nepočítajú.
@@ -219,7 +229,7 @@
 
     exportCsv() {
       const DOC = { valid: 'platí', expiring: 'čoskoro skončí', expired: 'po platnosti',
-        missing: 'chýba' };
+        missing: 'chýba', no_scan: 'bez skenu' };
       Shell.exportCsv(this.filtered(), [
         ['Meno', w => w.full_name],
         ['Profesia', w => this.professionLabel(w.profession)],
@@ -300,7 +310,8 @@
                 ['nogdpr', 'Chýba súhlas GDPR'], ['nocontract', 'Chýba zmluva o dielo'],
                 ['noorder', 'Chýba stavba alebo objednávka'],
                 ['problem', 'Chýba alebo prepadol A1'],
-                ['expiring', 'A1 čoskoro skončí'], ['ok', 'A1 platí']] },
+                ['expiring', 'A1 čoskoro skončí'], ['ok', 'A1 platí'],
+                ['noscan', 'Doklady bez skenu']] },
           ],
           exportCsv: 'Wrk.exportCsv()',
           total: this.items.length, shown: rows.length,
@@ -317,7 +328,7 @@
     card(w) {
       const ds = this.docStatus(w.id);
       const a1Warn = ['missing', 'expired'].includes(ds.state) ? 'red'
-        : ds.state === 'expiring' ? 'amber' : null;
+        : ['expiring', 'no_scan'].includes(ds.state) ? 'amber' : null;
       const crew = this.crewOf(w);
       const site = this.siteOf(w.id);
       const rate = w.legal_form !== 'employee' ? w.hourly_cost : null;
@@ -350,7 +361,8 @@
             ${!rate && w.gross_monthly ? `<span>${Icon('euro', 14)} ${UI.money(w.gross_monthly)}</span>` : ''}
             ${w.available_from ? `<span>${Icon('calendar', 14)} od ${UI.date(w.available_from)}</span>` : ''}
             ${a1Warn ? `<span style="color:var(--${a1Warn === 'red' ? 'red' : 'amber'});font-weight:700;">
-              ${Icon('alert', 14)} A1 ${ds.state === 'missing' ? 'chýba' : ds.state === 'expired' ? 'neplatné' : 'končí'}</span>` : ''}
+              ${Icon('alert', 14)} A1 ${ds.state === 'missing' ? 'chýba' : ds.state === 'expired' ? 'neplatné'
+                : ds.state === 'no_scan' ? 'bez skenu' : 'končí'}</span>` : ''}
           </div>
         </div>`;
     },
@@ -382,6 +394,11 @@
     stepActs(w, i) {
       const b = (cls, onclick, ico, label) =>
         `<button class="btn ${cls} btn-sm" onclick="${onclick}">${Icon(ico, 14)} ${label}</button>`;
+      // Papier je zapísaný, ale nenahratý — netreba ho zapisovať znova,
+      // stačí k nemu nahrať fotku alebo PDF (migrácia 067).
+      if (i.needs === 'scan' && i.docId) {
+        return b('btn-primary', `Wrk.pickScanFor('${i.docId}')`, 'upload', 'Nahrať sken');
+      }
       if (i.key === 'gdpr') {
         return i.done ? b('btn-ghost', `Wrk.gdpr('${w.id}')`, 'print', 'Vytlačiť znova')
           : b('btn-outline', `Wrk.gdpr('${w.id}')`, 'print', 'Vytlačiť súhlas')
@@ -670,7 +687,7 @@
         <div class="card-head"><div class="card-title">Smieme ho nasadiť?${
           Help.btn('card.worker.readiness', { size: 13 })}</div></div>
         ${Shell.blocker({
-          reasons: [...ready.reasons, ...ready.warnings],
+          reasons: this.withScanActs([...ready.reasons, ...ready.warnings]),
           overrides: this.overridesOf(w.id),
           // Doteraz sa formulár na výnimku ponúkol každému a databáza ju
           // potom odmietla (trigger z migrácie 030). Človek napísal dôvod
@@ -683,15 +700,22 @@
       </div>`;
     },
 
+    /**
+     * K prekážke „doklad nie je nahratý" pridá tlačidlo „Nahrať sken" —
+     * prekážka sa tak dá odstrániť priamo tam, kde ju človek vidí.
+     * `after` (voliteľné) = čo spraviť po nahratí (napr. prekresliť zákazku).
+     */
+    withScanActs(reasons, after) {
+      return (reasons || []).map(r => (r && r.rule === 'missing_scan' && r.docId)
+        ? { ...r, act: { label: 'Nahrať sken', ico: 'upload',
+          onclick: `Wrk.pickScanFor('${r.docId}'${after ? `,${after}` : ''})` } }
+        : r);
+    },
+
     docsCard(w, docs, today) {
       const row = (d) => {
         const x = DanubraDocs.describe(d, today);
-        const color = x.state === 'expired' ? 'red'
-          : x.state === 'expiring' ? 'amber' : x.state === 'valid' ? 'green' : '';
-        const label = {
-          valid: 'platné', expiring: 'čoskoro vyprší', expired: 'neplatné',
-          not_yet: 'ešte neplatí', missing: 'chýba',
-        }[x.state];
+        const [label, color] = DanubraDocs.STATE_LABEL[x.state] || ['', ''];
         // Počet dní je to, čo človek potrebuje vedieť: „ešte 12 dní" hovorí
         // viac než „čoskoro vyprší".
         const dni = x.daysLeft == null ? ''
@@ -704,14 +728,20 @@
             <strong>${UI.esc(this.docLabel(d.kind))}</strong>
             ${d.reference ? `<span style="color:var(--ink-mute);"> · ${UI.esc(d.reference)}</span>` : ''}
             <span style="color:var(--ink-mute);display:block;font-size:12px;">
-              ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}${dni}</span>
+              ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}${dni}${
+                d.checked_at ? ` · skontrolované ${UI.date(d.checked_at)}` : ''}</span>
             <span class="link-row" style="margin-top:6px;">
               ${d.storage_path
                 ? `<button class="link-chip" onclick="Wrk.preview('${d.id}')">${Icon('search', 13)}<span>Náhľad</span></button>
                    <button class="link-chip" onclick="Wrk.openScan('${d.id}')">${Icon('doc', 13)}<span>Otvoriť</span></button>`
-                : `<label class="link-chip">${Icon('upload', 13)}<span>Nahrať sken</span>
-                     <input type="file" hidden accept="application/pdf,image/*"
-                       onchange="Wrk.uploadScan('${d.id}', this)"></label>`}
+                : d.file_url
+                  ? `<a class="link-chip" href="${UI.esc(d.file_url)}" target="_blank" rel="noopener noreferrer">${Icon('doc', 13)}<span>Otvoriť súbor</span></a>`
+                  // Doklad bez súboru sa pri nasadení neráta (migrácia 067) —
+                  // preto to nie je nenápadný odkaz, ale výrazné tlačidlo.
+                  : `<label class="btn btn-sm scan-missing">${Icon('alert', 14)}<span>Chýba sken — nahrať</span>
+                     <input type="file" hidden accept="image/*,application/pdf"
+                       onchange="Wrk.uploadScan('${d.id}', this)"></label>
+                     ${UI.tip('Doklad je zapísaný, ale nikto nevidel papier. Kým nenahráte fotku alebo PDF, appka ho pri nasadení nerátá a človeka na stavbu nepustí. Na mobile ponúkne aj fotoaparát.')}`}
             </span>
           </span>
           ${this.thumbHtml(d)}
@@ -722,8 +752,14 @@
       return `<div class="card card-pad">
         <div class="card-head">
           <div class="card-title">Doklady a platnosti${Help.btn('card.worker.docs', { size: 13 })}</div>
-          <button class="btn btn-ghost btn-sm" onclick="Wrk.addDoc('${w.id}')">${Icon('plus', 14)} Pridať</button>
+          <button class="btn btn-ghost btn-sm" onclick="Wrk.addDoc('${w.id}')">${Icon('camera', 14)} Pridať doklad</button>
         </div>
+        ${(() => {
+          const bez = docs.filter(d => !DanubraDocs.hasScan(d)).length;
+          return bez ? `<div class="warnbox" style="margin-bottom:8px;">${Icon('alert', 14)}
+            ${bez} ${Shell.plural(bez, 'doklad je zapísaný, ale nie je nahratý', 'doklady sú zapísané, ale nie sú nahraté',
+              'dokladov je zapísaných, ale nie sú nahraté')}. Pri nasadení sa ráta len nahratý doklad.</div>` : '';
+        })()}
         ${docs.length ? docs.map(row).join('')
           : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
         ${docs.some(d => d.kind === 'contract') ? '' : `
@@ -817,9 +853,9 @@
           ${d.reference ? `<span>${Icon('note', 13)} ${UI.esc(d.reference)}</span>` : ''}
           <span>${Icon('calendar', 13)} ${d.valid_from ? UI.date(d.valid_from) : '—'} –
             ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'}</span>
-          ${x.state === 'expired' ? UI.badge('neplatné', 'red')
-            : x.state === 'expiring' ? UI.badge('čoskoro vyprší', 'amber')
-            : x.state === 'valid' ? UI.badge('platné', 'green') : ''}
+          ${DanubraDocs.STATE_LABEL[x.state] && x.state !== 'missing'
+            ? UI.badge(...DanubraDocs.STATE_LABEL[x.state]) : ''}
+          ${d.checked_at ? `<span>${Icon('check', 13)} skontrolované podľa skenu ${UI.date(d.checked_at)}</span>` : ''}
         </div>
         ${body}
         <p class="doc-note">Odkaz je podpísaný a platí desať minút. Doklad je
@@ -1367,8 +1403,11 @@
       const koniec = DanubraSubcontract.koniecRoka(dnes);
       UI.modal('Zapísať podpísanú zmluvu', `
         <form id="zml-form" onsubmit="event.preventDefault();Wrk.saveZmluva('${workerId}')">
-          <div class="regimebox">Zmluva sa spravidla uzatvára do konca kalendárneho
-            roka. Appka upozorní skôr, než sa skončí — nie potom.</div>
+          <div class="regimebox">Odfoťte alebo nahrajte podpísanú zmluvu — bez nahratého
+            papiera sa nezapíše. Zmluva sa spravidla uzatvára do konca kalendárneho
+            roka; appka upozorní skôr, než sa skončí.</div>
+          ${this.scanFieldHtml('zml-form', workerId, { expectedKind: 'contract',
+            fill: ['reference', 'valid_from', 'valid_to'] })}
           <div class="form-grid">
             ${UI.field('reference', 'Číslo zmluvy', { value: this.cisloNavrh(workerId),
               hint: 'Ďalšie voľné číslo — rovnaké ako na vytlačenej zmluve. Dá sa prepísať.' })}
@@ -1384,14 +1423,18 @@
     },
 
     async saveZmluva(workerId) {
-      const d = UI.formData(document.getElementById('zml-form'));
+      const form = document.getElementById('zml-form');
+      const d = UI.formData(form);
       if (!d.valid_from) return UI.toast('Zadajte dátum podpisu', 'err');
-      const { error } = await DB.insert('worker_documents', {
+      const scan = await this.scanTake('zml-form');
+      if (scan.error) return UI.toast(scan.error, 'err');
+      const { error } = await this.lockWhile(form, () => DB.insert('worker_documents', {
         worker_id: workerId, kind: 'contract', reference: d.reference || null,
         valid_from: d.valid_from, valid_to: d.valid_to || null,
-        notes: d.notes || null, status: 'valid',
-      });
+        notes: d.notes || null, status: 'valid', ...scan.fields,
+      }));
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this._scan = null;
       UI.closeModal();
       delete this._cislaNavrh[workerId];
       await this.load();
@@ -1422,13 +1465,14 @@
       const dnes = new Date().toISOString().slice(0, 10);
       UI.modal('Zapísať podpísaný súhlas', `
         <form id="gdpr-form" onsubmit="event.preventDefault();Wrk.saveGdpr('${workerId}')">
-          <div class="regimebox">Zapisuje sa až podpísaný papier. Dokým ho nemáme,
-            reťazec správne hlási, že súhlas chýba.</div>
+          <div class="regimebox">Zapisuje sa až podpísaný papier — odfoťte ho alebo nahrajte
+            sken. Dokým ho nemáme, reťazec správne hlási, že súhlas chýba.</div>
+          ${this.scanFieldHtml('gdpr-form', workerId, { expectedKind: 'gdpr', fill: ['valid_from'] })}
           <div class="form-grid">
             ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2,
-            placeholder: 'napr. podpísané na stavbe, sken v zložke' })}
+            placeholder: 'napr. podpísané na stavbe' })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${Icon('check')} Zapísať</button>
@@ -1437,14 +1481,18 @@
     },
 
     async saveGdpr(workerId) {
-      const d = UI.formData(document.getElementById('gdpr-form'));
+      const form = document.getElementById('gdpr-form');
+      const d = UI.formData(form);
       if (!d.valid_from) return UI.toast('Zadajte dátum podpisu', 'err');
+      const scan = await this.scanTake('gdpr-form');
+      if (scan.error) return UI.toast(scan.error, 'err');
       // Súhlas nemá platnosť „do" — platí, kým ho človek neodvolá.
-      const { error } = await DB.insert('worker_documents', {
+      const { error } = await this.lockWhile(form, () => DB.insert('worker_documents', {
         worker_id: workerId, kind: 'gdpr', valid_from: d.valid_from,
-        notes: d.notes || null, status: 'valid',
-      });
+        notes: d.notes || null, status: 'valid', ...scan.fields,
+      }));
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this._scan = null;
       UI.closeModal();
       await this.load();
       if (await this.backTo(workerId)) return UI.toast('Súhlas je zapísaný', 'ok');
@@ -1455,28 +1503,35 @@
     addDoc(workerId) {
       const body = `
         <form id="doc-form" onsubmit="event.preventDefault();Wrk.saveDoc('${workerId}')">
-          <div class="regimebox">A1 vystavuje Sociálna poisťovňa do 45 dní a platí najviac 24 mesiacov —
-          preto sa naň upozorňuje 60 dní dopredu, nie 30. Prázdne pole znamená
-          predvolený horizont podľa typu dokladu.</div>
+          <ol class="scan-flow">
+            <li>Odfoťte alebo nahrajte doklad</li><li>Appka ho prečíta</li>
+            <li>Porovnajte údaje so skenom</li><li>Uložte</li>
+          </ol>
+          ${this.scanFieldHtml('doc-form', workerId, { kindField: 'kind',
+            fill: ['kind', 'reference', 'valid_from', 'valid_to'] })}
           <div class="form-grid">
             ${UI.field('kind', 'Typ dokladu', { value: 'a1', options: this.docKinds() })}
             ${UI.field('reference', 'Číslo / referencia', {})}
             ${UI.field('valid_from', 'Platí od', { type: 'date' })}
             ${UI.field('valid_to', 'Platí do', { type: 'date' })}
             ${UI.field('notify_days_before', 'Upozorniť dní dopredu', { type: 'number',
-              value: '', placeholder: 'podľa typu dokladu' })}
+              value: '', placeholder: 'podľa typu dokladu',
+              tip: 'A1 vystavuje Sociálna poisťovňa do 45 dní a platí najviac 24 mesiacov — preto sa naň upozorňuje 60 dní dopredu, nie 30. Prázdne pole znamená predvolený počet dní podľa typu dokladu.' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea' })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Wrk.detail('${workerId}')">Zrušiť</button>
-            <button type="submit" class="btn btn-primary">Pridať doklad</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Skontrolované — uložiť doklad</button>
           </div>
         </form>`;
       UI.modal('Nový doklad', body, { wide: true });
     },
 
     async saveDoc(workerId) {
-      const d = UI.formData(document.getElementById('doc-form'));
+      const form = document.getElementById('doc-form');
+      const d = UI.formData(form);
+      const scan = await this.scanTake('doc-form');
+      if (scan.error) return UI.toast(scan.error, 'err');
       const payload = {
         worker_id: workerId, kind: d.kind, reference: d.reference || null,
         valid_from: d.valid_from || null, valid_to: d.valid_to || null,
@@ -1484,10 +1539,13 @@
         // Prázdne pole = nech platí predvolený horizont podľa typu dokladu.
         notify_days_before: d.notify_days_before === '' ? DanubraDocs.horizonOf({ kind: d.kind })
           : Number(d.notify_days_before),
+        ...scan.fields,
       };
-      const { error } = await DB.insert('worker_documents', payload);
+      const { error } = await this.lockWhile(form, () => DB.insert('worker_documents', payload));
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.toast('Doklad pridaný', 'ok');
+      this._scan = null;
+      UI.closeModal();
+      UI.toast('Doklad je nahratý a zapísaný', 'ok');
       await this.load(); this.detail(workerId);
     },
 
@@ -1502,33 +1560,347 @@
     },
 
     // ── Skeny dokladov ────────────────────────────────────────────────────
-    // Bucket aj politiky existujú od F7; chýbala len cesta z rozhrania.
-    // Súbor ide do privátneho úložiska a von sa dostane výlučne krátkodobo
-    // podpísaným odkazom — cesta sa nikdy nedáva do stránky.
-    async uploadScan(docId, input) {
-      const file = input && input.files && input.files[0];
+    // Bucket aj politiky existujú od F7. Súbor ide do privátneho úložiska
+    // a von sa dostane výlučne krátkodobo podpísaným odkazom — cesta sa
+    // nikdy nedáva do stránky.
+    //
+    // Od migrácie 067 je nahratie súčasťou zápisu: „Doklady k živnostníkom by
+    // bolo dobré, keby sa reálne nahrávali, a to by bola kontrola." Postup:
+    //   1. odfotiť / vybrať súbor  → fotka sa zmenší a hneď nahrá (DB.uploadDoc)
+    //   2. appka doklad prečíta     → danubra-read-doc predvyplní druh, číslo, platnosť
+    //   3. kolega porovná so skenom → upozornenia: cudzie meno, neplatný, neistá AI
+    //   4. uloží                    → riadok so storage_path, checked_at, checked_by
+    // Bez súboru sa doklad neuloží. Keď čítanie nevyjde (chýba kľúč, sieť),
+    // formulár funguje ďalej ručne — čítanie je pomoc, nie podmienka.
+
+    MAX_SCAN: 25 * 1024 * 1024,
+    NO_SCAN_MSG: 'Bez fotky alebo PDF dokladu sa doklad neuloží. Odfoťte ho alebo vyberte súbor — '
+      + 'kontrola pri nasadení verí len nahratému papieru.',
+    _scan: null,
+
+    /** Je súbor fotka alebo PDF? Prehliadač niekedy typ nepozná — vtedy podľa prípony. */
+    scanFileOk(file) {
+      if (!file) return false;
+      if (/^image\//.test(file.type || '') || file.type === 'application/pdf') return true;
+      return !file.type && /\.(jpe?g|png|webp|gif|heic|heif|pdf)$/i.test(file.name || '');
+    },
+
+    /** Vie model súbor prečítať? HEIC nie — ten sa len uloží. */
+    scanReadable(path) {
+      return /\.(jpe?g|png|webp|gif|pdf)$/i.test(String(path || ''));
+    },
+
+    /**
+     * Pole „Fotka alebo PDF dokladu" do formulára. Povinné — bez neho sa
+     * formulár neuloží (`scanTake`). „Odfotiť" na mobile otvorí rovno
+     * fotoaparát; „Vybrať súbor" ponúkne galériu aj PDF.
+     *
+     * @param {string} formId   id formulára (doc-form, gdpr-form, zml-form)
+     * @param {Object} o
+     *   expectedKind  druh, ktorý sa čaká (keď ho formulár nemá ako pole)
+     *   kindField     názov poľa s druhom (pri všeobecnom doklade)
+     *   fill          ktoré polia predvyplniť z prečítaného dokladu
+     */
+    scanFieldHtml(formId, workerId, o = {}) {
+      this._scan = { formId, workerId, expectedKind: o.expectedKind || '', kindField: o.kindField || '',
+        fill: o.fill || [], file: null, pending: null, path: null, read: null, warnings: [], model: null, n: 0 };
+      return `<div class="scan-fld" id="${formId}-scan">
+        <div class="scan-head"><b>Fotka alebo PDF dokladu *</b>${UI.tip('Bez nahratého dokladu sa nič neuloží — kontrola pri nasadení verí papieru, nie zápisu. „Odfotiť" na mobile otvorí fotoaparát, „Vybrať súbor" ponúkne galériu aj PDF. Fotka sa pred nahratím zmenší, PDF ostane, ako je (najviac 25 MB).')}</div>
+        <div class="scan-btns">
+          <label class="btn btn-primary btn-sm">${Icon('camera', 15)} Odfotiť
+            <input type="file" hidden accept="image/*,application/pdf" capture="environment"
+              onchange="Wrk.scanPick('${formId}', this)"></label>
+          <label class="btn btn-outline btn-sm">${Icon('upload', 15)} Vybrať súbor
+            <input type="file" hidden accept="image/*,application/pdf"
+              onchange="Wrk.scanPick('${formId}', this)"></label>
+        </div>
+        <div class="scan-st" id="${formId}-scan-st">Zatiaľ nie je nič nahraté.</div>
+        <div id="${formId}-scan-ai"></div>
+      </div>`;
+    },
+
+    _scanSay(formId, text, tone) {
+      const el = document.getElementById(`${formId}-scan-st`);
+      if (!el) return;
+      el.className = `scan-st${tone ? ` is-${tone}` : ''}`;
+      el.innerHTML = `${tone === 'ok' ? Icon('check', 14) : tone === 'bad' ? Icon('alert', 14) : Icon('clock', 14)} <span>${UI.esc(text)}</span>`;
+    },
+
+    /** Vybraný súbor: zmenšiť, nahrať, prečítať. Novší výber prebije starší. */
+    async scanPick(formId, input) {
+      const sc = this._scan;
+      const picked = input && input.files && input.files[0];
+      if (!picked || !sc || sc.formId !== formId) return;
+      if (!this.scanFileOk(picked)) {
+        return this._scanSay(formId, 'Toto nie je fotka ani PDF. Vyberte obrázok (JPG, PNG) alebo PDF.', 'bad');
+      }
+      if (picked.size > this.MAX_SCAN) {
+        return this._scanSay(formId, 'Súbor má viac než 25 MB — odfoťte doklad nanovo alebo zmenšite PDF.', 'bad');
+      }
+      const n = ++sc.n;
+      sc.path = null; sc.read = null; sc.warnings = []; sc.model = null;
+      const box = document.getElementById(`${formId}-scan-ai`);
+      if (box) box.innerHTML = '';
+      sc.pending = (async () => {
+        this._scanSay(formId, 'Pripravujem fotku…');
+        let file = picked;
+        try { file = await UI.shrinkImage(picked, 2000); } catch (e) { file = picked; /* pošle sa pôvodná */ }
+        sc.file = file;
+        this._scanSay(formId, `Nahrávam ${file.name}…`);
+        const { path, error } = await DB.uploadDoc(file, { folder: 'worker', entityId: sc.workerId });
+        if (error || !path) throw new Error((error && error.message) || 'bez odpovede');
+        return path;
+      })();
+      let path;
+      try { path = await sc.pending; } catch (e) {
+        if (sc.n !== n || this._scan !== sc) return;
+        sc.pending = null;
+        return this._scanSay(formId, `Nahrávanie zlyhalo (${e.message}). Skúste to znova.`, 'bad');
+      }
+      if (sc.n !== n || this._scan !== sc) return;
+      sc.path = path;
+      this._scanSay(formId, `Nahraté: ${sc.file.name}`, 'ok');
+      this.scanRead(formId);
+    },
+
+    /**
+     * Pošle nahratý doklad na prečítanie. Vráti `{ read, warnings, model }`
+     * alebo `{ error }` s vetou pre človeka — nikdy nevyhadzuje.
+     */
+    async readDoc(path, workerName, expectedKind) {
+      try {
+        const { data: s } = await DB.client.auth.getSession();
+        const res = await fetch('/.netlify/functions/danubra-read-doc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json',
+            Authorization: `Bearer ${(s && s.session && s.session.access_token) || ''}` },
+          body: JSON.stringify({ storage_path: path, worker_name: workerName || '', expected_kind: expectedKind || '' }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.read) return { error: out.error || 'Čítanie dokladov teraz nie je dostupné.' };
+        return { read: out.read, warnings: out.warnings || [], model: out.model || null };
+      } catch (e) {
+        return { error: 'Čítanie dokladov teraz nie je dostupné — nie je spojenie so serverom.' };
+      }
+    },
+
+    /** Druh dokladu, ktorý je práve vo formulári. */
+    _scanKind(sc) {
+      if (!sc.kindField) return sc.expectedKind;
+      const f = document.getElementById(sc.formId);
+      const el = f && f.elements[sc.kindField];
+      return (el && el.value) || '';
+    },
+
+    async scanRead(formId) {
+      const sc = this._scan;
+      if (!sc || sc.formId !== formId || !sc.path) return;
+      const box = document.getElementById(`${formId}-scan-ai`);
+      if (!box) return;
+      if (!this.scanReadable(sc.path)) {
+        box.innerHTML = `<div class="scan-ai is-off">${Icon('alert', 14)}<span>Tento formát (napríklad HEIC)
+          appka neprečíta. Doklad sa uloží aj tak — údaje vyplňte ručne podľa skenu.</span></div>`;
+        return;
+      }
+      const n = sc.n;
+      box.innerHTML = `<div class="scan-ai is-busy">${Icon('clock', 14)}<span>Čítam doklad… (asi 10 sekúnd).
+        Medzitým môžete údaje vypĺňať aj sami.</span></div>`;
+      const w = this.items.find(x => x.id === sc.workerId);
+      const expected = this._scanKind(sc);
+      const r = await this.readDoc(sc.path, w && w.full_name, expected);
+      if (this._scan !== sc || sc.n !== n) return;
+      if (r.error) {
+        box.innerHTML = `<div class="scan-ai is-off">${Icon('alert', 14)}<span>${UI.esc(r.error)}
+          Doklad sa uloží aj tak — údaje vyplňte ručne podľa skenu.</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="Wrk.scanRead('${formId}')">${Icon('undo', 14)} Skúsiť znova</button></div>`;
+        return;
+      }
+      sc.read = r.read; sc.model = r.model;
+      const filled = this.scanFill(formId);
+      // Upozornenia sa prepočítajú tu: keď appka druh dokladu sama prepla
+      // podľa skenu, veta „vyzerá to ako pas, nie A1" by už nesedela.
+      const S = window.DanubraDocScan;
+      sc.warnings = S ? S.check(r.read, { workerName: w && w.full_name,
+        expectedKind: filled.includes('kind') ? '' : expected, today: Danubra._dayISO() }) : r.warnings;
+      box.innerHTML = this.scanAiHtml(sc, filled);
+    },
+
+    /** Predvyplní polia z prečítaného dokladu. Vráti, ktoré polia zmenil. */
+    scanFill(formId) {
+      const sc = this._scan;
+      const f = document.getElementById(formId);
+      if (!sc || !f || !sc.read) return [];
+      const vals = window.DanubraDocScan ? DanubraDocScan.toFields(sc.read) : {};
+      const out = [];
+      for (const k of sc.fill) {
+        const el = f.elements[k];
+        const v = vals[k];
+        if (!el || !v) continue;
+        if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === v)) continue;
+        if (el.value !== v) { el.value = v; out.push(k); }
+        el.classList.add('is-ai');
+      }
+      return out;
+    },
+
+    scanAiHtml(sc, filled) {
+      const r = sc.read || {};
+      const S = window.DanubraDocScan;
+      const ws = sc.warnings || [];
+      const tone = ws.some(x => x.severity === 'bad') ? 'bad' : ws.some(x => x.severity === 'warn') ? 'warn' : 'ok';
+      const row = (label, v) => v ? `<div><span>${label}</span><strong>${UI.esc(v)}</strong></div>` : '';
+      return `<div class="scan-ai is-${tone}">
+        <div class="scan-ai-head">${Icon(tone === 'ok' ? 'check' : 'alert', 15)}
+          <b>Prečítané z dokladu</b>${UI.tip('Údaje navrhla AI podľa nahratého skenu. Porovnajte ich so skenom — za správnosť ručí ten, kto doklad uloží, a jeho meno sa k dokladu zapíše.')}</div>
+        <div class="kv scan-ai-kv">
+          ${row('Druh', S && r.kind ? S.KIND_LABEL[r.kind] : '')}
+          ${row('Číslo', r.reference)}
+          ${row('Platí', r.valid_from || r.valid_to ? `${r.valid_from ? UI.date(r.valid_from) : '—'} – ${r.valid_to ? UI.date(r.valid_to) : 'bez konca'}` : '')}
+          ${row('Meno na doklade', r.holder_name)}
+          ${row('Vydal', r.issuer)}
+        </div>
+        ${ws.length ? `<ul class="scan-warn">${ws.map(x => `<li class="is-${x.severity}">${
+          Icon(x.severity === 'info' ? 'help' : 'alert', 13)}<span>${UI.esc(x.text)}</span></li>`).join('')}</ul>` : ''}
+        ${r.notes ? `<p class="scan-note">${UI.esc(r.notes)}</p>` : ''}
+        <p class="scan-note">${filled.length ? 'Údaje sú predvyplnené nižšie (podfarbené). ' : ''}Porovnajte ich so skenom a až potom uložte.</p>
+      </div>`;
+    },
+
+    /**
+     * Čo z nahratého skenu pribudne k riadku dokladu. Bez súboru vráti chybu —
+     * doklad sa bez neho neuloží. Keď appka našla vážny problém (cudzie meno,
+     * neplatný doklad), opýta sa, či uložiť aj tak.
+     * @returns {Promise<{ fields?: Object, error?: string }>}
+     */
+    async scanTake(formId) {
+      const sc = this._scan;
+      if (!sc || sc.formId !== formId || !sc.pending) return { error: this.NO_SCAN_MSG };
+      if (!sc.path) {
+        try { sc.path = await sc.pending; } catch (e) {
+          return { error: 'Doklad sa nepodarilo nahrať. Vyberte súbor znova.' };
+        }
+      }
+      const vazne = (sc.warnings || []).filter(x => x.severity === 'bad');
+      if (vazne.length && !await UI.confirm(`${vazne.map(x => x.text).join(' ')} Uložiť doklad aj tak?`,
+        { ok: 'Uložiť aj tak' })) {
+        return { error: 'Doklad sa neuložil — skontrolujte ho.' };
+      }
+      const S = window.DanubraDocScan;
+      return { fields: {
+        storage_path: sc.path,
+        // Kto údaje podľa skenu potvrdil — ten, kto doklad ukladá.
+        checked_at: new Date().toISOString(),
+        checked_by: (Danubra.user && Danubra.user.id) || null,
+        ai_read: sc.read && S ? S.record(sc.read, { model: sc.model, warnings: sc.warnings }) : null,
+      } };
+    },
+
+    /** Kým beží zápis, tlačidlo „Uložiť" nejde stlačiť druhýkrát. */
+    async lockWhile(form, fn) {
+      const btn = form && form.querySelector('[type=submit]');
+      if (btn) btn.disabled = true;
+      try { return await fn(); } finally { if (btn) btn.disabled = false; }
+    },
+
+    /**
+     * „Nahrať sken" odinakiaľ (blokátor, zákazka). Otvorí výber súboru hneď —
+     * prehliadač ho pustí len priamo po kliknutí, nie po čakaní na sieť.
+     * `after` = čo spraviť po nahratí (inak sa prekreslí obrazovka).
+     */
+    pickScanFor(docId, after) {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*,application/pdf'; inp.hidden = true;
+      inp.onchange = async () => {
+        if (!this.loaded) await this.load();
+        await this.uploadScan(docId, inp, { after, quiet: !!after });
+        inp.remove();
+      };
+      document.body.appendChild(inp);
+      inp.click();
+    },
+
+    /**
+     * Sken k dokladu, ktorý je zapísaný bez neho (staré záznamy pred 067).
+     * Kto ho nahrá, ten ho aj potvrdil (checked_by). Potom ho appka prečíta
+     * a keď sa údaje líšia od zápisu, ukáže rozdiely.
+     */
+    async uploadScan(docId, input, { after, quiet } = {}) {
+      let file = input && input.files && input.files[0];
       if (!file) return;
       const doc = this.docs.find(d => d.id === docId);
       if (!doc) return UI.toast('Doklad sa nenašiel', 'err');
+      if (!this.scanFileOk(file)) return UI.toast('Vyberte fotku (JPG, PNG) alebo PDF.', 'err');
 
       // Prah drží aj bucket (25 MB), ale povedať to treba skôr, než sa
       // súbor začne posielať cez mobilné dáta.
-      if (file.size > 25 * 1024 * 1024) {
+      if (file.size > this.MAX_SCAN) {
         return UI.toast('Súbor má viac než 25 MB — zmenšite ho alebo ho odfoťte nanovo.', 'err');
       }
       UI.toast('Nahrávam…');
+      try { file = await UI.shrinkImage(file, 2000); } catch (e) { /* pošle sa pôvodná */ }
       const { path, error } = await DB.uploadDoc(file, { folder: 'worker', entityId: doc.worker_id });
       if (error) return UI.toast('Nahrávanie zlyhalo: ' + error.message, 'err');
 
-      const { error: e2 } = await DB.update('worker_documents', docId, { storage_path: path });
+      const zmena = { storage_path: path, checked_at: new Date().toISOString(),
+        checked_by: (Danubra.user && Danubra.user.id) || null };
+      const { error: e2 } = await DB.update('worker_documents', docId, zmena);
       if (e2) {
         // Súbor je nahratý, ale väzba nevznikla. Súbor v úložisku ostane
         // (nič sa nemaže) — removeDoc je dnes len zámer, nie mazanie.
         await DB.removeDoc(path).catch(() => {});
         return UI.toast('Sken sa nepodarilo priradiť: ' + e2.message, 'err');
       }
-      doc.storage_path = path;
+      Object.assign(doc, zmena);
       UI.toast('Sken nahratý', 'ok');
+      if (typeof after === 'function') await after();
+      else Danubra.renderRoute();
+      // Prečítanie je kontrola navyše: sken je nahratý aj keď nevyjde.
+      this.verifyScan(docId, { quiet }).catch(() => {});
+    },
+
+    /** Porovná nahratý sken so zápisom. Rozdiely ukáže, ak nie je `quiet`. */
+    async verifyScan(docId, { quiet } = {}) {
+      const S = window.DanubraDocScan;
+      const d = this.docs.find(x => x.id === docId);
+      if (!S || !d || !d.storage_path || !this.scanReadable(d.storage_path)) return;
+      const w = this.items.find(x => x.id === d.worker_id);
+      const r = await this.readDoc(d.storage_path, w && w.full_name, d.kind);
+      if (r.error) return;
+      const rec = S.record(r.read, { model: r.model, warnings: r.warnings });
+      const { error } = await DB.update('worker_documents', d.id, { ai_read: rec });
+      if (!error) d.ai_read = rec;
+      const norm = (v) => String(v || '').replace(/\s+/g, '').toUpperCase();
+      const LABEL = { reference: 'Číslo', valid_from: 'Platí od', valid_to: 'Platí do' };
+      const diffs = Object.keys(LABEL).filter(k => r.read[k]
+        && (k === 'reference' ? norm(r.read[k]) !== norm(d[k]) : r.read[k] !== String(d[k] || '').slice(0, 10)));
+      const ws = (r.warnings || []).filter(x => x.severity !== 'info');
+      if (!diffs.length && !ws.length) return UI.toast('Sken je prečítaný — údaje sedia so zápisom', 'ok');
+      if (quiet) return UI.toast('Údaje na doklade sa líšia od zápisu — skontrolujte ho na karte človeka.', 'err');
+      const fmt = (k, v) => (k === 'reference' ? (v || '—') : (v ? UI.date(v) : '—'));
+      UI.modal(`Skontrolujte doklad — ${this.docLabel(d.kind)}`, `
+        <p class="modal-lead">Appka sken prečítala a niečo nesedí so zápisom. Pozrite sken a rozhodnite.</p>
+        ${ws.length ? `<ul class="scan-warn">${ws.map(x => `<li class="is-${x.severity}">${Icon('alert', 13)}<span>${UI.esc(x.text)}</span></li>`).join('')}</ul>` : ''}
+        ${diffs.length ? `<div class="kv">${diffs.map(k => `<div><span>${LABEL[k]}</span>
+          <strong>zapísané ${UI.esc(fmt(k, d[k]))} · na doklade ${UI.esc(fmt(k, r.read[k]))}</strong></div>`).join('')}</div>` : ''}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zápis je správny</button>
+          <button class="btn btn-outline" onclick="Wrk.preview('${d.id}')">${Icon('search', 14)} Pozrieť sken</button>
+          ${diffs.length ? `<button class="btn btn-primary" onclick="Wrk.applyScanRead('${d.id}')">${Icon('check', 14)} Prepísať podľa dokladu</button>` : ''}
+        </div>`);
+    },
+
+    /** Prepíše číslo a platnosť podľa toho, čo appka prečítala zo skenu. */
+    async applyScanRead(docId) {
+      const d = this.docs.find(x => x.id === docId);
+      const r = d && d.ai_read;
+      if (!r) return UI.toast('Prečítané údaje tu nie sú', 'err');
+      const zmena = { checked_at: new Date().toISOString(), checked_by: (Danubra.user && Danubra.user.id) || null };
+      for (const k of ['reference', 'valid_from', 'valid_to']) if (r[k]) zmena[k] = r[k];
+      const { error } = await DB.update('worker_documents', docId, zmena);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      Object.assign(d, zmena);
+      UI.closeModal();
+      UI.toast('Údaje sú prepísané podľa dokladu', 'ok');
       Danubra.renderRoute();
     },
 

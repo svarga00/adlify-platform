@@ -34,6 +34,16 @@
     ],
   };
 
+  /**
+   * Je doklad nahratý? Riadok bez stĺpcov so súborom (výber bez nich) sa za
+   * nenahratý nepovažuje — rovnaké pravidlo ako `DanubraDocs.hasScan`.
+   */
+  function nahraty(d) {
+    if (!d) return false;
+    if (!('storage_path' in d) && !('file_url' in d)) return true;
+    return !!(String(d.storage_path || '').trim() || String(d.file_url || '').trim());
+  }
+
   /** Stav platnosti dokladu voči dátumu. */
   function docState(doc, today, horizonDays = 30) {
     if (!doc) return 'missing';
@@ -268,6 +278,10 @@
           'Požiadať Sociálnu poisťovňu — vystavenie do 45 dní');
       } else if (a1st === 'expired') {
         add('blocker', `${name}: A1 neplatné`, `skončilo ${day(a1.valid_to)}`, 'Požiadať o nové A1');
+      } else if (!nahraty(a1)) {
+        // Migrácia 067: zapísané A1 bez fotky či PDF sa pri nasadení neráta.
+        add('blocker', `${name}: A1 nie je nahraté`, 'Doklad je zapísaný, ale nie je nahratý',
+          'Nahrať sken A1 na karte človeka');
       } else if (a1st === 'expiring') {
         add('warning', `${name}: A1 čoskoro vyprší`,
           `platí do ${day(a1.valid_to)} (${daysBetween(today, day(a1.valid_to))} dní)`,

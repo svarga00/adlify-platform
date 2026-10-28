@@ -183,6 +183,91 @@ console.log('Doklady živnostníka');
   eq(D.readiness({}).ok, false, 'bez vstupu je to blokované, nie povolené');
 }
 
+// ── Doklad bez skenu sa neráta (migrácia 067) ───────────────────────────────
+// „Doklady k živnostníkom by bolo dobré, keby sa reálne nahrávali, a to by
+// bola kontrola." Zápis druhu a dátumov nestačí — rozhoduje nahratý papier.
+{
+  const sken = { storage_path: 'worker/w1/a1.pdf' };
+  const bez = { storage_path: null, file_url: null };
+
+  eq(D.state(doc('a1', '2026-01-01', '2027-06-01', bez), TODAY), 'no_scan',
+    'platný doklad bez súboru je „bez skenu"');
+  eq(D.state(doc('a1', '2026-01-01', '2026-11-01', bez), TODAY), 'no_scan',
+    'aj ten, čo čoskoro vyprší');
+  eq(D.state(doc('a1', '2026-01-01', '2026-09-01', bez), TODAY), 'expired',
+    'expirovaný ostáva expirovaný — to je väčší problém');
+  eq(D.state(doc('a1', '2026-12-01', '2027-12-01', bez), TODAY), 'not_yet',
+    'ešte neplatný ostáva ešte neplatný');
+  eq(D.state(doc('a1', '2026-01-01', '2027-06-01', sken), TODAY), 'valid', 'so skenom platí');
+  eq(D.state(doc('a1', '2026-01-01', '2027-06-01', { storage_path: null, file_url: 'https://x/a1.pdf' }), TODAY),
+    'valid', 'starý odkaz file_url sa ráta tiež — ako v databáze');
+  eq(D.state(doc('a1', '2026-01-01', '2027-06-01', { storage_path: '  ' }), TODAY), 'no_scan',
+    'samé medzery nie sú súbor');
+  eq(D.dateState(doc('a1', '2026-01-01', '2027-06-01', bez), TODAY), 'valid',
+    'dateState hovorí len o dátumoch');
+  ok(!D.hasScan(null), 'chýbajúci doklad nemá sken');
+  ok(D.hasScan(doc('a1')), 'riadok bez stĺpcov so súborom sa za nenahratý nepovažuje (neznáme ≠ chýba)');
+  eq(D.describe(doc('a1', '2026-01-01', null, bez), TODAY).scanned, false, 'describe povie, či je nahratý');
+
+  // Nahratý doklad má prednosť, aj keď platí kratšie.
+  eq(D.best([
+    doc('a1', '2026-01-01', '2028-01-01', { id: 'dlhsi_bez_skenu', ...bez }),
+    doc('a1', '2026-01-01', '2027-01-01', { id: 'kratsi_so_skenom', ...sken }),
+  ], 'a1', TODAY).id, 'kratsi_so_skenom', 'nahratý vyhrá nad dlhšie platným bez skenu');
+  eq(D.best([
+    doc('a1', '2026-01-01', '2026-10-01', { id: 'konci_so_skenom', ...sken }),
+    doc('a1', '2026-01-01', '2028-01-01', { id: 'bez_skenu', ...bez }),
+  ], 'a1', TODAY).id, 'konci_so_skenom', 'aj keď ten nahratý čoskoro vyprší');
+  eq(D.best([
+    doc('a1', '2025-01-01', '2026-08-01', { id: 'expiroval', ...sken }),
+    doc('a1', '2026-01-01', '2028-01-01', { id: 'bez_skenu', ...bez }),
+  ], 'a1', TODAY).id, 'bez_skenu', 'ale bez skenu je stále lepší než expirovaný — stačí ho nahrať');
+  eq([D.RANK.valid, D.RANK.expiring, D.RANK.no_scan, D.RANK.not_yet, D.RANK.expired, D.RANK.missing],
+    [5, 4, 3, 2, 1, 0], 'poradie stavov sedí s databázou');
+
+  // Pripravenosť: bez skenu blokuje s vlastným kľúčom.
+  const full = [
+    doc('id_card', '2020-01-01', '2030-01-01', sken),
+    doc('trade_licence', '2019-01-01', null, sken),
+    doc('contract', '2026-09-01', '2027-09-01', sken),
+    doc('a1', '2026-09-01', '2027-03-01', { id: 'a1x', ...bez }),
+    doc('insurance', '2026-01-01', '2027-01-01', bez),
+    doc('medical', '2026-05-01', '2027-05-01', sken),
+  ];
+  const r = D.readiness({ docs: full, today: TODAY });
+  eq(r.ok, false, 'A1 bez skenu nepustí na stavbu');
+  eq(r.reasons.map(x => x.rule), ['missing_scan'], 'kľúč je missing_scan, nie missing_a1');
+  eq(r.reasons[0].detail, 'Doklad je zapísaný, ale nie je nahratý — nahrajte fotku alebo PDF.',
+    'veta pre človeka povie, čo spraviť');
+  ok(r.reasons[0].label.includes('Formulár A1'), 'a ktorý doklad');
+  eq(r.reasons[0].docId, 'a1x', 'vie, ku ktorému dokladu nahrať sken');
+  eq(r.reasons[0].baseRule, 'missing_a1', 'a ku ktorej požiadavke patrí');
+  eq(r.warnings.map(x => [x.rule, x.kind]), [['missing_scan', 'insurance']],
+    'poistenie bez skenu je len upozornenie, ako jeho chýbanie');
+
+  // Pas so skenom nahradí občiansky bez skenu.
+  const pas = D.readiness({ docs: [
+    ...full.filter(d => d.kind !== 'a1' && d.kind !== 'id_card'),
+    doc('a1', '2026-09-01', '2027-03-01', sken),
+    doc('id_card', '2020-01-01', '2030-01-01', bez),
+    doc('passport', '2020-01-01', '2030-01-01', sken),
+  ], today: TODAY });
+  eq(pas.reasons, [], 'nahratý pas prebije nenahratý občiansky');
+
+  // Prehľad naprieč kartotékou: bez skenu je medzi expirovanými a končiacimi.
+  const att = D.attention([
+    doc('a1', '2020-01-01', '2026-11-01', { id: 'konci', ...sken }),
+    doc('a1', '2020-01-01', '2030-01-01', { id: 'bez_skenu', ...bez }),
+    doc('a1', '2020-01-01', '2026-08-01', { id: 'expiroval', ...sken }),
+    doc('a1', '2020-01-01', '2030-01-01', { id: 'ok', ...sken }),
+  ], TODAY);
+  eq(att.map(x => x.doc.id), ['expiroval', 'bez_skenu', 'konci'],
+    'pozornosť: expirované, potom bez skenu, potom končiace');
+
+  eq(D.STATE_LABEL.no_scan, ['bez skenu', 'amber'], 'štítok „bez skenu" je oranžový');
+  ok(Object.keys(D.RANK).every(k => D.STATE_LABEL[k]), 'každý stav má štítok');
+}
+
 // ── Kľúče musia existovať v číselníku ───────────────────────────────────────
 {
   // Zasiate v migráciách 013 a 014. Keby sa tu objavil kľúč, ktorý
@@ -191,10 +276,12 @@ console.log('Doklady živnostníka');
     'missing_a1', 'missing_trade_licence', 'expired_document', 'missing_contract',
     'below_min_wage', 'missing_zoll', 'missing_hwo', 'missing_document',
     'missing_billing_data',
+    'missing_scan',                 // migrácia 067
   ];
   const used = new Set();
   for (const list of Object.values(D.REQUIRED)) for (const r of list) used.add(r.rule);
   used.add('expired_document');   // pridáva sa až pri vyhodnotení
+  used.add('missing_scan');       // tiež
   for (const r of D.billingReady({}).reasons) used.add(r.rule);
 
   const unknown = [...used].filter(k => !ENUM_KEYS.includes(k));
@@ -318,6 +405,11 @@ console.log('Doklady živnostníka');
     eq(zSql.get(rule) || null, kinds,
       `pravidlo „${rule}" pýta v SQL tie isté druhy dokladov`);
   }
+
+  // Doklad bez skenu databáza hlási tým istým kľúčom ako appka.
+  ok(/when 3 then 'missing_scan'/.test(sql || ''), 'databáza hlási doklad bez skenu ako missing_scan');
+  ok(/coalesce\(d\.storage_path, d\.file_url\) is null then 3/.test(sql || ''),
+    'a za nenahratý berie doklad bez storage_path aj file_url');
 
   // Poistenie a zdravotná prehliadka sú upozornenie — v SQL nesmú byť,
   // inak by databáza zastavila nasadenie, ktoré appka pustí.

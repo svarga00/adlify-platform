@@ -104,6 +104,18 @@ console.log('\n4 · PAPIERE ĽUDÍ');
   ok(!zoll.done && /Zoll/.test(zoll.detail) && /meldeportal/.test(zoll.todo), 'firemná podmienka (Zoll) je tu tiež');
   const jehoA1 = krok(s({ check: { ok: false, blockers: [{ label: 'Ján Novák: chýba A1', worker_id: 'w1' }] } }), 'papiere');
   ok(!/chýba A1/.test(jehoA1.detail), 'položka o človeku sa medzi firemné nepočíta dvakrát', jehoA1.detail);
+
+  // Migrácia 067: zapísaný, ale nenahratý doklad nepustí — a povie sa to inak
+  // než „chýba doklad", lebo stačí ho odfotiť.
+  const sken = krok(s({ missing: { w1: ['missing_scan'] } }), 'papiere');
+  ok(!sken.done && /nie je nahratý: Ján Novák/.test(sken.detail), 'doklad bez skenu je pri mene', sken.detail);
+  ok(!/chýba doklad/.test(sken.detail), 'a nepíše sa ako chýbajúci', sken.detail);
+  ok(/nahrajte sken/.test(sken.todo), 'úloha je nahrať sken', sken.todo);
+  eq(sken.state, 'bad', 'a horí rovnako ako chýbajúci doklad');
+  const gBez = krok(s({ docs: DOCS.map(d => (d.worker_id === 'w2' && d.kind === 'gdpr')
+    ? { ...d, storage_path: null, file_url: null } : d) }), 'papiere');
+  ok(!gBez.done && /nie je nahratý: .*Kováč/.test(gBez.detail), 'súhlas GDPR bez skenu nie je hotový', gBez.detail);
+  ok(!/bez GDPR/.test(gBez.detail), 'ale nepíše sa „bez GDPR" — podpísaný je');
 }
 
 console.log('\n5 · ZMLUVY A OBJEDNÁVKY ŽIVNOSTNÍKOM');
@@ -112,6 +124,12 @@ console.log('\n5 · ZMLUVY A OBJEDNÁVKY ŽIVNOSTNÍKOM');
   ok(!z.done && /bez zmluvy: Ján Novák/.test(z.detail), 'kto nemá zmluvu', z.detail);
   const stara = krok(s({ docs: DOCS.map(d => (d.worker_id === 'w1' && d.kind === 'contract') ? { ...d, valid_to: '2025-01-01' } : d) }), 'zivnostnici');
   ok(!stara.done, 'skončená zmluva neplatí');
+  const zBez = krok(s({ docs: DOCS.map(d => (d.worker_id === 'w1' && d.kind === 'contract')
+    ? { ...d, storage_path: null } : d) }), 'zivnostnici');
+  ok(!zBez.done && /zmluva nie je nahratá: Ján Novák/.test(zBez.detail), 'zmluva bez skenu nie je hotová', zBez.detail);
+  ok(/Nahrajte sken/.test(zBez.todo), 'a úloha je nahrať sken, nie tlačiť novú', zBez.todo);
+  eq(J.person({ assignment: { worker_id: 'w1' }, docs: [{ worker_id: 'w1', kind: 'gdpr' }] }).gdpr, true,
+    'riadok bez stĺpcov so súborom sa za nenahratý nepovažuje');
   const o = krok(s({ orders: ORDERS.filter(x => x.assignment_id !== 'a2') }), 'zivnostnici');
   ok(!o.done && /Vystavte objednávku \(Peter Kováč\)/.test(o.todo), 'komu vystaviť objednávku', o.todo);
 }

@@ -185,6 +185,25 @@ console.log('4 · Papiere ľudí');
   ] });
   eq(konci.state, 'watch', 'končiaci doklad je na sledovanie');
 
+  // Migrácia 067: zapísaný, ale nenahratý doklad sa pri nasadení neráta.
+  const bezSkenu = krok('papiere', { documents: [
+    ...CISTO.documents.filter(d => d.kind !== 'a1'),
+    { id: 'd1', worker_id: 'w1', kind: 'a1', validity: 'valid', storage_path: null, file_url: null },
+  ] });
+  eq(bezSkenu.state, 'bad', 'doklad bez skenu znamená, že sa nasadiť nedá');
+  eq(bezSkenu.todo, 1, 'počíta sa človek');
+  eq(bezSkenu.focus, 'noscan', 'tlačidlo otvorí ľudí s dokladmi bez skenu');
+  ok(/nenahratý/.test(bezSkenu.todoText), 'a veta povie, že doklad nie je nahratý', bezSkenu.todoText);
+  eq(krok('papiere', { documents: [
+    ...CISTO.documents.filter(d => d.kind !== 'a1'),
+    { id: 'd1', worker_id: 'w1', kind: 'a1', validity: 'valid', storage_path: 'worker/w1/a1.pdf' },
+  ] }).state, 'calm', 'nahratý doklad je v poriadku');
+  eq(krok('papiere', { documents: [
+    ...CISTO.documents.filter(d => d.kind !== 'a1'),
+    { id: 'd1', worker_id: 'w1', kind: 'a1', validity: 'valid', storage_path: null, file_url: 'https://x/a1.pdf' },
+  ] }).state, 'calm', 'starý odkaz file_url sa ráta ako nahratý');
+  ok(F.nahraty({ kind: 'a1' }), 'riadok bez stĺpcov so súborom sa za nenahratý nepovažuje');
+
   // Rámcová zmluva je doklad tiež, ale patrí do kroku 5 — nie sem dvakrát.
   eq(krok('papiere', { documents: [
     ...CISTO.documents.filter(d => d.kind !== 'contract'),
@@ -445,6 +464,21 @@ console.log('Karta človeka');
   eq(F.personSteps({ worker: W, today: '2027-01-05', docs: [gd, zm, nova] }).items[1].done,
     true, 'nová zmluva prebije skončenú');
   eq(F.personSteps({}).items.length, 3, 'bez údajov nespadne');
+
+  // Zapísaný súhlas či zmluva bez skenu: netreba zapisovať znova, len nahrať.
+  const gdBez = { ...gd, id: 'g1', storage_path: null, file_url: null };
+  const poGdprBez = F.personSteps({ worker: W, today: T, docs: [gdBez] });
+  eq(poGdprBez.next.key, 'gdpr', 'súhlas bez skenu ešte nie je hotový');
+  eq([poGdprBez.next.needs, poGdprBez.next.docId], ['scan', 'g1'], 'treba k nemu nahrať sken');
+  ok(/nie je nahratý/.test(poGdprBez.next.text), 'a veta to povie');
+  eq(F.personSteps({ worker: W, today: T, docs: [gdBez, { ...gd, id: 'g2', storage_path: 'worker/w1/g.jpg' }] })
+    .items[0].done, true, 'nahratý súhlas prebije nenahratý');
+  const zmBez = { ...zm, id: 'z1', storage_path: null };
+  const poZmlBez = F.personSteps({ worker: W, today: T, docs: [gd, zmBez] });
+  eq(poZmlBez.next.key, 'zmluva', 'zmluva bez skenu ešte nie je hotová');
+  eq([poZmlBez.next.needs, poZmlBez.next.docId], ['scan', 'z1'], 'treba k nej nahrať sken');
+  eq(F.personSteps({ worker: W, today: '2027-01-05', docs: [gd, zmBez] }).items[1].needs, null,
+    'skončená zmluva bez skenu sa nenahráva, ale obnovuje');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo`);

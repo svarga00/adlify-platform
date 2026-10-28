@@ -196,6 +196,14 @@
           return { n: ludi, state: BAD,
             text: `${ludi} ${plural(ludi, 'človek nemá', 'ľudia nemajú', 'ľudí nemá')} platné doklady — nasadiť sa nedá` };
         }
+        // Migrácia 067: doklad sa ráta, až keď je nahratý. Zapísaný bez
+        // fotky či PDF je pri nasadení to isté ako chýbajúci.
+        const bezSkenu = doklady.filter(d => ['valid', 'expiring'].includes(d.validity) && !nahraty(d));
+        if (bezSkenu.length) {
+          const ludi = new Set(bezSkenu.map(d => d.worker_id)).size;
+          return { n: ludi, state: BAD, focus: 'noscan',
+            text: `${ludi} ${plural(ludi, 'človek má', 'ľudia majú', 'ľudí má')} doklad zapísaný, ale nenahratý — nasadiť sa nedá` };
+        }
         if (chyba) {
           return { n: chyba, state: WATCH, focus: 'nogdpr',
             text: `${chyba} ${plural(chyba, 'živnostník nepodpísal', 'živnostníci nepodpísali', 'živnostníkov nepodpísalo')} súhlas GDPR` };
@@ -329,6 +337,17 @@
    * nejde, je úloha na budúci týždeň; u človeka, ktorý už stojí na stavbe,
    * je to problém dnes.
    */
+  /**
+   * Je doklad nahratý (fotka alebo PDF)? Riadok bez stĺpcov `storage_path`
+   * a `file_url` (výber bez nich) sa za nenahratý nepovažuje — neznáme nie
+   * je chýbajúce. Rovnaké pravidlo ako `DanubraDocs.hasScan`.
+   */
+  function nahraty(d) {
+    if (!d) return false;
+    if (!('storage_path' in d) && !('file_url' in d)) return true;
+    return !!(String(d.storage_path || '').trim() || String(d.file_url || '').trim());
+  }
+
   function poctyDokladov(x, kind) {
     const doklady = arr(x.documents).filter(d => d.kind === kind);
     const platne = new Set(doklady.filter(d => d.validity !== 'expired').map(d => d.worker_id));
@@ -480,12 +499,17 @@
       && ['planned', 'active'].includes(a.status));
     const ord = arr(x.orders).filter(o => o && o.kind === 'worker' && o.status !== 'cancelled');
 
-    const gdpr = docs.find(d => d.kind === 'gdpr');
+    // Nahratý papier má prednosť pred zapísaným bez skenu (migrácia 067).
+    const gdprs = docs.filter(d => d.kind === 'gdpr');
+    const gdpr = gdprs.find(nahraty) || gdprs[0];
+    const gSken = nahraty(gdpr);
     const zmluvy = docs.filter(d => d.kind === 'contract')
       .sort((a, b) => String(b.valid_to || '9999').localeCompare(String(a.valid_to || '9999')));
-    const zmluva = zmluvy[0];
+    const plati = (z) => { const t = day(z.valid_to); return !t || t >= today; };
+    const zmluva = zmluvy.find(z => plati(z) && nahraty(z)) || zmluvy[0];
     const zDo = zmluva && day(zmluva.valid_to);
     const zPlati = !!zmluva && (!zDo || zDo >= today);
+    const zSken = nahraty(zmluva);
     const zKonci = zPlati && zDo && dni(zDo, today) <= KONCI_DNI;
 
     const bezObj = asg.filter(a => !ord.some(o => o.assignment_id === a.id));
@@ -493,14 +517,19 @@
     const items = [
       {
         key: 'gdpr', n: 4, title: 'Súhlas GDPR',
-        done: !!gdpr,
-        text: gdpr ? `Podpísaný ${denSk(gdpr.valid_from)}.`.replace(' .', '.')
+        done: !!gdpr && gSken,
+        // Zapísaný bez skenu: netreba ho zapisovať znova, stačí nahrať papier.
+        needs: gdpr && !gSken ? 'scan' : null, docId: gdpr && !gSken ? (gdpr.id || null) : null,
+        text: gdpr && !gSken ? 'Zapísaný, ale nie je nahratý — nahrajte sken podpísaného súhlasu.'
+          : gdpr ? `Podpísaný ${denSk(gdpr.valid_from)}.`.replace(' .', '.')
           : 'Vytlačte súhlas, nechajte ho podpísať a zapíšte to.',
       },
       {
         key: 'zmluva', n: 5, title: 'Rámcová zmluva o dielo',
-        done: zPlati, warn: !!zKonci,
-        text: zPlati
+        done: zPlati && zSken, warn: !!zKonci,
+        needs: zPlati && !zSken ? 'scan' : null, docId: zPlati && !zSken ? (zmluva.id || null) : null,
+        text: zPlati && !zSken ? 'Zapísaná, ale nie je nahratá — nahrajte sken podpísanej zmluvy.'
+          : zPlati
           ? (zDo ? `${zKonci ? 'Končí' : 'Platí do'} ${denSk(zDo)}${zKonci ? ' — pripravte novú.' : '.'}`
             : 'Platí bez obmedzenia.')
           : (zmluva ? `Skončila ${denSk(zDo)} — treba novú.`
@@ -529,7 +558,7 @@
 
   const API = {
     STEPS, CALM, WATCH, BAD, ROUTE_STEPS,
-    step, all, headline, summary, plural, dni, poctyDokladov,
+    step, all, headline, summary, plural, dni, poctyDokladov, nahraty,
     stepOfRoute, personSteps,
   };
   if (typeof window !== 'undefined') window.DanubraChain = API;

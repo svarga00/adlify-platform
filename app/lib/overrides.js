@@ -63,6 +63,11 @@
       scope: 'worker', label: 'Nasadenie s expirovaným dokladom',
       risk: 'Expirovaný doklad je pri kontrole to isté ako žiadny.',
     },
+    // Migrácia 067: doklad sa ráta, až keď je nahratá fotka alebo PDF.
+    missing_scan: {
+      scope: 'worker', label: 'Doklad je zapísaný, ale nie je nahratý',
+      risk: 'Nikto ten papier nevidel — pri kontrole na stavbe ho nebude čím ukázať.',
+    },
     below_min_wage: {
       scope: 'assignment', label: 'Sadzba pod stavebnou minimálnou mzdou',
       risk: 'Rozhoduje obsah práce, nie názov zmluvy. Doplatok sa vymáha dozadu.',
