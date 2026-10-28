@@ -50,9 +50,10 @@ exports.handler = async (event) => {
   if (!id) return;
   const limit = Math.min(Math.max(Number(body.limit) || 40, 1), 100);
 
-  const jwt = String((event.headers && (event.headers.authorization || event.headers.Authorization)) || '').replace(/^Bearer\s+/i, '');
-  const { data: who } = jwt ? await supabase.auth.getUser(jwt) : { data: null };
-  if (!who || !who.user) return campaignError(id, 'Neprihlásený používateľ.');
+  // Len člen appky — samotné prihlásenie nestačí (Supabase je spoločný s Adlify).
+  const g = await require('../../app/lib/server-guard.js')(supabase).check(event);
+  // Cudzí (401/403) do kampane nezapíše ani chybu.
+  if (!g.ok) return [401, 403].includes(g.status) ? undefined : campaignError(id, g.error);
   if (!smtpReady()) {
     return campaignError(id, 'SMTP nie je nastavené. V Netlify doplňte SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS a SMTP_FROM.');
   }

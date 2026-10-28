@@ -275,13 +275,13 @@
         <div class="code-item">
           <div class="code-label">${label}</div>
           <div class="code-row"><span class="code-val">${UI.esc(val)}</span>
-            <button class="btn btn-ghost btn-sm" onclick="Ord.copy('${UI.esc(String(val)).replace(/'/g, "\\'")}')">kopírovať</button></div>
+            <button class="btn btn-ghost btn-sm" data-copy="${UI.esc(String(val))}" onclick="Ord.copy(this.dataset.copy)">kopírovať</button></div>
         </div>` : '';
       return `
         <div class="access-box">
           ${acc.address ? `<div class="code-item"><div class="code-label">Adresa</div>
             <div class="code-row"><b>${UI.esc(acc.address)}${acc.city ? `, ${UI.esc(acc.city)}` : ''}</b>
-            <button class="btn btn-ghost btn-sm" onclick="Ord.copy('${UI.esc((acc.address || '') + ', ' + (acc.city || '')).replace(/'/g, "\\'")}')">kopírovať</button></div></div>` : ''}
+            <button class="btn btn-ghost btn-sm" data-copy="${UI.esc((acc.address || '') + ', ' + (acc.city || ''))}" onclick="Ord.copy(this.dataset.copy)">kopírovať</button></div></div>` : ''}
           ${code('Kód dverí', acc.access_door_code)}
           ${code('Kód brány', acc.gate_code)}
           ${code('WiFi sieť', acc.wifi_ssid)}

@@ -506,7 +506,8 @@
     async reopen(id) {
       const cand = Cand.items.find(c => c.id === id);
       const patch = { outcome: null, outcome_reason: null, status: 'contacted' };
-      await DB.update('candidates', id, patch);
+      const { error } = await DB.update('candidates', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(cand, patch);
       UI.closeModal(); UI.toast('Kandidát je opäť v procese', 'ok');
       await Cand.load(); Danubra.renderRoute();

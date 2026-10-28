@@ -1155,8 +1155,8 @@
         + 'odberateľovi aj kontrola faktúry od živnostníka.',
       ],
       how: [
-        'Neschválené hodiny sa do podkladu nedostanú — nie sú stratené, pôjdu do '
-        + 'nasledujúceho obdobia. Ale v tomto mesiaci sa za ne nevyfakturuje.',
+        'Neschválené hodiny sa do podkladu nedostanú. Schváľte ich pred uzavretím '
+        + 'obdobia — po uzavretí sa do faktúry dostanú, len keď sa obdobie otvorí späť.',
       ],
       why: [
         'Hodiny, ktoré nikto nezapísal, sa nevyfakturujú a nikto si to nevšimne — '

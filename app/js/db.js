@@ -7,6 +7,42 @@
   const PREFIX = 'danubra_';
   const t = (name) => (name.startsWith(PREFIX) ? name : PREFIX + name);
 
+  // ── Prihlásenie k serverovým funkciám ────────────────────────────────
+  // Funkcie danubra-* pracujú so service-role kľúčom, preto si overujú, kto
+  // volá (app/lib/server-guard.js): bez platného prístupového kľúča člena
+  // appky odmietnu. Volaní je veľa a po celej appke — kľúč sa preto pridá
+  // tu, na jednom mieste, ku každému volaniu na vlastnú adresu
+  // /.netlify/functions/danubra-*, ktoré ho ešte nemá. Na cudzie adresy
+  // sa kľúč nikdy neposiela.
+  if (typeof window.fetch === 'function' && !window.fetch.__danubraAuth) {
+    const nativeFetch = window.fetch.bind(window);
+    const ownFn = (input) => {
+      try {
+        const raw = typeof input === 'string' ? input : (input && input.url) || '';
+        const u = new URL(raw, window.location.href);
+        return u.origin === window.location.origin && u.pathname.startsWith('/.netlify/functions/danubra-');
+      } catch (e) { return false; }
+    };
+    const wrapped = async function (input, init) {
+      if (typeof input === 'string' && ownFn(input)) {
+        try {
+          const headers = new Headers((init && init.headers) || {});
+          if (!headers.has('Authorization')) {
+            const { data } = await client.auth.getSession();
+            const tok = data && data.session && data.session.access_token;
+            if (tok) {
+              headers.set('Authorization', `Bearer ${tok}`);
+              init = { ...(init || {}), headers };
+            }
+          }
+        } catch (e) { /* bez kľúča — funkcia odpovie 401 */ }
+      }
+      return nativeFetch(input, init);
+    };
+    wrapped.__danubraAuth = true;
+    window.fetch = wrapped;
+  }
+
   window.DB = {
     client,
     prefix: PREFIX,

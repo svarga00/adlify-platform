@@ -24,6 +24,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Platený model nad dokladom z úložiska — len prihlásený člen appky.
+const guard = require('../../app/lib/server-guard.js')(supabase);
 const MODEL = process.env.CLAUDE_MODEL_TEXT || 'claude-sonnet-5-5';
 const BUCKET = 'danubra-docs';
 
@@ -65,6 +67,8 @@ exports.handler = async (event) => {
   let billId = null, company = {};
   try { ({ billId, company = {} } = JSON.parse(event.body || '{}')); } catch { return; }
   if (!billId) return;
+  const g = await guard.check(event);
+  if (!g.ok) return;
 
   const { data: bill } = await supabase.from('danubra_bills').select('*').eq('id', billId).maybeSingle();
   // Číta sa len faktúra, ktorá na to čaká — nič potvrdené sa neprepíše.

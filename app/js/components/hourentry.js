@@ -51,10 +51,36 @@
         .sort((a, b) => String(a.full_name).localeCompare(String(b.full_name), 'sk'));
     },
 
+    // Zrušené nasadenie nikoho na stavbu neposlalo — hodiny k nemu nepatria.
+    // Doteraz sa vzalo prvé nasadenie v dátume, aj zrušené, a hodiny sa
+    // potom fakturovali sadzbou nasadenia, ktoré neplatí.
     assignmentFor(workerId, date) {
       const st = this.st;
       return (Sub.assignments || []).find(a => a.subcontract_id === st.subId && a.worker_id === workerId
+        && a.status !== 'cancelled'
         && (!a.date_from || a.date_from <= date) && (!a.date_to || a.date_to >= date)) || null;
+    },
+
+    /**
+     * Dni v tabuľke: Po–So, nedeľa len keď na nej niekto robil (je zapísaná
+     * alebo je na fotke listu). Doteraz sa nedeľa z fotky prečítala, zarátala
+     * do súčtu „uložené", ale nezapísala sa — hodiny sa stratili.
+     */
+    weekDays() {
+      const st = this.st;
+      const days = HSL().weekDates(st.year, st.week);
+      if (!st.sunday) return days;
+      const sat = new Date(`${days[days.length - 1].date}T00:00:00Z`);
+      sat.setUTCDate(sat.getUTCDate() + 1);
+      return [...days, { key: 'sun', de: 'Sonntag', sk: 'Nedeľa', date: sat.toISOString().slice(0, 10) }];
+    },
+
+    /** Spadá deň do uzavretého alebo vyfakturovaného obdobia tejto zákazky? */
+    closedOn(date) {
+      const st = this.st;
+      return (Sub.periods || []).some(p => p.subcontract_id === st.subId
+        && ['closed', 'invoiced'].includes(p.status)
+        && String(p.period_from).slice(0, 10) <= date && String(p.period_to).slice(0, 10) >= date);
     },
 
     /** Naposledy použitá zákazka — ďalší list je najčastejšie z tej istej. */
@@ -90,26 +116,42 @@
 
     async loadWeek() {
       const st = this.st;
-      const days = HSL().weekDates(st.year, st.week);
-      st.dates = days;
-      const people = this.peopleOf(st.subId, days);
+      const base = HSL().weekDates(st.year, st.week);
+      const people = this.peopleOf(st.subId, base);
       const ids = [...new Set([...people.map(w => w.id), ...st.extra])];
       // Čo je už zapísané v tomto týždni (aby sa nič nezapísalo dvakrát).
+      // Keď sa to nenačíta, okno nesmie tváriť, že je týždeň prázdny —
+      // uloženie by potom všetko zapísalo druhýkrát.
+      const S = SCAN();
+      const asgIds = (Sub.assignments || []).filter(a => a.subcontract_id === st.subId).map(a => a.id);
+      const sun = new Date(`${base[base.length - 1].date}T00:00:00Z`);
+      sun.setUTCDate(sun.getUTCDate() + 1);
+      const sunday = sun.toISOString().slice(0, 10);
       let ts = [];
-      try {
-        const { data } = await DB.from('timesheets')
-          .select('id,worker_id,assignment_id,work_date,hours,time_from,time_to,period_id')
-          .gte('work_date', days[0].date).lte('work_date', days[days.length - 1].date).limit(2000);
-        ts = data || [];
-      } catch (e) { ts = []; }
-      const asgIds = new Set((Sub.assignments || []).filter(a => a.subcontract_id === st.subId).map(a => a.id));
-      st.existing = ts.filter(t => asgIds.has(t.assignment_id));
+      st.loadError = null;
+      if (asgIds.length) {
+        try {
+          const { data, error } = await DB.from('timesheets')
+            .select('id,worker_id,assignment_id,work_date,hours,time_from,time_to,period_id,approved,activity_type,source')
+            .in('assignment_id', asgIds)
+            .gte('work_date', base[0].date).lte('work_date', sunday).limit(5000);
+          if (error) throw error;
+          ts = data || [];
+        } catch (e) {
+          st.loadError = (e && e.message) || String(e);
+          ts = [];
+        }
+      }
+      const mine = new Set(asgIds);
+      st.existing = ts.filter(t => mine.has(t.assignment_id));
+      if (st.existing.some(t => String(t.work_date).slice(0, 10) === sunday && (!S || S.isGridRow(t)))) st.sunday = true;
+      const days = this.weekDays();
+      st.dates = days;
       st.rows = ids.map(id => {
         const w = Sub.workerOf(id) || { id, full_name: '?' };
         const cells = {};
         for (const d of days) {
-          const t = st.existing.find(x => x.worker_id === id && x.work_date === d.date);
-          cells[d.date] = t ? Math.round(Number(t.hours) * 60) : 0;
+          cells[d.date] = S && S.cellMinutes ? S.cellMinutes(st.existing, id, d.date) : 0;
         }
         return { worker_id: id, name: w.full_name, cells };
       });
@@ -160,7 +202,8 @@
       const sc = Sub.items.find(s => s.id === st.subId) || {};
       const days = st.dates;
       const kw = `KW ${st.week} · ${UI.date(days[0].date)} – ${UI.date(days[days.length - 1].date)}`;
-      const rowTotal = (r) => Object.values(r.cells).reduce((n, m) => n + (Number(m) || 0), 0);
+      // Súčet len z dní, ktoré sú v tabuľke — to isté sa potom uloží.
+      const rowTotal = (r) => days.reduce((n, d) => n + (Number(r.cells[d.date]) || 0), 0);
       const grand = st.rows.reduce((n, r) => n + rowTotal(r), 0);
       const others = (Sub.workers || []).filter(w => !st.rows.some(r => r.worker_id === w.id));
       const day = (d) => st.days[d.date] || {};
@@ -191,6 +234,7 @@
             ${UI.tip('Appka z fotky prečíta dátumy, časy, mená a hodiny a vyplní ich do tabuľky. Skontrolujte to — rukopis sa dá prečítať zle. Fotka sa uloží k výkazu ako doklad.')}
           </div>
           ${st.warnings.length ? `<div class="warnbox br-warn">${st.warnings.map(w => `<div>${Icon('alert', 13)} ${UI.esc(w)}</div>`).join('')}</div>` : ''}
+          ${st.loadError ? `<div class="warnbox br-warn">${Icon('alert', 13)} Zapísané hodiny tohto týždňa sa nenačítali (${UI.esc(st.loadError)}). Kým sa nenačítajú, uložiť sa nedá — inak by sa zapísali druhýkrát. Skúste týždeň otvoriť znova.</div>` : ''}
 
           <div class="he-wrap"><table class="he-grid">
             <thead>
@@ -285,13 +329,13 @@
     },
     async setSub(id) {
       this.keepForm();
-      Object.assign(this.st, { subId: id, extra: [], scan: null, unmatched: [], warnings: [] });
+      Object.assign(this.st, { subId: id, extra: [], scan: null, unmatched: [], warnings: [], sunday: false });
       await this.loadWeek(); this.render();
     },
     async shift(n) {
       this.keepForm();
       const w = HSL().shiftWeek(this.st.year, this.st.week, n);
-      Object.assign(this.st, { year: w.year, week: w.week, scan: null, unmatched: [], warnings: [], days: {} });
+      Object.assign(this.st, { year: w.year, week: w.week, scan: null, unmatched: [], warnings: [], days: {}, sunday: false });
       await this.loadWeek(); this.render();
     },
 
@@ -373,7 +417,9 @@
         const res = await fetch('/.netlify/functions/danubra-read-hours', { method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(s && s.session && s.session.access_token) || ''}` },
           body: JSON.stringify({ storage_path: path, year: st.year, site: [sc.title, sc.site_city].filter(Boolean).join(', '),
-            workers: (Sub.workers || []).map(w => w.full_name), week_hint: { year: st.year, week: st.week } }) });
+            // Funkcia čaká číslo KW (rok ide v `year`) — objekt zahodila a model
+            // nedostal žiadnu nápovedu, o ktorý týždeň ide.
+            workers: (Sub.workers || []).map(w => w.full_name), week_hint: st.week }) });
         const out = await res.json().catch(() => ({}));
         if (!res.ok || !out.sheet) throw new Error(out.error || 'Fotku sa nepodarilo prečítať.');
         await this.applySheet(out.sheet);
@@ -393,7 +439,17 @@
       const S = SCAN();
       if (sheet.kw_from) {
         const w = HSL().isoWeek(new Date(`${sheet.kw_from}T12:00:00Z`));
-        if (w.week !== st.week || w.year !== st.year) { st.year = w.year; st.week = w.week; await this.loadWeek(); }
+        if (w.week !== st.week || w.year !== st.year) { st.year = w.year; st.week = w.week; st.sunday = false; await this.loadWeek(); }
+      }
+      // Nedeľa z listu: stĺpec sa pridá, inak by sa jej hodiny zarátali do
+      // súčtu, ale neuložili.
+      const sundayOnSheet = (sheet.days || []).some(d => Number(d.weekday) === 7)
+        || (sheet.rows || []).some(r => (r.per_day || []).some(c => Number(c.weekday) === 7 && Number(c.minutes) > 0));
+      if (sundayOnSheet && !st.sunday) {
+        st.sunday = true;
+        st.dates = this.weekDays();
+        const sun = st.dates[st.dates.length - 1].date;
+        for (const r of st.rows) if (!(sun in r.cells)) r.cells[sun] = 0;
       }
       const byWd = {};
       for (const d of st.dates) byWd[((new Date(`${d.date}T12:00:00Z`).getUTCDay() + 6) % 7) + 1] = d.date;
@@ -406,7 +462,11 @@
       st.unmatched = [];
       for (const r of matched) {
         const cells = {};
-        for (const c of r.per_day || []) { const date = c.date || byWd[c.weekday]; if (date) cells[date] = Number(c.minutes) || 0; }
+        // Len dni, ktoré v tabuľke sú — inak by súčet ukazoval hodiny, ktoré sa neuložia.
+        for (const c of r.per_day || []) {
+          const date = c.date || byWd[c.weekday];
+          if (date && st.dates.some(d => d.date === date)) cells[date] = Number(c.minutes) || 0;
+        }
         if (!r.worker_id) { st.unmatched.push({ name_raw: r.name_raw, cells }); continue; }
         const row = st.rows.find(x => x.worker_id === r.worker_id);
         if (row) { row.cells = { ...row.cells, ...cells }; row.raw = r.name_raw; }
@@ -425,59 +485,65 @@
     },
 
     // ── Uloženie ─────────────────────────────────────────────────────────
+    /**
+     * Uloží týždeň. Dvojklik na „Uložiť" spustil dve uloženia naraz a obe
+     * zapísali tie isté hodiny — deň sa zarátal dvakrát. Kým beží jedno,
+     * druhé sa nespustí.
+     */
     async save() {
+      if (this._saving) return;
+      this._saving = true;
+      try { await this._save(); } finally { this._saving = false; }
+    },
+
+    async _save() {
       this.keepForm();
       const st = this.st;
-      const grand = st.rows.reduce((n, r) => n + Object.values(r.cells).reduce((a, m) => a + (Number(m) || 0), 0), 0);
+      if (st.loadError) {
+        return UI.toast('Zapísané hodiny tohto týždňa sa nenačítali — uložiť sa nedá, inak by sa zapísali druhýkrát. Otvorte týždeň znova.', 'err');
+      }
+      const grand = st.rows.reduce((n, r) => n + st.dates.reduce((a, d) => a + (Number(r.cells[d.date]) || 0), 0), 0);
       if (!grand) return UI.toast('Tabuľka je prázdna — nie je čo uložiť', 'err');
       if (st.paperTotal) {
         const p = this.parse(st.paperTotal);
         if (p && p !== grand && !await UI.confirm(`Súčet v tabuľke (${sumText(grand)}) nesedí so súčtom na papieri (${sumText(p)}). Uložiť aj tak?`,
           { ok: 'Uložiť aj tak', danger: false })) return;
       }
-      const missing = [];
-      const locked = [];
-      const writes = [];
       const signed = !!(st.signed || st.sheetSigned);
-      for (const r of st.rows) {
-        for (const d of st.dates) {
-          const min = Number(r.cells[d.date]) || 0;
-          const prev = st.existing.find(t => t.worker_id === r.worker_id && t.work_date === d.date);
-          if (!min && !prev) continue;
-          // Uzavreté obdobie sa nemení — z neho už vznikla faktúra.
-          if (prev && prev.period_id) {
-            if (Math.round(Number(prev.hours) * 60) !== min) locked.push(`${r.name} ${UI.date(d.date)}`);
-            continue;
-          }
-          const a = this.assignmentFor(r.worker_id, d.date);
-          if (!a) { if (min) missing.push(`${r.name} ${UI.date(d.date)}`); continue; }
-          const span = (st.days[d.date] || {}).span || '';
-          const m = span.match(/(\d{1,2})[:.]?(\d{2})?\s*[–-]\s*(\d{1,2})[:.]?(\d{2})?/);
-          const row = {
-            hours: SCAN() && SCAN().hoursDecimal ? SCAN().hoursDecimal(min) : (min / 60).toFixed(2), approved: signed,
-            approved_at: signed ? new Date().toISOString() : null,
-            time_from: m ? `${pad(m[1])}:${m[2] || '00'}` : null,
-            time_to: m ? `${pad(m[3])}:${m[4] || '00'}` : null,
-            source: 'stundennachweis',
-          };
-          writes.push(prev ? { id: prev.id, patch: row, del: !min }
-            : { insert: { ...row, worker_id: r.worker_id, assignment_id: a.id, work_date: d.date,
-              activity_type: (Sub.items.find(s => s.id === st.subId) || {}).work_type === 'workshop' ? 'workshop' : 'construction' } });
-        }
-      }
+      const sc = Sub.items.find(s => s.id === st.subId) || {};
+      const plan = SCAN().planWeek({
+        dates: st.dates, rows: st.rows, existing: st.existing, signed, days: st.days,
+        assignmentFor: (w, d) => this.assignmentFor(w, d),
+        closedOn: (d) => this.closedOn(d),
+        activity: sc.work_type === 'workshop' ? 'workshop' : 'construction',
+      });
+      const label = (x) => `${x.name} ${UI.date(x.date)}`;
+      const locked = plan.locked.map(label);
+      const missing = plan.missing.map(label);
       if (locked.length) UI.toast(`Obdobie je už uzavreté, tieto hodiny sa nezmenia: ${locked.slice(0, 4).join(', ')}${locked.length > 4 ? '…' : ''}`, 'warn');
       if (missing.length && !await UI.confirm(`Niektoré hodiny nemajú nasadenie na tejto zákazke a neuložia sa: ${missing.slice(0, 6).join(', ')}${missing.length > 6 ? '…' : ''}. Pokračovať?`,
         { ok: 'Uložiť ostatné', danger: false })) return;
 
       let err = null;
-      for (const w of writes) {
+      for (const w of plan.writes) {
         let r;
+        // Nula = riadok sa archivuje (nič sa fyzicky nemaže) — nezostane
+        // v zozname ako neschválený výkaz za 0 hodín.
         if (w.insert) r = await DB.insert('timesheets', w.insert);
-        else if (w.del) r = await DB.update('timesheets', w.id, { hours: 0, approved: false });
+        else if (w.archive) r = await DB.archive('timesheets', w.id);
         else r = await DB.update('timesheets', w.id, w.patch);
         if (r && r.error) { err = r.error; break; }
       }
-      if (err) return UI.toast('Chyba pri ukladaní: ' + err.message, 'err');
+      if (err) {
+        // Časť sa mohla zapísať — načítať týždeň znova, nech ďalšie uloženie
+        // nezapíše to isté druhýkrát.
+        // Čo je v tabuľke natukané, zostáva.
+        const keep = { rows: st.rows, signed: st.signed, signer: st.signer };
+        try { await this.loadWeek(); } catch (e) { /* ukáže sa v okne */ }
+        Object.assign(st, keep);
+        this.render();
+        return UI.toast('Chyba pri ukladaní: ' + err.message, 'err');
+      }
 
       // Výkaz (Stundennachweis) k zákazke a týždňu — podpis a sken.
       let sheetErr = null;

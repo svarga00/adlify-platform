@@ -21,6 +21,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Prepis a zhrnutie hovoru sú osobné údaje a platené volania — len člen appky.
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
@@ -151,6 +153,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   let recordingId;
   try {

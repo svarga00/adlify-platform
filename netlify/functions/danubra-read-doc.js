@@ -75,7 +75,8 @@ function supabase() {
 }
 
 const defaults = {
-  user: (event) => require('../../app/lib/mail/server.js')(supabase()).userFrom(event),
+  // Len člen appky — samotné prihlásenie nestačí (Supabase je spoločný s Adlify).
+  user: (event) => require('../../app/lib/server-guard.js')(supabase()).memberUser(event),
   /** → { buf: Buffer, type: string } */
   async download(path) {
     const { data: blob, error } = await supabase().storage.from(BUCKET).download(path);

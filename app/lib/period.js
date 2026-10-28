@@ -15,6 +15,16 @@
   const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
   const day = (s) => (s ? String(s).slice(0, 10) : null);
 
+  /**
+   * Dnešný (alebo zadaný) deň podľa miestnych hodín, nie podľa UTC.
+   * `toISOString()` vráti medzi polnocou a druhou ráno ešte včerajšok —
+   * „tento mesiac" 1. 11. o 0:30 by bol október.
+   */
+  function localDay(d) {
+    const t = d instanceof Date ? d : new Date();
+    return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate());
+  }
+
   /** Posledný deň mesiaca — február aj priestupný rok. */
   function lastDay(year, month) {
     return new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -40,7 +50,7 @@
    *          `null` znamená bez ohraničenia.
    */
   function range(key, today, custom) {
-    const t = day(today) || new Date().toISOString().slice(0, 10);
+    const t = day(today) || localDay();
     const [y, m] = t.split('-').map(Number);
     const label = (OPTIONS.find(o => o[0] === key) || OPTIONS[0])[1];
 
@@ -143,7 +153,7 @@
     return `${r.from || 'zaciatok'}_${r.to || 'dnes'}`;
   }
 
-  const API = { OPTIONS, range, covers, filter, text, short, slug, lastDay };
+  const API = { OPTIONS, range, covers, filter, text, short, slug, lastDay, localDay };
   if (typeof window !== 'undefined') window.DanubraPeriod = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

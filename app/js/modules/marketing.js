@@ -113,7 +113,7 @@
             ${l.published_at ? `<span>${Icon('calendar', 14)} od ${UI.date(l.published_at)}</span>` : ''}
             ${l.renew_at ? `<span style="${l.status === 'to_renew' ? 'color:var(--amber);font-weight:700;' : ''}">
               ${Icon('repeat', 14)} obnoviť ${UI.date(l.renew_at)}</span>` : ''}
-            ${l.url ? `<a href="${UI.esc(l.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">otvoriť</a>` : ''}
+            ${UI.safeUrl(l.url) ? `<a href="${UI.safeUrl(l.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">otvoriť</a>` : ''}
           </div>
           ${l.performance_note ? `<div style="font-size:12px;color:var(--ink-sub);margin-top:6px;">${UI.esc(l.performance_note)}</div>` : ''}
         </div>`).join('')}</div>`;

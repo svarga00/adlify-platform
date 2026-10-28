@@ -75,12 +75,19 @@ function startDate(s) {
   return null;
 }
 
-/** Automatické e-maily — chyba v nich nesmie pokaziť uloženú prihlášku. */
+/**
+ * Automatické e-maily — chyba v nich nesmie pokaziť uloženú prihlášku.
+ * Funkcia na Netlify smie bežať ~10 s: keby sme na e-maily čakali dlhšie,
+ * návštevník by dostal chybu, hoci je prihláška uložená, a poslal by ju znova.
+ * Preto najviac 6 s; nestihnutý e-mail sa zapíše do logu ako „časový limit".
+ */
+const MAIL_WAIT_MS = 6000;
 async function mailAfter(notify, o, supabase, logId) {
   if (!notify) return;
   try {
-    const r = await Promise.race([notify(o), new Promise((ok) => setTimeout(() => ok({ skipped: 'časový limit' }), 15000))]);
-    if (logId && r) await supabase.from('danubra_web_submissions').update({ error: r.confirmError || r.teamError || null }).eq('id', logId);
+    const r = await Promise.race([notify(o), new Promise((ok) => setTimeout(() => ok({ skipped: 'časový limit' }), MAIL_WAIT_MS))]);
+    const err = r && (r.confirmError || r.teamError || (r.skipped === 'časový limit' ? 'e-mail: časový limit' : null));
+    if (logId && r) await supabase.from('danubra_web_submissions').update({ error: err || null }).eq('id', logId);
   } catch (e) { console.error('[punds-web mail]', e); }
 }
 

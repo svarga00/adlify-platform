@@ -27,6 +27,9 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Zapisuje výsledok overenia k odberateľovi — len člen appky. Inak by ktokoľvek
+// vedel k firme podstrčiť „platné" overenie iného čísla.
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 const VIES = process.env.VIES_URL
   || 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms';
@@ -77,6 +80,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   try {
     const { vat, opportunityId, partnerId } = JSON.parse(event.body || '{}');

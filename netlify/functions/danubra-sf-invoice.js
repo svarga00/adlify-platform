@@ -28,6 +28,9 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Vystaviť / odoslať / označiť úhradu smie len člen s právom na Vydané faktúry.
+// Bez toho by stačilo poznať id faktúry a poslať požiadavku z hocikade.
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 const SF_ENV = (process.env.SF_ENV || 'sandbox').toLowerCase();
 const SF_BASE = SF_ENV === 'production'
@@ -82,6 +85,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return reply(405, { error: 'Len POST.' });
   }
+  const g = await guard.check(event, { key: 'invoices' });
+  if (!g.ok) return reply(g.status, { error: g.error });
   if (!process.env.SF_API_KEY || !process.env.SF_EMAIL) {
     // Bez kľúča sa nič nerozbije — funkcia povie, čo chýba, a skončí.
     return reply(200, {
@@ -144,12 +149,36 @@ async function issue(inv) {
     });
   }
 
+  // ── Zámok: dve kliknutia nesmú vystaviť dva doklady ───────────────────────
+  // Dve požiadavky naraz (dvojklik, dve okná) by obe prečítali „schválená,
+  // bez sf_invoice_id" a obe by v SuperFaktúre založili doklad s tým istým
+  // číslom. Preto si funkcia faktúru najprv atomicky „zaberie": zapíše
+  // značku do sf_error, ale len ak sa riadok medzitým nezmenil. Druhá
+  // požiadavka už nič nezaberie a odíde s 409.
+  if (issuingNow(inv.sf_error)) {
+    return reply(409, {
+      error: 'Faktúra sa práve vystavuje (začaté pred chvíľou). Počkajte a obnovte stránku — '
+        + 'druhé vystavenie by v SuperFaktúre založilo ten istý doklad dvakrát.',
+    });
+  }
+  let claim = supabase.from('danubra_invoices')
+    .update({ sf_error: `${ISSUING} ${new Date().toISOString()}` })
+    .eq('id', inv.id).eq('status', 'approved').is('sf_invoice_id', null);
+  claim = inv.sf_error == null ? claim.is('sf_error', null) : claim.eq('sf_error', inv.sf_error);
+  const { data: claimed, error: claimErr } = await claim.select('id');
+  if (claimErr) throw new Error('Faktúru sa nepodarilo zamknúť na vystavenie: ' + claimErr.message);
+  if (!Array.isArray(claimed) || !claimed.length) {
+    return reply(409, {
+      error: 'Faktúru medzitým vystavuje alebo zmenil niekto iný. Obnovte stránku a skontrolujte jej stav.',
+    });
+  }
+
   // Platná Freistellung §48b (register compliance) — na faktúru ide veta,
   // že sa zrážka neuplatňuje.
   const { data: fsRows } = await supabase.from('danubra_compliance')
     .select('reference,valid_from,valid_to,status').eq('kind', 'freistellung_48b').eq('scope', 'company')
     .is('archived_at', null);   // service role — archivovaná Freistellung na faktúru nejde
-  const dnes = new Date().toISOString().slice(0, 10);
+  const dnes = todaySk();
   const fs = (fsRows || []).find(f => !['pending', 'expired', 'not_required'].includes(f.status)
     && (!f.valid_from || f.valid_from <= dnes) && (!f.valid_to || f.valid_to >= dnes)) || null;
   const payload = buildPayload(inv, fs);
@@ -232,7 +261,7 @@ async function pay(inv) {
         payment_type: 'transfer',
         amount: Number(inv.total),
         currency: inv.currency || 'EUR',
-        created: new Date().toISOString().slice(0, 10),
+        created: todaySk(),
       },
     });
   }
@@ -280,7 +309,10 @@ function buildPayload(inv, fs = null) {
     ? `${sub.title || 'Subdodávateľské práce'} — `
       + `${String(period.period_from).slice(5, 7)}/${String(period.period_from).slice(0, 4)}`
     : (sub.title || 'Subdodávateľské práce');
-  const tax = reverse ? 0 : 20;
+  // Nie sme platiteľ DPH a Nemcom fakturujeme v režime reverse charge §13b:
+  // sadzba je vždy nula. S 20 % by doklad v SuperFaktúre vyšiel na iné
+  // číslo, než s akým rátajú appka, banka a upomienky.
+  const tax = 0;
 
   // Voľná faktúra má vlastné položky — vyhodené z návrhu (`removed_at`) nie.
   const vlastne = (inv.items || []).filter(i => i && !i.removed_at);
@@ -333,6 +365,29 @@ function buildPayload(inv, fs = null) {
 }
 
 function round2(n) { return Math.round(Number(n) * 100) / 100; }
+
+/** Dnešný deň na Slovensku (server beží v UTC — po polnoci by bol včerajšok). */
+function todaySk() {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const g = (t) => p.find(x => x.type === t).value;
+  return `${g('year')}-${g('month')}-${g('day')}`;
+}
+
+/**
+ * Značka „práve sa vystavuje" v sf_error. Platí 10 minút — funkcia beží
+ * najviac pár sekúnd, takže staršia značka je po spadnutom pokuse a nesmie
+ * faktúru zamknúť navždy.
+ */
+const ISSUING = 'VYSTAVUJE SA';
+function issuingNow(sfError, now = Date.now()) {
+  const m = String(sfError || '').match(/^VYSTAVUJE SA (\S+)/);
+  if (!m) return false;
+  const t = Date.parse(m[1]);
+  return Number.isFinite(t) && now - t < 10 * 60 * 1000;
+}
+
 function de(cents) {
   return (cents / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d),)/g, '.');
 }

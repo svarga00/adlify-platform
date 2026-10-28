@@ -357,6 +357,14 @@
     },
 
     async setStatus(id, status) {
+      // Podpísaná zmluva sa nevracia medzi rozpracované. Inak by sa koniec
+      // platnosti a sadzba dali prepísať bez dodatku: prepnúť na
+      // „Rozpracovaná", zmeniť, prepnúť späť. Drží to aj databáza (071).
+      const cur = this.items.find(x => x.id === id);
+      if (cur && this.isLocked(cur) && ['draft', 'sent'].includes(status)) {
+        UI.toast('Podpísaná zmluva sa nevracia medzi rozpracované. Zmenu podmienok zapíšte dodatkom.', 'err');
+        return this.detail(id);
+      }
       const patch = { status };
       if (status === 'signed') {
         const c = this.items.find(x => x.id === id);
@@ -574,14 +582,56 @@
      * Poradie je dôležité: najprv dodatok, potom zmluva. Trigger v databáze
      * overí, že k novej hodnote dodatok existuje — opačné poradie neprejde.
      */
-    async saveAmendment(contractId) {
+    /**
+     * Nová hodnota dodatku v tvare, v akom ju potom vráti databáza.
+     *
+     * Trigger `danubra_contract_needs_amendment` porovnáva text dodatku
+     * s `to_jsonb(zmluva) ->> pole`. Sadzba zapísaná ako „31.50" (tak to
+     * radí aj nápoveda) sa uloží ako číslo 31.5 a porovnanie „31.50" ≠ „31.5"
+     * zlyhalo: dodatok sa zapísal (a zmazať sa nedá), zmluva sa nezmenila.
+     * Rovnako „31.12.2026" pri dátume. Preto sa hodnota zjednotí vopred.
+     *
+     * @returns {{ value: string } | { error: string }}
+     */
+    amendValue(field, raw) {
+      const s = String(raw == null ? '' : raw).trim();
+      if (!s) return { error: 'Vyplňte novú hodnotu' };
+      if (field === 'date_to') {
+        let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        let y, mo, d;
+        if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+        else if ((m = s.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/))) { d = +m[1]; mo = +m[2]; y = +m[3]; }
+        else return { error: 'Dátum zapíšte ako 2026-12-31 alebo 31.12.2026' };
+        const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const t = new Date(`${iso}T00:00:00Z`);
+        if (Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== iso) return { error: 'Taký dátum neexistuje' };
+        return { value: iso };
+      }
+      const n = Number(s.replace(/\s+/g, '').replace(',', '.'));
+      if (!Number.isFinite(n) || n < 0) return { error: 'Zapíšte číslo, napríklad 31.50' };
+      if (field === 'retention_pct' && n > 20) return { error: 'Zádržné býva do 20 %. Nie je to preklep?' };
+      return { value: String(n) };
+    },
+
+    // Dvojklik zapísal dva dodatky — a dodatok sa nedá zmazať ani prepísať.
+    saveAmendment(contractId) {
+      if (this._amending) return undefined;
+      this._amending = true;
+      return this._saveAmendment(contractId).finally(() => { this._amending = false; });
+    },
+
+    async _saveAmendment(contractId) {
       const c = this.items.find(x => x.id === contractId);
       const d = UI.formData(document.getElementById('am-form'));
       if (!c || !d.new_value) return UI.toast('Vyplňte novú hodnotu', 'err');
 
       const oldValue = c[d.field] == null ? '' : String(c[d.field]);
-      const newValue = String(d.new_value).trim();
-      if (oldValue === newValue) return UI.toast('Nová hodnota je rovnaká ako pôvodná', 'err');
+      const canon = this.amendValue(d.field, d.new_value);
+      if (canon.error) return UI.toast(canon.error, 'err');
+      const newValue = canon.value;
+      if (oldValue === newValue || (d.field !== 'date_to' && oldValue !== '' && Number(oldValue) === Number(newValue))) {
+        return UI.toast('Nová hodnota je rovnaká ako pôvodná', 'err');
+      }
 
       const { error } = await DB.insert('contract_amendments', {
         contract_id: contractId, field: d.field,

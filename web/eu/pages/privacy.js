@@ -6,7 +6,7 @@
 // ============================================================================
 'use strict';
 
-const { esc, each } = require('../../shared/h');
+const { esc, rich, each } = require('../../shared/h');
 const { icon } = require('../../shared/icons');
 const { PHONE, MAIL, tel } = require('../common');
 
@@ -89,8 +89,8 @@ const T = {
 
 async function render(ctx) {
   const t = T[ctx.lang];
-  // Texty sú naše (nie z dát) — HTML v nich je zámerný, kontakty sa doplnia bezpečne.
-  const fill = (s) => s.replace(/\{MAIL\}/g, `<a href="mailto:${MAIL}">${MAIL}</a>`).replace(/\{PHONE\}/g, `<a href="${tel(PHONE)}">${esc(PHONE)}</a>`);
+  // Texty môže prepísať appka — pustí sa len <b>/<br> (rich), kontakty sa doplnia bezpečne.
+  const fill = (s) => rich(s).replace(/\{MAIL\}/g, `<a href="mailto:${MAIL}">${MAIL}</a>`).replace(/\{PHONE\}/g, `<a href="${tel(PHONE)}">${esc(PHONE)}</a>`);
   const body = `
 <section class="wrap eu-legal-top">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span aria-current="page">${esc(t.h1)}</span></nav>

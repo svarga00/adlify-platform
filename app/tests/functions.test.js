@@ -267,5 +267,18 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
   }
 }
 
+// ── Nočná úloha označí po splatnosti aj odoslanú faktúru ────────────────────
+// Faktúra v2 je po odoslaní v stave `sent`. Keď cron hľadal len `issued`,
+// odoslaná faktúra po splatnosti zostala „odoslaná", kým niekto neotvoril
+// obrazovku Faktúry.
+{
+  const f = path.join(DIR, 'danubra-cron-daily.js');
+  if (fs.existsSync(f)) {
+    const src = fs.readFileSync(f, 'utf8');
+    ok(/\.in\('status', \['issued', 'sent'\]\)\.lt\('due_date', today\)/.test(src),
+      'cron označí po splatnosti vystavené aj odoslané faktúry');
+  }
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

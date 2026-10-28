@@ -122,9 +122,9 @@ exports.handler = async (event) => {
   if (!id) return;
 
   // Kto volá — len prihlásený človek z appky (jeho prístupový kľúč).
-  const jwt = String((event.headers && (event.headers.authorization || event.headers.Authorization)) || '').replace(/^Bearer\s+/i, '');
-  const { data: who } = jwt ? await supabase.auth.getUser(jwt) : { data: null };
-  if (!who || !who.user) return fail(id, 'Neprihlásený používateľ.');
+  // Len člen appky — samotné prihlásenie nestačí (Supabase je spoločný s Adlify).
+  const g = await require('../../app/lib/server-guard.js')(supabase).check(event);
+  if (!g.ok) return;
 
   const { data: s } = await supabase.from('danubra_lead_searches').select('*').eq('id', id).maybeSingle();
   if (!s || s.status !== 'pending') return;

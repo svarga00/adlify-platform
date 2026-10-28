@@ -145,6 +145,26 @@ const CAMT = `<?xml version="1.0" encoding="UTF-8"?>
   eq([p[1].iban, p[1].vs], ['DE89370400440532013000', '77'], 'dodávateľ: IBAN a VS z faktúry');
   ok(p[2].ibanDiffers, 'iný IBAN na faktúre než v appke sa označí');
   eq(p[0].problems, [], 'platba bez problémov');
+  eq(p.map(x => x.preselect), [true, true, false],
+    'platba na iný IBAN než u živnostníka nie je predvolene zaškrtnutá');
+
+  // Nevyrovnaná záloha a už raz pripravený príkaz: súbor by poslal celú sumu
+  // alebo tú istú faktúru druhýkrát.
+  const z = S.billPayments([
+    { id: 'b1', status: 'approved', amount: 2000, worker_id: 'w1', bill_number: '2026/15' },
+    { id: 'b2', status: 'approved', amount: 800, worker_id: 'w2', bill_number: '7', payment_ordered_at: '2026-10-20T08:00:00Z' },
+  ], [{ id: 'w1', full_name: 'Ján Novák', bank_iban: 'SK3112000000198742637541' },
+    { id: 'w2', full_name: 'Peter Malý', bank_iban: 'SK3112000000198742637541' }],
+  { advances: [{ worker_id: 'w1', amount: 500 }, { worker_id: 'w1', amount: 100, voided_at: 'x' },
+    { worker_id: 'w1', amount: 300, settled_at: 'x' }] });
+  eq([z[0].advanceOpen, z[0].preselect], [50000, false], 'záloha 500 € (zrušená a odpočítaná nie) — platba nie je zaškrtnutá');
+  eq([z[1].orderedAt, z[1].preselect], ['2026-10-20T08:00:00Z', false], 'už pripravený príkaz sa druhýkrát sám nezaškrtne');
+
+  // Nemecké znaky v mene príjemcu nepadnú na medzeru.
+  const de = S.pain001({ debtor: { name: 'Partner und Service s. r. o.', iban: 'SK24 1100 0000 0026 1234 5678' },
+    date: '2026-10-22', now: '2026-10-21T10:00:00.000Z',
+    payments: [{ id: 'x', name: 'Bau Groß GmbH, Łódź', iban: 'DE89370400440532013000', cents: 100 }] });
+  ok(de.xml.includes('<Nm>Bau Gross GmbH, Lodz</Nm>'), 'ß → ss, Ł → L', (de.xml.match(/<Cdtr><Nm>[^<]*/) || [''])[0]);
 }
 
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);

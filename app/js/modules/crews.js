@@ -299,7 +299,16 @@
       const today = new Date().toISOString().slice(0, 10);
       const { error } = await DB.update('crew_members', memberId, { left_at: today });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.toast('Členstvo ukončené, záznam zostal', 'ok');
+      // Odišiel predák: partia ho ďalej nesmie mať ako predáka — inak hlási
+      // „Predák nie je členom partie" a na stavbe nevieme, kto za ňu hovorí.
+      const crew = this.items.find(x => x.id === m.crew_id);
+      let e2 = null;
+      if (crew && crew.leader_worker_id === m.worker_id) {
+        ({ error: e2 } = await DB.update('crews', crew.id, { leader_worker_id: null }));
+        if (!e2) crew.leader_worker_id = null;
+      }
+      if (e2) UI.toast('Členstvo je ukončené, ale predáka sa nepodarilo zrušiť: ' + e2.message, 'err');
+      else UI.toast('Členstvo ukončené, záznam zostal', 'ok');
       this.loaded = false; await this.load(); this.detail(m.crew_id);
     },
   };

@@ -934,10 +934,11 @@
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
 
-      await DB.update('opportunities', id, { plan_id: data.id, status: 'checking' });
-      x.plan_id = data.id; x.status = 'checking';
+      const { error: e2 } = await DB.update('opportunities', id, { plan_id: data.id, status: 'checking' });
+      if (e2) UI.toast('Nábor je založený, ale k dopytu sa nepripojil: ' + e2.message, 'err');
+      else { x.plan_id = data.id; x.status = 'checking'; }
       if (window.Hire) Hire.loaded = false;
-      UI.toast('Nábor založený — zadanie je v ňom', 'ok');
+      if (!e2) UI.toast('Nábor založený — zadanie je v ňom', 'ok');
       Danubra.go('hiring');
       setTimeout(() => window.Hire && Hire.detail(data.id), 300);
     },

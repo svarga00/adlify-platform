@@ -25,10 +25,27 @@ window.Invoicing = {
     return data;
   },
 
+  /**
+   * Dátum + n dní, celé v UTC. Miešanie miestneho `setDate` s UTC
+   * `toISOString` dávalo pri prechode na letný čas splatnosť o deň kratšiu.
+   */
   _plusDays(n, from) {
-    const d = from ? new Date(from) : new Date();
-    d.setDate(d.getDate() + n);
+    const base = from ? String(from).slice(0, 10) : this._today();
+    const d = new Date(`${base}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + (Number(n) || 0));
     return d.toISOString().slice(0, 10);
+  },
+
+  /** Dnešný deň podľa hodín v prehliadači, nie UTC (po polnoci by bol včerajšok). */
+  _today() {
+    if (window.Danubra && Danubra._dayISO) return Danubra._dayISO();
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  /** Súčet riadkov v celých centoch (lib/money.js), nie súčet floatov. */
+  _sum(items) {
+    return Money.fromCents(Money.sum((items || []).map(i => Money.toCents(i.total || 0))));
   },
 
   /**
@@ -60,7 +77,9 @@ window.Invoicing = {
         total: Number(order.urgent_surcharge),
       });
     }
-    const total = items.reduce((s, i) => s + i.total, 0);
+    // 150,10 + 20,20 ako float je 170,29999999999998 — a presne to by sa
+    // zapísalo do numeric stĺpca.
+    const total = this._sum(items);
     return this._create({
       order, client, type: 'service_fee', items, total, regime: r.regime,
       status: 'draft_pending_approval',
@@ -72,7 +91,7 @@ window.Invoicing = {
    * VŽDY `draft_pending_approval` (§5.2).
    */
   async createOngoingService(order, client, periodFrom, periodTo, segments) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = this._today();
     const calc = window.DanubraBilling.calculateOngoingService(order, segments, periodFrom, periodTo, today);
     if (calc.total <= 0) return { skipped: 'nulová suma' };
 
@@ -102,10 +121,12 @@ window.Invoicing = {
         quantity: Number(i.quantity) || 0,
         unit: i.unit || 'ks',
         unit_price: Number(i.unit_price) || 0,
-        total: Math.round(((Number(i.quantity) || 0) * (Number(i.unit_price) || 0) + Number.EPSILON) * 100) / 100,
+        // Rovnako ako okno a lib/billing/invoice.js: 1,5 × 10,01 = 15,02 €
+        // (float s EPSILON dával 15,01 € a okno ukazovalo inú sumu).
+        total: Money.fromCents(Money.mul(Money.toCents(i.unit_price || 0), Number(i.quantity) || 0)),
       }));
     if (!clean.length) throw new Error('Faktúra musí mať aspoň jednu položku');
-    const total = Math.round((clean.reduce((s, i) => s + i.total, 0) + Number.EPSILON) * 100) / 100;
+    const total = this._sum(clean);
     const r = this.regimeFor(client);
     return this._create({
       order, inquiry, client, type, items: clean, total,
@@ -169,7 +190,7 @@ window.Invoicing = {
 
   async _create({ order, inquiry, client, partner, subcontract, type, items, total, regime, status, billing_period_from, billing_period_to, dueDays = 14 }) {
     const number = await this.nextNumber();
-    const issue = new Date().toISOString().slice(0, 10);
+    const issue = this._today();
     const { data: inv, error } = await DB.insert('invoices', {
       invoice_number: number,
       client_id: client?.id || order?.client_id || null,
@@ -185,7 +206,13 @@ window.Invoicing = {
     if (error) throw new Error(error.message);
 
     const rows = items.map(i => ({ ...i, invoice_id: inv.id }));
-    await DB.from('invoice_items').insert(rows);
+    // Chyba pri položkách sa predtým zahodila: návrh mal sumu, ale žiadne
+    // riadky, a na dokumente bolo „Bez položiek".
+    const { error: itemsErr } = await DB.from('invoice_items').insert(rows);
+    if (itemsErr) {
+      throw new Error(`Návrh faktúry ${number} vznikol, ale položky sa nezapísali: ${itemsErr.message}. `
+        + 'Otvorte ho a skontrolujte, prípadne ho zahoďte.');
+    }
 
     // Záznam do osi tam, kde faktúra vznikla (objednávka, dopyt alebo klient)
     const caka = ['draft', 'pending_approval', 'draft_pending_approval'].includes(status);

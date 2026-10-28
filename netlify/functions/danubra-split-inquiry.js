@@ -36,6 +36,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Platený model — len prihlásený člen appky (inak by to bol verejný prístup k AI na náš účet).
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 const MODEL = process.env.CLAUDE_MODEL_TEXT || 'claude-sonnet-5-5';
 
@@ -188,6 +190,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: { ...cors, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: g.error }) };
 
   try {
     const { text } = JSON.parse(event.body || '{}');

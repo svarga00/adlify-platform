@@ -69,6 +69,15 @@ exports.handler = async (event) => {
     const attachments = [];
     for (const a of (b.attachments || []).slice(0, 20)) {
       if (!a || !a.storage_path) continue;
+      // Funkcia sťahuje so service-role kľúčom, takže cestu stráži sama: žiadne
+      // „..", a prílohu z cudzej schránky (mail/<id schránky>/…) priloží len ten,
+      // kto do tej schránky smie.
+      const sp = String(a.storage_path);
+      const casti = sp.split('/');
+      if (sp.length > 500 || sp.startsWith('/') || sp.includes('\\') || casti.includes('..')
+        || (casti[0] === 'mail' && !(await srv.canUse(user.id, casti[1])))) {
+        return out(403, { error: `Prílohu „${a.name || casti[casti.length - 1]}" nemôžete priložiť.` });
+      }
       const { data, error } = await supabase.storage.from(BUCKET).download(a.storage_path);
       if (error || !data) return out(400, { error: `Príloha „${a.name || a.storage_path}" sa nenašla.` });
       attachments.push({ filename: a.name || a.storage_path.split('/').pop(), content: Buffer.from(await data.arrayBuffer()),

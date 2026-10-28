@@ -35,6 +35,23 @@
   function canGo(from, to) { return (FLOW[from] || []).includes(to); }
 
   /**
+   * Dnešný deň podľa miestnych hodín. `toISOString()` je UTC — medzi
+   * polnocou a druhou ráno by faktúra dostala včerajší dátum.
+   */
+  function dnesLokalne() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
+   * DPH na doklade. Firma nie je platiteľ DPH a nemeckému odberateľovi
+   * fakturuje v režime reverse charge §13b — sadzba je preto vždy nula.
+   * Predtým išlo pri „bežnom" režime do SuperFaktúry 20 % a doklad tam
+   * vyšiel na 1 200 €, kým appka, banka aj upomienky rátali s 1 000 €.
+   */
+  const TAX = 0;
+
+  /**
    * Jednotné slovenské popisky stavov vydanej faktúry — pre zoznam, detail,
    * filtre aj tabuľky pre účtovníčku. Mení sa len to, čo vidí človek;
    * hodnoty v databáze zostávajú (`draft`, `paid`…).
@@ -61,7 +78,7 @@
    */
   const MOZE_PO_SPLATNOSTI = ['issued', 'sent'];
   function becameOverdue(invoices = [], today) {
-    const dnes = today ? String(today).slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const dnes = today ? String(today).slice(0, 10) : dnesLokalne();
     return (invoices || []).filter(x => x && MOZE_PO_SPLATNOSTI.includes(x.status)
       && x.due_date && String(x.due_date).slice(0, 10) < dnes);
   }
@@ -117,7 +134,7 @@
   function den(x) { return x ? String(x).slice(0, 10) : null; }
 
   function queue(invoices = [], today) {
-    const dnes = den(today) || new Date().toISOString().slice(0, 10);
+    const dnes = den(today) || dnesLokalne();
     const live = (invoices || []).filter(x => x && x.status !== 'cancelled');
 
     const pending = live.filter(x => SCHVALENIE.includes(x.status));
@@ -234,13 +251,25 @@
       });
     }
 
-    // Reverse charge bez USt-IdNr nie je reverse charge.
-    if (inv.vat_regime === 'reverse_charge' && !String(partner.ust_idnr || '').trim()) {
+    // Nemeckému odberateľovi fakturujeme vždy v režime reverse charge §13b
+    // a USt-IdNr je povinné — pri každej faktúre, nie len pri tej, ktorá má
+    // režim zapísaný. Inak stačilo prepnúť odberateľovi „reverse charge"
+    // a faktúra bez USt-IdNr prešla schválením.
+    if ((inv.partner_id || partner.id) && !String(partner.ust_idnr || '').trim()) {
       reasons.push({
         rule: 'invoice_no_ustidnr',
         label: 'Reverse charge §13b bez USt-IdNr odberateľa',
         detail: 'Bez daňového čísla odberateľa sa nulová sadzba neuznáva. '
-          + 'Doplňte USt-IdNr, alebo prepnite režim.',
+          + 'Doplňte USt-IdNr na karte odberateľa.',
+        severity: 'block',
+      });
+    }
+    if ((inv.partner_id || partner.id) && inv.vat_regime && inv.vat_regime !== 'reverse_charge') {
+      reasons.push({
+        rule: 'invoice_not_reverse_charge',
+        label: 'Faktúra nie je v režime reverse charge §13b',
+        detail: 'Nemeckému odberateľovi fakturujeme len v režime reverse charge §13b, bez DPH. '
+          + 'Zapnite odberateľovi reverse charge a uložte návrh znova.',
         severity: 'block',
       });
     }
@@ -362,7 +391,7 @@
     // Položky vznikajú z obdobia, nie z ručného písania.
     const hours = round2(Number(period.hours_construction || 0)
       + Number(period.hours_workshop || 0) + Number(period.hours_travel || 0));
-    const tax = reverse ? 0 : 20;
+    const tax = TAX;
     // Voľná faktúra má vlastné položky; faktúra z podkladu jednu — z obdobia.
     const vlastne = liveItems(o.items);
     const items = vlastne.length
@@ -491,7 +520,7 @@
    * @returns {{ invoice: Object, items: Array, cents: number }}
    */
   function freeInvoice({ partner = {}, items = [], today, dueDays, number, subcontractId = null } = {}) {
-    const dnes = today || new Date().toISOString().slice(0, 10);
+    const dnes = today || dnesLokalne();
     const dni = Number(dueDays) || Number(partner.payment_terms_days) || 30;
     const plus = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
     const rows = liveItems(items).filter(i => String(i.description || '').trim() && Number(i.quantity));
@@ -521,7 +550,7 @@
     FLOW, canGo, nextSteps, queue, SCHVALENIE, STATUS_LABEL, statusLabel, becameOverdue,
     withholding, withholdingApplies, sumLines,
     reviewBeforeApproval,
-    sfPayload, freistellungNote, COUNTRY_ID, fmtDe,
+    sfPayload, freistellungNote, COUNTRY_ID, fmtDe, TAX,
     liveItems, itemsTotal, docItems, editable, freeInvoice,
   };
   window.DanubraInvoice = API;

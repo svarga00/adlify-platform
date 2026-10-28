@@ -165,7 +165,7 @@
 
         ${x.body ? `<div class="form-section">Znenie inzerátu</div>
           <pre class="ad-body">${UI.esc(x.body)}</pre>` : ''}
-        ${x.url ? `<p style="margin:10px 0 0;"><a href="${UI.esc(x.url)}"
+        ${UI.safeUrl(x.url) ? `<p style="margin:10px 0 0;"><a href="${UI.safeUrl(x.url)}"
           target="_blank" rel="noopener noreferrer">${Icon('chevron', 13)} Otvoriť inzerát</a></p>` : ''}
         ${x.note ? `<div class="notebox">${UI.esc(x.note)}</div>` : ''}
         ${x.web_published ? `<div class="form-section">Web punds.sk</div>

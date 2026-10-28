@@ -9,7 +9,9 @@
 // ============================================================================
 'use strict';
 
-const { SITES, match, siteFor } = require('./shared/sites');
+const crypto = require('crypto');
+const { SITES, match, siteFor, path: pathOf } = require('./shared/sites');
+const PROF = require('./shared/professions');
 const { context, render } = require('./shared/layout');
 const { toJob } = require('./shared/jobs');
 const { esc } = require('./shared/h');
@@ -25,7 +27,29 @@ const HTML_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'X-Frame-Options': 'DENY',
+  'Strict-Transport-Security': 'max-age=31536000',
 };
+
+/**
+ * Content-Security-Policy pre hotovú stránku. Vložené skripty (trieda „js",
+ * window.PUNDS) sa povolia podľa odtlačku (sha256) — počíta sa z hotového HTML,
+ * takže sedí aj po prepise textov z appky. Iný vložený skript (napr. z textu,
+ * ktorý by obišiel escapovanie) prehliadač nespustí.
+ * Obrázky: https (fotky z appky, punds.eu, dlaždice mapy CARTO), štýly
+ * inline kvôli mape (Leaflet).
+ */
+function csp(html) {
+  const hashes = [];
+  for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+    hashes.push(`'sha256-${crypto.createHash('sha256').update(m[1], 'utf8').digest('base64')}'`);
+  }
+  return [
+    "default-src 'self'", `script-src 'self' ${hashes.join(' ')}`.trim(), "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:", "font-src 'self'", "connect-src 'self'", "object-src 'none'",
+    "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+  ].join('; ');
+}
 
 /**
  * @param {Object} req  { method, host, path, query (Object), body (string), ip }
@@ -44,6 +68,27 @@ async function handle(req, deps) {
   if (rest === '/api/schema' && req.method === 'GET') {
     return { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
       body: JSON.stringify(content.schema()) };
+  }
+
+  // robots.txt a sitemap.xml (naostro na punds.sk/robots.txt; skúšobná adresa má noindex).
+  if (rest === '/robots.txt') {
+    const host = prod ? `https://${site.domain}` : '';
+    return { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
+      body: prod ? `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${host}/sitemap.xml\n` : 'User-agent: *\nDisallow: /\n' };
+  }
+  if (rest === '/sitemap.xml') {
+    const urls = [];
+    const add = (route, paramsFor) => {
+      for (const l of site.langs) { const p = pathOf(site, l, route, paramsFor ? paramsFor(l) : {}); if (p) urls.push(`https://${site.domain}${p}`); }
+    };
+    for (const route of Object.keys(site.routes)) if (!/:/.test(Object.values(site.routes[route])[0])) add(route);
+    if (site.key === 'eu') for (const p of PROF.euTrades()) add('trade', (l) => ({ slug: p.eu.slug[l] }));
+    if (site.key === 'sk' && deps.ads) {
+      for (const a of await deps.ads({ demoIfEmpty: false })) add('job', (l) => ({ slug: toJob(a, l).slug }));
+    }
+    return { status: 200, headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=0, must-revalidate',
+      'Netlify-CDN-Cache-Control': 'public, s-maxage=3600' },
+      body: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${esc(u)}</loc></url>`).join('\n')}\n</urlset>\n` };
   }
 
   // Formuláre (prihláška, dopyt) — bez cache.
@@ -91,7 +136,9 @@ async function handle(req, deps) {
   } catch (e) {
     console.error('[punds-web]', req.path, e);
     return { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-      body: `<!DOCTYPE html><meta charset="utf-8"><title>punds</title><p style="font-family:sans-serif;padding:40px">Ospravedlňujeme sa, stránka sa nenačítala. <a href="${esc(base)}/">punds</a></p>` };
+      body: site.key === 'eu'
+        ? `<!DOCTYPE html><html lang="de"><meta charset="utf-8"><title>punds</title><p style="font-family:sans-serif;padding:40px">Die Seite konnte leider nicht geladen werden. Bitte versuchen Sie es später erneut. <a href="${esc(base)}/">punds.eu</a></p>`
+        : `<!DOCTYPE html><html lang="sk"><meta charset="utf-8"><title>punds</title><p style="font-family:sans-serif;padding:40px">Ospravedlňujeme sa, stránka sa nenačítala. <a href="${esc(base)}/">punds</a></p>` };
   }
   if (!page) {
     ctx.route = 'home'; ctx.params = {};
@@ -99,7 +146,7 @@ async function handle(req, deps) {
     page.status = 404;
   }
   const body = content.postProcess(await render(ctx, page, CHROME[site.key]), content.replacements(site.key, rows));
-  const headers = { ...HTML_HEADERS };
+  const headers = { ...HTML_HEADERS, 'Content-Security-Policy': csp(body) };
   if (page.status && page.status !== 200) headers['Netlify-CDN-Cache-Control'] = 'public, s-maxage=60';
   return { status: page.status || 200, headers, body };
 }

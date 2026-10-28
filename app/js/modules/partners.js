@@ -143,7 +143,7 @@
               ${this.logo(p)}
               <div style="min-width:0;">
                 <div class="acc-name">${UI.esc(p.name)}</div>
-                <div class="acc-loc">${UI.esc(p.city || '')}${p.country ? `, ${p.country}` : ''}${p.contact_person ? ` · ${UI.esc(p.contact_person)}` : ''}</div>
+                <div class="acc-loc">${UI.esc(p.city || '')}${p.country ? `, ${UI.esc(p.country)}` : ''}${p.contact_person ? ` · ${UI.esc(p.contact_person)}` : ''}</div>
               </div>
             </div>
             ${this.ratingBadge(p.rating) || UI.badge(p.is_construction ? 'Stavba' : 'Dielňa', p.is_construction ? 'amber' : 'blue')}

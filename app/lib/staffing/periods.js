@@ -34,12 +34,14 @@
    * @param {Object} o
    *   timesheets   výkazy zákazky
    *   assignments  nasadenia (kvôli sadzbám)
+   *   workers      kartotéka (hourly_cost — keď nasadenie sadzbu nemá)
    *   from, to     hranice obdobia
    * @returns {Object} súčty v centoch a hodinách + čo sa nezaráta a prečo
    */
   function preview(o = {}) {
     const from = day(o.from), to = day(o.to);
     const byAssignment = new Map((o.assignments || []).map(a => [a.id, a]));
+    const workers = new Map((o.workers || []).map(w => [w.id, w]));
 
     const included = [], unapproved = [], alreadyClosed = [], noRate = [];
     let hours = { construction: 0, workshop: 0, travel: 0, other: 0 };
@@ -50,8 +52,8 @@
 
       // Hodiny, ktoré už patria inému obdobiu, sa nezarátajú dvakrát.
       if (t.period_id) { alreadyClosed.push(t); continue; }
-      // Neschválené hodiny do podkladu nejdú. Nie sú stratené — zarátajú sa,
-      // keď ich niekto schváli, prípadne v nasledujúcom období.
+      // Neschválené hodiny do podkladu nejdú. Zarátajú sa, keď ich niekto
+      // schváli a obdobie sa uzavrie (prípadne otvorí späť a uzavrie znova).
       if (!t.approved) { unapproved.push(t); continue; }
 
       const a = byAssignment.get(t.assignment_id) || {};
@@ -62,8 +64,14 @@
       // Sadzba, ktorou sa fakturuje, a sadzba, ktorou platíme. Keď jedna
       // chýba, riadok sa zaráta do hodín, ale povie sa to — inak by podklad
       // ticho vyšiel nižší.
+      // Sadzba živnostníka rovnako ako v `danubra_close_period`: zapísaná pri
+      // hodinách, inak z nasadenia, inak z kartotéky. Nasadenie jednotlivca
+      // (Sub.saveAsg) `worker_rate` nemá — náhľad potom ukazoval náklad 0
+      // a maržu 100 %, hoci databáza pri uzavretí započítala sadzbu z kartotéky.
+      const w = workers.get(t.worker_id) || {};
       const chargeRate = M.toCents(a.charge_rate);
-      const workerRate = M.toCents(t.rate_used != null ? t.rate_used : a.worker_rate);
+      const workerRate = M.toCents(t.rate_used != null ? t.rate_used
+        : a.worker_rate != null ? a.worker_rate : w.hourly_cost);
       if (!chargeRate || !workerRate) noRate.push(t);
 
       charged += M.mul(chargeRate, h);
@@ -106,8 +114,10 @@
       warnings.push({
         rule: 'period_unapproved',
         label: `${p.unapproved.length} ${plural(p.unapproved.length, 'výkaz', 'výkazy', 'výkazov')} nie je schválených`,
+        // Do nasledujúceho obdobia nepôjdu: každé obdobie berie len svoje dni
+        // (danubra_close_period) a do uzavretého sa už nič nedopíše (071).
         detail: `${h} ${plural(h, 'hodina', 'hodiny', 'hodín')} sa do podkladu nedostane. `
-          + 'Schváľte ich teraz, alebo pôjdu do nasledujúceho obdobia.',
+          + 'Schváľte ich teraz — po uzavretí sa do faktúry dostanú, len keď sa obdobie otvorí späť.',
         severity: 'warn',
       });
     }
