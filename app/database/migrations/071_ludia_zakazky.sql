@@ -570,3 +570,26 @@ select
                            and t.work_date between p.period_from and p.period_to
     where t.period_id is null and t.archived_at is null)
     as hodiny_mimo_uzavretych_obdobi;
+
+-- ── Anonymný prístup k novým funkciám (rovnako ako 069 §8) ──────────────────
+-- Funkcie z 070 a 071 vznikli až po 069, takže im treba odobrať `anon` znova.
+do $x$
+declare r record; v_auth bool;
+begin
+  for r in
+    select p.oid, p.oid::regprocedure as f
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and p.proname like 'danubra\_%' escape '\'
+       and p.proname not in ('danubra_is_member', 'danubra_storage_read_ok')
+  loop
+    v_auth := has_function_privilege('authenticated', r.oid, 'EXECUTE');
+    execute format('revoke execute on function %s from public, anon', r.f);
+    if v_auth then
+      execute format('grant execute on function %s to authenticated', r.f);
+    end if;
+    execute format('grant execute on function %s to service_role', r.f);
+  end loop;
+end $x$;
+revoke all on function danubra_demo_purge_unchecked() from authenticated;
+revoke all on function danubra_unarchive_rec(regclass, uuid, timestamptz) from authenticated;

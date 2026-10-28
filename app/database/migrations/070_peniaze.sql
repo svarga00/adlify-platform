@@ -47,6 +47,11 @@ declare
   v_result   text;
   v_seq      text;
 begin
+  -- Číslo si smie vypýtať len člen appky (069) — inak by cudzí prihlásený
+  -- vedel „minúť" číslo a v rade faktúr by vznikla diera.
+  if not danubra_is_member() then
+    raise exception using errcode = '42501', message = 'Číslo dokladu môže prideliť len člen appky.';
+  end if;
   if p_kind not in ('order', 'invoice', 'subcontract') then
     raise exception 'Neznámy typ číselnej rady: %', p_kind;
   end if;
