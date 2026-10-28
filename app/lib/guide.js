@@ -597,7 +597,7 @@
           what: 'Výkaz je týždenný list po nemecky za jednu zákazku — celú alebo len jednu partiu z nej. Je len na tlač; hodiny aj podpis v ňom sú tie isté ako v okne „Zapísať hodiny".',
           how: [
             'V menu Zákazky → Výkaz vyberte partiu (alebo „Celá zákazka") a týždeň.',
-            'Zákazku appka zistí z nasadení partie v tom týždni. Keď sa to nedá, opýta sa — nehádá.',
+            'Zákazku appka zistí z nasadení partie v tom týždni. Keď sa to nedá, opýta sa — neháda.',
             'Kliknite „Tlačiť" a list zaneste na podpis.',
             'Keď je podpísaný, kliknite „Podpísané" — otvorí sa okno hodín a podpis zapíšete tam.',
           ],

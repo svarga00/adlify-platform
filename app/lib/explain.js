@@ -848,7 +848,7 @@
       ],
       how: [
         'Cieľ zo zadania je ozvať sa do desiatich minút od ozvania. Po desiatich '
-        + 'minútach veta zčervená.',
+        + 'minútach veta sčervenie.',
       ],
       why: [
         'Pod vetou je priebeh piatich fáz náboru. Je to to isté, čo ukazuje „Ako to ide" '

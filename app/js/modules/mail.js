@@ -230,7 +230,8 @@
 
     /** Skryť zo zoznamu — v schránke na serveri e-mail zostáva, nič sa nemaže. */
     async hide(id) {
-      await DB.update('mail_messages', id, { archived_at: new Date().toISOString() });
+      const { error } = await DB.update('mail_messages', id, { archived_at: new Date().toISOString() });
+      if (error) return UI.toast('Nepodarilo sa skryť: ' + error.message, 'err');
       this.messages = this.messages.filter(x => x.id !== id);
       this.openId = null; Danubra.renderRoute();
     },

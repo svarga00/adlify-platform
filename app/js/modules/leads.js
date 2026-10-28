@@ -155,7 +155,11 @@
         address: r.address, country: r.country || 'DE', email: r.email, phone: r.phone, website: r.website,
         source: 'marketing', notes: r.notes || null });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      await DB.update('leads', id, { status: 'won', partner_id: data.id });
+      const { error: e2 } = await DB.update('leads', id, { status: 'won', partner_id: data.id });
+      if (e2) {
+        UI.toast('Odberateľ založený, ale firma sa neoznačila ako získaná: ' + e2.message, 'err');
+        return Danubra.renderRoute();
+      }
       Object.assign(r, { status: 'won', partner_id: data.id });
       UI.toast('Odberateľ založený — doplňte USt-IdNr a kontakt', 'ok');
       Danubra.renderRoute();
@@ -469,10 +473,13 @@
 
     async run(id) {
       const t = await token();
-      await DB.update('campaigns', id, { status: 'sending', error: null });
+      const { error } = await DB.update('campaigns', id, { status: 'sending', error: null });
+      if (error) return UI.toast('Rozosielanie sa nespustilo: ' + error.message, 'err');
       fetch('/.netlify/functions/danubra-email-send-background', { method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ campaign_id: id, limit: 40 }) }).catch(() => {});
+        body: JSON.stringify({ campaign_id: id, limit: 40 }) })
+        .then(r => { if (!r.ok) UI.toast(`Server rozosielanie odmietol (${r.status}) — skúste to znova`, 'err'); })
+        .catch(() => UI.toast('Server na rozosielanie neodpovedá — skúste to znova', 'err'));
       UI.toast('Posielam — po dávkach, s pauzou medzi e-mailmi', 'ok');
       this.loaded = false;
       if (Danubra.route !== 'campaigns') return Danubra.go('campaigns');

@@ -651,7 +651,8 @@
       if (!t) return;
       const done = t.status === 'done';
       const patch = { status: done ? 'open' : 'done', done_at: done ? null : new Date().toISOString() };
-      await DB.update('tasks', id, patch);
+      const { error } = await DB.update('tasks', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(t, patch);
       Danubra.renderRoute();
     },

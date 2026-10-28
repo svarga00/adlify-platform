@@ -294,7 +294,7 @@
     MODULES: [
       ['recruiting', 'Nábor', 'Náborové plány, kandidáti, hovory, príručka remesiel.'],
       ['contracts', 'Zákazky a zmluvy', 'Odberatelia, ponuky, zmluvy, nasadenia, hodiny.'],
-      ['finance', 'Peniaze', 'Vydané a prijaté faktúry, náklady, banka, cash-flow.'],
+      ['finance', 'Fakturácia', 'Vydané a prijaté faktúry, náklady, banka, cash-flow.'],
     ],
 
     modulesSection() {
