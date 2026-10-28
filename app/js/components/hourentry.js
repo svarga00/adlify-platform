@@ -100,12 +100,15 @@
         || (active[0] || Sub.items[0] || {}).id;
       if (!subId) return UI.toast('Najprv založte zákazku', 'warn');
       // Predvolený je minulý týždeň — list prichádza po skončení týždňa.
-      const now = HSL().isoWeek(new Date());
+      // Dnešok podľa miestneho času, nie UTC: v pondelok pred druhou ráno
+      // (UTC+2) by UTC ešte bola nedeľa a okno by ponúklo o týždeň starší list.
+      const dnes = (window.Danubra && Danubra._dayISO) ? Danubra._dayISO() : new Date().toISOString().slice(0, 10);
+      const now = HSL().isoWeek(dnes);
       const prev = HSL().shiftWeek(now.year, now.week, -1);
       this.st = {
         subId, year: Number(o.year) || prev.year, week: Number(o.week) || prev.week,
         rows: [], extra: [], days: {}, signed: false, signer: '', paperTotal: '',
-        signedOn: new Date().toISOString().slice(0, 10),
+        signedOn: dnes,
         scan: null, warnings: [], sunday: false, sheet: null, sheetSigned: false,
       };
       await this.loadWeek();

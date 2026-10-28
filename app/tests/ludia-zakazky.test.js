@@ -185,6 +185,17 @@ function harness(o = {}) {
     eq(dni, ['2026-10-19', '2026-10-25'], '  … a jej hodiny sa uložia');
   }
   {
+    // Predvolený týždeň podľa miestneho dňa (Danubra._dayISO), nie UTC.
+    const { HE, ctx } = harness({ existing: [] });
+    ctx.Danubra._dayISO = () => '2026-11-02';           // pondelok KW 45
+    await HE.open({ subcontractId: 'sc1' });
+    ok(HE.st.week === 44 && HE.st.year === 2026 && HE.st.signedOn === '2026-11-02',
+      'v pondelok ráno okno ponúkne minulý týždeň podľa miestneho dňa', `KW ${HE.st.week}, ${HE.st.signedOn}`);
+    ctx.Danubra._dayISO = () => '2027-01-01';           // piatok, KW 53/2026
+    await HE.open({ subcontractId: 'sc1' });
+    ok(HE.st.week === 52 && HE.st.year === 2026, 'prelom roka: 1. 1. 2027 je KW 53/2026, minulý týždeň KW 52/2026');
+  }
+  {
     // Deň v uzavretom období sa nevloží.
     const { HE, calls } = harness({ existing: [], periods: [{ subcontract_id: 'sc1', status: 'closed', period_from: '2026-10-01', period_to: '2026-10-19' }] });
     await HE.open({ subcontractId: 'sc1', year: 2026, week: 43 });
@@ -267,6 +278,10 @@ function harness(o = {}) {
     eq(n, 3, 'Nastúpil a Ubytovať: dvojklik = jeden zápis');
     await ctx.Sub.saveAsg('sc');
     eq(n, 4, '  … a po dokončení sa dá uložiť znova');
+    load(ctx, 'js/modules/workorders.js');
+    ctx.Ord._save = async () => { n++; await new Promise(r => setTimeout(r, 5)); };
+    await Promise.all([ctx.Ord.save('', 'worker', {}), ctx.Ord.save('', 'worker', {})]);
+    eq(n, 5, 'Objednávka: dvojklik = jedna objednávka (jedno číslo)');
     void calls;
   }
   {
