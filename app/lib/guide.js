@@ -928,14 +928,29 @@
             'Nastavenia → „Cenník": sadzby a prahy, ktoré vstupujú do výpočtov.',
             'Nastavenia → „Používatelia" a „Schránky": kto smie do appky, na čo a ktoré e-maily vidí.',
             'Nastavenia → „Remeslá": otázky pri nábore pre jednotlivé remeslá.',
+            'Nastavenia → „Archív": archivované záznamy; admin ich vie vrátiť späť.',
           ],
           open: open('settings', 'Otvoriť Nastavenia'),
           tip: 'Bez názvu firmy, adresy a IČO v Nastaveniach appka nepustí von žiadny papier — povie, čo chýba.',
           example: null,
         },
         {
+          title: 'Archív — vrátiť omylom archivovaný záznam',
+          what: 'V appke sa nič nemaže. Tlačidlo „Archivovať" záznam len odloží do archívu — zmizne '
+            + 'zo zoznamov, ale admin ho odtiaľ vie vrátiť späť.',
+          how: [
+            'Nastavenia → „Archív": hore vyberte druh záznamov, napríklad Zákazky alebo Kandidáti.',
+            'Pri zázname kliknite „Vrátiť späť" a potvrďte.',
+            'Vráti sa aj to, čo sa archivovalo spolu s ním — napríklad nasadenia pri zákazke.',
+          ],
+          open: open('archiv', 'Otvoriť Archív'),
+          tip: 'Odberateľa, na ktorom visia živé zákazky, appka archivovať nepustí. Najprv treba archivovať zákazky.',
+          example: null,
+        },
+        {
           title: 'Vzorové dáta',
-          what: 'Pred ostrou prevádzkou admin vzorové dáta vymaže. Ostrých záznamov sa to nedotkne.',
+          what: 'Pred ostrou prevádzkou admin vzorové dáta vymaže. Ostrých záznamov sa to nedotkne. '
+            + 'Je to jediná výnimka, keď sa naozaj maže — vzorové dáta nie sú záznamy firmy.',
           how: [
             'Na Dnes v páse „V systéme sú vzorové dáta" kliknite „Vymazať vzorové dáta".',
             'Na potvrdenie napíšte VYMAZAŤ.',
@@ -1047,6 +1062,7 @@
     { term: 'Partia', text: 'Skupina živnostníkov, ktorá chodí na stavby spolu a má jeden týždenný výkaz. Fakturuje každý sám za seba.' },
     { term: 'Kontaktná osoba', text: 'Človek, ktorému živnostník zavolá, keď prvý deň nevie, kam ísť — kolega zo stavby alebo majster odberateľa. Je na infoliste.' },
     { term: 'Balík („Poslať všetko naraz")', text: 'Jedna správa so všetkými papiermi na nástup: infolist na stavbu a k ubytovaniu, objednávka, vzor faktúry a prázdny Stundennachweis.' },
+    { term: 'Archív', text: 'Miesto, kam sa odkladá to, čo už v zoznamoch nemá byť. V appke sa nič nemaže: „Archivovať" záznam len skryje a admin ho v Nastaveniach → Archív vie vrátiť späť aj s tým, čo sa archivovalo spolu s ním.' },
     { term: 'Výnimka', text: 'Admin vedome povolí, čo by appka inak nepustila (napríklad nasadenie bez dokladu). Vždy s dôvodom, ktorý zostane zapísaný.' },
   ];
 

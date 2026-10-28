@@ -109,6 +109,7 @@ exports.handler = async (event) => {
       .from('danubra_candidate_notes')
       .select('step_key, body')
       .eq('candidate_id', candidateId)
+      .is('archived_at', null)   // service role — archivované poznámky (migrácia 066) sa nečítajú
       .order('created_at', { ascending: true })
       .limit(50);
 
@@ -119,6 +120,7 @@ exports.handler = async (event) => {
 
     const [{ data: trade }, { data: existing }] = await Promise.all([
       supabase.from('danubra_trades').select('name_sk').eq('key', tradeKey || '').maybeSingle(),
+      // Zámerne aj s archivovanými: zahodený návrh sa nemá ponúknuť znova.
       supabase.from('danubra_call_chips').select('label, segment, trade_key')
         .or(`trade_key.is.null,trade_key.eq.${tradeKey || 'x'}`).limit(400),
     ]);

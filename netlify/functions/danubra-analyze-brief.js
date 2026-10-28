@@ -535,7 +535,9 @@ async function run(planId, { regen = false } = {}) {
   let otazky = 0;
   const tradeKey = planPatch.trade_key || plan.trade_key || null;
   if (Array.isArray(out.questions) && out.questions.length) {
-    // Čo už v databáze je, sa nepridáva druhýkrát — ani ako návrh.
+    // Čo už v databáze je, sa nepridáva druhýkrát — ani ako návrh. Zámerne
+    // aj s archivovanými (migrácia 066): otázku, ktorú niekto archivoval,
+    // model nemá ponúknuť znova.
     const { data: maju } = await supabase
       .from('danubra_screening_questions').select('question_sk').limit(1000);
     const znama = new Set((maju || []).map(q => String(q.question_sk || '').trim().toLowerCase()));

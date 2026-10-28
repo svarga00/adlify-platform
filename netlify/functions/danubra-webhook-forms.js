@@ -97,8 +97,9 @@ exports.handler = async (event) => {
     // ── Klient: nájdi alebo založ ──────────────────────────────────────────
     let client = null;
     if (email) {
+      // Service role — archivovaný klient (migrácia 066) sa nepoužije, vznikne nový.
       const { data: found } = await supabase.from('danubra_clients')
-        .select('*').ilike('email', email).limit(1);
+        .select('*').ilike('email', email).is('archived_at', null).limit(1);
       if (found && found.length) client = found[0];
     }
     if (!client && phone) {
@@ -106,7 +107,7 @@ exports.handler = async (event) => {
       const digits = String(phone).replace(/\D/g, '').slice(-9);
       if (digits) {
         const { data: found } = await supabase.from('danubra_clients')
-          .select('*').ilike('phone', `%${digits}%`).limit(1);
+          .select('*').ilike('phone', `%${digits}%`).is('archived_at', null).limit(1);
         if (found && found.length) client = found[0];
       }
       if (!client) {

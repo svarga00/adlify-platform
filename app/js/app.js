@@ -156,7 +156,10 @@ window.Danubra = {
                     ['compliance', 'Compliance', 'shield', 'staffing', null],
                     ['rules', 'Cenník a pravidlá', 'rules'],
                     ['members', 'Používatelia', 'clients'],
-                    ['mailboxes', 'E-mailové schránky', 'mail']]],
+                    ['mailboxes', 'E-mailové schránky', 'mail'],
+                    // Archivované záznamy (nič sa nemaže) — len admin.
+                    // Pozor: `archive` sú Dokumenty, toto je `archiv`.
+                    ['archiv', 'Archív', 'archive']]],
   ],
 
   // ── Čo ktorá obrazovka robí ──────────────────────────────────────────────
@@ -200,6 +203,7 @@ window.Danubra = {
     website: 'Weby punds.sk a punds.eu: čo z nich prišlo, kontakty, tím, fotky a všetky texty po jazykoch',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
     members: 'Kto smie do appky a na čo',
+    archiv: 'Archivované záznamy — nič sa nemaže; admin ich tu vie vrátiť späť',
     rules: 'Sadzby a prahy, ktoré vstupujú do výpočtov',
     settings: 'Fakturačné údaje, zapnuté agendy, číselné rady',
     active: 'Prebiehajúce pobyty',
@@ -365,7 +369,7 @@ window.Danubra = {
     // Fakturácia: vydané, prijaté, zálohy a banka — všetko o peniazoch.
     invoices: 'money', costs: 'money', advances: 'money', bank: 'money',
     trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
-    mailboxes: 'settings',
+    mailboxes: 'settings', archiv: 'settings',
     // Marketing: nové firmy, e-maily im, inzercia.
     website: 'leads', campaigns: 'leads', marketing: 'leads', printwork: 'leads',
   },
@@ -380,7 +384,7 @@ window.Danubra = {
     marketing: 'Inzercia a výdavky', leads: 'Nové firmy', campaigns: 'E-maily', printwork: 'Tlačoviny', website: 'Weby',
     money: 'Prehľad', invoices: 'Vydané', costs: 'Prijaté', advances: 'Zálohy a výplaty', bank: 'Banka',
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
-    mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné',
+    mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné', archiv: 'Archív',
   },
 
   // V rozbalenom menu by prvá položka mala rovnaký názov ako sekcia nad ňou.
@@ -401,7 +405,7 @@ window.Danubra = {
     advances: 'Čo dlhujeme ľuďom',
     bank: 'Výpis a platby',
     settings: 'Firma a pečiatka', trades: 'Otázky pri nábore', compliance: 'A1, Zoll, §48b',
-    rules: 'Sadzby a prahy', members: 'Kto smie do appky',
+    rules: 'Sadzby a prahy', members: 'Kto smie do appky', archiv: 'Vrátiť archivované',
   },
 
   allNav() { return this.navGroups.flatMap(g => g[1]); },

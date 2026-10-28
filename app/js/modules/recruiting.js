@@ -520,7 +520,7 @@
         ${r.transcript ? `<div class="form-section">Prepis</div>
           <div class="notebox" style="max-height:220px;overflow:auto;">${UI.esc(r.transcript)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Rec.delRecording('${r.id}')">Zmazať nahrávku</button>
+          <button class="btn btn-danger" onclick="Rec.delRecording('${r.id}')">${Icon('archive', 14)} Archivovať nahrávku</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${['uploaded', 'failed'].includes(r.status)
             ? `<span style="align-self:center;display:inline-flex;">${UI.tip('Spracovať = nahrávka sa prepíše na text a appka z neho vytiahne, čo sa sľúbilo. Trvá to chvíľu. Pri zlyhaní to môžete skúsiť znova.')}</span>
@@ -551,12 +551,13 @@
     },
 
     async delRecording(id) {
-      if (!await UI.confirm('Zmazať nahrávku aj s prepisom? Zachytené dohody ostanú zapísané.')) return;
-      const r = this.recordings.find(x => x.id === id);
-      if (r?.audio_path) await DB.removeCall(r.audio_path);
-      await DB.remove('call_recordings', id);
+      if (!await UI.confirmArchive('Presunúť nahrávku aj s prepisom do archívu? Zachytené dohody ostanú zapísané.')) return;
+      // Zvuk ostáva v úložisku (nič sa nemaže) — po vrátení z archívu sa
+      // nahrávka dá znova prehrať. Lehotu podľa súhlasu stráži denný cron.
+      const { error } = await DB.archive('call_recordings', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.recordings = this.recordings.filter(x => x.id !== id);
-      UI.closeModal(); UI.toast('Nahrávka zmazaná', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       Danubra.renderRoute();
     },
 

@@ -197,7 +197,7 @@
             tip: 'Webová adresa, kde je sken uložený (napr. Google Drive). Appka súbor nekopíruje, len si pamätá odkaz.' })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2, value: i.notes })}
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger" onclick="Cmp.del('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Cmp.del('${id}')">${Icon('archive', 14)} Archivovať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
@@ -216,10 +216,11 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať túto položku?')) return;
-      await DB.remove('compliance', id);
+      if (!await UI.confirmArchive('Presunúť túto položku do archívu?')) return;
+      const { error } = await DB.archive('compliance', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this.items = this.items.filter(x => x.id !== id);
-      UI.closeModal(); Danubra.renderRoute();
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok'); Danubra.renderRoute();
     },
   };
 

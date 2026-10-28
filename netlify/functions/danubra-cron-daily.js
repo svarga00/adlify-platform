@@ -67,6 +67,8 @@ async function tableExists(name) {
 
 /** Založí automatickú pripomienku, ak s rovnakým kľúčom ešte neexistuje. */
 async function upsertAutoTask(t) {
+  // Zámerne **bez** filtra na archived_at: úloha, ktorú človek archivoval,
+  // sa nemá vrátiť ďalší deň znova (a source_key je jedinečný aj tak).
   const { data: existing } = await supabase
     .from('danubra_tasks').select('id, status').eq('source_key', t.source_key).maybeSingle();
   if (existing) return false;
@@ -153,7 +155,9 @@ exports.handler = async (event) => {
     // ── 3. Inzeráty na obnovenie (do 7 dní) ─────────────────────────────────
     const { data: listings } = await supabase
       .from('danubra_marketing_listings').select('id, platform, renew_at')
-      .eq('status', 'active').lte('renew_at', addDays(today, 7));
+      .eq('status', 'active').lte('renew_at', addDays(today, 7))
+      // Service role obchádza RLS — archivované riadky (migrácia 066) treba vynechať ručne.
+      .is('archived_at', null);
     for (const l of listings || []) {
       await supabase.from('danubra_marketing_listings').update({ status: 'to_renew' }).eq('id', l.id);
       s.listings++;
@@ -179,10 +183,12 @@ exports.handler = async (event) => {
       const { data: docs } = await supabase
         .from('danubra_worker_documents')
         .select('id, worker_id, kind, valid_to')
-        .eq('kind', 'a1').not('valid_to', 'is', null).lte('valid_to', horizon);
+        .eq('kind', 'a1').not('valid_to', 'is', null).lte('valid_to', horizon)
+        .is('archived_at', null);
       for (const d of (docs || [])) {
         const { data: w } = await supabase
-          .from('danubra_workers').select('full_name, status').eq('id', d.worker_id).maybeSingle();
+          .from('danubra_workers').select('full_name, status').eq('id', d.worker_id)
+          .is('archived_at', null).maybeSingle();
         if (!w || !['ready', 'deployed'].includes(w.status)) continue;
         const expired = d.valid_to < today;
         await upsertAutoTask({
@@ -199,7 +205,8 @@ exports.handler = async (event) => {
       // firemné compliance položky pred koncom platnosti
       const { data: comp } = await supabase
         .from('danubra_compliance').select('id, kind, valid_to, scope')
-        .eq('scope', 'company').not('valid_to', 'is', null).lte('valid_to', horizon);
+        .eq('scope', 'company').not('valid_to', 'is', null).lte('valid_to', horizon)
+        .is('archived_at', null);
       const KIND_LABEL = {
         freistellung_48b: 'Freistellungsbescheinigung §48b', ust_idnr: 'USt-IdNr',
         soka_registration: 'Registrácia SOKA-BAU', handwerksrolle: 'Oznámenie §9 HwO',
@@ -219,7 +226,7 @@ exports.handler = async (event) => {
       // inzeráty na obnovenie
       const { data: lst } = await supabase
         .from('danubra_marketing_listings').select('id, platform, renew_at')
-        .eq('status', 'to_renew').not('renew_at', 'is', null);
+        .eq('status', 'to_renew').not('renew_at', 'is', null).is('archived_at', null);
       for (const l of (lst || [])) {
         await upsertAutoTask({
           source_key: `listing:${l.id}:${l.renew_at}`,
@@ -235,7 +242,7 @@ exports.handler = async (event) => {
       if (await tableExists('danubra_candidates')) {
         const { data: cands } = await supabase
           .from('danubra_candidates').select('id, full_name, received_at')
-          .eq('status', 'new').is('first_contact_at', null);
+          .eq('status', 'new').is('first_contact_at', null).is('archived_at', null);
         for (const c of (cands || [])) {
           await upsertAutoTask({
             source_key: `candidate:${c.id}`,
@@ -251,7 +258,8 @@ exports.handler = async (event) => {
 
     // ── 5. Expirované ponuky ────────────────────────────────────────────────
     const { data: offers } = await supabase
-      .from('danubra_offers').select('id').eq('status', 'sent').lt('valid_until', today);
+      .from('danubra_offers').select('id').eq('status', 'sent').lt('valid_until', today)
+      .is('archived_at', null);
     for (const o of offers || []) {
       await supabase.from('danubra_offers').update({ status: 'expired' }).eq('id', o.id);
       s.expiredOffers++;
@@ -264,14 +272,16 @@ exports.handler = async (event) => {
     if (await tableExists('danubra_recruitment_plans')) {
       const { data: plans } = await supabase
         .from('danubra_recruitment_plans')
-        .select('id, title, headcount, deadline, start_date').eq('status', 'active');
+        .select('id, title, headcount, deadline, start_date').eq('status', 'active')
+        .is('archived_at', null);
       for (const p of plans || []) {
         const due = p.deadline || p.start_date;
         if (!due) continue;
         const left = daysBetween(today, due);
         if (left > 10 || left < -30) continue;
         const { data: mine } = await supabase
-          .from('danubra_candidates').select('id, status').eq('plan_id', p.id);
+          .from('danubra_candidates').select('id, status').eq('plan_id', p.id)
+          .is('archived_at', null);
         const have = (mine || []).filter(c => ['ready', 'placed'].includes(c.status)).length;
         if (have >= (p.headcount || 0)) continue;
         await upsertAutoTask({
@@ -291,6 +301,8 @@ exports.handler = async (event) => {
     // Sľúbili sme, že nahrávku po dohodnutej lehote zmažeme — musí sa to stať
     // samo, nie „keď si niekto spomenie". Prepis a zachytené dohody ostávajú,
     // maže sa zvuk, teda ten najcitlivejší kus.
+    // Zámerne **bez** filtra na archived_at: lehota zo súhlasu platí aj pre
+    // archivovanú nahrávku — zvuk sa po nej musí zmazať tak či tak (GDPR).
     if (await tableExists('danubra_call_recordings')) {
       const { data: expired } = await supabase
         .from('danubra_call_recordings').select('id, audio_path')

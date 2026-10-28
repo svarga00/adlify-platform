@@ -123,7 +123,7 @@
         ${amen.length ? `<div class="chips">${amen.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
         ${a.notes ? `<div class="notebox">${UI.esc(a.notes)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Acc.del('${a.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Acc.del('${a.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" onclick="Acc.form('${a.id}')">Upraviť</button>
         </div>`;
@@ -205,10 +205,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať toto ubytovanie?')) return;
-      const { error } = await DB.remove('accommodations', id);
+      if (!await UI.confirmArchive('Presunúť toto ubytovanie do archívu?')) return;
+      const { error } = await DB.archive('accommodations', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
 

@@ -205,7 +205,8 @@
           <span class="lr-main"><strong>${UI.esc(p.full_name || '—')}</strong>
           ${p.phone ? `<span class="lr-sub">${UI.esc(p.phone)}</span>` : ''}</span>
           ${p.phone ? `<a class="btn btn-ghost btn-sm" href="tel:${UI.esc(p.phone.replace(/\\s/g, ''))}">${Icon('phone', 15)}</a>` : ''}
-          <button class="btn btn-ghost btn-sm btn-text-danger" onclick="Ord.delPerson('${p.id}')">${Icon('x', 15)}</button>
+          <button class="btn btn-ghost btn-sm btn-text-danger" title="Archivovať osobu" aria-label="Archivovať osobu"
+            onclick="Ord.delPerson('${p.id}')">${Icon('archive', 15)}</button>
         </div>`).join('') || '<div class="js-empty">Zatiaľ nikto nezapísaný.</div>'}
         <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Ord.addPerson()">${Icon('plus')} Pridať osobu</button></div>
 
@@ -376,8 +377,10 @@
     },
 
     async delPerson(id) {
-      if (!await UI.confirm('Odstrániť osobu zo zákazky?')) return;
-      await DB.remove('order_persons', id);
+      if (!await UI.confirmArchive('Presunúť osobu zo zákazky do archívu?')) return;
+      const { error } = await DB.archive('order_persons', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(UI.ARCHIVED, 'ok');
       await this._refresh();
     },
 

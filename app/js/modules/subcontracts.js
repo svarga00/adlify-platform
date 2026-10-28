@@ -425,7 +425,7 @@
         </details>
 
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
-          <button class="btn btn-ghost btn-sm btn-text-danger" onclick="Sub.del('${sc.id}')">Zmazať zákazku</button>
+          <button class="btn btn-ghost btn-sm btn-text-danger" onclick="Sub.del('${sc.id}')">${Icon('archive', 14)} Archivovať zákazku</button>
         </div>`;
 
       el.innerHTML = Danubra.header(sc.title,
@@ -913,8 +913,9 @@
                      <span>Doplniť polohu</span></button>`}
             </span>
           </span>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);"
-            onclick="Sub.delLodging('${l.lodging_id}')">${Icon('x', 15)}</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Archivovať ubytovanie zákazky"
+            aria-label="Archivovať ubytovanie zákazky"
+            onclick="Sub.delLodging('${l.lodging_id}')">${Icon('archive', 15)}</button>
           <div style="flex-basis:100%;">
             ${current.map(stayRow).join('')}
             ${past.length ? `<details class="more-block" style="margin-left:18px;">
@@ -1477,8 +1478,10 @@
 
     async delLodging(id) {
       const l = this.lodging.find(x => x.id === id);
-      if (!await UI.confirm('Odobrať toto ubytovanie zo zákazky?')) return;
-      await DB.remove('subcontract_accommodations', id);
+      if (!await UI.confirmArchive('Odobrať toto ubytovanie zo zákazky a presunúť ho do archívu?')) return;
+      const { error } = await DB.archive('subcontract_accommodations', id);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(UI.ARCHIVED, 'ok');
       this.lodging = this.lodging.filter(x => x.id !== id);
       await this.reloadStays();
     },
@@ -2041,10 +2044,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať túto zákazku aj s nasadeniami?')) return;
-      const { error } = await DB.remove('subcontracts', id);
+      if (!await UI.confirmArchive('Presunúť túto zákazku do archívu aj s nasadeniami?')) return;
+      const { error } = await DB.archive('subcontracts', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
   };

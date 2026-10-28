@@ -134,10 +134,12 @@ exports.handler = async (event) => {
     const p = s.params || {};
     const ids = Array.isArray(p.partner_ids) ? p.partner_ids.slice(0, 15) : [];
     const [{ data: partners }, { data: subs }, { data: leads }, { data: allP }] = await Promise.all([
-      ids.length ? supabase.from('danubra_partners').select('id,name,city,country').in('id', ids)
-        : supabase.from('danubra_partners').select('id,name,city,country').limit(15),
-      supabase.from('danubra_subcontracts').select('partner_id,trade,title').limit(1000),
+      // Service role obchádza RLS — archivované riadky (migrácia 066) sa vynechajú ručne.
+      ids.length ? supabase.from('danubra_partners').select('id,name,city,country').in('id', ids).is('archived_at', null)
+        : supabase.from('danubra_partners').select('id,name,city,country').is('archived_at', null).limit(15),
+      supabase.from('danubra_subcontracts').select('partner_id,trade,title').is('archived_at', null).limit(1000),
       supabase.from('danubra_leads').select('name').limit(5000),
+      // Zámerne aj s archivovanými: firmu, ktorú sme už mali, nenavrhovať ako novú.
       supabase.from('danubra_partners').select('name').limit(2000),
     ]);
     const refs = L.aiContext(partners || [], subs || []);

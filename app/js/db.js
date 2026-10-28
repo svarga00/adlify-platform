@@ -82,6 +82,13 @@
       return client.from(t(table)).update(payload).eq('id', id).select().single();
     },
 
+    // ── Archivácia — nič sa fyzicky nemaže ───────────────────────────────
+    // Pravidlo firmy: „nič sa fyzicky nemaže". Volá sa síce DELETE, ale
+    // databáza (migrácia 066, trigger BEFORE DELETE) ho premení na archiváciu:
+    // riadok dostane archived_at a RLS ho appke prestane ukazovať. Kaskádne
+    // deti sa archivujú spolu s ním. Ak naň odkazuje živý záznam, vráti sa
+    // chyba 23503 rovnako ako pri cudzom kľúči. Admin vie záznam vrátiť
+    // v Nastaveniach → Archív (RPC danubra_unarchive).
     async remove(table, id) {
       return client.from(t(table)).delete().eq('id', id);
     },
@@ -107,8 +114,11 @@
       return { url: data?.signedUrl || null, error };
     },
 
-    async removeCall(path) {
-      return client.storage.from(this.CALLS_BUCKET).remove([path]);
+    // Súbory ostávajú v úložisku — pravidlo „nič sa nemaže". Záznam
+    // o nahrávke sa len archivuje, a keď ho admin vráti, nahrávka musí
+    // byť stále tam. Volajúci môžu ďalej volať removeCall; nič nespraví.
+    async removeCall(_path) {
+      return { data: null, error: null };
     },
 
     // ── Úložisko dokladov ────────────────────────────────────────────────
@@ -145,8 +155,11 @@
       return { url: data?.signedUrl || null, error };
     },
 
-    async removeDoc(path) {
-      return client.storage.from(this.DOCS_BUCKET).remove([path]);
+    // Súbory ostávajú v úložisku — pravidlo „nič sa nemaže". Pri nahradení
+    // fotky či skenu starý súbor jednoducho ostane (nikam neodkazuje, ale
+    // nič sa nestratí); archivovaný doklad sa dá vrátiť aj so súborom.
+    async removeDoc(_path) {
+      return { data: null, error: null };
     },
 
     /**
@@ -184,4 +197,7 @@
       return client.rpc(t(name), args);
     },
   };
+
+  // Čitateľnejší názov pre to isté: DB.remove nič nemaže, archivuje.
+  window.DB.archive = window.DB.remove;
 })();

@@ -110,7 +110,7 @@
         ${r.note ? `<div class="notebox is-quote">Fakturačná poznámka: „${UI.esc(r.note)}"</div>` : ''}
         ${c.notes ? `<div class="notebox">${UI.esc(c.notes)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Cli.del('${c.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Cli.del('${c.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Cli.form('${c.id}')">Upraviť</button>
           <button class="btn btn-primary" onclick="Cli.invoice('${c.id}')">${Icon('receipt')} Vystaviť faktúru</button>${
@@ -189,10 +189,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tohto klienta?')) return;
-      const { error } = await DB.remove('clients', id);
+      if (!await UI.confirmArchive('Presunúť tohto klienta do archívu?')) return;
+      const { error } = await DB.archive('clients', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
   };

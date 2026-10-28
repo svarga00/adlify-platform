@@ -138,7 +138,7 @@
         <div id="match-panel">${UI.loading()}</div>
 
         <div class="modal-actions">
-          <button class="btn btn-danger" onclick="Inq.del('${i.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Inq.del('${i.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Inq.form('${i.id}')">Upraviť</button>
           <button class="btn btn-outline" onclick="Inq.invoice('${i.id}')">${Icon('receipt')} Faktúra</button>${
@@ -260,10 +260,10 @@
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tento dopyt?')) return;
-      const { error } = await DB.remove('inquiries', id);
+      if (!await UI.confirmArchive('Presunúť tento dopyt do archívu?')) return;
+      const { error } = await DB.archive('inquiries', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.closeModal(); UI.toast('Zmazané', 'ok');
+      UI.closeModal(); UI.toast(UI.ARCHIVED, 'ok');
       this.items = this.items.filter(x => x.id !== id); Danubra.renderRoute();
     },
   };

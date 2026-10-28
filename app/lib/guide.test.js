@@ -202,9 +202,16 @@ const SRC = [INDEX, APP,
 const tourSel = new Set((G.TOUR || []).map(t => t.selector));
 ok(tourSel.size === (G.TOUR || []).length, 'kroky sprievodcu sa neopakujú');
 
+// Nič sa nemaže (migrácia 066): admin musí vedieť, kde archivovaný záznam vráti.
+{
+  const admin = (G.CHAPTERS || []).find(c => c.key === 'admin');
+  ok(admin && admin.steps.some(s => s.open && s.open.route === 'archiv'),
+    'kapitola admina vedie na Archív (Nastavenia → Archív)');
+}
+
 // ── Slovníček ───────────────────────────────────────────────────────────────
-ok(Array.isArray(G.GLOSSARY) && G.GLOSSARY.length >= 12 && G.GLOSSARY.length <= 20,
-  'slovníček má 12 až 20 pojmov');
+ok(Array.isArray(G.GLOSSARY) && G.GLOSSARY.length >= 12 && G.GLOSSARY.length <= 22,
+  'slovníček má 12 až 22 pojmov');
 const terms = new Set();
 (G.GLOSSARY || []).forEach((g, i) => {
   ok(typeof g.term === 'string' && g.term.trim().length > 0, `slovníček ${i + 1}: má pojem`);
@@ -212,7 +219,7 @@ const terms = new Set();
   ok(!terms.has(g.term), `slovníček: „${g.term}" je len raz`);
   terms.add(g.term);
 });
-for (const p of ['A1', 'Stundennachweis', 'SOKA-BAU', 'Samofakturácia', 'Partia', 'Obdobie']) {
+for (const p of ['A1', 'Stundennachweis', 'SOKA-BAU', 'Samofakturácia', 'Partia', 'Obdobie', 'Archív']) {
   ok([...terms].some(t => t.includes(p)), `slovníček vysvetľuje „${p}"`);
 }
 
