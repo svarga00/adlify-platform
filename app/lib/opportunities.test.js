@@ -194,6 +194,8 @@ console.log('\nZ dopytu ponuka a zákazka');
   eq([q.title, q.partner_id, q.trade_key, q.headcount, q.site_city, q.date_from, q.charge_rate, q.worker_rate],
     ['Kotolňa Wörthsee', 'p2', 'zvarac', 4, 'Wörthsee', '2026-11-03', 34, 22],
     'ponuka prevezme odberateľa, profesiu, počet ľudí, miesto, termín a sadzby');
+  eq(O.toQuote({ id: 'o9', title: 'X' }).opportunity_id, 'o9', 'ponuka si pamätá, z ktorého dopytu je');
+  eq(O.toQuote({ title: 'X' }).opportunity_id, null, 'bez dopytu je väzba prázdna');
   eq(O.toQuote({ title: 'X' }).headcount, 1, 'bez počtu ľudí ponuka počíta s jedným');
   ok(/nie je medzi odberateľmi/.test(O.toQuote({ title: 'X', company_name: 'Nová GmbH' }).notes),
     'keď odberateľ nie je v zozname, ponuka to povie v poznámke');

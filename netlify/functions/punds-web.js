@@ -8,7 +8,8 @@
 // Ponuky čítame z appky (danubra_ads, len zverejnené na web). Prihlášky
 // a dopyty zapisuje ./punds-web-api.js do Kandidátov a Dopytov.
 //
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IP_HASH_SECRET (kľúč k odtlačku
+// IP adresy v zázname formulára — pozri web/api.js)
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
 const { handle } = require('../../web/server.js');
@@ -22,8 +23,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || 'missing'
 );
 const ads = loader(supabase);
-const notify = notifier(supabase);
 const contentRows = content.loader(supabase);
+// Kontakty v potvrdzovacích e-mailoch sú z toho istého obsahu ako na webe.
+const notify = notifier(supabase, { content: contentRows });
 
 exports.handler = async (event) => {
   const h = event.headers || {};

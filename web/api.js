@@ -9,6 +9,8 @@
 // dalo dohľadať, čo presne prišlo. Ochrana: pasca na roboty (pole
 // „website"), najviac 6 odoslaní z jednej adresy za 10 minút, povinný
 // súhlas, kontrola polí, len z našich stránok (Origin).
+// Osobné údaje v tomto zázname databáza po lehote anonymizuje (migrácia
+// 073, denný cron) — údaj sám je už v Kandidátoch alebo Dopytoch.
 // ============================================================================
 'use strict';
 
@@ -92,7 +94,34 @@ async function mailAfter(notify, o, supabase, logId) {
 }
 
 const MODEL = { werkvertrag: 'Werkvertrag', aueg: 'Arbeitnehmerüberlassung', open: 'noch offen' };
-const ipHash = (ip) => crypto.createHash('sha256').update(`punds-web:${String(ip || '').split(',')[0].trim()}`).digest('hex').slice(0, 32);
+
+// ── Odtlačok IP adresy (ochrana proti zahlteniu) ───────────────────────────
+// IP sa neukladá, len jej odtlačok — a ten musí byť s tajným kľúčom (HMAC).
+// Obyčajný SHA-256 sa dá spätne zistiť: IPv4 má len ~4 miliardy adries,
+// prejdú sa všetky za pár minút a odtlačok sa tak zmení späť na adresu.
+// Kľúč: IP_HASH_SECRET; kým nie je nastavený, iné tajomstvo, ktoré server
+// už má (MAIL_SECRET, kľúč service role). Bez akéhokoľvek tajomstva sa IP
+// neukladá vôbec (ip_hash = null) a limit odoslaní sa drží len v pamäti
+// funkcie. Zmena kľúča nič nepokazí — odtlačok sa porovnáva len 10 minút.
+const ipSecret = (env = process.env) => [env.IP_HASH_SECRET, env.MAIL_SECRET, env.SUPABASE_SERVICE_ROLE_KEY, env.SUPABASE_SERVICE_KEY]
+  .map((x) => String(x || '').trim()).find(Boolean) || null;
+const ipOf = (ip) => String(ip || '').split(',')[0].trim();
+/** HMAC-SHA256 adresy, alebo null (bez adresy alebo bez tajného kľúča). */
+function ipHash(ip, secret = ipSecret()) {
+  const a = ipOf(ip);
+  if (!a || !secret) return null;
+  return crypto.createHmac('sha256', secret).update(`punds-web:ip:${a}`).digest('hex').slice(0, 32);
+}
+let warnedNoSecret = false;
+/** Limit odoslaní bez databázy (keď sa odtlačok neukladá): len v pamäti tejto inštancie funkcie. */
+const MEM_HITS = new Map();
+function memCount(ip, nowMs, windowMs) {
+  const key = ipOf(ip);
+  const hits = (MEM_HITS.get(key) || []).filter((t) => t > nowMs - windowMs);
+  MEM_HITS.set(key, hits);
+  if (MEM_HITS.size > 5000) for (const [k, v] of MEM_HITS) if (!v.some((t) => t > nowMs - windowMs)) MEM_HITS.delete(k);
+  return { count: hits.length, add: () => hits.push(nowMs) };
+}
 
 /**
  * @param {Object} site  SITES.sk | SITES.eu
@@ -112,10 +141,21 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
   const v = validate(name, body);
   const hash = ipHash(req.ip);
   const spam = !!v.data.website;
-  const since = new Date(now().getTime() - 10 * 60 * 1000).toISOString();
-  const { count } = await supabase.from('danubra_web_submissions').select('id', { count: 'exact', head: true })
-    .eq('ip_hash', hash).gte('created_at', since);
-  if ((count || 0) >= 6) return json(429, { error: 'too many' });
+  const WINDOW = 10 * 60 * 1000;
+  if (hash) {
+    const since = new Date(now().getTime() - WINDOW).toISOString();
+    const { count } = await supabase.from('danubra_web_submissions').select('id', { count: 'exact', head: true })
+      .eq('ip_hash', hash).gte('created_at', since);
+    if ((count || 0) >= 6) return json(429, { error: 'too many' });
+  } else {
+    if (!ipSecret() && !warnedNoSecret) {
+      warnedNoSecret = true;
+      console.warn('[punds-web api] chýba IP_HASH_SECRET (ani iné tajomstvo) — IP adresa sa neukladá, limit odoslaní platí len v pamäti funkcie');
+    }
+    const mem = memCount(req.ip, now().getTime(), WINDOW);
+    if (mem.count >= 6) return json(429, { error: 'too many' });
+    mem.add();
+  }
 
   const { website, ...clean } = v.data;
   const log = { site: site.key, form: name, lang: v.data.lang, page: v.data.page, payload: clean, ip_hash: hash,
@@ -187,4 +227,4 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
   }
 }
 
-module.exports = { handle, validate, startDate, ipHash, ORIGIN_OK, FORMS };
+module.exports = { handle, validate, startDate, ipHash, ipSecret, ORIGIN_OK, FORMS };

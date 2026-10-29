@@ -22,7 +22,7 @@
     statusLabel(k) { const s = STATUS.find(x => x[0] === k); return s ? s[1] : (k || ''); },
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [], invoices: [],
     periods: [], crews: [], stays: [], occupancy: [], overrides: [],
-    assignmentChecks: [],
+    assignmentChecks: [], extensions: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
 
@@ -76,11 +76,14 @@
       ]);
       // Pre sedem krokov: z dopytu počet ľudí, zmluva s Nemcom a objednávky.
       // Keď niektorá tabuľka nie je dostupná (právo), krok len nepovie viac.
-      const [op, con, wo] = await Promise.all([
+      const [op, con, wo, ext] = await Promise.all([
         DB.list('opportunities', { select: 'id,title,company_name,subcontract_id,headcount,status,trade_key', limit: 1000 }),
         DB.list('contracts', { select: 'id,contract_number,title,status,signed_at,partner_id,kind', limit: 1000 }),
         DB.list('work_orders', { select: 'id,kind,status,order_number,their_ref,subcontract_id,assignment_id,worker_id', limit: 3000 }),
+        // Záznamy o predĺžení / zmene konca nasadení a zákaziek (migrácia 074).
+        DB.list('assignment_extensions', { order: { column: 'created_at', ascending: false }, limit: 3000 }),
       ]);
+      this.extensions = (ext && ext.data) || [];
       this.opportunities = (op && op.data) || [];
       this.contracts = (con && con.data) || [];
       this.workOrders = (wo && wo.data) || [];
@@ -530,7 +533,9 @@
               ? `<a class="link-chip" target="_blank" rel="noopener" href="${DanubraGeo.mapsUrl(sc.lat, sc.lng)}">${Icon('pin', 13)}<span>Poloha stavby</span></a>`
               : `<button class="link-chip" onclick="Sub.setCoords('${sc.id}')">${Icon('plus', 13)}<span>Doplniť polohu stavby</span></button>`}
           </div>
-          ${acts(b('btn-primary', `Sub.form('${sc.id}')`, 'edit', 'Upraviť údaje zákazky'))}`;
+          ${this.extHistoryHtml(this.extOf(sc.id, null), 'Zmeny konca zákazky')}
+          ${acts(b('btn-primary', `Sub.form('${sc.id}')`, 'edit', 'Upraviť údaje zákazky'),
+            b('btn-outline', `Sub.extendSc('${sc.id}')`, 'calendar', sc.date_to ? 'Predĺžiť / zmeniť koniec' : 'Zadať koniec zákazky'))}`;
       }
 
       if (key === 'ludia') {
@@ -554,8 +559,10 @@
               ${ovr.length ? UI.badge('s výnimkou', 'amber') : ''}
               <span style="color:var(--ink-mute);display:block;font-size:12px;">
                 ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
+              ${this.extHistoryHtml(this.extOf(sc.id, a.id), 'Zmeny konca')}
             </span>
             ${st === 'planned' ? b('btn-primary', `Sub.startForm('${a.id}')`, 'check', 'Nastúpil') : ''}
+            ${st !== 'ended' ? `<button class="btn btn-outline btn-sm" title="Predĺžiť alebo zmeniť koniec nasadenia — s dôvodom, zapíše sa do histórie" onclick="Sub.extendAsg('${a.id}')">${Icon('calendar', 14)} ${a.date_to ? 'Predĺžiť / zmeniť koniec' : 'Zadať koniec'}</button>` : ''}
             ${st === 'active' ? b('btn-outline', `Sub.endForm('${a.id}')`, 'logout', 'Odišiel') : ''}
             ${st !== 'ended' ? `<button class="btn btn-outline btn-sm" title="Záloha alebo platba pre neho" onclick="Sub.viaWrk('payMenu','${a.worker_id}')">${Icon('wallet', 14)} Záloha</button>` : ''}
             ${st === 'planned' ? `<button class="btn btn-ghost btn-sm btn-text-danger" title="Zrušiť nasadenie (nenastúpil)" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>` : ''}
@@ -563,7 +570,7 @@
         };
         return `${live.map(row).join('') || '<div class="js-empty">Zatiaľ nikto nie je nasadený.</div>'}
           ${live.length ? `<p class="card-note">Nasadený = priradený na túto stavbu. Nastúpil = naozaj začal robiť.
-            ${UI.tip('Keď človek v prvý deň naozaj príde na stavbu, kliknite pri ňom „Nastúpil". Až potom sa počíta medzi ľudí na stavbách a appka mu stráži hodiny a doklady. Keď zo stavby odíde, kliknite „Odišiel" — nič sa nezmaže, len sa zapíše posledný deň a dôvod.')}</p>` : ''}
+            ${UI.tip('Keď človek v prvý deň naozaj príde na stavbu, kliknite pri ňom „Nastúpil". Až potom sa počíta medzi ľudí na stavbách a appka mu stráži hodiny a doklady. Keď zo stavby odíde, kliknite „Odišiel" — nič sa nezmaže, len sa zapíše posledný deň a dôvod. „Predĺžiť / zmeniť koniec" = posunie plánovaný koniec nasadenia; appka sa spýta na dôvod a zmena zostane v histórii pri človeku.')}</p>` : ''}
           ${gone.length ? `<details class="more-block"><summary>Už odišli (${gone.length})</summary>${gone.map(row).join('')}</details>` : ''}
           ${acts(b('btn-primary', `Sub.addAsg('${sc.id}')`, 'plus', 'Nasadiť človeka'),
             b('btn-outline', `Sub.assignCrewForm('${sc.id}')`, 'workers', 'Nasadiť partiu'),
@@ -2010,6 +2017,131 @@
       await this.load(); this.detail(a.subcontract_id);
     },
 
+    // ── Predĺžiť / zmeniť koniec ──────────────────────────────────────────
+    // Pravidlo firmy: „zmena koncového dátumu = záznam predĺženia/dodatku".
+    // Koniec nasadenia ani zákazky sa preto neprepisuje vo formulári — mení
+    // sa tu, s dôvodom, a databáza (migrácia 074) zapíše pôvodný aj nový
+    // koniec do danubra_assignment_extensions v tej istej transakcii.
+    // Otvára sa ako otázka **nad** oknom, takže rozpísaný formulár zákazky
+    // pod ním zostane.
+
+    /** Záznamy o zmene konca: `asgId` = nasadenie, `null` = celá zákazka. */
+    extOf(scId, asgId) {
+      return (this.extensions || []).filter(e => e.subcontract_id === scId
+        && (asgId ? e.assignment_id === asgId : !e.assignment_id));
+    },
+
+    extHistoryHtml(list, title) {
+      if (!list || !list.length) return '';
+      const kto = (uid) => {
+        const m = uid && (Danubra.members || []).find(x => x.user_id === uid);
+        return m ? (m.full_name || m.email || '') : '';
+      };
+      const d = (x) => (x ? UI.date(x) : 'bez konca');
+      return `<details class="more-block ext-history"><summary>${Icon('calendar', 13)} ${UI.esc(title)} (${list.length})</summary>
+        ${list.map(e => `<div class="list-row" style="font-size:12.5px;align-items:flex-start;">
+          <span style="flex:1;min-width:0;">
+            <strong>${d(e.old_date_to)} → ${d(e.new_date_to)}</strong>
+            <span style="display:block;color:var(--ink-mute);">${UI.esc(e.reason || '')}</span>
+            <span style="display:block;color:var(--ink-mute);font-size:11.5px;">${UI.date(e.created_at)}${kto(e.created_by) ? ` · ${UI.esc(kto(e.created_by))}` : ''}</span>
+          </span></div>`).join('')}
+      </details>`;
+    },
+
+    _extError(error) {
+      const m = String((error && error.message) || error || '');
+      if (/function|schema cache|assignment_extensions/i.test(m) && /not|exist|find/i.test(m)) {
+        return UI.toast('Predĺženie ešte nie je v databáze zapnuté — treba spustiť migráciu 074.', 'err');
+      }
+      return UI.toast('Chyba: ' + m, 'err');
+    },
+
+    async _afterExt(scId) {
+      const [ext, a, s] = await Promise.all([
+        DB.list('assignment_extensions', { order: { column: 'created_at', ascending: false }, limit: 3000 }),
+        DB.list('assignments', { limit: 1000 }),
+        DB.list('subcontracts', { order: { column: 'created_at', ascending: false }, limit: 500 }),
+      ]);
+      if (ext.data) this.extensions = ext.data;
+      if (a.data) this.assignments = a.data;
+      if (s.data) this.items = s.data;
+      if (window.Wrk) Wrk.loaded = false;
+      if (window.Tms) Tms.loaded = false;
+      // Keď je otvorený formulár zákazky, len sa v ňom prepíše dátum —
+      // rozpísané zmeny v ňom zostanú (okno je nad obrazovkou, prekreslenie
+      // obrazovky pod ním ho nezavrie).
+      const box = document.getElementById('sub-form-dateto');
+      const sc = this.items.find(x => x.id === scId);
+      if (box && sc) box.textContent = UI.date(sc.date_to);
+      if (this.openId === scId) Danubra.renderRoute();
+    },
+
+    extendAsg(asgId) { return this._once('ext', () => this._extendAsg(asgId)); },
+    async _extendAsg(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
+      const w = this.workerOf(a.worker_id) || {};
+      const sc = this.items.find(x => x.id === a.subcontract_id) || {};
+      const v = await UI.askFields(a.date_to ? 'Predĺžiť / zmeniť koniec nasadenia' : 'Zadať koniec nasadenia',
+        `${w.full_name || 'Pracovník'}: ${a.date_to ? `doteraz koniec ${UI.date(a.date_to)}` : 'zatiaľ bez konca'}.`,
+        [
+          ['new_date_to', 'Nový koniec', { type: 'date', required: true, value: a.date_to || sc.date_to || '' }],
+          ['reason', 'Dôvod', { required: true,
+            placeholder: 'napr. odberateľ predĺžil objednávku do konca novembra',
+            hint: 'Zostane v histórii nasadenia spolu s pôvodným a novým koncom.' }],
+        ], { ok: 'Zapísať zmenu', hint: 'Koniec sa neprepisuje potichu — zmena sa zapíše ako záznam o predĺžení s dôvodom, kto a kedy.' });
+      if (!v) return;
+      if (String(v.reason || '').trim().length < 3) return UI.toast('Napíšte dôvod (aspoň pár slov)', 'err');
+      const zac = a.started_at || a.date_from;
+      if (zac && v.new_date_to < zac) return UI.toast(`Koniec nemôže byť pred začiatkom (${UI.date(zac)})`, 'err');
+      if (v.new_date_to === a.date_to) return UI.toast('Koniec je už taký — nič sa nemení', 'err');
+      const neskor = (this.timesheets || []).filter(t => t.assignment_id === a.id && t.work_date > v.new_date_to);
+      if (neskor.length && !await UI.confirm(`Po ${UI.date(v.new_date_to)} má zapísaných ${neskor.length} ${
+        Shell.plural(neskor.length, 'deň', 'dni', 'dní')} hodín. Skrátiť koniec aj tak?`, {
+        ok: 'Áno, skrátiť', danger: false,
+        hint: 'Hodiny sa nezmažú. Skontrolujte ich v Hodinách — možno má byť koniec neskôr.' })) return;
+
+      const { error } = await DB.rpc('extend_assignment', {
+        p_assignment_id: a.id, p_new_date_to: v.new_date_to, p_reason: v.reason });
+      if (error) return this._extError(error);
+      UI.toast(a.date_to && v.new_date_to > a.date_to ? 'Nasadenie je predĺžené' : 'Koniec nasadenia je zmenený', 'ok');
+      await this._afterExt(a.subcontract_id);
+    },
+
+    extendSc(scId) { return this._once('ext', () => this._extendSc(scId)); },
+    async _extendSc(scId) {
+      const sc = this.items.find(x => x.id === scId);
+      if (!sc) return UI.toast('Zákazka sa nenašla', 'err');
+      const spolu = sc.date_to ? this.asgOf(scId).filter(a => ['planned', 'active'].includes(a.status || 'planned')
+        && a.date_to === sc.date_to) : [];
+      const fields = [
+        ['new_date_to', 'Nový koniec zákazky', { type: 'date', required: true, value: sc.date_to || '' }],
+        ['reason', 'Dôvod', { required: true,
+          placeholder: 'napr. dodatok k objednávke, odberateľ pridal ďalšie poschodie',
+          hint: 'Zostane v histórii zákazky spolu s pôvodným a novým koncom.' }],
+      ];
+      if (spolu.length) {
+        fields.push(['with_asg', `Aj ${spolu.length} ${Shell.plural(spolu.length, 'nasadenie', 'nasadenia', 'nasadení')} s rovnakým koncom`, {
+          value: 'yes', options: [['yes', 'Áno, zmeniť koniec aj im'], ['no', 'Nie, len zákazke']],
+          hint: 'Nasadenia, ktoré končia inokedy než zákazka, sa nemenia — ten koniec niekto zadal zámerne.' }]);
+      }
+      const v = await UI.askFields(sc.date_to ? 'Predĺžiť / zmeniť koniec zákazky' : 'Zadať koniec zákazky',
+        `${sc.title || 'Zákazka'}: ${sc.date_to ? `doteraz koniec ${UI.date(sc.date_to)}` : 'zatiaľ bez konca'}.`,
+        fields, { ok: 'Zapísať zmenu', hint: 'Koniec sa neprepisuje potichu — zmena sa zapíše ako záznam o predĺžení s dôvodom, kto a kedy. Pri zmluve s odberateľom sa zmena podmienok zapisuje dodatkom zvlášť.' });
+      if (!v) return;
+      if (String(v.reason || '').trim().length < 3) return UI.toast('Napíšte dôvod (aspoň pár slov)', 'err');
+      if (sc.date_from && v.new_date_to < sc.date_from) return UI.toast(`Koniec nemôže byť pred začiatkom (${UI.date(sc.date_from)})`, 'err');
+      if (v.new_date_to === sc.date_to) return UI.toast('Koniec je už taký — nič sa nemení', 'err');
+
+      const { data, error } = await DB.rpc('extend_subcontract', {
+        p_subcontract_id: scId, p_new_date_to: v.new_date_to, p_reason: v.reason,
+        p_with_assignments: v.with_asg === 'yes' });
+      if (error) return this._extError(error);
+      const n = Number((data && data.assignments) || 0);
+      UI.toast(`Koniec zákazky je zmenený${n ? ` aj s ${n} ${Shell.plural(n, 'nasadením', 'nasadeniami', 'nasadeniami')}` : ''}`, 'ok');
+      await this._afterExt(scId);
+    },
+
     // ── Formulár zákazky ──────────────────────────────────────────────────
     // `pre` (voliteľné, len pri novej zákazke) = { values, onCreated(zákazka) }
     // — predvyplnenie odinakiaľ (napr. z dopytu) a čo spraviť po založení.
@@ -2031,7 +2163,11 @@
                 + 'Dielňa nič z toho — preto sa to nedá prepnúť „aby to prešlo".' })}
             ${UI.field('trade', 'Remeslo', { value: sc.trade })}
             ${UI.field('date_from', 'Od', { type: 'date', value: sc.date_from })}
-            ${UI.field('date_to', 'Do', { type: 'date', value: sc.date_to })}
+            ${id && sc.date_to ? `<div class="fld"><span>Do${UI.tip('Koniec zákazky sa neprepisuje — mení sa tlačidlom „Predĺžiť / zmeniť koniec". Appka sa spýta na dôvod a zmena zostane v histórii zákazky (pravidlo: zmena koncového dátumu = záznam o predĺžení).')}</span>
+                <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><strong id="sub-form-dateto">${UI.date(sc.date_to)}</strong>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="Sub.extendSc('${id}')">${Icon('calendar', 14)} Predĺžiť / zmeniť koniec</button></span></div>`
+              : UI.field('date_to', 'Do', { type: 'date', value: sc.date_to,
+                  hint: id ? 'Neskoršia zmena konca sa už zapisuje s dôvodom cez „Predĺžiť / zmeniť koniec".' : '' })}
           </div>
           <div class="form-section">Miesto výkonu</div>
           <div class="form-grid">

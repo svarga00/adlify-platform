@@ -7,18 +7,35 @@
 //
 // Odosiela sa cez SMTP firemnej schránky (rovnako ako zo Správ) a kópia
 // ide do jej priečinka Odoslané, takže je vidieť aj v Správach.
+//
+// Dve veci, nezávisle od seba:
+//   * upozornenie tímu — ide vždy, keď je zvolená schránka (adresa je
+//     notify_<web>, inak samotná schránka); bez neho by o novej prihláške
+//     nikto nevedel,
+//   * potvrdenie odosielateľovi — len keď je zapnuté (web.confirm)
+//     a odosielateľ zadal e-mail.
+// Telefón a WhatsApp v potvrdení sú z Kontaktov v appke (web/content.js),
+// rovnaké ako na webe.
 // ============================================================================
 'use strict';
 
-const MailComposer = require('nodemailer/lib/mail-composer');
 const emails = require('./emails');
+const content = require('./content');
 const { toJob } = require('./shared/jobs');
 const { rate, start, T: SKT } = require('./sk/common');
 
 const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('časový limit')), ms));
 
-function notifier(supabase) {
-  const srv = require('../app/lib/mail/server.js')(supabase);
+/**
+ * @param {Object} supabase  klient so service role
+ * @param {Object} [o]
+ * @param {Function} [o.content]  async () => riadky danubra_web_content (content.loader) — inak si ho založí sám
+ * @param {Object}   [o.srv]      náhrada app/lib/mail/server.js (testy)
+ * @param {Function} [o.send]     náhrada odoslania (mb, pass, mail) (testy)
+ */
+function notifier(supabase, { content: contentRows = null, srv = null, send: sendOverride = null } = {}) {
+  srv = srv || require('../app/lib/mail/server.js')(supabase);
+  const rows = contentRows || content.loader(supabase);
   let cfg = null, cfgAt = 0;
   const settings = async () => {
     if (!cfg || Date.now() - cfgAt > 60000) {
@@ -28,7 +45,8 @@ function notifier(supabase) {
     return cfg;
   };
 
-  async function send(mb, pass, { to, subject, html, text, replyTo }) {
+  async function smtpSend(mb, pass, { to, subject, html, text, replyTo }) {
+    const MailComposer = require('nodemailer/lib/mail-composer');
     const raw = await new MailComposer({
       from: { name: mb.display_name || 'punds', address: mb.email }, to, subject, html, text, replyTo,
     }).compile().build();
@@ -41,42 +59,55 @@ function notifier(supabase) {
       await client.logout();
     } catch (e) { /* bez kópie */ }
   }
+  const send = sendOverride || smtpSend;
 
   /**
    * @param {Object} o { site, kind: apply|contact|enquiry, data (validované polia), ad (riadok inzerátu), id }
-   * @returns {Promise<{ confirm: boolean, team: boolean, skipped?: string }>}
+   * @returns {Promise<{ confirm: boolean, team: boolean, skipped?: string, confirmError?: string, teamError?: string }>}
    */
   return async function notify({ site, kind, data, ad = null, id = '' }) {
     const w = await settings();
-    if (!w.confirm) return { confirm: false, team: false, skipped: 'vypnuté' };
     const mbId = w[`mailbox_${site.key}`];
     const mb = mbId ? await srv.mailbox(mbId) : null;
     if (!mb || !mb.active || !mb.secret_enc) return { confirm: false, team: false, skipped: 'bez schránky' };
     const pass = srv.password(mb);
-    const assets = `${process.env.URL || 'https://adlify-app.netlify.app'}/web/public`;
+    const base = process.env.URL || 'https://adlify-app.netlify.app';
+    const assets = `${base}/web/public`;
     const ref = String(id || '').replace(/-/g, '').slice(0, 6).toUpperCase();
     const res = { confirm: false, team: false };
 
-    let mail = null, job = null;
-    if (kind === 'enquiry') {
-      mail = emails.confirmEnquiry({ lang: data.lang === 'en' ? 'en' : 'de', trades: data.trades, headcount: data.headcount,
-        location: data.location, start: data.start, ref, assets, contact: { name: w.contact_eu || '', phone: w.phone_eu || '+421 910 523 958', email: mb.email } });
-    } else {
+    let job = null;
+    if (kind !== 'enquiry' && ad) {
       const lang = SKT[data.lang] ? data.lang : 'sk';
-      if (ad) {
-        const j = toJob(ad, lang);
-        job = { title: j.title, city: j.city, rate: rate(j), start: start(j, SKT[lang]), image: j.image };
-      }
-      mail = emails.confirmApply({ lang, name: data.name, job, ref, assets });
+      const j = toJob(ad, lang);
+      job = { title: j.title, city: j.city, rate: rate(j), start: start(j, SKT[lang]), image: j.image };
     }
-    if (data.email) {
-      try { await send(mb, pass, { to: data.email, ...mail }); res.confirm = true; } catch (e) { res.confirmError = String(e.message || e).slice(0, 200); }
-    }
+
+    const jobs = [];
+    // Upozornenie tímu — vždy (nezávisí od potvrdenia odosielateľovi).
     const teamTo = w[`notify_${site.key}`] || mb.email;
     if (teamTo) {
-      const t = emails.team({ kind, data, job, appUrl: `${process.env.URL || 'https://adlify-app.netlify.app'}/app/` });
-      try { await send(mb, pass, { to: teamTo, replyTo: data.email || undefined, ...t }); res.team = true; } catch (e) { res.teamError = String(e.message || e).slice(0, 200); }
+      const t = emails.team({ kind, data, job, appUrl: `${base}/app/` });
+      jobs.push(send(mb, pass, { to: teamTo, replyTo: data.email || undefined, ...t })
+        .then(() => { res.team = true; }, (e) => { res.teamError = String(e.message || e).slice(0, 200); }));
     }
+    // Potvrdenie odosielateľovi — len keď je zapnuté.
+    if (w.confirm && data.email) {
+      let c = null;
+      try { c = content.contactsOf(await rows()); } catch (e) { c = content.contactsOf({}); }
+      let mail;
+      if (kind === 'enquiry') {
+        mail = emails.confirmEnquiry({ lang: data.lang === 'en' ? 'en' : 'de', trades: data.trades, headcount: data.headcount,
+          location: data.location, start: data.start, ref, assets,
+          contact: { name: w.contact_eu || '', phone: String(w.phone_eu || '').trim() || c.eu.phone, email: mb.email } });
+      } else {
+        mail = emails.confirmApply({ lang: SKT[data.lang] ? data.lang : 'sk', name: data.name, job, ref, assets,
+          phone: c.sk.phone1, whatsapp: c.whatsapp });
+      }
+      jobs.push(send(mb, pass, { to: data.email, ...mail })
+        .then(() => { res.confirm = true; }, (e) => { res.confirmError = String(e.message || e).slice(0, 200); }));
+    } else if (!w.confirm) res.skippedConfirm = 'vypnuté';
+    await Promise.all(jobs);
     return res;
   };
 }

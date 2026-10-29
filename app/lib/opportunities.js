@@ -264,6 +264,9 @@
     const ludia = Number(opp.headcount) || null;
     return {
       title: opp.title || null,
+      // Väzba ponuky na dopyt (migrácia 074): pri dopyte je potom vidieť,
+      // aká ponuka z neho vznikla, a pri ponuke odkaz späť.
+      opportunity_id: opp.id || null,
       partner_id: partnerId || null,
       trade_key: opp.trade_key || null,
       headcount: ludia || 1,

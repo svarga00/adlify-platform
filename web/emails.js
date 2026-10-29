@@ -11,6 +11,10 @@
 
 const { esc } = require('./shared/h');
 const PROF = require('./shared/professions');
+// Telefón a WhatsApp v e-mailoch posiela web/notify.js z Kontaktov v appke
+// (Marketing → Weby), rovnako ako ich ukazuje web. Tu je len záloha.
+const { DEFAULTS: { contacts: DC } } = require('./content');
+const waDigits = (p) => String(p || '').replace(/\D/g, '');
 
 const INK = '#0E1626', OR = '#F07F1A', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC';
 const FONT = "'Hanken Grotesk',Arial,Helvetica,sans-serif", HEAD = "'Outfit',Arial,Helvetica,sans-serif";
@@ -71,10 +75,13 @@ const btn = (href, label, bg = OR) => `<table role="presentation" cellpadding="0
 
 /**
  * Potvrdenie prihlášky (punds.sk).
- * @param {Object} o { lang, name, job: { title, city, rate, start, image }, ref, assets, phone, whatsapp }
+ * @param {Object} o { lang, name, job: { title, city, rate, start, image }, ref, assets,
+ *   phone (hlavný telefón punds.sk), whatsapp (číslo v ľubovoľnom zápise) }
  */
-function confirmApply({ lang = 'sk', name = '', job = null, ref = '', assets, phone = '+421 910 523 958', whatsapp = '421910523858' } = {}) {
+function confirmApply({ lang = 'sk', name = '', job = null, ref = '', assets, phone = '', whatsapp = '' } = {}) {
   const t = L[lang] || L.sk;
+  phone = String(phone || '').trim() || DC.sk.phone1;
+  whatsapp = waDigits(whatsapp) || waDigits(DC.whatsapp);
   const first = String(name || '').trim().split(/\s+/)[0] || '';
   const card = job ? `<tr><td style="padding:6px 28px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:16px;overflow:hidden;"><tr>
     ${job.image ? `<td width="150" style="width:150px;vertical-align:top;"><img src="${esc(job.image)}" width="150" height="112" alt="" style="display:block;width:150px;height:112px;object-fit:cover;border:0;"></td>` : ''}

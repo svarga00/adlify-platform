@@ -105,7 +105,19 @@ window.UI = {
         </div>
         <div class="modal-body">${bodyHtml}</div>
       </div>`;
-    el.addEventListener('click', (e) => { if (e.target === el) this.closeModal(); });
+    // Polia, do ktorých človek naozaj písal. Zmena hodnoty z kódu (predvyplnenie)
+    // sa nepočíta — inak by sa appka pýtala „Zavrieť bez uloženia?" aj pri
+    // okne, v ktorom sa nič neurobilo.
+    el._touched = new WeakSet();
+    const touch = (e) => { if (e.target && e.target.closest && e.target.closest('form')) el._touched.add(e.target); };
+    el.addEventListener('input', touch, true);
+    el.addEventListener('change', touch, true);
+    // Klik na pozadie zavrie okno len vtedy, keď aj začal na pozadí. Inak by
+    // označenie textu v poli ťahaním myši von z okna zavrelo rozpísaný formulár.
+    el.addEventListener('mousedown', (e) => { el._downOnBackdrop = e.target === el; });
+    el.addEventListener('click', (e) => {
+      if (e.target === el && el._downOnBackdrop !== false) this.dismissModal();
+    });
     document.body.appendChild(el);
     document.body.style.overflow = 'hidden';
     return el;
@@ -113,6 +125,62 @@ window.UI = {
   closeModal() {
     document.getElementById('ui-modal')?.remove();
     if (!document.getElementById('ui-ask')) document.body.style.overflow = '';
+  },
+
+  /**
+   * Je v otvorenom okne neuložená zmena? Pole sa počíta, keď je vo formulári,
+   * človek doň písal a jeho hodnota je iná ako pri otvorení (napíše a zmaže
+   * = žiadna zmena). Okno bez formulára (detail, zoznam) nie je nikdy „rozpísané".
+   */
+  modalDirty(el = document.getElementById('ui-modal')) {
+    if (!el || !el._touched) return false;
+    return Array.from(el.querySelectorAll('form input, form textarea, form select')).some((f) => {
+      if (!el._touched.has(f)) return false;
+      if (f.tagName === 'SELECT') return Array.from(f.options).some(o => o.selected !== o.defaultSelected);
+      if (f.type === 'checkbox' || f.type === 'radio') return f.checked !== f.defaultChecked;
+      return f.value !== f.defaultValue;
+    });
+  },
+
+  /**
+   * Zavretie „mimochodom" — Esc alebo klik na pozadie. Keď je vo formulári
+   * neuložená zmena, najprv sa opýta (krížik a „Zrušiť" zatvárajú hneď, tie
+   * stláča človek zámerne). @returns {Promise<boolean>} zavrelo sa?
+   */
+  async dismissModal() {
+    const el = document.getElementById('ui-modal');
+    if (!el) return false;
+    if (this.modalDirty(el)) {
+      const yes = await this.confirm('Zavrieť bez uloženia?', {
+        hint: 'Vo formulári sú zmeny, ktoré ešte nie sú uložené. Po zavretí sa stratia.',
+        ok: 'Zavrieť bez uloženia', cancel: 'Pokračovať v úprave',
+      });
+      if (!yes) return false;
+    }
+    // Medzitým sa mohlo otvoriť iné okno — zatvára sa len to, na ktoré sa pýtalo.
+    if (document.getElementById('ui-modal') !== el) return false;
+    this.closeModal();
+    return true;
+  },
+
+  /**
+   * Esc zatvorí najvrchnejšie okno — a len to jedno. Nad oknom môže byť
+   * otáznik, potvrdenie, sprievodca, ponuka v menu alebo výsledky hľadania;
+   * tie majú vlastné Esc, takže okno pod nimi zostane. Beží na `window`
+   * vo fáze zachytenia, teda skôr než ich obsluha, a vidí, čo je otvorené.
+   */
+  _escBind() {
+    if (this._escBound || typeof window === 'undefined' || !window.addEventListener) return;
+    this._escBound = true;
+    const above = ['ui-tip', 'ui-ask', 'tour', 'guide', 'nav-fly', 'gs-pop', 'mega'];
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || e.isComposing || e.repeat) return;
+      if (!document.getElementById('ui-modal')) return;
+      if (above.some(id => document.getElementById(id))) return;
+      if (window.Danubra && Danubra.bellOpen) return;
+      e.preventDefault();
+      this.dismissModal();
+    }, true);
   },
 
   // ── Otázka a potvrdenie ───────────────────────────────────────────────────
@@ -247,7 +315,8 @@ window.UI = {
         resolve(val);
       };
       const keys = (e) => {
-        if (e.key === 'Escape') { e.preventDefault(); done(o.empty); }
+        // Otvorený otáznik v okne zavrie Esc sám (`_tipBind`) a okno zostane.
+        if (e.key === 'Escape') { if (!e.defaultPrevented) { e.preventDefault(); done(o.empty); } return; }
         // V jednoriadkovom poli je Enter potvrdenie; vo viacriadkovom je to
         // nový riadok, tam sa potvrdzuje tlačidlom.
         if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
@@ -413,7 +482,10 @@ window.UI = {
     document.addEventListener('focusout', (e) => {
       if (e.target.classList && e.target.classList.contains('tip-btn')) this._tipHide();
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._tipHide(); });
+    // Esc zavrie najprv len otáznik — potvrdenie alebo okno pod ním zostane.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._tipBtn) { e.preventDefault(); this._tipHide(); }
+    });
     window.addEventListener('scroll', () => this._tipHide(), true);
   },
 
@@ -433,6 +505,7 @@ window.UI = {
   },
 };
 window.UI._tipBind();
+window.UI._escBind();
 
 // Klikateľný <div>/<span>/<tr> s role="button" sa dá stlačiť aj z klávesnice
 // (Enter, medzerník) — rovnako ako skutočné tlačidlo. Len keď je fokus priamo

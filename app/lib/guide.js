@@ -119,6 +119,18 @@
           example: null,
         },
         {
+          title: 'Okná: Esc a rozpísaný formulár',
+          what: 'Formuláre a detaily sa otvárajú v okne nad obrazovkou. Okno sa dá zavrieť klávesom Esc — a rozpísané sa pri tom nestratí potichu.',
+          how: [
+            'Okno zavriete krížikom vpravo hore, tlačidlom „Zrušiť", klávesom Esc alebo kliknutím vedľa okna.',
+            'Keď je vo formulári neuložená zmena, appka sa po Esc alebo kliknutí vedľa okna najprv spýta „Zavrieť bez uloženia?".',
+            'Keď je nad oknom otázka alebo otvorený otáznik, Esc zavrie najprv len ten — okno pod ním zostane.',
+          ],
+          open: null,
+          tip: null,
+          example: null,
+        },
+        {
           title: 'Zvonček — čo sa stalo',
           what: 'Zvonček v hornom pruhu hovorí, čo sa stalo, kým ste sa nepozerali: doklad vypršal, faktúra je po splatnosti, ozval sa kandidát.',
           how: [
@@ -212,6 +224,7 @@
             '„Založiť zákazku" otvorí novú zákazku predvyplnenú z dopytu. Po uložení je zákazka s dopytom prepojená a dopyt prejde na „Vyhrali sme".',
             '„Spraviť z toho nábor" — keď ľudí treba hľadať. Nábor vznikne ako koncept, nič sa nezverejní. Ďalej pokračujte v kapitole 3.',
             'Ak odberateľ ešte nemá kartu, appka sa spýta, či ju má založiť z údajov dopytu.',
+            'Ponuky, ktoré z dopytu vznikli, sú hneď pod tým v zozname „Ponuky z tohto dopytu" (číslo, stav, sadzba). Kliknutím sa otvorí ponuka; v ponuke vedie odkaz „Z dopytu" späť.',
           ],
           open: open('opportunities', 'Otvoriť Dopyty'),
           tip: 'Zákazku zakladajte z dopytu, nie od nuly. Iba tak zákazka vie, koľko ľudí odberateľ chce, a krok 2 to ukáže.',
@@ -438,6 +451,19 @@
             + 'Bez platných dokladov to appka nepustí — výnimku smie zapísať len admin. Aspoň jeden nasadený má byť predák. '
             + 'Kým nekliknete „Nastúpil", človek sa nepočíta medzi ľudí na stavbe.',
           example: 'Jakub Novotný je nasadený na Klinikum Nord od dňa nástupu, sadzba pre odberateľa 37 €/h.',
+        },
+        {
+          title: 'Predĺžiť alebo zmeniť koniec nasadenia',
+          what: 'Koniec nasadenia ani zákazky sa neprepisuje vo formulári. Každá zmena konca je záznam: pôvodný koniec, nový koniec, dôvod, kto a kedy.',
+          how: [
+            'Otvorte zákazku a krok 2 „Ľudia". Pri človeku kliknite „Predĺžiť / zmeniť koniec".',
+            'Zadajte „Nový koniec" a „Dôvod" (napríklad dodatok k objednávke) a kliknite „Zapísať zmenu".',
+            'História je pri človeku pod „Zmeny konca" — rozbaľte ju kliknutím.',
+            'Koniec celej zákazky sa mení v kroku 1 tlačidlom „Predĺžiť / zmeniť koniec". Appka ponúkne zmeniť rovnako aj nasadenia, ktoré končili spolu so zákazkou.',
+          ],
+          open: open('subcontracts', 'Otvoriť Zákazky'),
+          tip: 'Keď človek zo stavby odchádza skôr, použite „Odišiel" — to je odchod, nie zmena plánu. Pri zmluve s odberateľom sa koniec mení dodatkom.',
+          example: null,
         },
         {
           title: 'Nasadiť partiu',
