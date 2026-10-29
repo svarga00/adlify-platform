@@ -40,6 +40,15 @@ console.log('Prijaté faktúry a náklady');
   eq(B.expected({ ...ctx, worker_id: 'w9', period_id: 'per1' }).expected, 0,
     'cudzí človek má nulu, nie null');
 
+  // Zaokrúhľuje sa raz, na konci — ako trigger danubra_bill_check().
+  // 4 × 7,25 h × 15,50 € = 449,50 €, nie 4 × 112,38 = 449,52 €.
+  const stvrte = [1, 2, 3, 4].map(i => ({ assignment_id: 'a1', worker_id: 'w1', period_id: 'per1',
+    hours: 7.25, approved: true, rate_used: 15.5, work_date: `2026-09-0${i}` }));
+  eq(B.expected({ ...ctx, worker_id: 'w1', period_id: 'per1', timesheets: stvrte }).expected, 44950,
+    'polovičné centy sa nesčítavajú zaokrúhlené po riadkoch');
+  eq(B.check({ worker_id: 'w1', period_id: 'per1', amount: 449.5 },
+    { ...ctx, timesheets: stvrte }).matches, true, 'faktúra na 449,50 € sedí — rovnako ako v databáze');
+
   // Zmrazená sadzba z uzávierky má prednosť.
   eq(M.format(B.expected({
     ...ctx, worker_id: 'w1', period_id: 'per1',

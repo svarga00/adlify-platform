@@ -15,6 +15,9 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Len prihlásený člen appky — inak by cez túto adresu mohol ktokoľvek posielať
+// SMS na účet firmy (a v jej mene).
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 // ── Adaptéry poskytovateľov ─────────────────────────────────────────────────
 const ADAPTERS = {
@@ -52,6 +55,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   try {
     const { to, body, country = 'SK', stripDia = true, entity, template } =

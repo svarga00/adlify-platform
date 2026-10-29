@@ -256,7 +256,8 @@
     async revoke(id) {
       const reason = await UI.ask('Dôvod odvolania súhlasu:');
       if (reason === null) return;
-      await DB.update('consents', id, { revoked_at: new Date().toISOString(), revoke_reason: reason || null });
+      const { error } = await DB.update('consents', id, { revoked_at: new Date().toISOString(), revoke_reason: reason || null });
+      if (error) return UI.toast('Odvolanie sa neuložilo: ' + error.message, 'err');
       UI.toast('Súhlas odvolaný — súvisiace nahrávky treba zmazať', 'ok');
       await this.load(); Danubra.renderRoute();
     },
@@ -531,8 +532,9 @@
     async setPromiseStatus(id, status) {
       const patch = { status };
       if (status === 'fulfilled') patch.fulfilled_at = new Date().toISOString();
-      await DB.update('promises', id, patch);
-      const p = this.promises.find(x => x.id === id); if (p) Object.assign(p, patch);
+      const { error } = await DB.update('promises', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const p =this.promises.find(x => x.id === id); if (p) Object.assign(p, patch);
       UI.toast('Uložené', 'ok');
     },
 

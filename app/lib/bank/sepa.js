@@ -163,6 +163,10 @@
   // ale nie všetky — bez nej sa platba neodmietne nikde.
   const latin = (s) => String(s || '').replace(/[\u2012-\u2015]/g, '-').replace(/[\u201E\u201C\u201D]/g, "'")
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    // ß, Ł, Đ sa rozkladom diakritiky nerozložia a padli by na medzeru
+    // („Straße" → „Stra e"). Nemecké názvy firiem ich majú bežne.
+    .replace(/ß/g, 'ss').replace(/ẞ/g, 'SS').replace(/Ł/g, 'L').replace(/ł/g, 'l')
+    .replace(/Đ/g, 'D').replace(/đ/g, 'd')
     .replace(/[^A-Za-z0-9/\-?:().,'+ ]/g, ' ').replace(/\s+/g, ' ').trim();
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -262,8 +266,28 @@
    * Keď sa IBAN na faktúre líši od toho, čo má živnostník v appke, platba
    * sa ponúkne, ale s upozornením — o tom rozhoduje človek, nie appka.
    */
-  function billPayments(bills = [], workers = []) {
+  /**
+   * Čo platbu nepustí do súboru bez toho, aby to človek videl a zaškrtol sám.
+   * Nie je to prekážka (`problems`), len dôvod, prečo nie je predvolene
+   * zaškrtnutá:
+   *   • IBAN na faktúre je iný než u živnostníka — podvrhnutá faktúra alebo
+   *     zle prečítané číslo; peniaze by odišli cudziemu,
+   *   • živnostník má nevyrovnanú zálohu — appka sľubuje, že sa odpočíta
+   *     z najbližšej faktúry, ale súbor by poslal celú sumu,
+   *   • príkaz na túto faktúru už raz pripravený bol — faktúra je schválená,
+   *     kým sa nespáruje s výpisom, a druhý súbor by ju zaplatil dvakrát.
+   *
+   * @param {Array} bills
+   * @param {Array} workers
+   * @param {Object} [o] { advances }  zálohy (nevyrovnané sa odpočítavajú)
+   */
+  function billPayments(bills = [], workers = [], o = {}) {
     const w = new Map((workers || []).map(x => [x.id, x]));
+    const zalohy = new Map();
+    for (const a of ((o && o.advances) || [])) {
+      if (!a || !a.worker_id || a.voided_at || a.settled_at || a.settled_bill_id || a.archived_at) continue;
+      zalohy.set(a.worker_id, (zalohy.get(a.worker_id) || 0) + M.toCents(a.amount));
+    }
     return (bills || []).filter(b => b && b.status === 'approved').map(b => {
       const wk = b.worker_id ? w.get(b.worker_id) : null;
       const ibanBill = X.ibanClean(b.supplier_iban), ibanW = X.ibanClean(wk && wk.bank_iban);
@@ -274,8 +298,11 @@
         iban: ibanBill || ibanW || '', cents: M.toCents(b.amount), vs,
         message: `Faktura ${b.bill_number || ''}`.trim(), due: b.due_date || null,
         ibanDiffers: !!(ibanBill && ibanW && ibanBill !== ibanW),
+        advanceOpen: (b.worker_id && zalohy.get(b.worker_id)) || 0,
+        orderedAt: b.payment_ordered_at || null,
       };
       p.problems = checkPayment(p);
+      p.preselect = !p.problems.length && !p.ibanDiffers && !p.advanceOpen && !p.orderedAt;
       return p;
     });
   }

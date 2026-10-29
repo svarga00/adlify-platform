@@ -593,7 +593,8 @@ t('zmluvy číslujú cez databázu',
   sandbox.Con && /danubra_next_number/.test(String(sandbox.Con.nextNumber)));
 // Dodatok sa zapisuje pred úpravou zmluvy — opačné poradie trigger odmietne.
 t('dodatok sa zapisuje pred úpravou zmluvy', sandbox.Con && (() => {
-  const src = String(sandbox.Con.saveAmendment);
+  // saveAmendment je poistka proti dvojkliku, zápis robí _saveAmendment.
+  const src = String(sandbox.Con._saveAmendment || sandbox.Con.saveAmendment);
   return src.indexOf("insert('contract_amendments'") < src.indexOf("update('contracts'");
 })());
 
@@ -627,7 +628,7 @@ t('uzávierka ide cez databázu',
 t('otvorenie späť pýta dôvod',
   sandbox.Sub && /p_reason/.test(String(sandbox.Sub.reopenPeriod)));
 t('partia sa nasadzuje jednou operáciou',
-  sandbox.Sub && /rpc\('assign_crew'/.test(String(sandbox.Sub.assignCrew)));
+  sandbox.Sub && /rpc\('assign_crew'/.test(String(sandbox.Sub._assignCrew || sandbox.Sub.assignCrew)));
 
 // ── Vydaná faktúra ─────────────────────────────────────────────────────────
 const Ivc = sandbox.DanubraInvoice;
@@ -655,6 +656,21 @@ t('v prehliadači nie je kľúč SuperFaktúry',
     fs.readFileSync(path.join(root, f), 'utf8'))));
 t('vystavenie ide cez serverovú funkciu',
   sandbox.Inv && /netlify\/functions\/danubra-sf-invoice/.test(String(sandbox.Inv.sfAction)));
+// Peniaze vo formulári a vo v1 faktúre: centy, nie floaty; dátumy bez UTC posunu.
+t('suma riadku vo formulári = suma, ktorá sa uloží (1,5 × 10,01 = 15,02)',
+  sandbox.Inv && sandbox.Inv.rowMoney({ quantity: 1.5, unit_price: 10.01 }) === 15.02);
+t('súčet položiek v1 faktúry je v centoch (150,10 + 20,20 = 170,30)',
+  sandbox.Invoicing && sandbox.Invoicing._sum([{ total: 150.1 }, { total: 20.2 }]) === 170.3);
+t('splatnosť cez prechod na letný čas nie je o deň kratšia',
+  sandbox.Invoicing && sandbox.Invoicing._plusDays(14, '2026-03-20') === '2026-04-03');
+t('dvojklik na vystavenie v SuperFaktúre pošle len jednu požiadavku',
+  sandbox.Inv && /_sfBusy/.test(String(sandbox.Inv.sfAction)));
+// Príkazy na úhradu: zálohy a už pripravený príkaz sa berú do úvahy.
+t('platby pre banku vedia o nevyrovnaných zálohách',
+  sandbox.Bank && /advances/.test(String(sandbox.Bank.payForm)) && /preselect/.test(String(sandbox.Bank.payForm)));
+t('po stiahnutí súboru sa pri faktúrach zapíše, že príkaz odišiel',
+  sandbox.Bank && /payment_ordered_at/.test(String(sandbox.Bank.markOrdered))
+  && /markOrdered/.test(String(sandbox.Bank.payDownload)));
 
 // ── Prijaté faktúry a náklady ──────────────────────────────────────────────
 const Bl = sandbox.DanubraBills;

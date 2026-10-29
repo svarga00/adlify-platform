@@ -153,5 +153,17 @@ console.log('Obdobia');
     'otvorený začiatok');
 }
 
+// ── Dnešný deň podľa miestnych hodín, nie UTC ──────────────────────────────
+{
+  const povodne = process.env.TZ;
+  process.env.TZ = 'Europe/Bratislava';
+  // 31. 10. 23:30 UTC je na Slovensku už 1. 11. 0:30.
+  const polnoc = new Date('2026-10-31T23:30:00Z');
+  eq(P.localDay(polnoc), '2026-11-01', 'po polnoci je už nový deň, aj keď UTC hovorí včera');
+  eq(polnoc.toISOString().slice(0, 10), '2026-10-31', '(toISOString by vrátil včerajšok)');
+  eq(P.range('month', P.localDay(polnoc)).from, '2026-11-01', 'a „tento mesiac" je november');
+  if (povodne === undefined) delete process.env.TZ; else process.env.TZ = povodne;
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

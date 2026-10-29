@@ -137,10 +137,20 @@ console.log('Vydaná faktúra');
   });
   eq(noVat.ok, false, 'reverse charge bez USt-IdNr blokuje');
   ok(noVat.reasons.some(r => r.rule === 'invoice_no_ustidnr'), 'a pomenuje sa');
-  eq(I.reviewBeforeApproval({
+  // Nemeckému odberateľovi vždy reverse charge a vždy s USt-IdNr — prepnutím
+  // režimu na „bežný" sa povinnosť obísť nedá.
+  const std = I.reviewBeforeApproval({
     invoice: { ...INV, vat_regime: 'standard' },
     partner: { ...PARTNER, ust_idnr: null }, subcontract: SUB, period: PERIOD,
-  }).ok, true, 'pri bežnom režime USt-IdNr netreba');
+  });
+  eq(std.ok, false, 'ani pri bežnom režime sa bez USt-IdNr neschváli');
+  ok(std.reasons.some(r => r.rule === 'invoice_no_ustidnr'), 'chýbajúce USt-IdNr sa pomenuje');
+  ok(std.reasons.some(r => r.rule === 'invoice_not_reverse_charge'), 'a aj to, že faktúra nie je reverse charge');
+  ok(I.reviewBeforeApproval({ invoice: { ...INV, vat_regime: 'standard' }, partner: PARTNER,
+    subcontract: SUB, period: PERIOD }).reasons.some(r => r.rule === 'invoice_not_reverse_charge'),
+  'bežný režim blokuje aj s USt-IdNr');
+  ok(!I.reviewBeforeApproval({ invoice: INV, partner: PARTNER, subcontract: SUB, period: PERIOD })
+    .reasons.some(r => r.rule === 'invoice_not_reverse_charge'), 'reverse charge je v poriadku');
 
   // Suma faktúry musí sedieť s podkladom — rozdiel znamená ručný zásah.
   const mismatch = I.reviewBeforeApproval({
@@ -210,10 +220,11 @@ console.log('Vydaná faktúra');
   eq(p.InvoiceSetting.language, 'deu', 'doklad pre partnera je po nemecky');
   eq(p.Invoice.variable, '2026042', 'variabilný symbol na párovanie s bankou');
 
-  // Bežný režim → DPH namiesto nuly.
+  // Nie sme platiteľ DPH: do SuperFaktúry nikdy nejde sadzba 20 %. Inak by
+  // doklad v SuperFaktúre vyšiel na 1,2-násobok sumy v appke.
   const std = I.sfPayload({ invoice: { ...INV, vat_regime: 'standard' },
     partner: PARTNER, subcontract: SUB, period: PERIOD });
-  eq(std.InvoiceItem[0].tax, 20, 'bez reverse charge sa účtuje DPH');
+  eq(std.InvoiceItem[0].tax, 0, 'ani bez reverse charge sa DPH nepripočíta');
   ok(!String(std.Invoice.comment || '').includes('§13b'), 'a veta §13b tam nie je');
 
   // Keď zaokrúhlenie sadzby rozhodí súčet, ide paušálna položka s presnou

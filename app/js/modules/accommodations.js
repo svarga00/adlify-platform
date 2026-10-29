@@ -131,7 +131,8 @@
     },
 
     async setVerif(id, status) {
-      await DB.update('accommodations', id, { verification_status: status, last_contact_at: new Date().toISOString() });
+      const { error } = await DB.update('accommodations', id, { verification_status: status, last_contact_at: new Date().toISOString() });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       const it = this.items.find(x => x.id === id); if (it) it.verification_status = status;
       UI.toast('Stav uložený', 'ok');
     },

@@ -230,7 +230,8 @@
 
     /** Skryť zo zoznamu — v schránke na serveri e-mail zostáva, nič sa nemaže. */
     async hide(id) {
-      await DB.update('mail_messages', id, { archived_at: new Date().toISOString() });
+      const { error } = await DB.update('mail_messages', id, { archived_at: new Date().toISOString() });
+      if (error) return UI.toast('Nepodarilo sa skryť: ' + error.message, 'err');
       this.messages = this.messages.filter(x => x.id !== id);
       this.openId = null; Danubra.renderRoute();
     },
@@ -425,7 +426,7 @@
         const k = col[s.dataset.type];
         const list = this.messages.filter(m => m[k] === s.dataset.id).slice(0, 30);
         const napisat = this.boxes.length && s.dataset.email
-          ? `<button class="btn btn-outline btn-sm" onclick="Mail.compose({to:'${UI.esc(s.dataset.email)}',links:{${k}:'${s.dataset.id}'}})">${Icon('mail', 14)} Napísať e-mail</button>` : '';
+          ? `<button class="btn btn-outline btn-sm" data-to="${UI.esc(s.dataset.email)}" data-id="${UI.esc(s.dataset.id)}" onclick="Mail.compose({to:this.dataset.to,links:{${k}:this.dataset.id}})">${Icon('mail', 14)} Napísať e-mail</button>` : '';
         s.innerHTML = (list.length ? list.map(m => `<button class="mail-row${m.seen ? '' : ' unread'}" onclick="Danubra.go('mail');setTimeout(()=>{Mail.box='${m.mailbox_id}';Mail.folder='${m.direction}';Mail.open('${m.id}')},300)">
           <span class="mail-row-top"><b>${Icon(m.direction === 'out' ? 'upload' : 'download', 13)} ${UI.esc(m.subject || '(bez predmetu)')}</b><time>${UI.esc(this.shortDate(m.sent_at))}</time></span>
           <span class="mail-row-snip">${UI.esc(m.snippet || '')}</span></button>`).join('')

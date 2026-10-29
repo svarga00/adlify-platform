@@ -36,6 +36,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Platený model + zápis do náboru — len prihlásený člen appky.
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 // Na dlhé texty do šiestich kanálov treba model, ktorý píše — nie najmenší.
 const MODEL = process.env.CLAUDE_MODEL_TEXT || 'claude-sonnet-5-5';
@@ -607,6 +609,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
   try {
     const { planId, regen } = JSON.parse(event.body || '{}');
     return { statusCode: 200, headers: cors, body: JSON.stringify(await run(planId, { regen: !!regen })) };
@@ -617,3 +621,4 @@ exports.handler = async (event) => {
 
 exports.run = run;
 exports.setJob = setJob;
+exports.guard = guard;

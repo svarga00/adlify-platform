@@ -734,8 +734,8 @@
               ${d.storage_path
                 ? `<button class="link-chip" onclick="Wrk.preview('${d.id}')">${Icon('search', 13)}<span>Náhľad</span></button>
                    <button class="link-chip" onclick="Wrk.openScan('${d.id}')">${Icon('doc', 13)}<span>Otvoriť</span></button>`
-                : d.file_url
-                  ? `<a class="link-chip" href="${UI.esc(d.file_url)}" target="_blank" rel="noopener noreferrer">${Icon('doc', 13)}<span>Otvoriť súbor</span></a>`
+                : UI.safeUrl(d.file_url)
+                  ? `<a class="link-chip" href="${UI.safeUrl(d.file_url)}" target="_blank" rel="noopener noreferrer">${Icon('doc', 13)}<span>Otvoriť súbor</span></a>`
                   // Doklad bez súboru sa pri nasadení neráta (migrácia 067) —
                   // preto to nie je nenápadný odkaz, ale výrazné tlačidlo.
                   : `<label class="btn btn-sm scan-missing">${Icon('alert', 14)}<span>Chýba sken — nahrať</span>
@@ -1078,7 +1078,9 @@
     },
 
     async setStatus(id, status) {
-      await DB.update('workers', id, { status });
+      // Chyba z databázy sa doteraz zahodila a appka hlásila „Stav uložený".
+      const { error } = await DB.update('workers', id, { status });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       const w = this.items.find(x => x.id === id); if (w) w.status = status;
       UI.toast('Stav uložený', 'ok');
     },

@@ -275,7 +275,14 @@
         </form>`, { wide: true });
     },
 
-    async save(id, kind, form) {
+    // Dvojklik na „Založiť" pridelil dve čísla a založil dve objednávky.
+    save(id, kind, form) {
+      if (this._saving) return undefined;
+      this._saving = true;
+      return this._save(id, kind, form).finally(() => { this._saving = false; });
+    },
+
+    async _save(id, kind, form) {
       const v = UI.formData(form);
       const k = v.kind || kind;
       const num = (x) => (x === '' || x == null ? null : Number(x));

@@ -72,7 +72,7 @@
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${UI.esc(c.name)}</div>
-              <div class="acc-loc">${c.contact_person ? UI.esc(c.contact_person) + ' · ' : ''}${c.country || ''}${c.retainer ? ' · retainer' : ''}</div>
+              <div class="acc-loc">${c.contact_person ? UI.esc(c.contact_person) + ' · ' : ''}${UI.esc(c.country || '')}${c.retainer ? ' · retainer' : ''}</div>
             </div>
             ${this.typeBadge(c.type)}
           </div>

@@ -33,9 +33,14 @@ exports.handler = async (event) => {
   try { if (event.rawUrl) raw = new URL(event.rawUrl).pathname; } catch (e) { /* bez rawUrl */ }
   const cand = [event.path, raw, h['x-nf-original-path']].filter(Boolean);
   let path = cand.find((p) => /^\/punds-(sk|eu)(\/|$)/.test(p)) || cand.find((p) => !p.startsWith('/.netlify/')) || '/';
-  const host = h['x-forwarded-host'] || h.host || '';
-  // Edge funkcia punds-host posiela pôvodný host (punds.sk) v hlavičke.
-  const origHost = h['x-punds-host'] || host;
+  // Host rozhoduje, či ide o ostrý web (bez noindex, bez ukážkových ponúk)
+  // a stránka sa potom drží v CDN. Hlavičku, ktorú si môže poslať ktokoľvek
+  // (x-punds-host — edge funkcia ju nenastavuje), preto neberieme: inak by
+  // stačila jedna požiadavka, aby CDN podávala na punds.sk stránku s noindex.
+  // Skutočný Host je vždy jedna z domén tohto webu na Netlify.
+  const PROD_HOSTS = ['punds.sk', 'www.punds.sk', 'punds.eu', 'www.punds.eu'];
+  const bare = (x) => String(x || '').toLowerCase().split(':')[0];
+  const origHost = [h.host, h['x-forwarded-host']].find((x) => PROD_HOSTS.includes(bare(x))) || h.host || h['x-forwarded-host'] || '';
   const res = await handle({
     method: event.httpMethod, host: origHost, path, query: event.queryStringParameters || {},
     body: event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || ''),

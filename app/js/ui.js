@@ -5,6 +5,16 @@ window.UI = {
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   },
 
+  /**
+   * Odkaz zadaný rukou (inzerát, súbor, web) do `href`. `esc` nestačí:
+   * „javascript:…" je platný text a po kliknutí by sa spustil v appke.
+   * Prejde len http(s), mailto a tel; iné vráti prázdne. Výsledok je escapovaný.
+   */
+  safeUrl(u) {
+    const s = String(u == null ? '' : u).trim();
+    return /^(https?:\/\/|mailto:|tel:)/i.test(s) ? this.esc(s) : '';
+  },
+
   toast(msg, kind = '') {
     const el = document.getElementById('toast');
     el.textContent = msg;

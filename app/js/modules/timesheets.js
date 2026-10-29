@@ -476,10 +476,24 @@
       UI.modal('Jeden deň inej práce', body, { wide: true });
     },
 
+    // Dvojklik na „Zapísať" vložil ten istý deň dvakrát. Kým beží zápis,
+    // druhý sa nespustí.
     async save() {
+      if (this._saving) return;
+      this._saving = true;
+      try { await this._save(); } finally { this._saving = false; }
+    },
+
+    async _save() {
       const d = UI.formData(document.getElementById('tms-form'));
       const a = this.asgOf(d.assignment_id);
       if (!a) return UI.toast('Vyberte nasadenie', 'err');
+      if (Number(d.hours) > 24) return UI.toast('Viac ako 24 hodín za deň sa zapísať nedá', 'err');
+      // Hodiny mimo nasadenia patria inému nasadeniu (alebo žiadnemu) — inak
+      // sa fakturujú sadzbou nasadenia, ktoré v ten deň neplatilo.
+      if (d.work_date && ((a.date_from && d.work_date < a.date_from) || (a.date_to && d.work_date > a.date_to))) {
+        return UI.toast(`Dátum je mimo nasadenia (${UI.dateRange(a.date_from, a.date_to)})`, 'err');
+      }
       const payload = {
         assignment_id: d.assignment_id, worker_id: a.worker_id,
         work_date: d.work_date, hours: Number(d.hours),
@@ -499,7 +513,10 @@
       const t = this.items.find(x => x.id === id);
       if (!t) return;
       const on = !t.approved;
-      await DB.update('timesheets', id, { approved: on, approved_at: on ? new Date().toISOString() : null });
+      // Chyba z databázy (napr. hodiny v uzavretom období) sa doteraz zahodila
+      // a fajka sa prepla, hoci sa nič neuložilo.
+      const { error } = await DB.update('timesheets', id, { approved: on, approved_at: on ? new Date().toISOString() : null });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       t.approved = on;
       Danubra.renderRoute();
     },

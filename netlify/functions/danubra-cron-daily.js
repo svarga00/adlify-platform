@@ -142,7 +142,10 @@ exports.handler = async (event) => {
     // ── 2. Faktúry po splatnosti ────────────────────────────────────────────
     const { data: late } = await supabase
       .from('danubra_invoices').select('id, invoice_number, client_id, due_date, order_id')
-      .eq('status', 'issued').lt('due_date', today);
+      // Vystavené aj odoslané — odoslaná je pri faktúrach v2 najčastejší
+      // stav a bez nej sa „po splatnosti" ukázalo, až keď niekto otvoril
+      // obrazovku Faktúry (DanubraInvoice.becameOverdue robí to isté).
+      .in('status', ['issued', 'sent']).lt('due_date', today);
     for (const inv of late || []) {
       await supabase.from('danubra_invoices').update({ status: 'overdue' }).eq('id', inv.id);
       if (inv.order_id) {

@@ -32,8 +32,12 @@
   function expected(o = {}) {
     if (!o.period_id || !o.worker_id) return { hours: null, expected: null };
     const byId = new Map((o.assignments || []).map(a => [a.id, a]));
-    let hours = 0, cents = 0;
+    let hours = 0, micro = 0;   // v desaťtisícinách centu
 
+    // Ako trigger danubra_bill_check(): súčet hodín × sadzba sa zaokrúhli
+    // raz, na konci — nie pri každom výkaze. Inak 4 × 7,25 h × 15,50 € dalo
+    // tu 449,52 € (4 × 112,38), v databáze 449,50 € a obrazovka hlásila spor,
+    // ktorý databáza nevidela.
     for (const t of (o.timesheets || [])) {
       if (!t || t.period_id !== o.period_id || t.worker_id !== o.worker_id) continue;
       if (!t.approved) continue;
@@ -43,9 +47,9 @@
           : (a.worker_rate != null ? a.worker_rate : (o.worker && o.worker.hourly_cost)));
       const h = Number(t.hours) || 0;
       hours += h;
-      cents += M.mul(rate, h);
+      micro += M.mul(rate * 10000, h);
     }
-    return { hours, expected: cents };
+    return { hours, expected: Number(M.divRound(BigInt(micro), 10000n)) };
   }
 
   /**

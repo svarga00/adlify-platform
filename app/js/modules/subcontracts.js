@@ -30,6 +30,17 @@
     // obdobia aj compliance. Dá sa na ňu odkázať cez `#/subcontracts/<id>`.
     openId: null,
 
+    // ── Dvojklik = jeden zápis ────────────────────────────────────────────
+    // „Nasadiť", „Nastúpil", „Ubytovať", „Nasadiť partiu" zapisovali pri
+    // dvojkliku dvakrát (dve nasadenia toho istého človeka, dva pobyty).
+    // Kým beží jeden zápis s daným kľúčom, ďalší sa nespustí.
+    _busy: {},
+    async _once(key, fn) {
+      if (this._busy[key]) return undefined;
+      this._busy[key] = true;
+      try { return await fn(); } finally { this._busy[key] = false; }
+    },
+
     async load() {
       const [s, p, a, w, wd, c, ovr] = await Promise.all([
         DB.list('subcontracts', { order: { column: 'created_at', ascending: false }, limit: 500 }),
@@ -1128,7 +1139,8 @@
         </form>`);
     },
 
-    async saveStay(lodgingId) {
+    saveStay(lodgingId) { return this._once('stay', () => this._saveStay(lodgingId)); },
+    async _saveStay(lodgingId) {
       const d = UI.formData(document.getElementById('stay-form'));
       if (!d.worker_id) return UI.toast('Vyberte človeka', 'err');
       const { error } = await DB.insert('stays', {
@@ -1228,7 +1240,9 @@
       const patch = { status };
       if (status === 'won') patch.won_at = new Date().toISOString();
       if (status === 'completed') patch.completed_at = new Date().toISOString();
-      await DB.update('subcontracts', id, patch);
+      // Chyba z databázy sa doteraz zahodila a appka hlásila „Stav uložený".
+      const { error } = await DB.update('subcontracts', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(sc, patch);
       UI.toast('Stav uložený', 'ok');
       this.detail(id);
@@ -1238,7 +1252,10 @@
       const ref = await UI.ask('Meldungs-ID z meldeportal-mindestlohn.de:');
       if (ref === null) return;
       const patch = { zoll_reported_at: new Date().toISOString(), zoll_reference: ref || null };
-      await DB.update('subcontracts', id, patch);
+      // Hlásenie Zoll je podmienka nasadenia — keď sa neuloží, nesmie to
+      // vyzerať, že je zapísané.
+      const { error } = await DB.update('subcontracts', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(this.items.find(x => x.id === id), patch);
       UI.toast('Hlásenie zaznamenané', 'ok');
       this.detail(id);
@@ -1552,7 +1569,8 @@
     async saveTransport(scId) {
       const d = UI.formData(document.getElementById('tr-form'));
       const patch = { transport_note: d.transport_note || null, transport_provided: !!d.transport_provided };
-      await DB.update('subcontracts', scId, patch);
+      const { error } = await DB.update('subcontracts', scId, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(this.items.find(x => x.id === scId), patch);
       UI.toast('Uložené', 'ok');
       this.detail(scId);
@@ -1670,7 +1688,8 @@
       if (this._cur) this.detail(this._cur.id);
     },
 
-    async saveAsg(scId) {
+    saveAsg(scId) { return this._once('asg', () => this._saveAsg(scId)); },
+    async _saveAsg(scId) {
       const d = UI.formData(document.getElementById('asg-form'));
 
       // Databáza to odmietne aj tak (trigger z migrácie 033). Zastaviť to už
@@ -1894,7 +1913,8 @@
         </form>`, { wide: true });
     },
 
-    async saveStart(asgId) {
+    saveStart(asgId) { return this._once('start', () => this._saveStart(asgId)); },
+    async _saveStart(asgId) {
       const a = this.assignments.find(x => x.id === asgId);
       if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
       const d = UI.formData(document.getElementById('asg-form'));
@@ -1903,9 +1923,9 @@
       if (den > Danubra._dayISO()) return UI.toast('Nastúpiť sa dá najneskôr dnes — budúci nástup je ešte len nasadenie', 'err');
 
       // Rovnaké pravidlo ako pri nasadení: bez platných dokladov len so
-      // zapísanou výnimkou administrátora. Databáza zmenu stavu sama znova
-      // neposudzuje (trigger z migrácie 033 kontroluje zmenu človeka alebo
-      // dátumu), takže tu je to jediná stráž — a musí platiť.
+      // zapísanou výnimkou administrátora. Od migrácie 071 to pri zmene na
+      // „nastúpil" drží aj databáza (k dňu nástupu); tu je to preto, aby to
+      // človek videl hneď a mal po ruke výnimku.
       const r = this.asgReadiness(a.subcontract_id, a.worker_id, den);
       if (r) {
         const v = Shell.evaluate([...r.ready.reasons, ...r.ready.warnings],
@@ -1958,7 +1978,8 @@
         </form>`);
     },
 
-    async saveEnd(asgId) {
+    saveEnd(asgId) { return this._once('end', () => this._saveEnd(asgId)); },
+    async _saveEnd(asgId) {
       const a = this.assignments.find(x => x.id === asgId);
       if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
       const d = UI.formData(document.getElementById('asg-end'));
@@ -2173,6 +2194,7 @@
       const rev = DanubraPeriods.review({
         timesheets: this.timesheetsOf(scId),
         assignments: this.asgOf(scId),
+        workers: this.workers,
         from: p.period_from, to: p.period_to,
       });
       const pv = rev.preview;
@@ -2275,7 +2297,8 @@
       UI.modal('Nasadiť celú partiu', body, { wide: true });
     },
 
-    async assignCrew(scId) {
+    assignCrew(scId) { return this._once('crew', () => this._assignCrew(scId)); },
+    async _assignCrew(scId) {
       const d = UI.formData(document.getElementById('ac-form'));
       if (!d.crew_id) return UI.toast('Vyberte partiu', 'err');
       const num = (v) => (v === '' || v == null ? null : Number(v));

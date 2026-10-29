@@ -113,27 +113,33 @@ function applyTexts(siteKey, rows) {
 const digits = (p) => String(p || '').replace(/[^\d+]/g, '');
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Náhrady idú do hotového HTML bez escapovania (aj do atribútov a JSON),
+// preto sa pustí len hodnota, ktorá je naozaj telefón / e-mail / https adresa.
+const PHONE_OK = /^\+?[\d][\d ()/.-]{4,30}$/;
+const MAIL_OK = /^[^\s@"'<>&\\]+@[^\s@"'<>&\\]+\.[a-z]{2,}$/i;
+const URL_OK = /^https:\/\/[^\s"'<>\\`]+$/;
+
 /** Zoznam náhrad [[z, na]] pre web podľa nastavení kontaktov a fotiek. */
 function replacements(siteKey, rows) {
   const c = rows.contacts || {};
   const pairs = [];
   const phone = (from, to) => {
-    if (!to || to === from) return;
+    if (!to || to === from || !PHONE_OK.test(String(to).trim())) return;
     pairs.push([from, to], [`tel:${digits(from)}`, `tel:${digits(to)}`]);
   };
   const D = DEFAULTS.contacts;
   if (siteKey === 'sk') {
     phone(D.sk.phone1, c.sk && c.sk.phone1);
     phone(D.sk.phone2, c.sk && c.sk.phone2);
-    if (c.sk && c.sk.email && c.sk.email !== D.sk.email) pairs.push([D.sk.email, c.sk.email]);
+    if (c.sk && c.sk.email && c.sk.email !== D.sk.email && MAIL_OK.test(c.sk.email)) pairs.push([D.sk.email, c.sk.email]);
   } else {
     phone(D.eu.phone, c.eu && c.eu.phone);
-    if (c.eu && c.eu.email && c.eu.email !== D.eu.email) pairs.push([D.eu.email, c.eu.email]);
+    if (c.eu && c.eu.email && c.eu.email !== D.eu.email && MAIL_OK.test(c.eu.email)) pairs.push([D.eu.email, c.eu.email]);
   }
-  if (c.whatsapp && digits(c.whatsapp) !== digits(D.whatsapp)) {
+  if (c.whatsapp && digits(c.whatsapp) !== digits(D.whatsapp) && PHONE_OK.test(String(c.whatsapp).trim())) {
     pairs.push([`wa.me/${digits(D.whatsapp).replace('+', '')}`, `wa.me/${digits(c.whatsapp).replace('+', '')}`]);
   }
-  for (const [from, to] of Object.entries(rows.images || {})) if (to && /^https:\/\//.test(to) && to !== from) pairs.push([from, to]);
+  for (const [from, to] of Object.entries(rows.images || {})) if (typeof to === 'string' && URL_OK.test(to) && to !== from) pairs.push([from, to]);
   return pairs;
 }
 function postProcess(html, pairs) {

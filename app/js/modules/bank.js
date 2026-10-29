@@ -422,11 +422,13 @@
   // appka sama nič neodošle. Logika je v lib/bank/sepa.js.
   Object.assign(Bank, {
     async payForm() {
-      const [{ data: bills }, { data: workers }] = await Promise.all([
+      const [{ data: bills }, { data: workers }, { data: advances }] = await Promise.all([
         DB.list('bills', { limit: 1000 }),
         DB.list('workers', { select: 'id,full_name,company_name,bank_iban', limit: 1000 }),
+        // Nevyrovnané zálohy — kto ju má, tomu sa platba sama nezaškrtne.
+        DB.list('advances', { limit: 2000 }),
       ]);
-      const list = DanubraSepa.billPayments(bills || [], workers || [])
+      const list = DanubraSepa.billPayments(bills || [], workers || [], { advances: advances || [] })
         .sort((a, b) => String(a.due || '9999').localeCompare(String(b.due || '9999')));
       this._pay = list;
       const s = Danubra.supplier() || {};
@@ -442,12 +444,14 @@
       }
       const riadok = (p, i) => `
         <label class="pay-row${p.problems.length ? ' is-bad' : ''}">
-          <input type="checkbox" name="pay" value="${i}" ${p.problems.length ? 'disabled' : 'checked'}
+          <input type="checkbox" name="pay" value="${i}" ${p.problems.length ? 'disabled' : p.preselect ? 'checked' : ''}
             onchange="Bank.payTotal()">
           <span class="pay-who"><b>${UI.esc(p.name || '—')}</b>
             <em>${UI.esc(p.iban || 'bez IBAN-u')}${p.vs ? ` · VS ${UI.esc(p.vs)}` : ''}${p.due ? ` · splatná ${UI.date(p.due)}` : ''}</em>
             ${p.problems.length ? `<em class="pay-bad">${Icon('alert', 12)} ${UI.esc(p.problems.join(', '))} — doplňte v prijatej faktúre</em>` : ''}
-            ${p.ibanDiffers ? `<em class="pay-bad">${Icon('alert', 12)} IBAN na faktúre je iný než u živnostníka v appke — overte si ho</em>` : ''}</span>
+            ${p.ibanDiffers ? `<em class="pay-bad">${Icon('alert', 12)} IBAN na faktúre je iný než u živnostníka v appke — overte si ho, preto nie je zaškrtnutá</em>` : ''}
+            ${p.advanceOpen ? `<em class="pay-bad">${Icon('alert', 12)} Má nevyrovnané zálohy ${Money.format(p.advanceOpen)} — odpočítajte ich, súbor by poslal celú sumu</em>` : ''}
+            ${p.orderedAt ? `<em class="pay-bad">${Icon('alert', 12)} Príkaz na túto faktúru už bol pripravený ${UI.date(p.orderedAt)} — overte v banke, či neodišla, inak ju zaplatíte dvakrát</em>` : ''}</span>
           <strong>${Money.format(p.cents)}</strong>
         </label>`;
       UI.modal('Pripraviť platby', `
@@ -499,6 +503,22 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       UI.closeModal();
       UI.toast(`Súbor s ${r.count} ${Shell.plural(r.count, 'platbou', 'platbami', 'platbami')} (${Money.format(r.cents)}) je stiahnutý — nahrajte ho v banke`, 'ok');
+      this.markOrdered(sel.filter(p => !(p.problems || []).length).map(p => p.id));
+    },
+
+    /**
+     * Zapíše k faktúram, že príkaz na ne už odišiel do súboru (migrácia 070).
+     * Faktúra zostáva „schválená", kým sa nespáruje s výpisom — bez tejto
+     * značky by ju ďalší súbor ponúkol zaplatiť znova.
+     */
+    async markOrdered(ids) {
+      const at = new Date().toISOString();
+      const res = await Promise.all((ids || []).map(id => DB.update('bills', id, { payment_ordered_at: at })));
+      const chyba = res.find(x => x && x.error);
+      if (chyba) {
+        UI.toast('Súbor je stiahnutý, ale pri faktúrach sa nezapísalo, že príkaz už odišiel: '
+          + chyba.error.message, 'err');
+      }
     },
   });
 

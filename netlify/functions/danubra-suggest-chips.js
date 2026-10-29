@@ -20,6 +20,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
+// Číta poznámky ku kandidátovi a volá platený model — len člen appky.
+const guard = require('../../app/lib/server-guard.js')(supabase);
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 const SEGMENTS = ['intro', 'trade', 'verify', 'legal', 'logistics', 'money'];
@@ -96,10 +98,15 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   try {
-    const { candidateId, tradeKey } = JSON.parse(event.body || '{}');
+    const { candidateId, tradeKey: rawTrade } = JSON.parse(event.body || '{}');
     if (!candidateId) throw new Error('Chýba candidateId');
+    // Kľúč remesla ide do filtra `.or(...)` — len písmená, číslice, _ a -,
+    // inak by sa doň dala vpašovať ďalšia podmienka.
+    const tradeKey = /^[a-z0-9_-]{1,40}$/i.test(String(rawTrade || '')) ? String(rawTrade) : null;
     if (!process.env.ANTHROPIC_API_KEY) {
       // bez kľúča to nie je chyba, len sa nič nenavrhne
       return { statusCode: 200, headers: cors, body: JSON.stringify({ created: 0, skipped: 'no_api_key' }) };

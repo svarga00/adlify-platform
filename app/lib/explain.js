@@ -848,7 +848,7 @@
       ],
       how: [
         'Cieľ zo zadania je ozvať sa do desiatich minút od ozvania. Po desiatich '
-        + 'minútach veta zčervená.',
+        + 'minútach veta sčervenie.',
       ],
       why: [
         'Pod vetou je priebeh piatich fáz náboru. Je to to isté, čo ukazuje „Ako to ide" '
@@ -1155,8 +1155,8 @@
         + 'odberateľovi aj kontrola faktúry od živnostníka.',
       ],
       how: [
-        'Neschválené hodiny sa do podkladu nedostanú — nie sú stratené, pôjdu do '
-        + 'nasledujúceho obdobia. Ale v tomto mesiaci sa za ne nevyfakturuje.',
+        'Neschválené hodiny sa do podkladu nedostanú. Schváľte ich pred uzavretím '
+        + 'obdobia — po uzavretí sa do faktúry dostanú, len keď sa obdobie otvorí späť.',
       ],
       why: [
         'Hodiny, ktoré nikto nezapísal, sa nevyfakturujú a nikto si to nevšimne — '

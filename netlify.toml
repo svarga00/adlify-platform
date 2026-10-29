@@ -110,7 +110,59 @@
   status = 404
   force = true
 [[redirects]]
+  from = "/web/content.js"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
   from = "/web/README.md"
+  to = "/404"
+  status = 404
+  force = true
+
+# To isté pre appku: von ide koreň repozitára, takže bez týchto pravidiel by
+# sa dal stiahnuť zdroják serverových funkcií, celá schéma databázy aj
+# s politikami (migrácie), testy a interné poznámky. Tajomstvá v nich nie sú
+# (kľúče sú len v premenných prostredia), ale mapa toho, kde hľadať slabé
+# miesto, nemá byť verejná. Appka sama (/app/js, /app/lib, /app/vendor…)
+# ostáva, tú prehliadač potrebuje.
+[[redirects]]
+  from = "/netlify/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/app/database/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/app/tests/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/docs/*"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/app/README.md"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/app/BIZNIS-KONTEXT.md"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/app/NABOR.md"
+  to = "/404"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/app/NASTAVENIE.md"
   to = "/404"
   status = 404
   force = true
@@ -125,6 +177,19 @@
   for = "/web/public/img/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+# Appka: nedá sa vložiť do cudzej stránky (klikanie cez neviditeľný rámik),
+# prehliadač nehádá typ súboru a adresa s id záznamu neodchádza na cudzie weby.
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+# Statické súbory webov (stránky samé dostávajú hlavičky z web/server.js).
+[[headers]]
+  for = "/web/public/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
 
 # Appka bývala v /danubra/. Kto má starý odkaz v záložkách alebo v histórii,
 # musí skončiť v appke, nie na hlásení „Page not found" — 301, lebo je to

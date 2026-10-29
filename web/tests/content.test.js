@@ -55,6 +55,20 @@ const get = (p, rows, host = 'adlify-app.netlify.app') => handle({ method: 'GET'
   ok(imp.body.includes('Štefan Varga') && !imp.body.includes('[Name folgt]'), 'konateľ v Impressum');
   const eh = await get('/punds-eu/de/', rows2);
   ok(eh.body.includes('+49 151 000 000'), 'nový telefón na punds.eu');
+  const imp0 = await get('/punds-eu/de/impressum', {}, 'punds.eu');
+  ok(imp0.body.includes('[Name folgt]'), 'bez konateľa je v Impressum aj naostro zástupný text (nie prázdne miesto)');
+
+  console.log('Obsah z appky nevloží HTML ani skript');
+  const evil = '<img src=x onerror=alert(1)>';
+  const bad = {
+    contacts: { sk: { phone1: `+421 1${evil}`, email: `a@b.sk"${evil}` }, whatsapp: '+421"><x>' },
+    images: { [IMG.weld]: `https://x.y/a.jpg" onerror="alert(1)` },
+    'texts:eu:privacy': { de: { 'secs.0.1.0': `Text ${evil} <b>fett</b>` } },
+    'texts:eu:about': { de: { 'flags.0.0': 'de" onerror="alert(1)' } },
+  };
+  const x1 = await get('/punds-sk/sk/kontakt', bad), x2 = await get('/punds-eu/de/datenschutz', bad), x3 = await get('/punds-eu/de/ueber-uns', bad);
+  ok(![x1, x2, x3].some((r) => /<img src=x onerror|onerror="alert/.test(r.body)) && x2.body.includes('<b>fett</b>'), 'kontakty, fotky a právne texty z appky sa escapujú (<b> zostane)');
+  ok(/script-src 'self' 'sha256-/.test(x1.headers['Content-Security-Policy'] || '') && x1.headers['X-Frame-Options'] === 'DENY', 'stránka má CSP s odtlačkami vložených skriptov a zákaz rámcov');
 
   console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
   process.exit(failed ? 1 : 0);

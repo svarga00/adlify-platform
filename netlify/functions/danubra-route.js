@@ -12,8 +12,15 @@
 // Čisté funkcie sú v app/lib/route.js (aj s testami).
 // ============================================================================
 const R = require('../../app/lib/route.js');
+const { createClient } = require('@supabase/supabase-js');
 
-const UA = 'DANUBRA-Hub/1.0 (info@punds.eu)';
+const supabase = createClient(
+  process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+);
+const guard = require('../../app/lib/server-guard.js')(supabase);
+
+const UA ='DANUBRA-Hub/1.0 (info@punds.eu)';
 
 async function geocode(q) {
   const res = await fetch(R.geocodeUrl(q), {
@@ -50,6 +57,9 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  // Verejné mapové služby sa nesmú stať otvoreným proxy na naše meno — len člen appky.
+  const g = await guard.check(event);
+  if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
   try {
     const { from, to, toPlace } = JSON.parse(event.body || '{}');
     if (!String(from || '').trim()) throw new Error('Chýba, odkiaľ ide');

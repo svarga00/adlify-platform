@@ -99,7 +99,9 @@
     invoice_no_number: 'Číslo prideľuje databáza pri vytvorení z podkladu — '
       + 'nedá sa dopísať ručne.',
     invoice_no_ustidnr: 'Reverse charge §13b bez USt-IdNr sa neuznáva. '
-      + 'Doplňte daňové číslo, alebo prepnite režim — oboje je jeden klik.',
+      + 'Doplňte daňové číslo na karte odberateľa — je to jeden klik.',
+    invoice_not_reverse_charge: 'Nemeckému odberateľovi fakturujeme len v režime reverse charge §13b. '
+      + 'Zapnite ho na karte odberateľa a návrh uložte znova.',
     invoice_period_open: 'Hodiny sa ešte môžu zmeniť. Uzavrite obdobie — '
       + 'potom bude faktúra sedieť s podkladom.',
   };

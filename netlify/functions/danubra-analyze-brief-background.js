@@ -12,7 +12,7 @@
 //
 // Samotná analýza je v `danubra-analyze-brief.js` — jedna, nie dve kópie.
 // ============================================================================
-const { run, setJob } = require('./danubra-analyze-brief.js');
+const { run, setJob, guard } = require('./danubra-analyze-brief.js');
 
 exports.handler = async (event) => {
   let planId = null, job = null, regen = false;
@@ -20,6 +20,10 @@ exports.handler = async (event) => {
     ({ planId, job, regen } = JSON.parse(event.body || '{}'));
   } catch { return; }
   if (!planId || !job) return;
+  // Platený model + zápis do náboru — len prihlásený člen appky.
+  // Kto nie je člen, nesmie do náboru zapísať ani chybu.
+  const g = await guard.check(event);
+  if (!g.ok) return;
 
   const started_at = new Date().toISOString();
   await setJob(planId, { id: job, status: 'running', started_at });

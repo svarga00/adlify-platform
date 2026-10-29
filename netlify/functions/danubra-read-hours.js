@@ -73,7 +73,8 @@ function supabase() {
 }
 
 const defaults = {
-  user: (event) => require('../../app/lib/mail/server.js')(supabase()).userFrom(event),
+  // Len člen appky — samotné prihlásenie nestačí (Supabase je spoločný s Adlify).
+  user: (event) => require('../../app/lib/server-guard.js')(supabase()).memberUser(event),
   /** → { buf: Buffer, type: string } */
   async download(path) {
     const { data: blob, error } = await supabase().storage.from(BUCKET).download(path);
@@ -131,7 +132,10 @@ async function handle(event, deps = {}) {
     let base64, mediaType;
     if (b.storage_path) {
       const p = String(b.storage_path);
-      if (p.length > 500 || p.startsWith('/') || p.split('/').includes('..')) return out(400, { error: MSG.path });
+      // Len fotky výkazov (hourentry.js nahráva do `hours/<zákazka>/…`). Iné
+      // priečinky (doklady ľudí, prílohy e-mailov) táto funkcia čítať nemá.
+      if (p.length > 500 || p.startsWith('/') || p.split('/').includes('..') || p.includes('\\')
+        || !p.startsWith('hours/')) return out(400, { error: MSG.path });
       mediaType = typeOf(p, null);
       if (mediaType && !AI.attachment('x', mediaType)) return out(415, { error: MSG.type });
       let file;

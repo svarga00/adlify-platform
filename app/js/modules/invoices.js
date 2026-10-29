@@ -123,7 +123,8 @@
       const pending = this.items.filter(x =>
         ['draft_pending_approval', 'pending_approval'].includes(x.status));
       const unpaid = this.items.filter(x => !SETTLED.includes(x.status));
-      const unpaidSum = unpaid.reduce((s, x) => s + Number(x.total || 0), 0);
+      // V centoch: súčet floatov by pri stovkách faktúr ukázal o cent iné číslo.
+      const unpaidSum = Money.fromCents(Money.sum(unpaid.map(x => Money.toCents(x.total || 0))));
 
       // Čo na faktúrach čaká na nás. Zoznam s filtrami nepovie, čo spraviť —
       // povie, čo tam je. Toto povie jedno aj druhé.
@@ -340,8 +341,13 @@
 
     async approve(id) {
       const x = this.items.find(i => i.id === id);
-      if (!x) return;
-      await DB.update('invoices', id, { status: 'issued' });
+      if (!x || this._busy) return;
+      // Keď databáza schválenie odmietne (neschvaľuje administrátor), obrazovka
+      // nesmie tvrdiť „vystavená". Predtým sa chyba zahodila a stav sa prepísal.
+      this._busy = true;
+      const { error } = await DB.update('invoices', id, { status: 'issued' });
+      this._busy = false;
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       x.status = 'issued';
       UI.toast('Faktúra vystavená', 'ok');
       this.detail(id);
@@ -352,7 +358,8 @@
       const x = this.items.find(i => i.id === id);
       if (!x) return;
       const now = new Date().toISOString();
-      await DB.update('invoices', id, { status: 'paid', paid_at: now });
+      const { error } = await DB.update('invoices', id, { status: 'paid', paid_at: now });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(x, { status: 'paid', paid_at: now });
       UI.toast('Označená ako zaplatená', 'ok');
       this.detail(id);
@@ -565,7 +572,7 @@
           <input type="number" step="0.01" placeholder="Množ." data-i="${i}" data-f="quantity" value="${r.quantity}">
           <input placeholder="MJ" data-i="${i}" data-f="unit" value="${UI.esc(r.unit)}">
           <input type="number" step="0.01" placeholder="Cena" data-i="${i}" data-f="unit_price" value="${r.unit_price}">
-          <span class="item-sum">${UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0))}</span>
+          <span class="item-sum">${UI.money(this.rowMoney(r))}</span>
           <button type="button" class="btn btn-ghost btn-sm btn-text-danger"
             onclick="Inv.delRow(${i})" ${this._rows.length === 1 ? 'disabled' : ''}>${Icon('x', 15)}</button>
         </div>`).join('');
@@ -580,15 +587,27 @@
       document.querySelectorAll('#item-rows .item-row').forEach((row, i) => {
         const r = this._rows[i];
         const sum = row.querySelector('.item-sum');
-        if (sum && r) sum.textContent = UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0));
+        if (sum && r) sum.textContent = UI.money(this.rowMoney(r));
       });
       this.updateTotal();
     },
 
+    /**
+     * Suma riadku tak, ako ju uloží faktúra (Money.mul, obchodné zaokrúhlenie).
+     * Predtým okno násobilo floaty: 1,5 × 10,01 ukázalo 15,01 €, ale uložilo
+     * sa 15,02 € — človek videl inú sumu, než akú schvaľoval.
+     */
+    rowMoney(r) {
+      try { return Money.fromCents(Money.mul(Money.toCents(r.unit_price || 0), Number(r.quantity) || 0)); }
+      catch { return 0; }
+    },
+
     updateTotal() {
-      const t = this._rows.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
+      let c = 0;
+      try { c = Money.sum(this._rows.map(r => Money.mul(Money.toCents(r.unit_price || 0), Number(r.quantity) || 0))); }
+      catch { c = 0; }
       const el = document.getElementById('man-total');
-      if (el) el.textContent = UI.money(t);
+      if (el) el.textContent = UI.money(Money.fromCents(c));
     },
 
     updateRegime() {
@@ -969,6 +988,14 @@
      * poslať `{action:'issue'}` z konzoly schvaľovanie neobíde.
      */
     async sfAction(id, action) {
+      // Dvojklik = dve požiadavky. Pri vystavení by vznikli dva doklady, pri
+      // odoslaní dva e-maily odberateľovi. Server má vlastný zámok, ale druhá
+      // požiadavka nemá z obrazovky vôbec odísť.
+      this._sfBusy = this._sfBusy || {};
+      if (this._sfBusy[id]) return UI.toast('Už sa na tom pracuje — počkajte prosím', 'warn');
+      this._sfBusy[id] = true;
+      const vypnute = [...document.querySelectorAll('#ui-modal .modal-actions button:not([disabled])')];
+      vypnute.forEach(b => { b.disabled = true; });
       const labels = { issue: 'Vystavujem…', send: 'Odosielam…', pay: 'Zapisujem úhradu…' };
       UI.toast(labels[action] || 'Pracujem…');
       let res, json;
@@ -981,6 +1008,9 @@
         json = await res.json();
       } catch (e) {
         return UI.toast('Server neodpovedal: ' + e.message, 'err');
+      } finally {
+        delete this._sfBusy[id];
+        vypnute.forEach(b => { b.disabled = false; });
       }
       if (json && json.skipped) {
         return UI.toast(json.message, 'err');
@@ -1103,7 +1133,23 @@
           p.ust_idnr ? '' : ' <span class="tx-warn">Odberateľ nemá USt-IdNr — bez neho sa faktúra neschváli.</span>'}`;
     },
 
+    /**
+     * Dvojklik na „Vytvoriť návrh" pridelil dve čísla a založil dva návrhy
+     * s tými istými položkami. Kým sa ukladá, druhé kliknutie nič nespraví.
+     */
     async saveFree() {
+      if (this._savingFree) return;
+      this._savingFree = true;
+      const btn = document.querySelector('#man-form button[type=submit]');
+      if (btn) btn.disabled = true;
+      try { return await this._saveFree(); }
+      finally {
+        this._savingFree = false;
+        if (btn && document.body.contains(btn)) btn.disabled = false;
+      }
+    },
+
+    async _saveFree() {
       const form = document.getElementById('man-form');
       if (document.getElementById('item-rows')) this.syncRows();
       const d = UI.formData(form);
@@ -1131,8 +1177,11 @@
       }
 
       // Úprava návrhu: hlavička, potom položky — nič sa nemaže, vyhodené dostanú removed_at.
-      const patch = { ...datumy, partner_id: partner.id, subcontract_id: d.subcontract_id || null };
-      if (!zPodkladu) Object.assign(patch, { total: f.invoice.total, amount_net: f.invoice.total, vat_regime: f.invoice.vat_regime });
+      // Režim sa berie z odberateľa aj pri faktúre z podkladu — keď mu niekto
+      // zapne reverse charge, uložený návrh sa tým opraví.
+      const patch = { ...datumy, partner_id: partner.id, subcontract_id: d.subcontract_id || null,
+        vat_regime: f.invoice.vat_regime };
+      if (!zPodkladu) Object.assign(patch, { total: f.invoice.total, amount_net: f.invoice.total });
       const { error } = await DB.update('invoices', x.id, patch);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       if (!zPodkladu) {
@@ -1189,7 +1238,13 @@
 
     /** Faktúra z uzavretého podkladu. Sumy pochádzajú z obdobia, nie z ruky. */
     async fromPeriod(periodId) {
-      const { data, error } = await DB.rpc('invoice_from_period', { p_period_id: periodId });
+      // Z jedného obdobia jedna faktúra — aj pri dvojkliku. Pravdu drží
+      // databáza (zámok obdobia, migrácia 070); tu sa druhé volanie ani nepošle.
+      if (this._fromPeriodBusy) return;
+      this._fromPeriodBusy = true;
+      let data, error;
+      try { ({ data, error } = await DB.rpc('invoice_from_period', { p_period_id: periodId })); }
+      finally { this._fromPeriodBusy = false; }
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.toast('Návrh faktúry vznikol z podkladu — skontrolujte ho a pošlite na schválenie', 'ok');
       this.loaded = false; this.v2.loaded = false;

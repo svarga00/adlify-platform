@@ -89,7 +89,7 @@ async function render(ctx) {
   </div>
   <div class="eu-duo-c eu-duo-or rv">
     <span class="eu-kick">${esc(t.langK)}</span><strong class="eu-duo-h">${esc(t.langH)}</strong><p>${esc(t.langP)}</p>
-    <div class="eu-flags">${each(t.flags, ([f, n]) => `<img src="${ctx.asset(`flags/${f}.svg`)}" alt="${esc(n)}" title="${esc(n)}" width="36" height="26">`)}</div>
+    <div class="eu-flags">${each(t.flags, ([f, n]) => `<img src="${esc(ctx.asset(`flags/${f}.svg`))}" alt="${esc(n)}" title="${esc(n)}" width="36" height="26">`)}</div>
   </div>
 </section>
 

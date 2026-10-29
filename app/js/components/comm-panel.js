@@ -20,7 +20,7 @@ window.CommPanel = {
     const meta = encodeURIComponent(JSON.stringify(opts.entity || {}));
 
     const btn = (href, ico, label, kind, chan) => href
-      ? `<a href="${href}" target="_blank" rel="noopener" class="comm-btn comm-${kind}"
+      ? `<a href="${UI.esc(href)}" target="_blank" rel="noopener" class="comm-btn comm-${kind}"
            onclick="CommPanel._log('${chan}','${meta}')">
            <span class="comm-ico">${Icon(ico)}</span><span>${label}</span></a>`
       : `<span class="comm-btn comm-disabled"><span class="comm-ico">${Icon(ico)}</span><span>${label}</span></span>`;
@@ -30,7 +30,7 @@ window.CommPanel = {
         ${btn(telHref, 'phone', 'Volať', 'call', 'call')}
         ${btn(c.whatsapp !== false ? waHref : null, 'whatsapp', 'WhatsApp', 'wa', 'whatsapp')}
         ${btn(mailHref, 'mail', 'E-mail', 'mail', 'email')}
-        ${phone ? `<button class="comm-btn comm-sms" onclick="CommPanel.smsDialog('${meta}','${String(phone).replace(/'/g, "")}')">
+        ${phone ? `<button class="comm-btn comm-sms" onclick="CommPanel.smsDialog('${meta}','${UI.esc(String(phone).replace(/['\\]/g, ''))}')">
           <span class="comm-ico">${Icon('inbox')}</span><span>SMS</span></button>` : ''}
         <button class="comm-btn comm-note" onclick="CommPanel._notePrompt('${meta}')">
           <span class="comm-ico">${Icon('note')}</span><span>Poznámka</span></button>

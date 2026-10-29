@@ -41,6 +41,10 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
   ok(!/noindex/.test(prod.body), 'punds.sk sa smie indexovať');
   ok(/noindex/.test((await get('/punds-sk/sk/')).body), 'skúšobná adresa sa neindexuje');
   ok(!/Ukážka|ukazka-/.test(prod.body), 'naostro sa ukážkové ponuky nikdy neukážu');
+  const robots = await get('/punds-sk/robots.txt', { host: 'punds.sk' });
+  ok(robots.status === 200 && /Sitemap: https:\/\/punds\.sk\/sitemap\.xml/.test(robots.body), 'punds.sk má robots.txt s mapou stránok');
+  const sm = await get('/punds-eu/sitemap.xml', { host: 'punds.eu' });
+  ok(sm.status === 200 && /<loc>https:\/\/punds\.eu\/de\/impressum<\/loc>/.test(sm.body) && /gewerke\/schweissen/.test(sm.body), 'punds.eu má sitemap.xml so stránkami aj remeslami');
   const prodRoot = await get('/punds-eu/', { host: 'www.punds.eu' });
   ok(prodRoot.headers.Location === '/de/', 'www.punds.eu → /de/', prodRoot.headers.Location);
 

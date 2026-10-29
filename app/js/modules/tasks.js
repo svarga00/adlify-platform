@@ -136,7 +136,7 @@
         const on = this.filters.who === r.name;
         return `<button class="who-card${on ? ' on' : ''}${nikto ? ' who-none' : ''}${
             !nikto && r.name === me ? ' who-me' : ''}"
-            onclick="Tsk.setWho('${nikto ? DanubraTasks.UNASSIGNED : UI.esc(r.name)}')">
+            data-who="${UI.esc(nikto ? DanubraTasks.UNASSIGNED : r.name)}" onclick="Tsk.setWho(this.dataset.who)">
           <span class="who-name">${nikto ? 'Nepriradené' : UI.esc(r.name)}${
             !nikto && r.name === me ? ' <em>ja</em>' : ''}</span>
           <span class="who-total">${r.total}</span>
@@ -545,7 +545,7 @@
           <button class="btn btn-ghost btn-sm" onclick="Tsk.assignNew('${t.id}')">
             ${Icon('plus', 13)} Iné meno</button>
           ${this.me() && this.me() !== t.assigned_name
-            ? `<button class="btn btn-outline btn-sm" onclick="Tsk.assign('${t.id}','${UI.esc(this.me())}')">
+            ? `<button class="btn btn-outline btn-sm" data-me="${UI.esc(this.me())}" onclick="Tsk.assign('${t.id}',this.dataset.me)">
                  Beriem si to</button>` : ''}
         </div>
 
@@ -651,7 +651,8 @@
       if (!t) return;
       const done = t.status === 'done';
       const patch = { status: done ? 'open' : 'done', done_at: done ? null : new Date().toISOString() };
-      await DB.update('tasks', id, patch);
+      const { error } = await DB.update('tasks', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(t, patch);
       Danubra.renderRoute();
     },

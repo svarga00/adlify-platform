@@ -1,8 +1,9 @@
 // ============================================================================
 // punds.eu — Impressum (návrh 3c) · povinné podľa § 5 DDG
 // ============================================================================
-// Meno konateľa zatiaľ nepoznáme: kým je MD prázdne, na skúšobnej adrese sa
-// ukáže „[Name folgt]", naostro sa riadok (karta) vynechá. Doplniť MD nižšie.
+// Meno konateľa zatiaľ nepoznáme: kým je MD prázdne (ani v appke), ukáže sa
+// „[Name folgt]" — aj naostro, nech je vidieť, že údaj chýba. Doplniť MD nižšie
+// alebo v appke (Marketing → Weby → Kontakty a firma).
 // ============================================================================
 'use strict';
 
@@ -63,7 +64,9 @@ async function render(ctx) {
   const ph = `<mark class="eu-mark">${esc(t.ph)}</mark>`;
   // Konateľ: z appky (Marketing → Weby → Kontakty a firma), inak MD nižšie.
   const md = (ctx.content && ctx.content.company && ctx.content.company.md) || MD;
-  const who = md ? esc(md) : (ctx.prod ? '' : ph);
+  // § 5 DDG vyžaduje zástupcu firmy — bez mena sa karta neschová (Impressum by
+  // bolo potichu neúplné), ale ukáže jasný zástupný text aj naostro.
+  const who = md ? esc(md) : ph;
   const cards = [
     [t.provider, ['<b>Partner und Service s. r. o.</b>', 'Podzámska 9468/4A', '940 71 Nové Zámky', esc(t.country)]],
     [t.contact, [`<b>${esc(t.phone)}: <a href="${tel(PHONE)}">${esc(PHONE)}</a></b>`, `${esc(t.mail)}: <a href="mailto:${MAIL}">${MAIL}</a>`, `${esc(t.web)}: punds.eu`]],

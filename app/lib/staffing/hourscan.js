@@ -724,8 +724,138 @@
     };
   }
 
+  // ── Okno „Zapísať hodiny": čo sa z tabuľky naozaj zapíše ─────────────────
+  // Tabuľka (ľudia × dni) je papier zo stavby. V databáze ale v ten istý deň
+  // môžu byť aj iné riadky toho istého človeka: „Jeden deň inej práce" (cesta,
+  // dielňa, popis), starší zápis týždňa, prípadne riadok z uzavretého obdobia.
+  // Doteraz okno ukázalo prvý nájdený riadok a prepísalo ho — takže cesta sa
+  // zmenila na stavebné hodiny, alebo zostali dva riadky a deň sa započítal
+  // dvakrát. A pri každom uložení sa všetky hodiny týždňa znova „neschválili"
+  // a vymazali sa im časy od–do, aj keď sa nezmenili.
+  //
+  // Pravidlá:
+  //   * v tabuľke sú len hodiny práce (stavba, dielňa) — cesta a „iné" nie;
+  //     políčko ukazuje SÚČET všetkých takých riadkov v ten deň,
+  //   * nezmenené políčko sa nezapisuje (len sa schváli, keď je list
+  //     podpísaný, a doplnia sa časy od–do, keď sú na liste),
+  //   * zmena ide na jeden riadok (prednostne ten zo Stundennachweisu),
+  //     zníženie aj na ďalšie; riadok, ktorému ostane nula, sa archivuje —
+  //     nemaže sa, ale ani nevisí v zozname ako neschválený výkaz za 0 h,
+  //   * deň v uzavretom období (riadok s `period_id` alebo deň v rozsahu
+  //     uzavretého či vyfakturovaného obdobia) sa nemení,
+  //   * deň bez nasadenia na zákazke sa neuloží a povie sa to.
+
+  /** Riadok hodín, ktorý patrí do tabuľky (práca, nie cesta ani „iné"). */
+  const isGridRow = (t) => !!t && !['travel', 'other'].includes(t.activity_type || 'construction');
+  const minOf = (t) => Math.round((Number(t && t.hours) || 0) * 60);
+
+  /** Riadky tabuľky jedného človeka v jeden deň — prvý je ten zo Stundennachweisu. */
+  function gridRowsOf(existing, workerId, date) {
+    const mine = (existing || []).filter(t => isGridRow(t) && t.worker_id === workerId
+      && String(t.work_date || '').slice(0, 10) === date);
+    return mine.filter(t => t.source === 'stundennachweis').concat(mine.filter(t => t.source !== 'stundennachweis'));
+  }
+
+  /** Minúty v políčku tabuľky — súčet všetkých riadkov práce v ten deň. */
+  function cellMinutes(existing, workerId, date) {
+    return gridRowsOf(existing, workerId, date).reduce((n, t) => n + minOf(t), 0);
+  }
+
+  /** „7–16:30", „7:00 - 16:30" → { time_from: '07:00', time_to: '16:30' }; inak null. */
+  function spanTimes(span) {
+    const m = String(span || '').match(/(\d{1,2})[:.]?(\d{2})?\s*[–-]\s*(\d{1,2})[:.]?(\d{2})?/);
+    if (!m) return null;
+    const a = parseTime(`${m[1]}:${m[2] || '00'}`), b = parseTime(`${m[3]}:${m[4] || '00'}`);
+    return a && b ? { time_from: a, time_to: b } : null;
+  }
+
+  /**
+   * Čo zapísať z tabuľky týždňa.
+   *
+   * @param {Object} o
+   *   dates          ['YYYY-MM-DD', …] alebo [{ date }]
+   *   rows           [{ worker_id, name, cells: { 'YYYY-MM-DD': minúty } }]
+   *   existing       riadky danubra_timesheets tejto zákazky v týždni
+   *                  { id, worker_id, work_date, hours, approved, period_id, activity_type, source, time_from, time_to }
+   *   signed         list podpísal majster → zapísané hodiny sa schvália
+   *   days           { 'YYYY-MM-DD': { span: '7–16:30' } }
+   *   assignmentFor  (workerId, date) → nasadenie | null
+   *   closedOn       (date) → true, keď deň patrí do uzavretého obdobia zákazky
+   *   activity       druh práce nových riadkov ('construction' | 'workshop')
+   *   now            čas schválenia (ISO)
+   * @returns {{ writes: Array, locked: Array, missing: Array }}
+   *   writes: { insert: riadok } | { id, patch } | { id, archive: true }
+   */
+  function planWeek(o = {}) {
+    const dates = (o.dates || []).map(d => (typeof d === 'string' ? d : d && d.date)).filter(Boolean);
+    const signed = !!o.signed;
+    const now = o.now || new Date().toISOString();
+    const closedOn = typeof o.closedOn === 'function' ? o.closedOn : () => false;
+    const assignmentFor = typeof o.assignmentFor === 'function' ? o.assignmentFor : () => null;
+    const writes = [], locked = [], missing = [];
+    const approve = () => (signed ? { approved: true, approved_at: now } : { approved: false, approved_at: null });
+
+    for (const r of (o.rows || [])) {
+      for (const date of dates) {
+        const min = Math.max(0, Math.round(Number((r.cells || {})[date]) || 0));
+        const prevs = gridRowsOf(o.existing, r.worker_id, date);
+        const sum = prevs.reduce((n, t) => n + minOf(t), 0);
+        const who = { worker_id: r.worker_id, name: r.name || '', date };
+        if (!min && !prevs.length) continue;
+
+        if (prevs.some(t => t.period_id) || closedOn(date)) {
+          if (min !== sum) locked.push(who);
+          continue;
+        }
+        const times = spanTimes(((o.days || {})[date] || {}).span);
+
+        if (!prevs.length) {
+          const a = assignmentFor(r.worker_id, date);
+          if (!a) { missing.push(who); continue; }
+          writes.push({ insert: {
+            worker_id: r.worker_id, assignment_id: a.id || a, work_date: date,
+            hours: hoursDecimal(min), ...approve(),
+            time_from: times ? times.time_from : null, time_to: times ? times.time_to : null,
+            source: 'stundennachweis', activity_type: o.activity === 'workshop' ? 'workshop' : 'construction',
+          } });
+          continue;
+        }
+
+        // Nové minúty pre každý riadok: prírastok ide na prvý, úbytok postupne.
+        const next = prevs.map(minOf);
+        let delta = min - sum;
+        if (delta > 0) next[0] += delta;
+        for (let i = 0; delta < 0 && i < next.length; i++) {
+          const take = Math.min(next[i], -delta);
+          next[i] -= take; delta += take;
+        }
+
+        prevs.forEach((t, i) => {
+          const was = minOf(t);
+          const patch = {};
+          if (next[i] !== was) {
+            if (!next[i]) { writes.push({ id: t.id, archive: true }); return; }
+            Object.assign(patch, { hours: hoursDecimal(next[i]), ...approve() });
+            if (i === 0) patch.source = 'stundennachweis';
+          } else if (signed && !t.approved && was > 0) {
+            Object.assign(patch, approve());
+          }
+          // Časy od–do z listu patria k prvému riadku. Prázdne políčko na
+          // liste zapísané časy nemaže.
+          if (i === 0 && times && next[i] > 0
+              && (String(t.time_from || '').slice(0, 5) !== times.time_from
+                || String(t.time_to || '').slice(0, 5) !== times.time_to)) {
+            Object.assign(patch, times);
+          }
+          if (Object.keys(patch).length) writes.push({ id: t.id, patch });
+        });
+      }
+    }
+    return { writes, locked, missing };
+  }
+
   const API = {
-    pickSheet, sheetSnapshot,
+    pickSheet, sheetSnapshot, planWeek, cellMinutes, gridRowsOf, isGridRow, spanTimes,
     TOOL, instructions, normalize, matchWorkers, check, toTimesheets,
     minutesFrom, parseHours, parsePause, parseTime, parseDate, nameScore,
     hoursDecimal, hoursDe, hm, isoWeek, mondayOfWeek, WD, MATCH_MIN, MATCH_GAP,

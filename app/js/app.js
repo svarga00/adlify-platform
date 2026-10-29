@@ -1944,7 +1944,13 @@ window.Danubra = {
   // Všetko ostatné je až za nimi. Preto sa počíta z v2 dát — obdobia, prijaté
   // faktúry, banka, doklady — nie z počtov riadkov v tabuľkách.
 
-  _dayISO() { return new Date().toISOString().slice(0, 10); },
+  // Dnešný deň podľa hodín v prehliadači (Slovensko), nie podľa UTC. Cez
+  // `toISOString()` bol medzi polnocou a druhou ráno ešte včerajšok — faktúra
+  // vystavená 1. 11. o 0:30 dostala dátum 31. 10. a spadla do iného mesiaca.
+  _dayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
 
   /**
    * Jeden Promise.all, nech obrazovka naskočí naraz. `DB.list` chyby nehádže,

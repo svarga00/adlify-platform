@@ -485,7 +485,9 @@
       const c = this.items.find(x => x.id === id);
       const patch = { first_contact_at: new Date().toISOString() };
       if (c.status === 'new') patch.status = 'contacted';
-      await DB.update('candidates', id, patch);
+      // Chyba z databázy sa nezahadzuje — inak appka tvrdí, že je zapísané.
+      const { error } = await DB.update('candidates', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(c, patch);
       UI.toast(`Zaznamenané — reakcia za ${this.responseMinutes(c)} min`, 'ok');
       this.detail(id);
@@ -495,7 +497,8 @@
       const c = this.items.find(x => x.id === id);
       const patch = { status };
       if (status !== 'new' && !c.first_contact_at) patch.first_contact_at = new Date().toISOString();
-      await DB.update('candidates', id, patch);
+      const { error } = await DB.update('candidates', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(c, patch);
       UI.toast('Stav uložený', 'ok');
       Danubra.renderRoute();

@@ -142,11 +142,13 @@ exports.handler = async (event) => {
     }).select().single();
     if (error) throw error;
 
-    await supabase.from('danubra_activities').insert({
+    // Dotaz Supabase nemá .catch (je len „thenable") — bez Promise.resolve by tu
+    // padla TypeError a uložený dopyt by odosielateľ dostal ako chybu 500.
+    await Promise.resolve(supabase.from('danubra_activities').insert({
       entity_type: 'inquiry', entity_id: inquiry.id, type: 'system',
       body: `Dopyt prišiel z webu (${formName}${language ? `, ${language.toUpperCase()}` : ''})`,
       source: 'webhook',
-    }).catch(() => {});
+    })).catch(() => {});
 
     console.log('[danubra-forms] dopyt', inquiry.id, 'klient', client?.id, 'formulár', formName);
     return { statusCode: 200, headers: cors,

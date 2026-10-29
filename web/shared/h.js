@@ -9,6 +9,13 @@
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/**
+ * Text s jednoduchým formátovaním (právne texty): všetko sa escapuje a späť
+ * sa pustia len <b>, </b>, <br>. Text môže prepísať appka (Marketing → Weby),
+ * takže iné značky (skript, odkaz, obrázok) sa na stránku nedostanú.
+ */
+const rich = (s) => esc(s).replace(/&lt;(\/?b|br\s*\/?)&gt;/gi, (m, tag) => `<${tag.toLowerCase().replace(/\s+/g, '')}>`);
+
 /** Atribút: attr('href', url) → ` href="…"`; prázdna hodnota = nič. */
 const attr = (name, value) => (value == null || value === false ? '' : value === true ? ` ${name}` : ` ${name}="${esc(value)}"`);
 
@@ -33,4 +40,4 @@ function plural(lang, n, forms) {
   return k === 1 ? forms[0] : forms[forms.length - 1];
 }
 
-module.exports = { esc, attr, each, cls, num, plural, LOCALE };
+module.exports = { esc, rich, attr, each, cls, num, plural, LOCALE };

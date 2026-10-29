@@ -160,5 +160,31 @@ if (problems.length) {
 }
 t('appka si nepýta nič, čo v databáze nie je', problems.length === 0);
 
+// ── Peniaze (migrácia 070): pravidlá, ktoré musí držať databáza ──────────
+// Overené aj na skutočnom Postgres pri písaní migrácie; tu sa stráži, aby
+// ich neskoršia migrácia potichu nevrátila.
+{
+  const f = path.join(migDir, '070_peniaze.sql');
+  const m = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  t('číselný rad faktúr neoreže 1000 na „100" (lpad s greatest)',
+    /lpad\(v_seq, greatest\(3, length\(v_seq\)\), '0'\)/.test(m));
+  t('faktúra z obdobia zamkne obdobie a sumu zaokrúhli na centy',
+    /from danubra_periods where id = p_period_id for update/.test(m)
+    && /round\(coalesce\(per\.amount_charged, 0\), 2\)/.test(m));
+  t('z jedného obdobia najviac jedna živá faktúra (unikátny index)',
+    /create unique index if not exists idx_dinv_period_one/.test(m));
+  t('schválenie faktúry odberateľovi stráži databáza (reverse charge, USt-IdNr)',
+    /create trigger danubra_invoice_approve_rules/.test(m) && /ust_idnr/.test(m));
+  t('obdobie s faktúrou sa neotvorí späť', /create trigger danubra_period_reopen_guard/.test(m));
+  t('príjem sa spáruje len pri sedí aj suma, nie len VS',
+    /abs\(coalesce\(i\.amount_net, i\.total\) - tx\.amount\) <= 0\.01/.test(m));
+  // Neskoršia migrácia by funkciu mohla prepísať starou verziou.
+  const neskorsie = fs.readdirSync(migDir).filter(x => x.endsWith('.sql') && parseInt(x, 10) > 70)
+    .filter(x => /function danubra_(next_number|invoice_from_period|bank_automatch)\b/
+      .test(fs.readFileSync(path.join(migDir, x), 'utf8')));
+  t('žiadna neskoršia migrácia neprepisuje číslovanie, faktúru z obdobia ani párovanie',
+    neskorsie.length === 0);
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

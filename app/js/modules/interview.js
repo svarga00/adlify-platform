@@ -1248,13 +1248,15 @@
         screening_done_at: new Date().toISOString(),
         status: action === 'reject' ? 'rejected' : 'interview',
       };
-      await DB.update('candidates', this.cand.id, patch);
+      const { error } = await DB.update('candidates', this.cand.id, patch);
+      // Pri chybe okno ostane otvorené — zaškrtnuté veci z hovoru sa nestratia.
+      if (error) return UI.toast('Hovor sa neuložil: ' + error.message, 'err');
 
       if (action === 'reject') {
         const reason = await UI.ask('Prečo ho nechceme? (zapíše sa, aby sa o pol roka vedelo)')
           || (r.flags[0]?.label ?? null);
-        await DB.update('candidates', this.cand.id, { outcome: 'rejected', outcome_reason: reason });
-        UI.toast('Zamietnutý a zapísaný', 'ok');
+        const { error: e2 } = await DB.update('candidates', this.cand.id, { outcome: 'rejected', outcome_reason: reason });
+        UI.toast(e2 ? 'Zamietnutý, ale dôvod sa neuložil: ' + e2.message : 'Zamietnutý a zapísaný', e2 ? 'err' : 'ok');
       } else if (action === 'advance') {
         CandProc.open = 'proof';
         UI.toast('Uložené — pokračujte krokom Preveriť', 'ok');

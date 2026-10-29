@@ -14,19 +14,31 @@ const path = require('path');
 
 // ── Falošná Supabase ────────────────────────────────────────────────────────
 let INVOICE = null;
+let CLAIM = [{ id: 'i1' }];
 const updates = [];
 
+// Kto volá: kľúč „ok" = admin appky, „rec" = náborár (na faktúry nesmie).
+let MEMBERS = [{ user_id: 'u1', role: 'admin', active: true }, { user_id: 'u2', role: 'recruiter', active: true }];
 const fakeClient = {
+  auth: {
+    getUser: async (jwt) => ({ data: { user: jwt === 'ok' ? { id: 'u1' } : jwt === 'rec' ? { id: 'u2' } : null } }),
+  },
   from() {
     const q = {
       _update: null,
       select() { return q; },
+      limit: async () => ({ data: MEMBERS, error: null }),
       eq() { return q; },
       // Filtre `.is('archived_at', null)` (migrácia 066) — mock ich len prepustí.
       is() { return q; },
       maybeSingle: async () => ({ data: INVOICE, error: null }),
       update(payload) { q._update = payload; updates.push(payload); return q; },
-      then(resolve) { return Promise.resolve({ data: null, error: null }).then(resolve); },
+      // Zámok pri vystavení: `update(...).select('id')` vráti zabrané riadky.
+      // CLAIM = [] znamená, že faktúru medzitým zabrala iná požiadavka.
+      then(resolve) {
+        const data = q._update && String(q._update.sf_error || '').startsWith('VYSTAVUJE SA') ? CLAIM : null;
+        return Promise.resolve({ data, error: null }).then(resolve);
+      },
     };
     return q;
   },
@@ -47,8 +59,8 @@ function eq(actual, expected, msg) {
 }
 function ok(c, msg) { eq(!!c, true, msg); }
 
-const call = async (fn, body, method = 'POST') =>
-  fn({ httpMethod: method, body: JSON.stringify(body) });
+const call = async (fn, body, method = 'POST', jwt = 'ok') =>
+  fn({ httpMethod: method, body: JSON.stringify(body), headers: jwt ? { authorization: `Bearer ${jwt}` } : {} });
 const parse = (res) => ({ code: res.statusCode, ...JSON.parse(res.body) });
 
 console.log('SuperFaktúra — serverová funkcia');
@@ -71,6 +83,18 @@ console.log('SuperFaktúra — serverová funkcia');
     ok(r.message.includes('schválená'), 'a čo sa s faktúrou stane');
 
     eq(parse(await call(handler, {}, 'GET')).code, 405, 'GET sa odmieta');
+  }
+
+  // ── Kto smie volať ────────────────────────────────────────────────────────
+  // Funkcia beží so service-role kľúčom — bez prihláseného člena s právom
+  // na faktúry nesmie urobiť nič.
+  {
+    delete require.cache[fnPath];
+    const { handler } = require(fnPath);
+    eq(parse(await call(handler, { invoice_id: 'x', action: 'issue' }, 'POST', '')).code, 401,
+      'bez prihlásenia nič');
+    eq(parse(await call(handler, { invoice_id: 'x', action: 'issue' }, 'POST', 'rec')).code, 403,
+      'náborár bez práva na faktúry nič');
   }
 
   // ── S kľúčom: stav sa číta z databázy ─────────────────────────────────────
@@ -116,6 +140,43 @@ console.log('SuperFaktúra — serverová funkcia');
     const r = parse(await call(handler, { invoice_id: 'i1', action: 'issue' }));
     eq(r.code, 409, 'už vystavená faktúra sa nevystaví znova');
     ok(r.error.includes('12345'), 'a povie sa jej id v SuperFaktúre');
+  }
+
+  // ── Dvojklik nevystaví dva doklady ────────────────────────────────────────
+  {
+    const SCHVALENA = { id: 'i1', status: 'approved', total: 1000, vat_regime: 'standard',
+      invoice_number: '2026042', approved_by: 'u1', approved_at: 'x', sf_invoice_id: null, sf_error: null,
+      partner: { name: 'GU Ulm GmbH', ust_idnr: 'DE1', country: 'DE' }, period: {}, subcontract: {}, items: [] };
+    const sent = [];
+    const origFetch = global.fetch;
+    global.fetch = async (url, opt) => {
+      sent.push({ url, body: JSON.parse(opt.body || 'null') });
+      return { ok: true, status: 200, text: async () => JSON.stringify({ error: 0, data: { Invoice: { id: 777, token: 't' } } }) };
+    };
+
+    // Druhá požiadavka, ktorá príde, kým prvá ešte beží.
+    INVOICE = { ...SCHVALENA, sf_error: `VYSTAVUJE SA ${new Date().toISOString()}` };
+    const busy = parse(await call(handler, { invoice_id: 'i1', action: 'issue' }));
+    eq(busy.code, 409, 'kým sa faktúra vystavuje, druhé vystavenie sa odmietne');
+    eq(sent.length, 0, 'a do SuperFaktúry nič neodíde');
+
+    // Obe prečítali „schválená, bez id", ale zámok zabrala tá druhá.
+    INVOICE = { ...SCHVALENA };
+    CLAIM = [];
+    const lost = parse(await call(handler, { invoice_id: 'i1', action: 'issue' }));
+    eq(lost.code, 409, 'požiadavka, ktorá zámok nezabrala, nevystavuje');
+    eq(sent.length, 0, 'ani do SuperFaktúry nevolá');
+
+    // Stará značka (spadnutý pokus) faktúru navždy nezamkne.
+    CLAIM = [{ id: 'i1' }];
+    INVOICE = { ...SCHVALENA, sf_error: 'VYSTAVUJE SA 2026-01-01T00:00:00.000Z' };
+    const ok1 = parse(await call(handler, { invoice_id: 'i1', action: 'issue' }));
+    eq(ok1.code, 200, 'po starej značke sa vystaviť dá');
+    eq(sent.length, 1, 'práve raz');
+    ok(String(sent[0].url).startsWith('https://sandbox.superfaktura.sk/'), 'a proti sandboxu, kým SF_ENV nie je production');
+    eq(sent[0].body.InvoiceItem.map(i => i.tax), [0], 'bez DPH aj pri „bežnom" režime — nie sme platiteľ DPH');
+    ok(updates.some(u => u.sf_invoice_id === 777 && u.status === 'issued'), 'id dokladu sa zapíše');
+    global.fetch = origFetch;
   }
 
   // ── Odoslanie je samostatné rozhodnutie ───────────────────────────────────
