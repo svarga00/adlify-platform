@@ -12,18 +12,23 @@
 // ============================================================================
 (function () {
   const Quo = {
-    items: [], partners: [], loaded: false,
+    items: [], partners: [], opportunities: [], loaded: false,
     filters: { status: '', q: '' },
 
     async load() {
-      const [q, p] = await Promise.all([
+      const [q, p, o] = await Promise.all([
         DB.list('quotes', { order: { column: 'created_at', ascending: false }, limit: 300 }),
         DB.list('partners', { select: 'id,name,payment_terms_days,default_charge_rate,'
           // Do dokumentu treba aj nemecké IČ DPH a kontaktnú osobu.
           + 'is_construction,ust_idnr,country,contact_person,address,city', limit: 300 }),
+        // Dopyty len kvôli názvu pri odkaze „Z dopytu" (migrácia 074).
+        Danubra.can('opportunities')
+          ? DB.list('opportunities', { select: 'id,title,company_name', limit: 1000 })
+          : Promise.resolve({ data: [] }),
         Enums.load(),
       ]);
       this.items = q.data || []; this.partners = p.data || [];
+      this.opportunities = (o && o.data) || [];
       this.loaded = true;
       if (!Cfg.loaded) await Cfg.load();
     },
@@ -32,6 +37,21 @@
       const p = this.partners.find(x => x.id === id);
       return p ? p.name : '—';
     },
+    /**
+     * Odkaz späť na dopyt, z ktorého ponuka vznikla. Keď na dopyty človek
+     * nemá právo, je to len štítok — nie tlačidlo, ktoré nič nespraví.
+     */
+    oppLink(q) {
+      if (!q || !q.opportunity_id) return '';
+      const o = this.opportunities.find(x => x.id === q.opportunity_id);
+      const label = o ? (o.title || o.company_name || 'Dopyt') : 'Dopyt';
+      if (!window.Opp || !Danubra.routeAvailable('opportunities')) {
+        return `<span class="link-chip is-static">${Icon('offers', 13)}<span>${UI.esc(label)}</span></span>`;
+      }
+      return `<button class="link-chip" title="Dopyt: ${UI.esc(label)}"
+        onclick="Opp.detail('${UI.esc(q.opportunity_id)}')">${Icon('offers', 13)}<span>${UI.esc(label)}</span></button>`;
+    },
+
     /** Prahy z Nastavení → Cenník a pravidlá. */
     thresholds() { return Cfg.j('staffing'); },
 
@@ -145,6 +165,7 @@
           <div><span>Typ prác${UI.tip('Stavebné = práca na stavenisku, platia prísnejšie pravidlá (SOKA-BAU, zrážka §48b, stavebná minimálna mzda). Dielenské = výroba mimo stavby, regulácia je nižšia.')}</span><strong>${q.work_type === 'workshop' ? 'Dielenské' : 'Stavebné'}</strong></div>
           ${q.site_city ? `<div><span>Miesto</span><strong>${UI.esc([q.site_address, q.site_city].filter(Boolean).join(', '))}</strong></div>` : ''}
           ${q.date_from ? `<div><span>Termín</span><strong>${UI.dateRange(q.date_from, q.date_to)}</strong></div>` : ''}
+          ${q.opportunity_id ? `<div><span>Z dopytu${UI.tip('Ponuka vznikla tlačidlom „Spraviť ponuku" pri tomto dopyte. Pri dopyte je vidieť, aké ponuky z neho vznikli a v akom sú stave.')}</span><strong>${this.oppLink(q)}</strong></div>` : ''}
           ${q.valid_until ? `<div><span>Platí do${UI.tip('Do tohto dňa je odberateľ viazaný na naše ceny. Potom ponuka prepadne a dá sa poslať znova s novou platnosťou.')}</span><strong>${UI.date(q.valid_until)}</strong></div>` : ''}
         </div>
         ${q.notes ? `<div class="notebox">${UI.esc(q.notes)}</div>` : ''}
@@ -244,6 +265,7 @@
         <form id="quo-form" onsubmit="event.preventDefault();Quo.save('${id || ''}')">
           ${!id && pre && pre._fromOpp ? `<div class="regimebox">
             ${Icon('offers', 14)} Predvyplnené z dopytu — skontrolujte sadzby a doplňte réžiu.${UI.tip('Z dopytu sa prenieslo, čo v ňom bolo zapísané: odberateľ, remeslo, počet ľudí, mesto, termín a sadzby. Čo v dopyte chýbalo, ostalo prázdne. Ponuka sa uloží ako koncept — nikam sa neodošle sama.')}</div>` : ''}
+          ${q.opportunity_id ? `<input type="hidden" name="opportunity_id" value="${UI.esc(q.opportunity_id)}">` : ''}
           ${!id && pre && pre._company && !pre.partner_id ? `<div class="warnbox">
             ${Icon('alert', 14)} Firma „${UI.esc(pre._company)}" z dopytu ešte nie je medzi odberateľmi. Pridajte ju tlačidlom „+" pri poli Odberateľ.</div>` : ''}
           <div class="form-grid">

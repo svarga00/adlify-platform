@@ -8,6 +8,7 @@
 //   - marketing_listings.renew_at do 7 dní → to_renew
 //   - požiadavky bez odozvy > 24 h → alert
 //   - ponuky po valid_until → expired
+//   - záznamy z formulárov webov po lehote → anonymizované osobné údaje
 //
 // Idempotentné — opakované spustenie v ten istý deň nesmie duplikovať záznamy
 // (upozornenia sa píšu s dennou značkou a pred zápisom sa kontrolujú).
@@ -322,6 +323,21 @@ exports.handler = async (event) => {
         s.purgedRecordings++;
       }
     }
+    // ── 8. Lehota uchovania záznamov z formulárov webov (GDPR) ──────────
+    // Záznam formulára z punds.sk / punds.eu drží kópiu osobných údajov,
+    // odtlačok IP a prehliadač. Po lehote (90 dní, migrácia 073) ich
+    // databáza anonymizuje — riadok ostáva kvôli štatistike, údaj sám je
+    // v Kandidátoch / Dopytoch. Kým migrácia 073 nie je spustená, funkcia
+    // chýba — zapíše sa to, ale cron nepadá.
+    {
+      const { data, error } = await supabase.rpc('danubra_web_submissions_anonymize', {});
+      if (error) {
+        if (error.code === 'PGRST202' || /does not exist|Could not find the function/i.test(error.message || '')) {
+          s.webLogAnonymized = 'chýba migrácia 073';
+        } else s.errors.push(`web log: ${error.message}`);
+      } else s.webLogAnonymized = data || 0;
+    }
+
     // ── Úlohy z pravidiel ───────────────────────────────────────────────
     // v1 mala tieto pravidlá zadrôtované priamo tu. Teraz sú to riadky
     // v danubra_task_rules a dajú sa pridať bez zásahu do kódu.

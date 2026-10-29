@@ -148,6 +148,26 @@ function postProcess(html, pairs) {
   return out;
 }
 
+/**
+ * Kontakty tak, ako ich ukazuje web: nastavenie z appky (Marketing → Weby →
+ * Kontakty), a kde nič nie je alebo hodnota nie je platná, pôvodné.
+ * Používajú ich aj automatické e-maily (web/notify.js), aby potvrdenie
+ * neukazovalo iné číslo než web.
+ * @returns {{ sk: { phone1, phone2, email }, eu: { phone, email }, whatsapp }}
+ */
+function contactsOf(rows = {}) {
+  const c = (rows && rows.contacts) || {};
+  const D = DEFAULTS.contacts;
+  const ph = (v, d) => (v && PHONE_OK.test(String(v).trim()) ? String(v).trim() : d);
+  const ml = (v, d) => (v && MAIL_OK.test(String(v).trim()) ? String(v).trim() : d);
+  const sk = c.sk || {}, eu = c.eu || {};
+  return {
+    sk: { phone1: ph(sk.phone1, D.sk.phone1), phone2: ph(sk.phone2, D.sk.phone2), email: ml(sk.email, D.sk.email) },
+    eu: { phone: ph(eu.phone, D.eu.phone), email: ml(eu.email, D.eu.email) },
+    whatsapp: ph(c.whatsapp, D.whatsapp),
+  };
+}
+
 /** Tím pre web (aktívni, zoradení). */
 const teamFor = (siteKey, rows) => (Array.isArray(rows.team) ? rows.team : [])
   .filter((m) => m && m.active !== false && m.name && (!m.sites || !m.sites.length || m.sites.includes(siteKey)))
@@ -172,4 +192,4 @@ function loader(supabase) {
   };
 }
 
-module.exports = { schema, applyTexts, replacements, postProcess, teamFor, loader, flatten, setPath, imageList, DEFAULTS };
+module.exports = { schema, applyTexts, replacements, postProcess, teamFor, loader, contactsOf, flatten, setPath, imageList, DEFAULTS };

@@ -483,10 +483,10 @@
       const opts = [['', '— neposielať —'], ...this.rows.filter(b => b.active !== false).map(b => [b.id, `${b.name} <${b.email}>`])];
       return `<div class="card card-pad" style="margin-top:16px;">
         <div class="card-head"><div class="card-title">E-maily z webov punds.sk a punds.eu${Help.btn('card.mailboxes.web', { size: 13 })}</div></div>
-        <p class="card-note" style="margin:0 0 10px;">Kto pošle prihlášku alebo dopyt, dostane hneď potvrdenie vo svojom jazyku
-          a Vy upozornenie. Prihláška sa do appky uloží vždy — aj keď je posielanie vypnuté.</p>
+        <p class="card-note" style="margin:0 0 10px;">Keď je zvolená schránka, príde Vám upozornenie na každú prihlášku a dopyt — vždy.
+          Potvrdenie odosielateľovi v jeho jazyku sa posiela, len keď je zapnuté. Prihláška sa do appky uloží vždy.</p>
         <form id="web-mail" onsubmit="event.preventDefault();Mbx.saveWeb()">
-          ${UI.field('confirm', 'Posielať automatické e-maily', { type: 'checkbox', value: !!w.confirm })}
+          ${UI.field('confirm', 'Posielať potvrdenie odosielateľovi (uchádzačovi alebo firme)', { type: 'checkbox', value: !!w.confirm })}
           <div class="form-grid">
             ${UI.field('mailbox_sk', 'punds.sk — posielať zo schránky', { value: w.mailbox_sk || '', options: opts })}
             ${UI.field('notify_sk', 'punds.sk — upozornenie na adresu', { type: 'email', value: w.notify_sk || '', placeholder: 'info@punds.sk' })}

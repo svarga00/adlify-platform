@@ -87,6 +87,11 @@ ani mesačné návrhy faktúr. **Tento kľúč nikdy nedávaj do frontendu.**
 | Premenná | Načo |
 |---|---|
 | `FORMS_SECRET` | aby endpoint nemohol zaplniť ktokoľvek |
+| `FORMS_ALLOWED_ORIGINS` | len kým `FORMS_SECRET` nie je: ďalšie domény formulára (čiarkou, napr. `danubra.sk,www.danubra.sk`); punds.sk a punds.eu sú povolené vždy |
+| `IP_HASH_SECRET` | kľúč k odtlačku IP adresy v záznamoch formulárov punds.sk / punds.eu (dlhý náhodný reťazec) |
+
+Bez `FORMS_SECRET` sa prijme len odoslanie z našich stránok (Origin/Referer)
+a do logu funkcie ide varovanie.
 
 Formulár na `danubra-web` potom posiela na:
 `https://adlify-app.netlify.app/.netlify/functions/danubra-webhook-forms`

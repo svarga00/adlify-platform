@@ -19,7 +19,10 @@ const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
-const srv = require('../../app/lib/mail/server.js')(supabase);
+// Preklad inzerátov a textov webu ide cez platený model — len člen appky
+// s právom na Inzeráty alebo Marketing (samotné prihlásenie nestačí:
+// Supabase je spoločný s Adlify).
+const guard = require('../../app/lib/server-guard.js')(supabase);
 const MODEL = process.env.CLAUDE_TRANSLATE_MODEL || 'claude-sonnet-5-5';
 const NAMES = { cz: 'čeština', hu: 'maďarčina', de: 'nemčina', en: 'angličtina' };
 const H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
@@ -39,8 +42,8 @@ const item = {
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return out(405, { error: 'Nepovolená metóda' });
-  const user = await srv.userFrom(event);
-  if (!user) return out(401, { error: 'Neprihlásený používateľ.' });
+  const g = await guard.check(event, { key: ['ads', 'marketing'] });
+  if (!g.ok) return out(g.status, { error: g.error });
   if (!process.env.ANTHROPIC_API_KEY) return out(400, { error: 'Preklad nie je zapnutý (chýba ANTHROPIC_API_KEY v Netlify).' });
   let b;
   try { b = JSON.parse(event.body || '{}'); } catch (e) { return out(400, { error: 'Neplatné telo požiadavky.' }); }

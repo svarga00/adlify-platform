@@ -153,7 +153,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
-  const g = await guard.check(event);
+  // Nahrávky a súhlasy sú Zápisy z hovorov / Kandidáti — server ich číta mimo RLS.
+  const g = await guard.check(event, { key: ['recruiting', 'candidates'] });
   if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   let recordingId;

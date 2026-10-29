@@ -70,6 +70,13 @@ const get = (p, rows, host = 'adlify-app.netlify.app') => handle({ method: 'GET'
   ok(![x1, x2, x3].some((r) => /<img src=x onerror|onerror="alert/.test(r.body)) && x2.body.includes('<b>fett</b>'), 'kontakty, fotky a právne texty z appky sa escapujú (<b> zostane)');
   ok(/script-src 'self' 'sha256-/.test(x1.headers['Content-Security-Policy'] || '') && x1.headers['X-Frame-Options'] === 'DENY', 'stránka má CSP s odtlačkami vložených skriptov a zákaz rámcov');
 
+  console.log('Kontakty pre e-maily');
+  const k0 = C.contactsOf({});
+  ok(k0.sk.phone1 === C.DEFAULTS.contacts.sk.phone1 && k0.eu.phone === C.DEFAULTS.contacts.eu.phone && k0.whatsapp === C.DEFAULTS.contacts.whatsapp, 'bez nastavenia z appky pôvodné kontakty');
+  const k1 = C.contactsOf({ contacts: { sk: { phone1: '+421 999 888 777', email: 'zle<x>@a' }, eu: { phone: '<script>' }, whatsapp: '+421 911 000 111' } });
+  ok(k1.sk.phone1 === '+421 999 888 777' && k1.sk.email === C.DEFAULTS.contacts.sk.email && k1.eu.phone === C.DEFAULTS.contacts.eu.phone && k1.whatsapp === '+421 911 000 111',
+    'kontakty z appky, neplatná hodnota sa nahradí pôvodnou', JSON.stringify(k1));
+
   console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.log(`  ✗ test spadol: ${e.stack}`); console.log('\n0 prešlo, 1 zlyhalo'); process.exit(1); });

@@ -122,7 +122,7 @@
           ${g.items.map(x => `
             <label class="mem-check">
               <input type="checkbox" name="mod_${x.key}" ${checked.has(x.key) ? 'checked' : ''}>
-              <span>${UI.esc(x.label)}</span>
+              <span>${UI.esc(x.label)}</span>${x.hint ? UI.tip(x.hint) : ''}
             </label>`).join('')}
         </div>`).join('');
 

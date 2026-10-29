@@ -4,8 +4,14 @@
 // ============================================================================
 'use strict';
 
+// Odtlačok IP je HMAC s tajomstvom z prostredia — testy si ho nastavia samy.
+for (const k of ['IP_HASH_SECRET', 'MAIL_SECRET', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY']) delete process.env[k];
+process.env.IP_HASH_SECRET = 'test-tajomstvo';
+
+const crypto = require('crypto');
 const api = require('../api');
 const { SITES } = require('../shared/sites');
+const { notifier } = require('../notify');
 
 let passed = 0, failed = 0;
 const ok = (c, name, detail) => { if (c) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? ` — ${String(detail).slice(0, 300)}` : ''}`); } };
@@ -73,6 +79,23 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   for (let i = 0; i < 7; i++) last = await api.handle(SITES.sk, 'contact', req({ name: 'A', phone: '+421900000000', consent: true }, { ip: '9.9.9.9' }), { supabase: flood });
   ok(last.status === 429 && flood.T.danubra_candidates.length === 6, 'najviac 6 odoslaní z jednej adresy za 10 minút', `${last.status} ${flood.T.danubra_candidates.length}`);
 
+  console.log('Odtlačok IP adresy');
+  const plain = crypto.createHash('sha256').update('punds-web:1.2.3.4').digest('hex').slice(0, 32);
+  const h1 = api.ipHash('1.2.3.4'), h2 = api.ipHash('1.2.3.4', 'iny-kluc');
+  ok(h1 && h1 === crypto.createHmac('sha256', 'test-tajomstvo').update('punds-web:ip:1.2.3.4').digest('hex').slice(0, 32) && h1 !== plain && h1 !== h2,
+    'odtlačok je HMAC s tajným kľúčom (bez kľúča sa nedá spätne zistiť)');
+  ok(api.ipHash('1.2.3.4, 10.0.0.1') === h1 && api.ipHash('') === null, 'berie sa prvá adresa z X-Forwarded-For; bez adresy nič');
+  ok(db.T.danubra_web_submissions[0].ip_hash === h1 && !JSON.stringify(db.T.danubra_web_submissions).includes('1.2.3.4'), 'do záznamu ide odtlačok, nie adresa');
+  ok(api.ipSecret({ IP_HASH_SECRET: '', MAIL_SECRET: 'm', SUPABASE_SERVICE_ROLE_KEY: 's' }) === 'm' && api.ipSecret({ SUPABASE_SERVICE_ROLE_KEY: 's' }) === 's'
+    && api.ipSecret({ IP_HASH_SECRET: '  ' }) === null, 'bez IP_HASH_SECRET iné tajomstvo servera, nikdy prázdny reťazec');
+  delete process.env.IP_HASH_SECRET;
+  const nos = fakeDb();
+  let lastNo;
+  for (let i = 0; i < 7; i++) lastNo = await api.handle(SITES.sk, 'contact', req({ name: 'A', phone: '+421900000000', consent: true }, { ip: '8.8.4.4' }), { supabase: nos });
+  ok(api.ipHash('8.8.4.4') === null && nos.T.danubra_web_submissions.every((x) => x.ip_hash === null) && lastNo.status === 429 && nos.T.danubra_candidates.length === 6,
+    'bez tajného kľúča sa IP neukladá vôbec a limit 6 za 10 minút platí ďalej', `${lastNo.status} ${nos.T.danubra_candidates.length}`);
+  process.env.IP_HASH_SECRET = 'test-tajomstvo';
+
   console.log('Dopyt z punds.eu → Dopyty');
   const db2 = fakeDb();
   const r2 = await api.handle(SITES.eu, 'enquiry', req({ company: 'Musterbau GmbH', name: 'Max Mustermann', email: 'max@musterbau.de', phone: '+49 421 123',
@@ -93,6 +116,33 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   const r4 = await api.handle(SITES.sk, 'contact', req({ name: 'A', phone: '+421900000000', consent: true }),
     { supabase: db4, notify: async () => { throw new Error('SMTP padlo'); } });
   ok(r4.status === 200 && db4.T.danubra_candidates.length === 1, 'keď e-mail zlyhá, prihláška je aj tak uložená');
+
+  console.log('Upozornenie tímu a potvrdenie odosielateľovi');
+  const mkNotify = (web, contacts = {}) => {
+    const sent = [];
+    const sb = { from: () => ({ select() { return this; }, limit() { return this; }, maybeSingle: async () => ({ data: { web } }) }) };
+    const srv = { mailbox: async (id) => (id === 'mb1' ? { id: 'mb1', email: 'info@punds.sk', active: true, secret_enc: 'x' } : null), password: () => 'heslo' };
+    const n = notifier(sb, { srv, content: async () => ({ contacts }), send: async (mb, pass, m) => { sent.push(m); } });
+    return { n, sent };
+  };
+  const apply = { site: SITES.sk, kind: 'apply', data: { name: 'Ján Novák', phone: '+421900111222', email: 'jan@x.sk', lang: 'sk' }, id: 'abcdef12-3456' };
+  const off = mkNotify({ confirm: false, mailbox_sk: 'mb1', notify_sk: 'tim@punds.sk' });
+  const rOff = await off.n(apply);
+  ok(rOff.team && !rOff.confirm && off.sent.length === 1 && off.sent[0].to === 'tim@punds.sk' && /Nová prihláška/.test(off.sent[0].subject),
+    'potvrdenie vypnuté: tím dostane upozornenie aj tak, odosielateľ nič', JSON.stringify(rOff));
+  const on = mkNotify({ confirm: true, mailbox_sk: 'mb1' }, { sk: { phone1: '+421 911 222 333' }, whatsapp: '+421 944 555 666' });
+  const rOn = await on.n(apply);
+  const conf = on.sent.find((m) => m.to === 'jan@x.sk');
+  ok(rOn.team && rOn.confirm && on.sent.length === 2 && on.sent.some((m) => m.to === 'info@punds.sk'), 'potvrdenie zapnuté: obe správy (tím bez vlastnej adresy na schránku)', JSON.stringify(rOn));
+  ok(conf && conf.html.includes('+421 911 222 333') && conf.text.includes('+421 911 222 333') && conf.html.includes('wa.me/421944555666') && !conf.html.includes('523 958'),
+    'telefón a WhatsApp v potvrdení sú z Kontaktov v appke');
+  const eu = mkNotify({ confirm: true, mailbox_eu: 'mb1' }, { eu: { phone: '+49 421 7777' } });
+  await eu.n({ site: SITES.eu, kind: 'enquiry', data: { company: 'GU', name: 'Max', email: 'max@gu.de', lang: 'de', trades: ['zvarac'] }, id: 'x' });
+  const ce1 = eu.sent.find((m) => m.to === 'max@gu.de');
+  ok(ce1 && ce1.text.includes('+49 421 7777'), 'potvrdenie dopytu: telefón z Kontaktov punds.eu (keď v nastavení e-mailov nie je iný)');
+  const none = mkNotify({ confirm: true });
+  const rNone = await none.n(apply);
+  ok(rNone.skipped === 'bez schránky' && none.sent.length === 0, 'bez zvolenej schránky sa neposiela nič');
 
   const E = require('../emails');
   for (const l of ['sk', 'cz', 'hu', 'de', 'en']) {

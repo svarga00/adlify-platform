@@ -609,7 +609,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
-  const g = await guard.check(event);
+  // Podklady k náboru: Nábor, Inzeráty alebo Dopyty (plankit). Len člen nestačí.
+  const g = await guard.check(event, { key: ['hiring', 'ads', 'contracts'] });
   if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
   try {
     const { planId, regen } = JSON.parse(event.body || '{}');

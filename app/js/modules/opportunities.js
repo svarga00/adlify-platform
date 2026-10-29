@@ -604,6 +604,7 @@
       const chyba = O.missing(x);
       const m = O.margin(x);
       const TONE = { valid: 'green', invalid: 'red', unavailable: 'amber', unchecked: 'gray' };
+      const quotes = await this.quotesOf(x.id);
 
       el.innerHTML = Danubra.header(x.title,
         [x.company_name, x.city].filter(Boolean).map(UI.esc).join(' · '), '', [x.title]) + `
@@ -671,9 +672,10 @@
               ${Icon('zap', 17)} Spraviť z toho nábor</button>
              <div class="kit-note" style="margin-top:6px;">Zadanie sa prenesie a analýza
                z neho spraví podklady, otázky do hovoru aj polia náboru.${UI.tip('Založí sa nábor ako koncept — nič sa nezverejní. Dopyt sa prepne na „Preverujeme". Texty inzerátov si potom spustíte v Nábore sami.')}</div>`}
+        ${this.quotesHtml(quotes)}
         <div class="opp-next-acts" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
           <button class="btn btn-outline" onclick="Opp.toQuote('${x.id}')">
-            ${Icon('offers', 15)} Spraviť ponuku</button>
+            ${Icon('offers', 15)} ${quotes && quotes.length ? 'Spraviť ďalšiu ponuku' : 'Spraviť ponuku'}</button>
           ${x.subcontract_id
             ? `<span class="regimebox" style="margin:0;">${Icon('check', 14)} Zákazka je založená.
                 ${Danubra.link('subcontract', x.subcontract_id, 'Otvoriť zákazku')}</span>`
@@ -681,6 +683,46 @@
                 ${Icon('site', 15)} Založiť zákazku</button>`}
           <span style="align-self:center;display:inline-flex;">${UI.tip('Spraviť ponuku: otvorí sa nová ponuka predvyplnená z dopytu (odberateľ, remeslo, počet ľudí, mesto, termín, sadzby). Uloží sa ako koncept, nič sa neodošle samo. Založiť zákazku: otvorí sa formulár zákazky predvyplnený z dopytu; po uložení sa dopyt označí ako vyhraný a zákazka bude vedieť, koľko ľudí treba nasadiť.')}</span>
         </div>`;
+    },
+
+    // ── Ponuky z dopytu ───────────────────────────────────────────────────
+    /**
+     * Ponuky, ktoré vznikli z dopytu (`danubra_quotes.opportunity_id`,
+     * migrácia 074). Kto nesmie na ponuky, nedostane nič — `null` znamená
+     * „nevieme", nie „žiadna".
+     * @returns {Promise<Array|null>}
+     */
+    async quotesOf(oppId) {
+      if (!Danubra.can('quotes')) return null;
+      const { data } = await DB.list('quotes', {
+        select: 'id,quote_number,title,status,charge_rate,headcount,hours_per_month,created_at',
+        filters: { opportunity_id: oppId },
+        order: { column: 'created_at', ascending: false }, limit: 50,
+      });
+      return data || [];
+    },
+
+    quotesHtml(list) {
+      if (!list || !list.length) return '';
+      const kind = (st) => (window.Quo ? Quo.statusKind(st) : 'gray');
+      const label = (st) => (window.Enums ? Enums.label('quote_status', st) : st);
+      return `<div class="opp-quotes" style="margin-top:10px;">
+        <div class="kit-note" style="margin-bottom:4px;">Ponuky z tohto dopytu${UI.tip('Ponuky, ktoré vznikli tlačidlom „Spraviť ponuku" pri tomto dopyte. Kliknutím otvoríte detail ponuky — maržu, stav a PDF. Sadzba je to, čo fakturujeme odberateľovi za hodinu jedného človeka, bez DPH; mesačne = sadzba × ľudia × hodiny mesačne.')}</div>
+        ${list.map(q => {
+          const mes = q.charge_rate && q.hours_per_month
+            ? Number(q.charge_rate) * (Number(q.headcount) || 1) * Number(q.hours_per_month) : null;
+          return `<div class="list-row">
+            <span style="flex:1;min-width:0;font-size:13px;">
+              ${Danubra.link('quote', q.id, q.quote_number || q.title || 'Ponuka')}
+              ${UI.badge(label(q.status), kind(q.status))}
+              <span style="display:block;color:var(--ink-mute);font-size:12px;">
+                ${UI.esc(q.title || '')}${q.charge_rate ? ` · ${UI.money(q.charge_rate)}/h` : ' · bez sadzby'}${
+                  q.headcount ? ` · ${q.headcount} ${Shell.plural(Number(q.headcount), 'človek', 'ľudia', 'ľudí')}` : ''}${
+                  mes ? ` · ${UI.money(mes)} mesačne` : ''}</span>
+            </span>
+          </div>`;
+        }).join('')}
+      </div>`;
     },
 
     // ── Z dopytu ponuka a zákazka ─────────────────────────────────────────

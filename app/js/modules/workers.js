@@ -517,15 +517,24 @@
       Danubra.renderRoute();
     },
 
+    /**
+     * Smie vidieť jeho peniaze (faktúry, zálohy, čo mu dlhujeme)? Je to právo
+     * na Prijaté faktúry a náklady. Databáza to stráži tiež (migrácia 072) —
+     * bez práva by vrátila prázdno a karta by tvrdila „nič mu nedlhujeme".
+     */
+    money() { return Danubra.can('costs'); },
+
     /** Dáta, ktoré potrebuje len profil. */
     async loadAccount(workerId) {
+      const none = Promise.resolve({ data: [], error: null });
+      const money = this.money();
       const [b, a, t, p] = await Promise.all([
-        DB.list('bills', { filters: { worker_id: workerId },
-          order: { column: 'issue_date', ascending: false }, limit: 300 }),
-        DB.list('advances', { filters: { worker_id: workerId },
-          order: { column: 'paid_on', ascending: false }, limit: 300 }),
-        DB.list('timesheets', { filters: { worker_id: workerId },
-          order: { column: 'work_date', ascending: false }, limit: 1000 }),
+        money ? DB.list('bills', { filters: { worker_id: workerId },
+          order: { column: 'issue_date', ascending: false }, limit: 300 }) : none,
+        money ? DB.list('advances', { filters: { worker_id: workerId },
+          order: { column: 'paid_on', ascending: false }, limit: 300 }) : none,
+        money ? DB.list('timesheets', { filters: { worker_id: workerId },
+          order: { column: 'work_date', ascending: false }, limit: 1000 }) : none,
         DB.list('promises', { filters: { subject_type: 'worker', subject_id: workerId },
           order: { column: 'created_at', ascending: false }, limit: 200 }),
       ]);
@@ -566,7 +575,7 @@
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Wrk.closeProfile()">${Icon('back', 15)} Späť</button>
         <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">${Icon('edit', 14)} Upraviť</button>
-        <button class="btn btn-primary btn-sm" onclick="Wrk.payMenu('${w.id}')">${Icon('wallet', 14)} Záloha / platba</button>`);
+        ${this.money() ? `<button class="btn btn-primary btn-sm" onclick="Wrk.payMenu('${w.id}')">${Icon('wallet', 14)} Záloha / platba</button>` : ''}`);
 
       // Účet sa načíta až tu — zoznam ľudí naň nečaká.
       if (!this.acc.loaded || this.acc.workerId !== id) {
@@ -603,10 +612,10 @@
       // Tretí argument hlavičky je cesta — vďaka nej sa „Živnostníci"
       // stanú odkazom späť na zoznam aj na mobile, kde horný pruh nie je.
       el.innerHTML = Danubra.header(w.full_name, sub, '', [w.full_name], this.avatar(w, 46)) + `
-        <div class="headline headline-${head.tone === 'bad' ? 'bad' : head.tone === 'warn' ? 'warn' : 'ok'}">
+        ${this.money() ? `<div class="headline headline-${head.tone === 'bad' ? 'bad' : head.tone === 'warn' ? 'warn' : 'ok'}">
           ${Icon(head.tone === 'bad' ? 'alert' : head.tone === 'warn' ? 'clock' : 'check', 18)}
           <span>${UI.esc(head.text)}</span>
-        </div>
+        </div>` : ''}
 
         <div class="detail-head">
           ${this.statusBadge(w.status)}
@@ -638,10 +647,13 @@
             dokumenty: `<div class="card card-pad"><div class="card-head"><div class="card-title">Dokumenty${Help.btn('card.worker.documents', { size: 13 })}</div></div>
               ${window.Docs ? Docs.slot('worker', w.id, { empty: 'Zatiaľ žiadne. GDPR, rámcová zmluva, objednávka či infolist sa sem uložia, keď z nich spravíte PDF.' }) : ''}</div>`,
           };
+          // Bez práva na peniaze záložka Peniaze nie je — prázdne čísla by klamali.
+          if (!this.money()) delete sekcie.peniaze;
           const sec = sekcie[this.sec] ? this.sec : 'doklady';
           this._sec = sec;
           const TABS = [['doklady', 'Doklady', 'shield'], ['dokumenty', 'Dokumenty', 'doc'],
-            ['emaily', 'E-maily', 'mail'], ['peniaze', 'Peniaze', 'euro'], ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']];
+            ['emaily', 'E-maily', 'mail'], ['peniaze', 'Peniaze', 'euro'], ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']]
+            .filter(([k]) => sekcie[k]);
           return `<div class="sec-tabs" role="tablist">
             ${TABS.map(([k, label, ico]) => `<button role="tab" class="sec-tab${k === sec ? ' on' : ''}"
               aria-selected="${k === sec}" onclick="Wrk.setSec('${k}')">${Icon(ico, 14)} ${label}</button>`).join('')}
@@ -1920,6 +1932,9 @@
     // aby som to rýchlo vedel zaznamenať." Jedno okno, štyri možnosti; to isté
     // je na karte človeka, v zákazke pri jeho mene a vo Fakturácii.
     async payMenu(workerId) {
+      if (!this.money()) {
+        return UI.toast('Na zálohy a platby nemáte právo (Prijaté faktúry a náklady). Požiadajte administrátora.', 'err');
+      }
       if (!this.loaded) await this.load();
       const w = this.items.find(x => x.id === workerId);
       if (!w) return UI.toast('Človek sa nenašiel', 'err');

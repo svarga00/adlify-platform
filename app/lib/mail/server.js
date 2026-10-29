@@ -8,6 +8,7 @@
 const { ImapFlow } = require('imapflow');
 const nodemailer = require('nodemailer');
 const S = require('./secret.js');
+const Perm = require('../perm.js');
 
 module.exports = function server(supabase) {
   async function userFrom(event) {
@@ -18,16 +19,34 @@ module.exports = function server(supabase) {
     return (data && data.user) || null;
   }
 
-  /** Admin appky. Kým nie je založený nikto, smie prvý prihlásený (ako inde v appke). */
-  async function isAdmin(userId) {
-    const { data } = await supabase.from('danubra_members').select('user_id,role,active').limit(500);
-    const rows = data || [];
-    if (!rows.length) return true;
-    return rows.some(m => m.user_id === userId && m.role === 'admin' && m.active !== false);
+  /**
+   * Členovia appky a ja medzi nimi — rovnaké pravidlo ako server-guard.js
+   * a databáza (Perm). Keď sa zoznam nedá prečítať, nepustí sa nikto:
+   * predtým chyba vyzerala ako „prázdna appka" a pustila každého.
+   */
+  async function whoAmI(userId) {
+    const { data, error } = await supabase.from('danubra_members')
+      .select('user_id,role,modules,active').limit(1000);
+    if (error || !Array.isArray(data)) return null;
+    return { members: data, me: data.find(m => m.user_id === userId && m.active !== false) || null };
   }
 
+  /** Admin appky. Kým nie je založený nikto, smie prvý prihlásený (ako inde v appke). */
+  async function isAdmin(userId) {
+    const w = await whoAmI(userId);
+    return !!w && Perm.isAdmin(w.me, w.members);
+  }
+
+  /**
+   * Smie do schránky? Admin do všetkých. Ostatní len aktívny člen s právom na
+   * Správy (perm.js: mail → messages) a s prideleným prístupom ku schránke —
+   * vypnutý človek ani ten, komu admin Správy vzal, už neodošle nič.
+   */
   async function canUse(userId, mailboxId) {
-    if (await isAdmin(userId)) return true;
+    const w = await whoAmI(userId);
+    if (!w) return false;
+    if (Perm.isAdmin(w.me, w.members)) return true;
+    if (!w.me || !Perm.can(w.me, 'mail', w.members)) return false;
     const { data } = await supabase.from('danubra_mailbox_access').select('active')
       .eq('mailbox_id', mailboxId).eq('user_id', userId).maybeSingle();
     return !!(data && data.active);

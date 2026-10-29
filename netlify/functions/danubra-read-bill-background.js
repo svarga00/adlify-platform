@@ -67,7 +67,8 @@ exports.handler = async (event) => {
   let billId = null, company = {};
   try { ({ billId, company = {} } = JSON.parse(event.body || '{}')); } catch { return; }
   if (!billId) return;
-  const g = await guard.check(event);
+  // Prijaté faktúry: kto nesmie na Náklady (ani Banku), nečíta ich ani cez server.
+  const g = await guard.check(event, { key: ['costs', 'bank'] });
   if (!g.ok) return;
 
   const { data: bill } = await supabase.from('danubra_bills').select('*').eq('id', billId).maybeSingle();

@@ -10,6 +10,10 @@
 //      danubra_can() v databáze: kým nie je založený nikto, smie každý
 //      prihlásený — inak by sa prvý človek zamkol von),
 //   3. voliteľne právo na obrazovku/právomoc (perm.js) alebo admin.
+//      `key` môže byť aj zoznam — stačí jedno z nich (napr. SMS sa posiela
+//      z kandidáta aj zo živnostníka). Databáza drží to isté pravidlo pre
+//      tabuľky (migrácia 072, danubra_table_modules); tu sa stráži to, čo
+//      robí server so service-role kľúčom mimo RLS (SMS, pošta, AI, súbory).
 //
 //   const guard = require('../../app/lib/server-guard.js')(supabase);
 //   const g = await guard.check(event, { key: 'invoices' });
@@ -45,7 +49,7 @@ module.exports = function guard(supabase) {
 
   /**
    * @param {Object} event  Netlify event
-   * @param {{ key?: string, admin?: boolean }} [opts]
+   * @param {{ key?: string|string[], admin?: boolean }} [opts]
    * @returns {Promise<{ ok: true, user, member } | { ok: false, status: number, error: string }>}
    */
   async function check(event, opts = {}) {
@@ -59,13 +63,14 @@ module.exports = function guard(supabase) {
     const me = members.find(m => m.user_id === u.id && m.active !== false) || null;
     if (!Perm.bootstrap(members) && !me) return { ok: false, status: 403, error: MSG.member };
     if (opts.admin && !Perm.isAdmin(me, members)) return { ok: false, status: 403, error: MSG.admin };
-    if (opts.key && !Perm.can(me, opts.key, members)) return { ok: false, status: 403, error: MSG.key };
+    const keys = [].concat(opts.key || []).filter(Boolean);
+    if (keys.length && !keys.some(k => Perm.can(me, k, members))) return { ok: false, status: 403, error: MSG.key };
     return { ok: true, user: u, member: me };
   }
 
-  /** Len člen appky (bez ďalších práv) — vráti používateľa alebo null. */
-  async function memberUser(event) {
-    const g = await check(event);
+  /** Člen appky (voliteľne s právom `opts.key`) — vráti používateľa alebo null. */
+  async function memberUser(event, opts) {
+    const g = await check(event, opts);
     return g.ok ? g.user : null;
   }
 

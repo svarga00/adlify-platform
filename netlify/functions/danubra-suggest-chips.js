@@ -98,7 +98,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
-  const g = await guard.check(event);
+  const g = await guard.check(event, { key: ['trades', 'candidates', 'hiring', 'recruiting'] });
   if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   try {

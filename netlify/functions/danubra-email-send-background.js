@@ -51,7 +51,7 @@ exports.handler = async (event) => {
   const limit = Math.min(Math.max(Number(body.limit) || 40, 1), 100);
 
   // Len člen appky — samotné prihlásenie nestačí (Supabase je spoločný s Adlify).
-  const g = await require('../../app/lib/server-guard.js')(supabase).check(event);
+  const g = await require('../../app/lib/server-guard.js')(supabase).check(event, { key: 'campaigns' });
   // Cudzí (401/403) do kampane nezapíše ani chybu.
   if (!g.ok) return [401, 403].includes(g.status) ? undefined : campaignError(id, g.error);
   if (!smtpReady()) {

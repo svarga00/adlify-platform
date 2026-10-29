@@ -53,6 +53,9 @@
         + 'spraviť, bude na výplaty a zarábame na tom.',
         'Zvonček hore hovorí, čo sa stalo, kým ste sa nepozerali. Úlohy hovoria, čo '
         + 'treba spraviť. Sú to dve rôzne otázky, preto sú to dve rôzne miesta.',
+        'Okno sa zavrie klávesom Esc, krížikom alebo kliknutím vedľa neho. Esc zavrie '
+        + 'vždy len najvrchnejšie (otázku alebo otáznik nad oknom), a keď je vo formulári '
+        + 'neuložená zmena, appka sa najprv spýta „Zavrieť bez uloženia?".',
       ],
       how: [
         'Cesta zákazky: odberateľ → ponuka → zmluva → zákazka → nasadení ľudia → '
@@ -359,6 +362,7 @@
       ],
       how: [
         'Posiela sa zo zvolenej schránky (Správy), kópia je v jej priečinku Odoslané.',
+        'Upozornenie Vám chodí vždy, keď je pri webe zvolená schránka. Potvrdenie odosielateľovi sa zapína a vypína zvlášť.',
         'Prihláška sa do Kandidátov a dopyt do Dopytov uloží vždy — aj keď je posielanie vypnuté.',
       ],
       why: ['Človek hneď vie, že prihláška prišla — a neodíde ku konkurencii, kým sa ozveme.'],
@@ -686,6 +690,8 @@
         'Formulár má štyri polia zámerne: názov, firmu, telefón a to, čo potrebujú. '
         + 'Zvyšok dopĺňa ten, kto to bude riešiť — vysoký prah znamená, že sa dopyt '
         + 'nezapíše vôbec.',
+        'Ponuka spravená z dopytu si pamätá, z ktorého je. V dopyte sú preto pod „Čo z toho '
+        + 'spraviť" všetky ponuky z neho (číslo, stav, sadzba) a v ponuke odkaz „Z dopytu" späť.',
       ],
       why: [
         'Dopyt, ktorý nie je zapísaný, neexistuje. Keď z nej nič nebude, zostane '
@@ -1105,6 +1111,8 @@
       how: [
         '„Dielo" nie je názov zákazky — je to rozsah: čo má byť hotové, koľko toho '
         + 'je a kde. Z neho sa potom robí objednávka živnostníkovi.',
+        'Koniec zákazky sa po zadaní neprepisuje vo formulári, ale tlačidlom „Predĺžiť / '
+        + 'zmeniť koniec" s dôvodom. Appka ponúkne posunúť aj nasadenia, ktoré končili spolu so zákazkou.',
       ],
       why: [
         'Zákazka bez napísaného diela je pri kontrole prenájom pracovnej sily, nie '
@@ -1140,10 +1148,14 @@
       how: [
         'Nezapísané ubytovanie krok nezhodí — človek niekde spí, len to nie je '
         + 'v appke. Chýbajúci doklad áno: ten sa dá dobehnúť alebo naň zapísať výnimku.',
+        'Koniec nasadenia sa mení tlačidlom „Predĺžiť / zmeniť koniec" pri človeku: nový '
+        + 'koniec a dôvod. Zapíše sa pôvodný aj nový koniec, kto a kedy — história je pod „Zmeny konca".',
       ],
       why: [
         'Zákazka bez ľudí nezarába a stavba nepočká. A človek, ktorému chýba doklad, '
         + 'je riziko celej zákazky, nie jeho vlastný problém.',
+        'Zmena koncového dátumu je záznam, nie prepísanie. Keď sa o pol roka rieši, '
+        + 'dokedy mal človek na stavbe byť a prečo, odpoveď je pri nasadení.',
       ],
       links: [['workers', 'Živnostníci'], ['subcontracts', 'Zákazky']],
     },

@@ -7,7 +7,17 @@
 //
 // Ochrana: hlavička X-Danubra-Secret alebo query ?secret= musí sedieť
 // s FORMS_SECRET, inak by endpoint mohol ktokoľvek zaplniť.
+//
+// Kým FORMS_SECRET nie je nastavený (spätná kompatibilita — formulár bez
+// tajomstva sa nezastaví), prijme sa len odoslanie z našich stránok: Origin
+// alebo Referer z punds.sk / punds.eu (aj subdomény), tejto appky na
+// Netlify, localhostu, alebo z domén vo FORMS_ALLOWED_ORIGINS (čiarkou
+// oddelené, napr. „danubra.sk,www.danubra.sk"). Do logu sa pri každej
+// požiadavke zapíše varovanie. Origin si vie skript podvrhnúť — skutočná
+// ochrana je len FORMS_SECRET; toto zastaví aspoň formuláre z cudzích stránok
+// a holé volania bez pôvodu.
 // ============================================================================
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const Sms = require('../../app/lib/sms/provider');
 
@@ -45,12 +55,46 @@ function toDate(v) {
   return isNaN(d) ? null : d.toISOString().slice(0, 10);
 }
 
-function authorized(event) {
-  const secret = process.env.FORMS_SECRET;
-  if (!secret) return true;   // nenastavené → povolené (vývoj)
+const ORIGIN_OK = /^(([a-z0-9-]+\.)*punds\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost|127\.0\.0\.1)$/i;
+
+/** Hostiteľ z Origin, inak z Referer (malými písmenami, bez portu), alebo ''. */
+function originHost(headers = {}) {
+  const low = Object.fromEntries(Object.entries(headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
+  for (const v of [low.origin, low.referer]) {
+    if (!v || v === 'null') continue;
+    try {
+      const u = new URL(v);
+      if (u.protocol === 'https:' || u.protocol === 'http:') return u.hostname.toLowerCase();
+    } catch (e) { /* neplatná adresa */ }
+  }
+  return '';
+}
+
+/** Je pôvod jedna z našich stránok (alebo doména z FORMS_ALLOWED_ORIGINS)? */
+function originAllowed(headers, extra = process.env.FORMS_ALLOWED_ORIGINS) {
+  const host = originHost(headers);
+  if (!host) return false;
+  if (ORIGIN_OK.test(host)) return true;
+  const more = String(extra || '').split(',').map((x) => x.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/[/:].*$/, '')).filter(Boolean);
+  return more.includes(host);
+}
+
+const same = (a, b) => {
+  const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || ''));
+  return x.length === y.length && x.length > 0 && crypto.timingSafeEqual(x, y);
+};
+
+function authorized(event, env = process.env) {
+  const secret = env.FORMS_SECRET;
+  if (!secret) {
+    // Spätná kompatibilita: bez tajomstva len z našich stránok (pozri hlavičku súboru).
+    const ok = originAllowed(event.headers || {}, env.FORMS_ALLOWED_ORIGINS);
+    console.warn(`[danubra-webhook-forms] FORMS_SECRET nie je nastavený — požiadavka ${ok ? 'prijatá podľa pôvodu' : 'odmietnutá (pôvod nie je náš)'}: ${originHost(event.headers || {}) || 'bez Origin/Referer'}`);
+    return ok;
+  }
   const h = event.headers?.['x-danubra-secret'] || event.headers?.['X-Danubra-Secret'];
   const q = event.queryStringParameters?.secret;
-  return h === secret || q === secret;
+  return same(h, secret) || same(q, secret);
 }
 
 exports.handler = async (event) => {
@@ -154,7 +198,11 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: cors,
       body: JSON.stringify({ success: true, inquiry_id: inquiry.id, client_id: client?.id || null }) };
   } catch (err) {
+    // Detail (názvy tabuliek, stĺpcov, hodnoty) len do logu — navonok všeobecná veta.
     console.error('[danubra-webhook-forms]', err);
-    return { statusCode: 500, headers: cors, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 500, headers: cors,
+      body: JSON.stringify({ error: 'Dopyt sa nepodarilo uložiť. Skúste to, prosím, znova alebo nás kontaktujte telefonicky.' }) };
   }
 };
+
+exports._test = { authorized, originAllowed, originHost };

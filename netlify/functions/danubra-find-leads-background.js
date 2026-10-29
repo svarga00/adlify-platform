@@ -123,7 +123,7 @@ exports.handler = async (event) => {
 
   // Kto volá — len prihlásený človek z appky (jeho prístupový kľúč).
   // Len člen appky — samotné prihlásenie nestačí (Supabase je spoločný s Adlify).
-  const g = await require('../../app/lib/server-guard.js')(supabase).check(event);
+  const g = await require('../../app/lib/server-guard.js')(supabase).check(event, { key: 'leads' });
   if (!g.ok) return;
 
   const { data: s } = await supabase.from('danubra_lead_searches').select('*').eq('id', id).maybeSingle();
