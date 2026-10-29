@@ -186,15 +186,15 @@ do $x$
 begin
   if exists (
     select period_id from danubra_invoices
-     where period_id is not null and status <> 'cancelled' and archived_at is null
+     where period_id is not null and status <> 'cancelled'
      group by period_id having count(*) > 1
   ) then
     raise notice 'POZOR: niektoré obdobie má viac živých faktúr — idx_dinv_period_one sa nezaložil. '
       'Nájdete ich: select period_id, count(*) from danubra_invoices where period_id is not null '
-      'and status <> ''cancelled'' and archived_at is null group by 1 having count(*) > 1;';
+      'and status <> ''cancelled'' group by 1 having count(*) > 1;';
   else
     create unique index if not exists idx_dinv_period_one on danubra_invoices(period_id)
-      where period_id is not null and status <> 'cancelled' and archived_at is null;
+      where period_id is not null and status <> 'cancelled';
   end if;
 end $x$;
 
@@ -266,13 +266,13 @@ begin
   if current_user in ('postgres', 'supabase_admin') then return new; end if;
   if old.status in ('closed', 'invoiced') and new.status = 'open' then
     if exists (select 1 from danubra_invoices
-                where period_id = new.id and status <> 'cancelled' and archived_at is null) then
+                where period_id = new.id and status <> 'cancelled') then
       raise exception 'Z obdobia už je faktúra (aj návrh). Otvoriť späť sa nedá — najprv faktúru '
         'stornujte alebo opravte rozdiel v nasledujúcom období.' using errcode = 'check_violation';
     end if;
     if exists (select 1 from danubra_bills
                 where period_id = new.id and source = 'self_billing'
-                  and status <> 'discarded' and archived_at is null) then
+                  and status <> 'discarded') then
       raise exception 'Z obdobia už je faktúra za živnostníka. Otvoriť späť sa nedá — najprv ju zahoďte.'
         using errcode = 'check_violation';
     end if;
