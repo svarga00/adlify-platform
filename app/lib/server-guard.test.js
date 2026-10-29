@@ -35,6 +35,16 @@ const ev = (t) => ({ headers: t ? { authorization: `Bearer ${t}` } : {} });
   ok(!g.ok && g.status === 403, 'náborár nie je admin');
   g = await G(fake({ members: [admin, { ...rec, role: 'admin' }] })).check(ev('good'), { admin: true, key: 'invoices' });
   ok(g.ok, 'admin smie všetko');
+  g = await G(fake({ members: [admin, rec] })).check(ev('good'), { key: ['invoices', 'candidates'] });
+  ok(g.ok, 'zoznam práv: stačí jedno z nich (SMS kandidátovi)');
+  g = await G(fake({ members: [admin, rec] })).check(ev('good'), { key: ['invoices', 'bank'] });
+  ok(!g.ok && g.status === 403, 'zoznam práv: bez žiadneho z nich 403');
+  g = await G(fake({ members: [admin, rec] })).check(ev('good'), { key: 'mail' });
+  ok(g.ok, 'odvodené právo (mail → Správy) platí aj na serveri');
+  ok(await G(fake({ members: [admin, rec] })).memberUser(ev('good'), { key: 'costs' }) === null,
+    'memberUser s právom → null, keď ho člen nemá');
+  ok(!!await G(fake({ members: [admin, rec] })).memberUser(ev('good'), { key: ['workers'] }),
+    'a používateľ, keď ho má');
   g = await G(fake({ error: { message: 'x' } })).check(ev('good'));
   ok(!g.ok && g.status === 503, 'keď sa členovia nedajú prečítať, nepustí');
   ok(await G(fake({ members: [admin] })).memberUser(ev('good')) === null, 'memberUser → null pre nečlena');

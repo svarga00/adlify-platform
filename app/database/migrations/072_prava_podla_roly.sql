@@ -44,6 +44,10 @@
 -- Úprava: zmeňte riadok v zozname nižšie a spustite túto migráciu znova
 -- (je idempotentná — riadky sa prepíšu, politiky sa založia nanovo).
 -- Nová tabuľka v ďalšej migrácii = nový riadok (inak test spadne).
+-- Poradie nasadenia: 073, 074, potom 072 (072 už pozná tabuľku zo 074
+-- danubra_assignment_extensions). Keby 072 bežala skôr, riadok pre
+-- neexistujúcu tabuľku sa len zapíše a politiky sa preskočia — stačí 072
+-- po 074 spustiť znova.
 --
 -- Nič sa tu nemaže: pribúda tabuľka, tri funkcie, politiky a jeden
 -- spúšťač. Existujúce politiky a funkcie sa nemenia.
@@ -114,6 +118,7 @@ insert into danubra_table_modules (table_name, read_modules, write_modules, note
   ('danubra_work_orders', '{contracts,subcontracts,workers,invoices,costs}', '{contracts}', 'Objednávky (obrazovka Objednávky = právo contracts).'),
   ('danubra_assignments', '{subcontracts,timesheets,hoursheet,workers,crews,contracts,compliance,invoices,costs,bank}', '{subcontracts}', 'Nasadenia. Čítajú ich aj kontroly prijatých faktúr a uzávierka obdobia.'),
   ('danubra_assignment_checks', '{subcontracts}', '{subcontracts}', 'Checklist pred nasadením.'),
+  ('danubra_assignment_extensions', '{subcontracts,timesheets,hoursheet,workers,crews,contracts,compliance,invoices,costs,bank}', '{subcontracts}', 'Záznamy o predĺžení nasadenia a zákazky (074) — rovnako ako nasadenia. Ak 074 ešte nie je nasadená, riadok počká a politiky sa založia pri ďalšom spustení 072.'),
   ('danubra_timesheets', '{timesheets,hoursheet,subcontracts,invoices,costs,bank}', '{timesheets,hoursheet,subcontracts,invoices}', 'Hodiny. Uzávierka obdobia (zákazka aj fakturácia) ich zamyká; kontrola prijatej faktúry z nich ráta sumu.'),
   ('danubra_periods', '{subcontracts,timesheets,hoursheet,invoices,costs,bank}', '{subcontracts,timesheets,invoices}', 'Uzávierky období; faktúra obdobie označí.'),
   ('danubra_hour_sheets', '{hoursheet,timesheets,subcontracts,invoices}', '{hoursheet,timesheets,subcontracts}', 'Výkaz pre odberateľa (Stundennachweis).'),

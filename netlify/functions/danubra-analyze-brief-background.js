@@ -22,7 +22,7 @@ exports.handler = async (event) => {
   if (!planId || !job) return;
   // Platený model + zápis do náboru — len prihlásený člen appky.
   // Kto nie je člen, nesmie do náboru zapísať ani chybu.
-  const g = await guard.check(event);
+  const g = await guard.check(event, { key: ['hiring', 'ads', 'contracts'] });
   if (!g.ok) return;
 
   const started_at = new Date().toISOString();

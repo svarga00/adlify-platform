@@ -10,14 +10,24 @@
 // Dve knobky, ktoré robia to isté, sú mätúce, takže platí jedno pravidlo:
 // *„moduly, ak sú zadané, platia; inak predvoľba roly."*
 //
-// **Toto nie je ochrana.** Ochrana je v databáze (migrácia 030) — funkcia
-// `danubra_can()`, politiky a spúšťače. Tu je to len preto, aby človek
-// nevidel v menu obrazovky, na ktoré aj tak nemá; skrytá položka nikoho
-// nezastaví, kto pozná adresu.
+// **Toto nie je ochrana.** Tu je to len preto, aby človek nevidel v menu
+// obrazovky, na ktoré aj tak nemá; skrytá položka nikoho nezastaví, kto pozná
+// adresu alebo verejný kľúč. Kde je ochrana naozaj:
 //
-// Preto je tu aj test, ktorý porovnáva tento zoznam s tým v migrácii. Keby sa
-// rozišli, appka by ponúkala niečo, čo databáza odmietne — a vyzeralo by to
-// ako chyba appky, nie ako pravidlo.
+//   * databáza — `danubra_can()` (030/032) s tými istými predvoľbami rolí;
+//     od migrácie 072 ju používajú politiky na každej tabuľke danubra_*
+//     podľa mapovania tabuľka → moduly (`danubra_table_modules`): čítať
+//     a zapisovať smie len ten, kto má príslušný modul. Do 072 databáza
+//     overovala iba členstvo (069) a rola platila len v appke,
+//   * tvrdé pravidlá len pre admina (schválenie faktúry, výnimky, nastavenia,
+//     archív) — spúšťače a funkcie v 030, 066, 069,
+//   * serverové funkcie (service role, RLS ich neobmedzuje) — server-guard.js
+//     overuje členstvo a právo na modul cez tento súbor.
+//
+// Preto sú tu aj testy, ktoré porovnávajú tento zoznam s migráciami (predvoľby
+// v danubra_can aj kľúče v danubra_table_modules). Keby sa rozišli, appka by
+// ponúkala niečo, čo databáza odmietne — a vyzeralo by to ako chyba appky,
+// nie ako pravidlo.
 //
 // Testy: node app/lib/perm.test.js
 // ============================================================================

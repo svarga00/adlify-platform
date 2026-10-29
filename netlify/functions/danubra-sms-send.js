@@ -45,6 +45,24 @@ const ADAPTERS = {
   },
 };
 
+/**
+ * Kto smie poslať SMS komu — podľa záznamu, z ktorého sa posiela (CommPanel).
+ * SMS ide von na firemné náklady a do osi záznamu, takže len člen nestačí:
+ * treba právo na tú obrazovku (perm.js). Bez záznamu stačí jedna z nich.
+ */
+const SMS_KEYS = {
+  candidate: ['candidates', 'hiring', 'recruiting'],
+  worker: ['workers', 'crews', 'subcontracts', 'candidates'],
+  partner: ['partners', 'subcontracts', 'contracts', 'quotes'],
+  accommodation: ['accommodations', 'subcontracts'],
+  client: ['invoices'], inquiry: ['invoices'], order: ['invoices'],
+};
+const SMS_ANY = [...new Set(Object.values(SMS_KEYS).flat())];
+function smsKeys(body) {
+  const t = body && body.entity && body.entity.type;
+  return SMS_KEYS[t] || SMS_ANY;
+}
+
 exports.handler = async (event) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -55,7 +73,9 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
-  const g = await guard.check(event);
+  let req = {};
+  try { req = JSON.parse(event.body || '{}') || {}; } catch { req = {}; }
+  const g = await guard.check(event, { key: smsKeys(req) });
   if (!g.ok) return { statusCode: g.status, headers: cors, body: JSON.stringify({ error: g.error }) };
 
   try {
