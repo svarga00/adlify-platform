@@ -76,6 +76,14 @@ window.Danubra = {
     }
   },
 
+  /**
+   * Dotaz len pre toho, kto smie aspoň na jeden z modulov. Inak prázdny
+   * výsledok bez otázky do databázy — tá by mu ho aj tak nedala (072).
+   */
+  _ifCan(keys, run) {
+    return keys.some(k => this.can(k)) ? run() : Promise.resolve({ data: [], error: null });
+  },
+
   /** Smiem na túto obrazovku alebo právomoc? */
   can(key) {
     if (!window.DanubraPerm) return true;
@@ -1784,12 +1792,12 @@ window.Danubra = {
         DB.list('v_worker_documents', {
           // `storage_path, file_url` — doklad bez skenu sa pri nasadení neráta (067).
           select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to,storage_path,file_url', limit: 500 }),
-        DB.list('invoices', {
-          select: 'id,invoice_number,status,issue_date,due_date,paid_at,partner_id', limit: 300 }),
-        DB.list('bills', { select: 'id,worker_id,status,issue_date,note', limit: 300 }),
+        this._ifCan(['invoices', 'bank'], () => DB.list('invoices', {
+          select: 'id,invoice_number,status,issue_date,due_date,paid_at,partner_id', limit: 300 })),
+        this._ifCan(['costs', 'bank', 'invoices'], () => DB.list('bills', { select: 'id,worker_id,status,issue_date,note', limit: 300 })),
         DB.list('periods', { select: 'id,subcontract_id,period_to,status', limit: 200 }),
         DB.list('candidates', { select: 'id,status,full_name,created_at,first_contact_at', limit: 200 }),
-        DB.list('bank_transactions', { select: 'id,match_status,booked_at', limit: 500 }),
+        this._ifCan(['bank'], () => DB.list('bank_transactions', { select: 'id,match_status,booked_at', limit: 500 })),
         DB.list('v_today', { limit: 100 }),
         DB.list('workers', { select: 'id,full_name', limit: 500 }),
         DB.list('partners', { select: 'id,name', limit: 200 }),
@@ -1963,20 +1971,22 @@ window.Danubra = {
       DB.list('v_today', { limit: 200 }),
       DB.list('v_subcontract_status', { limit: 200 }),
       DB.list('periods', { select: 'id,subcontract_id,period_from,period_to,status', limit: 300 }),
-      DB.list('invoices', {
+      // Peniaze sa pýtajú len od toho, kto na ne smie (`_ifCan`) — databáza by
+      // inému aj tak vrátila prázdno (072); takto sa na to ani nepýta.
+      this._ifCan(['invoices', 'bank'], () => DB.list('invoices', {
         // `subcontract_id` je tu kvôli filtru podľa zákazky. Bez neho sa
         // porovnávalo `undefined === id`, takže po výbere zákazky zmizli
         // z prehľadu všetky faktúry a peniaze padli na nulu.
         select: 'id,invoice_number,total,amount_net,withholding_amount,status,due_date,partner_id,subcontract_id',
         limit: 500,
-      }),
-      DB.list('bills', { select: 'id,bill_number,amount,status,due_date,worker_id,subcontract_id', limit: 500 }),
+      })),
+      this._ifCan(['costs', 'bank', 'invoices'], () => DB.list('bills', { select: 'id,bill_number,amount,status,due_date,worker_id,subcontract_id', limit: 500 })),
       // `rebillable` a `rebilled_invoice_id` sú tu kvôli otázke „koľko nám
       // viazne v ubytovaní" — bez nich sa nedá rozlíšiť náš výdavok od
       // peňazí, ktoré sa vrátia.
-      DB.list('costs', {
+      this._ifCan(['costs', 'bank', 'invoices'], () => DB.list('costs', {
         select: 'id,amount,cost_date,category,subcontract_id,rebillable,rebilled_invoice_id',
-        limit: 1000 }),
+        limit: 1000 })),
       DB.list('v_worker_documents', {
         // `kind`, nie `doc_type` — pohľad preberá stĺpce z danubra_worker_documents.
         select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to,storage_path,file_url', limit: 1000,
@@ -1985,8 +1995,8 @@ window.Danubra = {
       DB.list('recruitment_plans', {
         select: 'id,status,headcount,title,city,trade_key,subcontract_id,start_date,deadline',
         limit: 200 }),
-      DB.list('bank_transactions', { select: 'amount', limit: 2000 }),
-      DB.list('v_cashflow', { limit: 1000 }),
+      this._ifCan(['bank'], () => DB.list('bank_transactions', { select: 'amount', limit: 2000 })),
+      this._ifCan(['bank'], () => DB.list('v_cashflow', { limit: 1000 })),
       // Mená. Bez nich by upozornenie povedalo „1 doklad je po platnosti"
       // a človek by musel hádať, čí. Sú to dva malé dotazy.
       DB.list('workers', { select: 'id,full_name', limit: 500 }),
@@ -2375,12 +2385,17 @@ window.Danubra = {
       try { saved = JSON.parse(localStorage.getItem(this._dashKey) || 'null'); } catch {}
       this._dashPrefs = DanubraDash.normalize(saved);
     }
-    return this._dashPrefs;
+    // Karty o peniazoch len pre toho, kto smie na peniaze — databáza mu ich
+    // dáta aj tak nedá (migrácia 072) a karta by ukazovala nuly.
+    const deny = DanubraDash.denied ? DanubraDash.denied(k => this.can(k)) : [];
+    return deny.length ? DanubraDash.normalize({ ...this._dashPrefs, deny }) : this._dashPrefs;
   },
 
   _saveDash(p) {
-    this._dashPrefs = p;
-    try { localStorage.setItem(this._dashKey, JSON.stringify(p)); } catch {}
+    // Čo človek nesmie, sa neukladá — počíta sa pri každom čítaní.
+    const { deny, ...clean } = p || {};
+    this._dashPrefs = clean;
+    try { localStorage.setItem(this._dashKey, JSON.stringify(clean)); } catch {}
   },
 
   setDashTab(tab) { this._saveDash(DanubraDash.setTab(this.dashPrefs(), tab)); this.renderRoute(); },
@@ -2392,8 +2407,10 @@ window.Danubra = {
   editDash() {
     const p = this.dashPrefs();
     const hid = new Set(p.hidden);
+    const deny = new Set(p.deny || []);
     const block = ([g, label]) => {
-      const cards = p.order.map(DanubraDash.byKey).filter(c => c && c.group === g);
+      const cards = p.order.map(DanubraDash.byKey).filter(c => c && c.group === g && !deny.has(c.key));
+      if (!cards.length) return '';
       return `<div class="form-section">${UI.esc(label)}</div>
         ${cards.map((c, i) => `
           <div class="dl-row${hid.has(c.key) ? ' is-off' : ''}">
@@ -3658,8 +3675,8 @@ window.Danubra = {
         DB.list('assignments', { select: 'id,subcontract_id,worker_id,status', limit: 2000 }),
         DB.list('timesheets', { select: 'id,hours,work_date,period_id', limit: 5000 }),
         DB.list('periods', { select: 'id,status,period_to', limit: 500 }),
-        DB.list('invoices', { select: 'id,status,due_date', limit: 1000 }),
-        DB.list('bills', { select: 'id,status', limit: 1000 }),
+        this._ifCan(['invoices', 'bank'], () => DB.list('invoices', { select: 'id,status,due_date', limit: 1000 })),
+        this._ifCan(['costs', 'bank', 'invoices'], () => DB.list('bills', { select: 'id,status', limit: 1000 })),
         // Krok 5 (objednávka živnostníkovi) a 6 (ubytovanie) — tie isté
         // kroky ako na zákazke.
         DB.list('work_orders', { select: 'id,kind,status,assignment_id', limit: 3000 }),

@@ -41,15 +41,18 @@
    */
   const CARDS = [
     // Cash-flow nie je v žiadnej záložke — je nad nimi a vidieť ho treba vždy.
-    { key: 'cashflow', title: 'Kompletný cash-flow', group: TOP, wide: true, fixed: true },
-    { key: 'money', title: 'Koľko peňazí čakáme', group: 'money' },
-    { key: 'weeks', title: 'Príjmy a výdaje', group: 'money' },
-    { key: 'margin', title: 'Zarábame na tom?', group: 'money' },
-    { key: 'profit', title: 'Očakávaný zisk', group: 'money' },
-    { key: 'tied', title: 'Viazne v nákladoch', group: 'money' },
-    { key: 'cash', title: 'Bude na výplaty?', group: 'money' },
-    { key: 'book', title: 'Čo máme v objednávkach', group: 'work' },
-    { key: 'hiring', title: 'Koho treba zohnať', group: 'work' },
+    // `need` = karta sa ukáže len tomu, kto smie aspoň na jeden z modulov
+    // (perm.js). Bez práva by databáza (migrácia 072) vrátila prázdno a karta
+    // by tvrdila „0 €" — to je horšie, než keď tam nie je.
+    { key: 'cashflow', title: 'Kompletný cash-flow', group: TOP, wide: true, fixed: true, need: ['bank'] },
+    { key: 'money', title: 'Koľko peňazí čakáme', group: 'money', need: ['invoices'] },
+    { key: 'weeks', title: 'Príjmy a výdaje', group: 'money', need: ['bank'] },
+    { key: 'margin', title: 'Zarábame na tom?', group: 'money', need: ['invoices'] },
+    { key: 'profit', title: 'Očakávaný zisk', group: 'money', need: ['invoices'] },
+    { key: 'tied', title: 'Viazne v nákladoch', group: 'money', need: ['costs'] },
+    { key: 'cash', title: 'Bude na výplaty?', group: 'money', need: ['bank'] },
+    { key: 'book', title: 'Čo máme v objednávkach', group: 'work', need: ['subcontracts', 'invoices'] },
+    { key: 'hiring', title: 'Koho treba zohnať', group: 'work', need: ['hiring', 'candidates'] },
     { key: 'tasks', title: 'Čo treba spraviť', group: 'today', fixed: true },
     { key: 'alerts', title: 'Vyžaduje pozornosť', group: 'today' },
     { key: 'actions', title: 'Rýchle akcie', group: 'today' },
@@ -93,13 +96,21 @@
     const hidden = (Array.isArray(p.hidden) ? p.hidden : [])
       .filter(k => known.has(k) && !byKey(k).fixed);
     const tab = GROUPS.some(g => g[0] === p.tab) ? p.tab : GROUPS[0][0];
-    return { hidden, order, tab };
+    // `deny` = karty, na ktoré človek nemá právo (`denied`). Neukladá sa —
+    // appka ho dopĺňa pri každom čítaní podľa toho, kto je prihlásený.
+    const deny = (Array.isArray(p.deny) ? p.deny : []).filter(k => known.has(k));
+    return deny.length ? { hidden, order, tab, deny } : { hidden, order, tab };
+  }
+
+  /** Karty, na ktoré človek nemá právo. `can(kľúč)` je Danubra.can. */
+  function denied(can) {
+    return CARDS.filter(c => c.need && !c.need.some(k => can(k))).map(c => c.key);
   }
 
   /** Karty v poradí, ktoré človek vidí. */
   function visible(prefs) {
     const p = normalize(prefs);
-    const hid = new Set(p.hidden);
+    const hid = new Set([...p.hidden, ...(p.deny || [])]);
     return p.order.map(byKey).filter(c => c && !hid.has(c.key));
   }
 
@@ -179,7 +190,7 @@
 
   const API = {
     GROUPS, TOP, CARDS, defaults, normalize, visible, inGroup, pinned, tabs, activeTab,
-    toggle, move, setTab, reset, isCustom, byKey,
+    toggle, move, setTab, reset, isCustom, byKey, denied,
   };
   if (typeof window !== 'undefined') window.DanubraDash = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
