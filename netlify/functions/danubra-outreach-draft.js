@@ -4,6 +4,11 @@
 //   POST { lead_id, step, lang: 'de'|'en', template_key }
 //   → { subject, body, source: 'ai'|'template', template_key, missing, ai_error }
 //
+// Od 081 je e-mail v dizajne punds (outreach-email.js): nadpis, tri body
+// podľa remesla a regiónu, výzvu, podpis a pätičku pridá appka. AI preto
+// píše LEN text (oslovenie, 2–3 krátke odseky, jedna otázka, pozdrav) —
+// nie rozloženie, nie zoznam bodov, ktoré sú už pod textom.
+//
 // Návrh nič neposiela ani nezapisuje — e-mail si človek prečíta, upraví
 // a odošle sám (danubra-outreach-send). AI dostane profil firmy (názov,
 // mesto, remeslo, prečo ju navrhla AI pri hľadaní), naše portfólio
@@ -24,6 +29,7 @@ const { createClient } = require('@supabase/supabase-js');
 // Čítanie odpovede modelu je na jednom mieste — pozri app/lib/ai.js.
 const AI = require('../../app/lib/ai.js');
 const O = require('../../app/lib/marketing/outreach.js');
+const Pack = require('../../app/lib/marketing/outreach-pack.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -49,7 +55,7 @@ const TOOL = {
   },
 };
 
-function prompt({ lead, v, step, lang, template, prev }) {
+function prompt({ lead, v, step, lang, template, prev, pitch = null }) {
   const jazyk = lang === 'en' ? 'po anglicky' : 'po nemecky, vykaním (Sie-Form)';
   const pozdrav = lang === 'en' ? 'Kind regards' : 'Mit freundlichen Grüßen';
   const fakty = [
@@ -62,6 +68,10 @@ function prompt({ lead, v, step, lang, template, prev }) {
     + `O firme, ktorej píšeš:\n${fakty}\n\n`
     + (v.portfolio ? `Čo ponúkame (z našich nastavení, môžeš použiť):\n${v.portfolio}\n\n` : '')
     + `Vzor (štýl a dĺžka, nemusíš ho kopírovať):\nPredmet: ${template.subject}\n${template.body}\n\n`
+    + (pitch ? `Remeslo, pre ktoré firmu oslovujeme: ${pitch.trade.label} (${pitch.trade.team})${pitch.region && pitch.region.name ? `, región: ${pitch.region.name}` : ''}.\n`
+      + `Pod tvojím textom appka sama ukáže nadpis „${pitch.headline}", tieto tri body a tlačidlo:\n`
+      + pitch.points.map((x, i) => `${i + 1}. ${x.title}: ${x.text}`).join('\n') + '\n'
+      + 'Tieto body v texte neopakuj ani nevypisuj ako zoznam — text ich má len uviesť jednou vetou.\n\n' : '')
     + 'Pravidlá:\n'
     + `- Začni presne oslovením „${v.oslovenie}" a skonči pozdravom „${pozdrav}". Podpis ani pätičku nepíš — pridajú sa samy.\n`
     + '- Nič si nevymýšľaj: žiadne ceny, počty ľudí, termíny, referencie ani mená zákazníkov, ktoré tu nie sú.\n'
@@ -73,7 +83,8 @@ function prompt({ lead, v, step, lang, template, prev }) {
       + `${prev && prev.sent_at ? `z ${v.datum}` : ''}, na ktorý firma neodpísala. Zdvorilo, bez výčitiek, nič nové nesľubuj.\n`
       + `- Predmet nechaj „${O.replySubject(prev ? prev.subject : template.subject)}".`;
   }
-  return `${spolocne}- Najviac 130 slov, krátke odseky. Predmet najviac 80 znakov, vecný, bez veľkých písmen a výkričníkov.`;
+  return `${spolocne}- Píšeš len text e-mailu (obyčajný text, žiadne HTML, žiadne odrážky, žiadny nadpis) — rozloženie, body, tlačidlo, podpis a pätičku pridá appka.\n`
+    + '- Najviac 110 slov, 2–3 krátke odseky. Predmet najviac 80 znakov, vecný, bez veľkých písmen a výkričníkov.';
 }
 
 async function askAi(p) {
@@ -126,6 +137,8 @@ exports.handler = async (event) => {
   ]);
   const row0 = (cfgQ.data && cfgQ.data[0]) || {};
   const cfg = O.settings(row0.marketing);
+  let pitch = null;
+  try { const ctx = await Pack.context(supabase, lead); pitch = Pack.pitchFor({ lead, search: ctx.search, marketing: row0.marketing, lang }); } catch (e) { pitch = null; }
   const prev = step > 1 ? O.lastSent(histQ.data || []) : null;
   const v = O.vars(lead, { supplier: row0.supplier || {}, similarName: simQ.data && simQ.data.name, lang, portfolio: cfg.portfolio, prev });
   const template = O.pickTemplate(tplQ.data || [], { step, lang, key: b.template_key || '' });
@@ -135,14 +148,16 @@ exports.handler = async (event) => {
   };
   const missing = O.missingVars(`${template.subject}\n${template.body}`, v);
 
-  const ai = await askAi(prompt({ lead, v, step, lang, template, prev }));
+  const ai = await askAi(prompt({ lead, v, step, lang, template, prev, pitch }));
   if (ai.error) {
     return out(200, { ...fallback, source: 'template', template_key: template.key, missing,
-      ai_error: ai.error === 'no_api_key' ? 'AI nie je zapnutá (chýba ANTHROPIC_API_KEY) — použila sa šablóna.' : ai.error });
+      ai_error: ai.error === 'no_api_key' ? 'AI nie je zapnutá (chýba ANTHROPIC_API_KEY) — použila sa šablóna.' : ai.error,
+      trade: pitch ? pitch.trade.key : null, headline: pitch ? pitch.headline : null });
   }
   return out(200, {
     subject: step > 1 && prev ? O.replySubject(prev.subject) : ai.subject,
     body: ai.body, source: 'ai', template_key: template.key, missing: [],
+    trade: pitch ? pitch.trade.key : null, headline: pitch ? pitch.headline : null,
   });
 };
 

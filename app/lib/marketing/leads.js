@@ -185,10 +185,14 @@
     });
   }
 
+  // Kategória firmy (081 pridala Stretnutie, Ponuka, Ozvať sa neskôr a
+  // Nedostupná). Ten istý zoznam v tom istom poradí je v contacts.js → STAGES
+  // (test to stráži) — kontakty s firmou z neho navrhujú ďalší stav.
   const STATUS = [
     ['new', 'Nová', 'gray'], ['contacted', 'Oslovená', 'blue'], ['replied', 'Odpísala', 'amber'],
-    ['interested', 'Má záujem', 'green'], ['won', 'Je odberateľ', 'green'], ['rejected', 'Nemá záujem', 'red'],
-    ['unsubscribed', 'Odhlásená', 'red'],
+    ['interested', 'Má záujem', 'green'], ['meeting', 'Stretnutie', 'green'], ['offer', 'Ponuka', 'blue'],
+    ['won', 'Je odberateľ', 'green'], ['later', 'Ozvať sa neskôr', 'amber'], ['rejected', 'Nemá záujem', 'red'],
+    ['unreachable', 'Nedostupná', 'gray'], ['unsubscribed', 'Odhlásená', 'red'],
   ];
 
   const API = { CRAFTS, OVERPASS, STATUS, TEMPLATE_DE, overpassQuery, normName, parse, dedupe, fromAi,

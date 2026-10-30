@@ -25,7 +25,7 @@ console.log('\nŠABLÓNA');
 {
   const lead = { name: 'Müller Bau GmbH', city: 'Ulm', trade: 'Trockenbau', contact_person: 'Herr Müller' };
   const v = O.vars(lead, { supplier: { name: 'Partner und Service s. r. o.' }, similarName: 'GU Ulm', portfolio: 'Wir haben 40 Leute.' });
-  eq([v.firma, v.mesto, v.konatel, v.remeslo, v.podobna, v.oslovenie], ['Müller Bau GmbH', 'Ulm', 'Herr Müller', 'Trockenbau', 'GU Ulm', 'Guten Tag Herr Müller,'],
+  eq([v.firma, v.mesto, v.konatel, v.remeslo, v.podobna, v.oslovenie], ['Müller Bau GmbH', 'Ulm', 'Herr Müller', 'Trockenbau', 'GU Ulm', 'Sehr geehrter Herr Müller,'],
     'premenné {firma} {mesto} {konatel} {remeslo} {podobna} a oslovenie');
   eq(O.vars({}, {}).oslovenie, 'Sehr geehrte Damen und Herren,', 'bez konateľa neutrálne oslovenie (Sie-forma)');
   eq(O.vars({}, { lang: 'en' }).oslovenie, 'Dear Sir or Madam,', 'po anglicky');
@@ -35,7 +35,7 @@ console.log('\nŠABLÓNA');
   eq(O.missingVars('Hallo {konatel}, {mesto|Region} {firma}', { firma: 'X' }), ['konatel'], 'upozorní na premennú bez hodnoty a bez náhrady');
   const t = O.pickTemplate([], { step: 1, lang: 'de' });
   const filled = O.fillTemplate(t.body, v);
-  ok(/Guten Tag Herr Müller,/.test(filled) && /Partner und Service/.test(filled) && /Wir haben 40 Leute/.test(filled) && !/\{/.test(filled),
+  ok(/Sehr geehrter Herr Müller,/.test(filled) && /Partner und Service/.test(filled) && /Wir haben 40 Leute/.test(filled) && !/\{/.test(filled),
     'predvolená šablóna DE sa vyplní celá', filled);
   ok(!/\bdu\b|\bdich\b|\bdein/i.test(Object.values(O.TEMPLATES.de).map(x => x.body).join(' ')), 'nemecké šablóny sú v Sie-forme (bez „du")');
   eq(O.pickTemplate([{ key: 'outreach_followup', language: 'de', channel: 'outreach', subject: 'X', body: 'Y' }], { step: 2 }).source, 'db',

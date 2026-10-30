@@ -43,8 +43,18 @@
     portfolio: '',          // čo ponúkame — veta do e-mailu (DE), {portfolio}
   });
 
-  /** Lead, ktorý už neoslovujeme (ďalej v procese alebo nechce). */
-  const STOP = ['replied', 'interested', 'won', 'rejected', 'unsubscribed'];
+  /**
+   * Lead, ktorý už neoslovujeme (ďalej v procese alebo nechce). Od 081 aj
+   * Stretnutie, Ponuka a Ozvať sa neskôr — tam ďalší krok riadi kontakt
+   * s firmou (úloha s termínom), nie automatické pripomenutie e-mailom.
+   */
+  const STOP = ['replied', 'interested', 'meeting', 'offer', 'won', 'later', 'rejected', 'unsubscribed'];
+
+  // Oslovenie „Sehr geehrter Herr Müller," je v pitch.js (rozbor mena z Impressum).
+  const pitchLib = () => {
+    try { if (typeof require === 'function' && typeof module !== 'undefined') return require('./pitch.js'); } catch (e) { /* bez neho */ }
+    return typeof window !== 'undefined' ? window.DanubraPitch || null : null;
+  };
 
   const clean = (v) => (v == null ? '' : String(v)).replace(/\s+/g, ' ').trim();
   const lower = (v) => clean(v).toLowerCase();
@@ -95,7 +105,8 @@
     const s = ctx.supplier || {};
     const lang = ctx.lang === 'en' ? 'en' : 'de';
     const konatel = clean(lead.contact_person || lead.contact_name || lead.konatel || '');
-    const oslovenie = lang === 'en'
+    const PI = pitchLib();
+    const oslovenie = PI ? PI.salutation(konatel, lang) : lang === 'en'
       ? (konatel ? `Dear ${konatel},` : 'Dear Sir or Madam,')
       : (konatel ? `Guten Tag ${konatel},` : 'Sehr geehrte Damen und Herren,');
     return {
@@ -370,11 +381,23 @@
 
   /**
    * Celé telo e-mailu na odoslanie a kópia bez sledovania (do Odoslaných a do appky).
-   * @param {Object} o { html (telo bez pätičky), text, supplier, lang, site, token, secret, cfg }
+   * @param {Object} o { html (telo bez pätičky), text, supplier, lang, site, token, secret, cfg,
+   *                     framed: true = html je celý e-mail z outreach-email.js (s pätičkou
+   *                     a odhlásením) — nepridáva sa pätička, obrázok ide pred </body> }
    * @returns {{ html, text, copyHtml, unsubscribe, links, tracked: { opens, clicks } }}
    */
-  function compose({ html, text, supplier = {}, lang = 'de', site, token, secret, cfg = DEFAULTS } = {}) {
+  function compose({ html, text, supplier = {}, lang = 'de', site, token, secret, cfg = DEFAULTS, framed = false } = {}) {
     const unsubscribe = unsubscribeUrl(site, token);
+    if (framed) {
+      // Rozloženie skladá appka sama a cudzí text v ňom je escapovaný — očista
+      // by zmazala <head> so štýlmi pre tmavý režim a mobil.
+      const clicks = !!(cfg.track_clicks && secret);
+      const r = clicks ? rewriteLinks(html, { site, token, secret }) : { html: String(html || ''), links: [] };
+      const opens = !!cfg.track_opens;
+      const px = opens ? pixelHtml(site, token) : '';
+      const withPx = /<\/body>/i.test(r.html) ? r.html.replace(/<\/body>/i, `${px}</body>`) : `${r.html}${px}`;
+      return { html: withPx, copyHtml: String(html || ''), text: String(text || ''), unsubscribe, links: r.links, tracked: { opens, clicks } };
+    }
     const base = sanitizeHtml(html);
     const foot = footerHtml(supplier, unsubscribe, lang);
     const clicks = !!(cfg.track_clicks && secret);
@@ -524,6 +547,8 @@
       if (Date.parse(last.next_followup_at) > t) continue;
       if ((Number(last.step) || 1) >= (cfg.max_steps || DEFAULTS.max_steps)) continue;
       if (STOP.includes(lead.status)) continue;
+      // Dohodnutý ďalší krok (kontakt s firmou, 081): pripomenutie e-mailom až po ňom.
+      if (lead.next_step_at && String(lead.next_step_at).slice(0, 10) > new Date(t).toISOString().slice(0, 10)) continue;
       out.push({ outreach: last, lead });
     }
     return out.sort((a, b) => String(a.outreach.next_followup_at).localeCompare(String(b.outreach.next_followup_at)));
@@ -562,6 +587,9 @@
     }
     if (STOP.includes(lead.status) && !['unsubscribed', 'rejected'].includes(lead.status)) {
       warns.push({ code: 'status', text: 'Firma je už ďalej (odpísala, má záujem alebo je odberateľ) — zvážte, či ju oslovovať znova.' });
+    }
+    if (lead.next_step_at && String(lead.next_step_at).slice(0, 10) > new Date().toISOString().slice(0, 10)) {
+      warns.push({ code: 'next_step', text: `S firmou je dohodnutý ďalší krok na ${fmtDe(lead.next_step_at)}${lead.next_step_text ? ` („${clean(lead.next_step_text)}")` : ''} — zvážte, či písať skôr.` });
     }
     if (dnes < limit && dnes >= limit - 3) warns.push({ code: 'near', text: `Dnes odišlo ${dnes} z ${limit} e-mailov — blížite sa k dennému limitu.` });
     return { ok: !blocks.length, blocks, warns };
@@ -661,7 +689,7 @@
   const API = {
     DEFAULTS, STOP, VARS, TEMPLATES, STATES, TRACK,
     emailOk, settings, vars, fillTemplate, missingVars, pickTemplate, replySubject,
-    impressumMissing, footerText, footerHtml,
+    impressumMissing, FOOT, footerLines, footerText, footerHtml,
     secretOf, sign, verify, ipHash, newToken, tokenOk, siteUrl, pixelUrl, clickUrl, unsubscribeUrl, safeTarget,
     rewriteLinks, pixelHtml, sanitizeHtml, looksHtml, compose,
     automated, shortUa, messageIds, replyIds, isDsn, isAutoReply, matchOutreach,
