@@ -2390,13 +2390,25 @@
 
     'screen.tasks': {
       title: 'Úlohy a pripomienky',
-      lead: 'Čo treba spraviť a dokedy. Väčšina vzniká sama z pravidiel.',
+      lead: 'Čo treba spraviť a dokedy — zoradené podľa času. Väčšina vzniká sama z pravidiel.',
       what: [
-        'Rozdelené na zmeškané, dnešné, tento týždeň a neskôr.',
-        'Úloha je vždy naviazaná na záznam — človeka, zákazku, faktúru — takže sa dá '
-        + 'z nej prekliknúť tam, kde sa to rieši.',
+        'Hore vyberiete, koho úlohy vidíte: **Moje** (predvolené), Všetky, Nepriradené alebo '
+        + 'konkrétneho kolegu. Ľudia sú používatelia appky (Nastavenia → Používatelia).',
+        'Zoznam má sekcie Po termíne, Dnes, Zajtra, Tento týždeň, Neskôr a Bez termínu. '
+        + 'Prázdna sekcia sa neukáže. Hotové za posledný týždeň sú zbalené na konci, '
+        + 'zrušené len vo filtri „Zrušené".',
+        'Čipy pod riadkom na zapísanie spočítajú, čo je po termíne, dnes a tento týždeň. '
+        + 'Klik na čip skočí na sekciu.',
+        'Úloha je spravidla naviazaná na záznam — človeka, zákazku, faktúru. Klik na čip '
+        + '„Čoho sa týka" otvorí ten záznam; na jeho karte je zase blok „Úlohy".',
       ],
       how: [
+        'V sekcii rozhoduje priorita, potom termín. Hlavička stĺpcov (Termín, Priorita, '
+        + 'Rieši) zoradí inak.',
+        'Rýchle zapísanie: úloha sa priradí Vám s termínom dnes. „zajtra", „pozajtra", '
+        + 'deň v týždni („v piatok", „do stredy") a „!" (vysoká priorita) sa vyberú z textu.',
+        'Odpočet pri termíne („zostáva 2 d 4 h") sa ráta do konca dňa termínu; tenký pruh '
+        + 'ukazuje, koľko času od založenia už ubehlo.',
         'Pravidlá vyrábajú úlohy z dátumov: koniec platnosti dokladu, koniec obdobia, '
         + 'splatnosť faktúry, výročie zmluvy.',
         'Odložená úloha sa vráti sama v deň, na ktorý bola odložená.',
@@ -2404,6 +2416,14 @@
       why: [
         'Pripomienky sa nedajú nechať na pamäť. V tomto biznise je zabudnutý A1 '
         + 'zastavená stavba a zabudnutá faktúra mesiac bez peňazí.',
+        'Riešiteľ sa vyberá zo zoznamu používateľov, nie písaním mena — inak by tá istá '
+        + 'osoba bola raz „Štefan" a raz „Štefan Varga" a úlohy by sa jej nerátali.',
+      ],
+      watch: [
+        'Meno označené „mimo appky" patrí niekomu, kto nie je medzi používateľmi '
+        + '(staré dáta). Takú úlohu nemá v „Moje" nikto — prehoďte ju na používateľa.',
+        'Odznak pri „Úlohy" v menu počíta úlohy po termíne a na dnes za celú firmu, '
+        + 'nielen Vaše.',
       ],
       links: [['rules', 'Cenník a pravidlá']],
     },

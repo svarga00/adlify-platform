@@ -631,6 +631,8 @@
 
         ${this.stepsCard(w)}
 
+        ${window.Tsk && Tsk.slot ? Tsk.slot('worker', w.id, w.full_name) : ''}
+
         ${(() => {
           // Karta bola osem kariet pod sebou. Teraz záložky — vždy jedna
           // časť naraz, na mobile sa nemusí dlho posúvať.

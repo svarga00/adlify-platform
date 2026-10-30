@@ -12,7 +12,9 @@
 // Odložená úloha zmizne a vráti sa sama, keď dôjde jej deň. Odloženie nie je
 // zmazanie — to je rozdiel, ktorý sa v praxi pletie.
 //
-// Rovnaké pravidlá ako pohľad `danubra_v_today` (migrácia 021).
+// Rovnaké pravidlá ako pohľad `danubra_v_today` (migrácia 021) — s jedným
+// rozdielom: zrušená úloha tu aktívna nie je. Pohľad stav nevracia a zrušenú
+// pustí ďalej; kým sa nezmení, počíta ju prehľad v odznaku pri „Úlohy".
 //
 // Testy: node app/lib/tasks.test.js
 // ============================================================================
@@ -39,9 +41,13 @@
     return 'later';
   }
 
-  /** Je úloha teraz viditeľná, alebo je odložená na neskôr? */
+  /**
+   * Je úloha teraz viditeľná, alebo je odložená na neskôr? Vybavená ani
+   * zrušená nie je — zrušená je vec, ktorú netreba robiť, a v zozname toho,
+   * čo treba spraviť, nemá čo hľadať (nájde sa vo filtri „Zrušené").
+   */
   function isActive(task, today = today0()) {
-    if (!task || task.status === 'done') return false;
+    if (!task || task.status === 'done' || task.status === 'cancelled') return false;
     const snooze = day(task.postponed_to);
     return !snooze || snooze <= today;
   }
@@ -109,7 +115,8 @@
   function counts(tasks, today = today0()) {
     const active = (tasks || []).filter(t => isActive(t, today));
     const c = { total: active.length, overdue: 0, today: 0, week: 0, later: 0,
-      snoozed: (tasks || []).filter(t => t && t.status !== 'done' && !isActive(t, today)).length };
+      snoozed: (tasks || []).filter(t => t && t.status !== 'done' && t.status !== 'cancelled'
+        && !isActive(t, today)).length };
     for (const t of active) c[bucketOf(t, today)]++;
     return c;
   }
@@ -286,9 +293,292 @@
     return many;
   }
 
+  // ── Agenda podľa času ─────────────────────────────────────────────────────
+  // Obrazovka Úlohy je zoznam po sekciách: čo je po termíne, čo je dnes,
+  // zajtra, tento týždeň, neskôr a čo termín nemá. Prázdna sekcia sa nekreslí.
+
+  const SECTIONS = [
+    ['overdue', 'Po termíne', 'red'],
+    ['today', 'Dnes', 'amber'],
+    ['tomorrow', 'Zajtra', 'blue'],
+    ['week', 'Tento týždeň', 'gray'],
+    ['later', 'Neskôr', 'gray'],
+    ['nodate', 'Bez termínu', 'gray'],
+  ];
+
+  /** Do ktorej sekcie agendy úloha patrí. „Tento týždeň" = najbližších 7 dní. */
+  function sectionOf(task, today = today0()) {
+    const due = day(task && task.due_date);
+    if (!due) return 'nodate';
+    if (due < today) return 'overdue';
+    if (due === today) return 'today';
+    if (due === addDays(today, 1)) return 'tomorrow';
+    if (due <= addDays(today, 7)) return 'week';
+    return 'later';
+  }
+
+  /**
+   * Poradie v zozname. Predvolene priorita, potom termín — vysoká úloha
+   * na piatok je pred bežnou na stredu. `nameOf(t)` dáva meno riešiteľa
+   * pri zoradení podľa „Rieši".
+   * @param {'prio'|'due'|'who'} key
+   * @param {1|-1} dir
+   */
+  function sortTasks(tasks, key = 'prio', dir = 1, nameOf) {
+    const prio = (t) => PRIORITY_RANK[t.priority] ?? 2;
+    const due = (t) => String(day(t.due_date) || '9999-99-99');
+    const who = (t) => {
+      const n = String((nameOf ? nameOf(t) : t.assigned_name) || '').trim();
+      return n ? n : '￿';               // nepriradené na koniec
+    };
+    const title = (a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'sk');
+    const cmp = {
+      prio: (a, b) => prio(a) - prio(b) || due(a).localeCompare(due(b)) || title(a, b),
+      due: (a, b) => due(a).localeCompare(due(b)) || prio(a) - prio(b) || title(a, b),
+      who: (a, b) => who(a).localeCompare(who(b), 'sk') || prio(a) - prio(b)
+        || due(a).localeCompare(due(b)) || title(a, b),
+    }[key] || ((a, b) => prio(a) - prio(b));
+    return (tasks || []).filter(Boolean).slice().sort((a, b) => dir * cmp(a, b));
+  }
+
+  /**
+   * Aktívne úlohy po sekciách. Prázdne sekcie vynechá.
+   * @returns {Array} [{ key, label, tone, tasks }]
+   */
+  function agenda(tasks, today = today0(), o = {}) {
+    const out = SECTIONS.map(([key, label, tone]) => ({ key, label, tone, tasks: [] }));
+    const byKey = new Map(out.map(s => [s.key, s]));
+    for (const t of (tasks || [])) {
+      if (isActive(t, today)) byKey.get(sectionOf(t, today)).tasks.push(t);
+    }
+    for (const s of out) s.tasks = sortTasks(s.tasks, o.sort || 'prio', o.dir || 1, o.nameOf);
+    return out.filter(s => s.tasks.length);
+  }
+
+  /** Súhrn nad zoznamom: po termíne, dnes, tento týždeň (zajtra + 7 dní). */
+  function summary(tasks, today = today0()) {
+    const c = { overdue: 0, today: 0, week: 0, later: 0, total: 0 };
+    for (const t of (tasks || [])) {
+      if (!isActive(t, today)) continue;
+      c.total++;
+      const s = sectionOf(t, today);
+      if (s === 'overdue') c.overdue++;
+      else if (s === 'today') c.today++;
+      else if (s === 'tomorrow' || s === 'week') c.week++;
+      else c.later++;
+    }
+    return c;
+  }
+
+  /** Hotové za posledných `days` dní, najčerstvejšie navrchu. */
+  function recentDone(tasks, today = today0(), days = 7) {
+    const from = addDays(today, -days);
+    return (tasks || [])
+      .filter(t => t && t.status === 'done' && day(t.done_at) && day(t.done_at) >= from)
+      .sort((a, b) => String(b.done_at).localeCompare(String(a.done_at)));
+  }
+
+  // ── Termín po ľudsky ──────────────────────────────────────────────────────
+  const IN_DAY = ['v nedeľu', 'v pondelok', 'v utorok', 'v stredu', 'vo štvrtok', 'v piatok', 'v sobotu'];
+
+  function weekday(d) { return new Date(day(d) + 'T00:00:00Z').getUTCDay(); }
+  function daysBetween(a, b) {
+    return Math.round((Date.parse(day(b) + 'T00:00:00Z') - Date.parse(day(a) + 'T00:00:00Z')) / 86400000);
+  }
+
+  /**
+   * „pred 6 dňami", „včera", „dnes", „zajtra", „v piatok", „o 12 dní".
+   * Ďalej než dva mesiace je to už dátum — „o 143 dní" nikto neprepočíta.
+   * @returns {{ text: string, tone: 'late'|'today'|'soon'|''|'none', days: number|null }}
+   */
+  function relDue(due, today = today0()) {
+    const d = day(due);
+    if (!d) return { text: 'bez termínu', tone: 'none', days: null };
+    const n = daysBetween(today, d);
+    if (n < -1) return { text: `pred ${-n} dňami`, tone: 'late', days: n };
+    if (n === -1) return { text: 'včera', tone: 'late', days: n };
+    if (n === 0) return { text: 'dnes', tone: 'today', days: 0 };
+    if (n === 1) return { text: 'zajtra', tone: 'soon', days: 1 };
+    if (n <= 6) return { text: IN_DAY[weekday(d)], tone: 'soon', days: n };
+    if (n <= 60) return { text: `o ${n} ${plural(n, 'deň', 'dni', 'dní')}`, tone: '', days: n };
+    const [y, m, dd] = d.split('-');
+    return { text: `${Number(dd)}. ${Number(m)}. ${y}`, tone: '', days: n };
+  }
+
+  /**
+   * Nenápadný odpočet do konca dňa termínu: „zostáva 2 d 4 h", „zostáva 7 h",
+   * „po termíne 6 d". Termín je deň (nie hodina), preto sa ráta do polnoci.
+   * `pct` je, koľko času od založenia po termín už ubehlo (0–1) — na tenký
+   * pruh v riadku; bez dátumu založenia je null.
+   * @param {Date} now  miestny čas
+   * @returns {{ text: string, tone: 'late'|'today'|'', pct: number|null }|null}
+   */
+  function countdown(task, now = new Date()) {
+    const due = day(task && task.due_date);
+    if (!due) return null;
+    const [y, m, d] = due.split('-').map(Number);
+    const end = new Date(y, m - 1, d, 24, 0, 0).getTime();
+    const pad = (n) => String(n).padStart(2, '0');
+    const local = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const n = daysBetween(local, due);
+    const created = task.created_at ? Date.parse(task.created_at) : NaN;
+    const pct = Number.isFinite(created) && end > created
+      ? Math.max(0, Math.min(1, (now.getTime() - created) / (end - created))) : null;
+
+    if (n < 0) return { text: `po termíne ${-n} d`, tone: 'late', pct: 1 };
+    const h = Math.max(0, Math.floor((end - now.getTime()) / 3600000));
+    if (n === 0) return { text: h >= 1 ? `zostáva ${h} h` : 'končí o chvíľu', tone: 'today', pct };
+    const dd = Math.floor(h / 24), hh = h % 24;
+    return { text: dd < 3 && hh ? `zostáva ${dd} d ${hh} h` : `zostáva ${dd} d`, tone: '', pct };
+  }
+
+  // ── Odloženie ─────────────────────────────────────────────────────────────
+  /**
+   * Na kedy sa úloha odloží. Posúva sa od pôvodného termínu, keď je ešte pred
+   * nami; inak od dneška — úloha po termíne odložená „o deň" je na zajtra,
+   * nie na deň po starom termíne.
+   * @param {'1d'|'3d'|'week'|'monday'} kind
+   */
+  function snoozeDate(task, kind = 'week', today = today0()) {
+    const due = day(task && task.due_date);
+    const base = due && due > today ? due : today;
+    if (kind === '1d') return addDays(base, 1);
+    if (kind === '3d') return addDays(base, 3);
+    if (kind === 'monday') {
+      const n = (8 - weekday(today)) % 7 || 7;
+      return addDays(today, n);
+    }
+    return addDays(base, 7);
+  }
+
+  // ── Rýchle zapísanie ──────────────────────────────────────────────────────
+  // „Zavolať Hofmannovi zajtra !" → úloha na zajtra s vysokou prioritou.
+  // Rozpoznáva sa málo a naisto: dnes, zajtra, pozajtra, dni v týždni
+  // (aj „do piatku", „v stredu") a výkričník. Nič iné sa z textu neberie.
+
+  const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const DAY_WORDS = {
+    pondelok: 1, pondelka: 1, utorok: 2, utorka: 2, streda: 3, stredu: 3, stredy: 3,
+    stvrtok: 4, stvrtka: 4, piatok: 5, piatku: 5, sobota: 6, sobotu: 6, soboty: 6,
+    nedela: 0, nedelu: 0, nedele: 0,
+  };
+  const PREPS = new Set(['v', 'vo', 'do', 'na', 'cez']);
+  const QUICK_HELP = 'Napíšte, čo treba spraviť, a stlačte Enter. Úloha sa priradí Vám '
+    + 's termínom dnes. Termín sa dá napísať rovno do textu: „dnes", „zajtra", '
+    + '„pozajtra" alebo deň v týždni („v piatok", „do stredy" = najbližší taký deň). '
+    + 'Výkričník „!" znamená vysokú prioritu. Všetko ostatné nastavíte cez „Viac…".';
+
+  /**
+   * @returns {{ title: string, due_date: string, priority: 'high'|'normal',
+   *             when: string|null, high: boolean }}
+   *   `when` je slovo, z ktorého sa vzal termín (null = predvolený dnešok).
+   */
+  function parseQuick(text, today = today0()) {
+    let high = false;
+    const tokens = String(text || '').trim().split(/\s+/).filter(Boolean)
+      .map((w) => {
+        if (/!/.test(w) && /^[^!]*!+$/.test(w)) { high = true; return w.replace(/!+$/, ''); }
+        return w;
+      })
+      .filter(Boolean);
+
+    let due = null, when = null;
+    for (let i = 0; i < tokens.length && !due; i++) {
+      const w = fold(tokens[i]).replace(/[.,;:]+$/, '');
+      let d = null;
+      if (w === 'dnes') d = today;
+      else if (w === 'zajtra') d = addDays(today, 1);
+      else if (w === 'pozajtra') d = addDays(today, 2);
+      else if (w in DAY_WORDS) d = addDays(today, ((DAY_WORDS[w] - weekday(today) + 7) % 7) || 7);
+      if (!d) continue;
+      due = d;
+      const from = i > 0 && PREPS.has(fold(tokens[i - 1])) ? i - 1 : i;
+      when = tokens.slice(from, i + 1).join(' ').replace(/[.,;:]+$/, '');
+      tokens.splice(from, i - from + 1);
+    }
+    const title = tokens.join(' ').replace(/\s+([.,;:])/g, '$1').replace(/[\s,;:–—-]+$/, '').trim();
+    return { title, due_date: due || today, priority: high ? 'high' : 'normal', when, high };
+  }
+
+  // ── Ľudia = členovia appky ────────────────────────────────────────────────
+  // Kto môže mať úlohu na starosti, je zoznam používateľov (danubra_members),
+  // nie mená, ktoré sa kedysi ručne napísali do úloh. Úloha si meno pamätá
+  // v `assigned_name` (tak ho píšu aj pravidlá) a pri priradení aj `assigned_to`.
+
+  function memberName(m) { return String((m && (m.full_name || m.email)) || '').trim(); }
+
+  /**
+   * Člen k menu z úlohy. Presná zhoda, inak krstné meno („Štefan" →
+   * „Štefan Varga") — ale len keď je v appke jediný taký Štefan.
+   */
+  function findMember(name, members) {
+    const n = fold(name).trim();
+    if (!n) return null;
+    const list = (members || []).filter(Boolean);
+    const exact = list.find(m => fold(memberName(m)) === n
+      || (m.email && fold(m.email) === n));
+    if (exact) return exact;
+    const first = list.filter(m => fold(memberName(m)).split(/\s+/)[0] === n);
+    return first.length === 1 ? first[0] : null;
+  }
+
+  /**
+   * Kto úlohu rieši.
+   * @returns {{ kind: 'member'|'outside'|'none', name: string, member: Object|null }}
+   *   `outside` = meno v úlohe, ktoré nie je medzi používateľmi appky.
+   */
+  function ownerOf(task, members) {
+    const raw = String((task && task.assigned_name) || '').trim();
+    if (raw) {
+      const m = findMember(raw, members);
+      return m ? { kind: 'member', name: memberName(m), member: m }
+        : { kind: 'outside', name: raw, member: null };
+    }
+    const uid = task && task.assigned_to;
+    const m = uid ? (members || []).find(x => x && x.user_id === uid) : null;
+    return m ? { kind: 'member', name: memberName(m), member: m } : { kind: 'none', name: '', member: null };
+  }
+
+  /**
+   * Patrí úloha do zvoleného rozsahu?
+   * @param {string} scope  'all' | 'none' | 'm:<id člena>' | 'x:<meno mimo appky>'
+   */
+  function inScope(task, scope, members) {
+    if (!scope || scope === 'all') return true;
+    const o = ownerOf(task, members);
+    if (scope === 'none') return o.kind === 'none';
+    if (scope.startsWith('m:')) return o.kind === 'member' && String(o.member.id) === scope.slice(2);
+    if (scope.startsWith('x:')) return o.kind === 'outside' && o.name === scope.slice(2);
+    return true;
+  }
+
+  /** Mená v úlohách, ktoré nepatria nikomu z appky (staré dáta). */
+  function outsideNames(tasks, members) {
+    const set = new Set();
+    for (const t of (tasks || [])) {
+      const o = ownerOf(t, members);
+      if (o.kind === 'outside') set.add(o.name);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'sk'));
+  }
+
+  /** Čo zapísať do úlohy pri priradení členovi (null = nikomu). */
+  function assignPatch(member) {
+    if (!member) return { assigned_name: null, assigned_to: null };
+    return { assigned_name: memberName(member) || null, assigned_to: member.user_id || null };
+  }
+
+  /** Iniciály do krúžku: „Štefan Varga" → „ŠV". */
+  function initials(name) {
+    const w = String(name || '').trim().split(/[\s@.]+/).filter(Boolean);
+    return w.slice(0, 2).map(x => x[0]).join('').toUpperCase();
+  }
+
   const API = {
-    BUCKETS, PRIORITY_RANK, UNASSIGNED, RULE_TABLES, RULE_VARS,
+    BUCKETS, SECTIONS, PRIORITY_RANK, UNASSIGNED, RULE_TABLES, RULE_VARS, QUICK_HELP,
     bucketOf, isActive, group, headline, counts, byPerson, people, isFor,
+    sectionOf, sortTasks, agenda, summary, recentDone, relDue, countdown, snoozeDate, parseQuick,
+    memberName, findMember, ownerOf, inScope, outsideNames, assignPatch, initials,
     describeRule, reviewRule, tableLabel, addDays, plural,
   };
   window.DanubraTasks = API;

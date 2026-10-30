@@ -903,14 +903,16 @@
         },
         {
           title: 'Úlohy a pripomienky',
-          what: 'Čo treba spraviť a dokedy. Časť úloh vzniká sama z pravidiel (napríklad keď končí platnosť ponuky).',
+          what: 'Čo treba spraviť a dokedy, zoradené podľa času: po termíne, dnes, zajtra, tento týždeň, neskôr. Časť úloh vzniká sama z pravidiel (napríklad keď končí platnosť ponuky).',
           how: [
-            'V menu Dnes kliknite na záložku „Úlohy". Novú pridáte cez „Nová úloha".',
-            'Pri úlohe kliknite „Beriem si to", keď ju robíte Vy, alebo „Odložiť o týždeň".',
-            'Úlohy po termíne sú navrchu a svietia aj na Dnes.',
+            'V menu Dnes kliknite na záložku „Úlohy". Hore vyberte „Moje", „Všetky", „Nepriradené" alebo kolegu.',
+            'Novú úlohu napíšte do riadku „Napíšte úlohu a stlačte Enter…" — napr. „Zavolať Hofmannovi zajtra !". Celý formulár otvorí „Viac…".',
+            'Krúžok vľavo úlohu odškrtne (preklik vráti „Vrátiť" v hlásení). Krúžok s iniciálami vpravo ju priradí, hodiny ju odložia.',
+            'Klik na riadok otvorí detail: termín s odpočtom, kto ju rieši, čoho sa týka, história a poznámky.',
+            'Úlohy k človeku, zákazke, odberateľovi a kandidátovi sú aj na jeho karte v bloku „Úlohy" — tam ich pridáte cez „Pridať úlohu".',
           ],
           open: open('tasks', 'Otvoriť Úlohy'),
-          tip: 'Úloha po termíne je vec, ktorú niekto čaká — nie poznámka.',
+          tip: 'Riešiteľ sa vyberá z používateľov appky. Meno označené „mimo appky" prehoďte na niekoho z nich.',
           example: 'Úloha „Zavolať pánovi Hofmannovi kvôli faktúre VZOR-2026-0003" je s vysokou prioritou po termíne.',
         },
         {

@@ -1257,6 +1257,144 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Úlohy: agenda podľa času ──────────────────────────────────────────
+    // Moje · Všetky · Nepriradené z používateľov appky, rýchle zapísanie
+    // Enterom, sekcie podľa času, odškrtnutie s „Vrátiť" a na telefóne nič
+    // netečie do boku.
+    for (const size of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+      const ctx = await browser.newContext({ viewport: size, deviceScaleFactor: 1 });
+      const page = await ctx.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const D = (n) => { const d = new Date(); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+        const members = [
+          { id: 'm1', user_id: 'test', full_name: 'Štefan Varga', email: 's@firma.sk', role: 'admin', active: true },
+          { id: 'm2', user_id: 'u2', full_name: 'Jana Kováčová', email: 'j@firma.sk', role: 'coordinator', active: true },
+          { id: 'm3', user_id: 'u3', full_name: 'Stará Kolegyňa', email: 'x@firma.sk', role: 'coordinator', active: false },
+        ];
+        const DATA = {
+          members,
+          tasks: [
+            { id: 'a', title: 'Po termíne moja', status: 'open', priority: 'high', due_date: D(-6), assigned_name: 'Štefan', source: 'cron' },
+            { id: 'b', title: 'Dnes moja', status: 'in_progress', priority: 'normal', due_date: D(0), assigned_name: 'Štefan Varga' },
+            { id: 'c', title: 'Zajtra Janina', status: 'open', priority: 'normal', due_date: D(1), assigned_name: 'Jana Kováčová' },
+            { id: 'd', title: 'Nepriradená bez termínu', status: 'open', priority: 'normal', due_date: null },
+            { id: 'e', title: 'Starého mena', status: 'open', priority: 'normal', due_date: D(3), assigned_name: 'Michaela' },
+            { id: 'f', title: 'Zrušená moja', status: 'cancelled', priority: 'normal', due_date: D(-2), assigned_name: 'Štefan' },
+            { id: 'g', title: 'Hotová moja', status: 'done', priority: 'normal', due_date: D(-1), assigned_name: 'Štefan',
+              done_at: new Date().toISOString() },
+          ],
+        };
+        const inserted = [], updated = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        DB.insert = async (t, row) => { inserted.push([t, row]); return { data: { id: 'new', ...row }, error: null }; };
+        DB.update = async (t, id, patch) => { updated.push([t, id, patch]); return { data: null, error: null }; };
+        Danubra.user = { id: 'test', email: 's@firma.sk' };
+        Danubra.members = members;
+        Danubra.me = members[0];
+        try { localStorage.removeItem('danubra_task_me_id'); } catch {}
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        Danubra._buildNav();
+
+        Tsk.loaded = false;
+        Tsk.filters = { status: 'active', scope: null, q: '', sort: 'prio', dir: 1 };
+        await Danubra.go('tasks');
+        await new Promise(r => setTimeout(r, 300));
+        const res = {};
+        const titles = () => [...document.querySelectorAll('.tk-row .c-title b')].map(b => b.textContent.trim());
+        const secs = () => [...document.querySelectorAll('.tk-sec:not(.tk-sec-fold) .tk-sec-l')].map(s => s.textContent.trim());
+        res.seg = [...document.querySelectorAll('.tk-seg')].map(b => [b.textContent.replace(/\s+/g, ' ').trim(), b.classList.contains('on')]);
+        res.moje = titles();
+        res.sekcieMoje = secs();
+        res.cipy = document.querySelector('.tk-sum').innerText.replace(/\s+/g, ' ');
+        res.prepinaceKolegov = [...document.querySelectorAll('.tk-colleague option')].map(o => o.textContent.trim());
+        res.siroke = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+        res.kurzor = getComputedStyle(document.querySelector('.tk-row')).cursor;
+
+        Tsk.setScope('all');
+        await new Promise(r => setTimeout(r, 200));
+        res.vsetky = titles();
+        res.sekcieVsetky = secs();
+        res.mimo = [...document.querySelectorAll('.tk-who-n.is-out')].map(x => x.textContent.trim());
+
+        // Rýchle zapísanie: Enter založí úlohu na mňa s termínom zo slova.
+        const inp = document.getElementById('tk-quick');
+        inp.value = 'Zavolať Hofmannovi zajtra !';
+        inp.form.requestSubmit();
+        await new Promise(r => setTimeout(r, 300));
+        res.vlozene = inserted.find(x => x[0] === 'tasks');
+
+        // Odškrtnutie a „Vrátiť".
+        updated.length = 0;
+        document.querySelector('.tk-row[data-id="c"] .tk-check').click();
+        await new Promise(r => setTimeout(r, 600));
+        res.hotovo = updated.find(x => x[0] === 'tasks' && x[1] === 'c');
+        res.toast = document.getElementById('toast').innerText;
+        const vratit = document.querySelector('#toast .toast-act');
+        if (vratit) vratit.click();
+        await new Promise(r => setTimeout(r, 300));
+        res.vratene = updated.filter(x => x[0] === 'tasks' && x[1] === 'c').pop();
+
+        // Priradenie z menu pri krúžku — len používatelia appky.
+        const menu = document.querySelector('.tk-row[data-id="d"] .tk-who');
+        menu.open = true;
+        res.ponuka = [...menu.querySelectorAll('.tk-pop-i span')].map(s => s.textContent.trim());
+        updated.length = 0;
+        [...menu.querySelectorAll('.tk-pop-i')].find(b => b.textContent.includes('Jana')).click();
+        await new Promise(r => setTimeout(r, 300));
+        res.priradene = updated.find(x => x[0] === 'tasks' && x[1] === 'd');
+
+        // Detail sa otvorí a riešiteľ sa vyberá z používateľov.
+        Tsk.detail('e');
+        res.detail = !!document.querySelector('#ui-modal .td-grid');
+        res.detailMena = [...document.querySelectorAll('#ui-modal .tk-pick-i span')].map(s => s.textContent.trim());
+        UI.closeModal();
+        return res;
+      });
+
+      const w = size.width;
+      ok(out.seg[0] && out.seg[0][0].startsWith('Moje') && out.seg[0][1],
+        `Úlohy (${w}): predvolene „Moje"`, JSON.stringify(out.seg));
+      ok(JSON.stringify(out.moje) === JSON.stringify(['Po termíne moja', 'Dnes moja']),
+        `Úlohy (${w}): v „Moje" sú moje aktívne úlohy (aj so starým krstným menom), bez zrušenej a hotovej`,
+        out.moje.join(' | '));
+      ok(JSON.stringify(out.sekcieMoje) === JSON.stringify(['Po termíne', 'Dnes']),
+        `Úlohy (${w}): sekcie podľa času, prázdne skryté`, out.sekcieMoje.join(', '));
+      ok(/1 po termíne/.test(out.cipy) && /1 dnes/.test(out.cipy), `Úlohy (${w}): súhrn v čipoch`, out.cipy);
+      ok(out.prepinaceKolegov.some(x => x.startsWith('Jana Kováčová'))
+        && !out.prepinaceKolegov.some(x => x.startsWith('Stará')) && out.prepinaceKolegov.some(x => x.startsWith('Michaela')),
+        `Úlohy (${w}): kolegovia z používateľov appky, neaktívni nie, meno mimo appky zvlášť`, out.prepinaceKolegov.join(', '));
+      ok(JSON.stringify(out.sekcieVsetky) === JSON.stringify(['Po termíne', 'Dnes', 'Zajtra', 'Tento týždeň', 'Bez termínu']),
+        `Úlohy (${w}): „Všetky" — sekcie v poradí`, out.sekcieVsetky.join(', '));
+      ok(!out.vsetky.includes('Zrušená moja') && !out.vsetky.includes('Hotová moja'),
+        `Úlohy (${w}): zrušené a hotové zoznam nezahlcujú`);
+      ok(out.mimo.some(x => x.startsWith('Michaela')), `Úlohy (${w}): meno mimo appky je označené`);
+      ok(out.vlozene && out.vlozene[1].title === 'Zavolať Hofmannovi' && out.vlozene[1].priority === 'high'
+        && out.vlozene[1].status === 'open' && out.vlozene[1].assigned_name === 'Štefan Varga'
+        && out.vlozene[1].assigned_to === 'test' && out.vlozene[1].due_date > new Date().toISOString().slice(0, 9),
+        `Úlohy (${w}): Enter založí úlohu na mňa, „zajtra" a „!" sa rozpoznajú`, JSON.stringify(out.vlozene));
+      ok(out.hotovo && out.hotovo[2].status === 'done', `Úlohy (${w}): krúžok odškrtne`, JSON.stringify(out.hotovo));
+      ok(/Hotovo/.test(out.toast) && /Vrátiť/.test(out.toast), `Úlohy (${w}): v hlásení je „Vrátiť"`, out.toast);
+      ok(out.vratene && out.vratene[2].status === 'open', `Úlohy (${w}): „Vrátiť" vráti stav`, JSON.stringify(out.vratene));
+      ok(out.ponuka.includes('Jana Kováčová') && !out.ponuka.includes('Stará Kolegyňa') && !out.ponuka.includes('Michaela'),
+        `Úlohy (${w}): priradiť sa dá len aktívnemu používateľovi`, out.ponuka.join(', '));
+      ok(out.priradene && out.priradene[2].assigned_name === 'Jana Kováčová' && out.priradene[2].assigned_to === 'u2',
+        `Úlohy (${w}): priradenie zapíše meno aj používateľa`, JSON.stringify(out.priradene));
+      ok(out.detail && out.detailMena.some(x => x.startsWith('Michaela')) && out.detailMena.includes('Nikto'),
+        `Úlohy (${w}): detail ukáže meno mimo appky a výber z používateľov`, out.detailMena.join(', '));
+      ok(out.siroke <= 2, `Úlohy (${w}): nič netečie do boku`, `${out.siroke} px`);
+      ok(out.kurzor === 'pointer', `Úlohy (${w}): riadok sa tvári klikateľne`);
+      ok(chyby.length === 0, `Úlohy (${w}): nič nespadne`, chyby.slice(0, 3).join('; '));
+      await ctx.close();
+    }
+
     // ── Telefón ───────────────────────────────────────────────────────────
     // Hodiny a výkaz sa zapisujú na stavbe, teda na telefóne. Keď sa stránka
     // posúva do boku, nedá sa to používať vôbec: pri každom ťahu prstom

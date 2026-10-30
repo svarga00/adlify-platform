@@ -1533,6 +1533,8 @@ window.Danubra = {
         if (window.Docs) Docs.fill(view);
         // E-maily pri človeku a firme (`Mail.slot`).
         if (window.Mail) Mail.fill(view);
+        // Otvorené úlohy pri človeku a zákazke (`Tsk.slot`).
+        if (window.Tsk && Tsk.fill) Tsk.fill(view);
         this._masonry(view);
       })
       .catch((e) => {
