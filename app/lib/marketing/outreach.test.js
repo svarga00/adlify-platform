@@ -35,14 +35,68 @@ console.log('\nŠABLÓNA');
   eq(O.missingVars('Hallo {konatel}, {mesto|Region} {firma}', { firma: 'X' }), ['konatel'], 'upozorní na premennú bez hodnoty a bez náhrady');
   const t = O.pickTemplate([], { step: 1, lang: 'de' });
   const filled = O.fillTemplate(t.body, v);
-  ok(/Sehr geehrter Herr Müller,/.test(filled) && /Partner und Service/.test(filled) && /Wir haben 40 Leute/.test(filled) && !/\{/.test(filled),
-    'predvolená šablóna DE sa vyplní celá', filled);
+  ok(/Sehr geehrter Herr Müller,/.test(filled) && /in Ulm im Bereich Trockenbau/.test(filled) && /Trockenbauer aus der Slowakei/.test(filled)
+    && /Wir haben 40 Leute/.test(filled) && !/\{/.test(filled), 'predvolená šablóna DE sa vyplní celá (remeslo, mesto, tím, portfólio)', filled);
+  ok(!/wir sind|Nachunternehmer aus der Slowakei\./.test(filled.split('\n')[2]) && /^Ihr Betrieb/.test(filled.split('\n')[2]),
+    'prvá veta je o firme, nie o nás', filled.split('\n')[2]);
+  eq(O.fillTemplate(t.subject, v), 'Trockenbauer für Ihre Baustellen in Ulm', 'predmet konkrétny a miestny, bez otáznika');
+  ok(filled.split(/\s+/).length <= 112 && /Dienstag oder Donnerstag Vormittag/.test(filled) && /„Profile“/.test(filled),
+    `do 110 slov, výzva s dvoma možnosťami (${filled.split(/\s+/).length} slov)`);
   ok(!/\bdu\b|\bdich\b|\bdein/i.test(Object.values(O.TEMPLATES.de).map(x => x.body).join(' ')), 'nemecké šablóny sú v Sie-forme (bez „du")');
+  ok(!/\?/.test(O.TEMPLATES.de.intro.subject) && !/\?/.test(O.TEMPLATES.en.intro.subject), 'predmety bez otáznika');
   eq(O.pickTemplate([{ key: 'outreach_followup', language: 'de', channel: 'outreach', subject: 'X', body: 'Y' }], { step: 2 }).source, 'db',
     'pripomenutie berie šablónu z databázy');
   eq(O.pickTemplate([{ key: 'outreach_followup', language: 'de', channel: 'email', body: 'Y' }], { step: 2 }).source, 'default',
     'bežné e-mailové šablóny sa do oslovenia nemiešajú');
   eq(O.replySubject('Re: AW: Fachkräfte'), 'Re: Fachkräfte', 'Re: bez opakovania');
+}
+
+console.log('\nŠABLÓNA — JAZYK SA NIKDY NEPREKRÍŽI');
+{
+  // Toto bola príčina anglického e-mailu nemeckej firme: nemecká šablóna
+  // vypnutá alebo zmazaná → podľa kľúča sa našla anglická z databázy.
+  const en = { key: 'outreach_intro', language: 'en', channel: 'outreach', subject: 'EN subject', body: 'EN body' };
+  const deOff = { key: 'outreach_intro', language: 'de', channel: 'outreach', subject: 'DE', body: 'DE body', active: false };
+  const p = O.pickTemplate([en, deOff], { step: 1, lang: 'de', key: 'outreach_intro' });
+  ok(p.source === 'default' && /Baustellen/.test(p.subject) && !/EN/.test(p.body), 'DE vypnutá → predvolená DE, nikdy EN z databázy', JSON.stringify(p));
+  eq(O.pickTemplate([en], { step: 1, lang: 'de' }).source, 'default', 'len EN v databáze → DE predvolená');
+  eq(O.pickTemplate([en], { step: 1, lang: 'en', key: 'outreach_intro' }).body, 'EN body', 'anglicky len keď človek prepne na EN');
+  eq(O.pickTemplate([{ ...en, language: 'DE', body: 'DE velke' }], { step: 1, lang: 'de' }).body, 'DE velke', 'jazyk v databáze veľkými písmenami nevadí');
+}
+
+console.log('\nPREMENNÉ V JAZYKU E-MAILU (nie slovenský text z hľadania)');
+{
+  // Reálny prípad: Malerbetrieb v Ingolstadte, remeslo z hľadania po slovensky.
+  const lead = { name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', trade: 'maliarstvo, omietky, zatepľovanie', contact_person: 'Herr Thomas Englhardt' };
+  const v = O.vars(lead, { supplier: { name: 'P&S' }, attach: true });
+  eq([v.remeslo, v.remeslo_kratke, v.team, v.mesto], ['Maler-, Putz- und WDVS-Arbeiten', 'Malerarbeiten', 'Maler', 'Ingolstadt'],
+    'slovenské „maliarstvo, omietky, zatepľovanie" → nemecké remeslo, tím a mesto');
+  const body = O.fillTemplate(O.pickTemplate([], { step: 1 }).body, v);
+  ok(!/maliar|omiet|zatep/i.test(body) && !/[čďľňŕšťž]/i.test(body), 'v nemeckom e-maile nie je ani slovo po slovensky', body);
+  ok(/Eine kurze Übersicht .* im Anhang\. Passt Ihnen/.test(body), '{priloha} = veta o prílohe, keď príloha ide', body);
+  const bez = O.fillTemplate(O.pickTemplate([], { step: 1 }).body, O.vars(lead, { attach: false }));
+  ok(!/Anhang/.test(bez) && /\nPasst Ihnen/.test(bez), 'bez prílohy veta zmizne a riadok nezačína medzerou', bez);
+  const en = O.vars(lead, { lang: 'en', attach: true });
+  eq([en.remeslo, en.remeslo_kratke, en.team, en.oslovenie, en.priloha.slice(0, 16)],
+    ['painting, plastering and ETICS works', 'painting works', 'painters', 'Dear Mr Englhardt,', 'A short overview'], 'po anglicky');
+  const g = O.vars({ name: 'Müller GmbH', city: 'Ulm' }, {});
+  eq([g.remeslo, g.team], ['Bau und Ausbau', 'Handwerker-Teams'], 'neznáme remeslo → všeobecne, nie prázdne a nie slovensky');
+  eq([O.vars({ name: 'X' }, { lang: 'en' }).remeslo, O.vars({ name: 'X' }, { lang: 'en' }).team], ['construction and finishing works', 'skilled trade teams'], 'to isté po anglicky');
+  eq(O.vars({ name: 'Bau GmbH' }, { search: { seeds: [{ trade: 'Trockenbau' }], params: { region: 'Bavorsko' } } }).remeslo, 'Trockenbau',
+    'keď firma nič nehovorí, remeslo určí hľadanie (zadané weby)');
+  eq(O.vars({ name: 'Bau GmbH', city: 'Mnichov' }, { search: { params: { region: 'Bavorsko' } } }).region, 'Bayern', '{region} = spolková krajina po nemecky (aj zo slovenského názvu)');
+  eq(O.vars({ name: 'Bau GmbH', city: 'Mnichov' }, {}).mesto, 'München', 'slovenský názov mesta sa preloží');
+  eq(O.vars({ name: 'X', city: 'okolie Žiliny' }, {}).mesto, '', 'slovenský text namiesto mesta sa do e-mailu nedostane (náhrada za |)');
+  const fu = O.vars(lead, { prev: { sent_at: '2026-10-26T09:00:00Z', subject: 'Maler für Ihre Baustellen in Ingolstadt' } });
+  eq([fu.kedy, fu.datum, fu.predmet], ['am 26.10.2026', '26.10.2026', 'Maler für Ihre Baustellen in Ingolstadt'], '{kedy} pre pripomenutie');
+  eq(O.vars(lead, {}).kedy, 'vor einigen Tagen', 'bez dátumu „vor einigen Tagen"');
+  const fb = O.fillTemplate(O.pickTemplate([], { step: 2 }).body, fu);
+  const slov = fb.split(/\s+/).length;
+  ok(slov >= 45 && slov <= 75 && /am 26\.10\.2026 habe ich Ihnen Maler/.test(fb) && /Starttermin/.test(fb) && /Dienstag oder Donnerstag/.test(fb),
+    `pripomenutie: 50–70 slov, dátum, nový fakt, tá istá výzva (${slov} slov)`, fb);
+  ok(/Kurz als Ergänzung: Aktuell verfügbar: Maler ab KW 46\./.test(O.fillTemplate(O.pickTemplate([], { step: 2 }).body, { ...fu, portfolio: 'Aktuell verfügbar: Maler ab KW 46.' })),
+    'keď je v Nastaveniach portfólio, je to ten nový fakt');
+  eq(O.missingVars('{priloha}{portfolio}{mesto}', {}), ['mesto'], 'prázdna {priloha} a {portfolio} nie sú chyba');
 }
 
 console.log('\nIMPRESSUM A PÄTIČKA');

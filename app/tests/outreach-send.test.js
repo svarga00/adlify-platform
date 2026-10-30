@@ -191,24 +191,65 @@ const call = async (fn, body, jwt = 'admin') => {
     reset(base({ danubra_leads: [{ id: 'l1', name: 'Müller Bau GmbH', city: 'Ulm', email: 'info@mueller-bau.de', trade: 'Trockenbau', status: 'new' }] }));
     const r = await call(draft, { lead_id: 'l1', step: 1, lang: 'de' });
     ok(r.code === 200 && r.source === 'template' && /AI nie je zapnutá/.test(r.ai_error), 'bez kľúča k AI sa použije šablóna a povie sa to');
-    ok(/Müller Bau GmbH/.test(r.subject) && /Sehr geehrte Damen und Herren,/.test(r.body) && /in Ulm/.test(r.body) && /Trockenbau/.test(r.body)
-      && !/\{/.test(r.body), 'šablóna má doplnenú firmu, mesto a remeslo', r.body);
+    ok(r.subject === 'Trockenbauer für Ihre Baustellen in Ulm' && /Sehr geehrte Damen und Herren,/.test(r.body) && /in Ulm im Bereich Trockenbau/.test(r.body)
+      && !/\{/.test(r.body), 'šablóna má doplnený tím, mesto a remeslo (predmet bez otáznika)', `${r.subject} | ${r.body}`);
+    ok(/im Anhang/.test(r.body), 'k prvému e-mailu ide prezentácia → veta o prílohe', r.body);
+    const bez = await call(draft, { lead_id: 'l1', step: 1, lang: 'de', attach_presentation: false });
+    ok(!/Anhang/.test(bez.body), 'bez prílohy veta o prílohe nie je');
     ok((await call(draft, { lead_id: 'l1' }, 'rec')).code === 403, 'návrh len s Marketingom');
     const en = await call(draft, { lead_id: 'l1', lang: 'en' });
-    ok(/Dear Sir or Madam/.test(en.body), 'po anglicky');
+    ok(/Dear Sir or Madam/.test(en.body) && /drywall works/.test(en.body) && /drywall installers/.test(en.subject), 'po anglicky — aj remeslo a tím', `${en.subject} | ${en.body}`);
+  }
+  {
+    // Remeslo z hľadania je po slovensky — do e-mailu ide nemecké.
+    reset(base({ danubra_leads: [{ id: 'l1', name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', email: 'info@englhardt.de', trade: 'maliarstvo, omietky, zatepľovanie', status: 'new' }] }));
+    const r = await call(draft, { lead_id: 'l1', step: 1, lang: 'de' });
+    ok(r.subject === 'Maler für Ihre Baustellen in Ingolstadt' && /Maler-, Putz- und WDVS-Arbeiten/.test(r.body) && !/maliar|omiet|zatep/i.test(r.body),
+      'slovenské remeslo z hľadania → „Maler-, Putz- und WDVS-Arbeiten", nie „maliarstvo"', `${r.subject} | ${r.body}`);
   }
   {
     reset(base({ danubra_outreach: [{ ...first, id: 'o1' }] }));
     const r = await call(draft, { lead_id: 'l1', step: 2, lang: 'de' });
-    ok(r.subject === O.replySubject(first.subject) && /nachfragen/.test(r.body), 'pripomenutie: „Re: pôvodný predmet" a krátka správa', `${r.subject} | ${r.body}`);
+    const slov = r.body.split(/\s+/).length;
+    ok(r.subject === O.replySubject(first.subject) && /habe ich Ihnen Trockenbauer/.test(r.body) && slov <= 75,
+      `pripomenutie: „Re: pôvodný predmet", odkaz na e-mail, krátke (${slov} slov)`, `${r.subject} | ${r.body}`);
+    ok(new RegExp(`am ${O.vars({}, { prev: first }).datum}`).test(r.body), 'a s dátumom prvého e-mailu', r.body);
   }
   {
     // AI: odpoveď cez nástroj; v prompte nie je meno nášho odberateľa ako fakt na použitie.
-    const { prompt } = require(path.join(FN, 'danubra-outreach-draft.js'))._test;
-    const p = prompt({ lead: { why: 'ako GU Ulm' }, v: O.vars({ name: 'X' }, { supplier: SUPPLIER }), step: 1, lang: 'de',
-      template: O.pickTemplate([], { step: 1 }), prev: null });
+    const { prompt, nearestSite, SLOVAK } = require(path.join(FN, 'danubra-outreach-draft.js'))._test;
+    const PI = require('../lib/marketing/pitch.js');
+    const lead = { name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', trade: 'maliarstvo, omietky, zatepľovanie', why: 'podobná ako GU Ulm, robí maliarstvo',
+      website: 'https://englhardt.example', site_description: 'Malerbetrieb in Ingolstadt seit 1962: Fassaden, Innenräume, WDVS.', categories: ['Malerbetrieb', 'Stuckateur'] };
+    const search = { seeds: [{ trade: 'Maler', keywords: ['Fassade'] }], params: { note: 'hľadáme maliarov v Bavorsku' } };
+    const pitch = PI.pitch({ lead, search });
+    const v = O.vars(lead, { supplier: SUPPLIER, search, attach: true });
+    const p = prompt({ lead, v, step: 1, lang: 'de', template: O.pickTemplate([], { step: 1 }), prev: null, pitch, search, near: null, attach: true });
     ok(/Sie-Form/.test(p) && /Nikdy nespomeň, s ktorými firmami spolupracujeme/.test(p) && /Nič si nevymýšľaj/.test(p),
       'AI píše v Sie-forme, bez vymyslených faktov a bez mien našich odberateľov');
+    ok(/Remeslo \(nemecky, použi toto označenie\): Maler-, Putz- und WDVS-Arbeiten — Maler- und Lackierarbeiten/.test(p) && /Koho jej ponúkame: Maler\n/.test(p),
+      'model dostane nemecké remeslo a tím z pitch.js', p.slice(0, 600));
+    const smieDoEmailu = p.slice(p.indexOf('O FIRME'), p.indexOf('INTERNÉ'));
+    ok(!/maliarstvo|omietky|zatep/.test(smieDoEmailu), 'slovenský lead.trade nie je medzi faktami, ktoré smú do e-mailu', smieDoEmailu);
+    ok(/INTERNÉ \(len pre tvoje pochopenie/.test(p) && p.indexOf('Prečo sme ju vybrali: podobná ako GU Ulm') > p.indexOf('INTERNÉ') && /Poznámka k hľadaniu: hľadáme maliarov/.test(p),
+      '„prečo" a poznámka k hľadaniu sú jasne označené ako interné');
+    ok(/Popis webu .*Malerbetrieb in Ingolstadt seit 1962/.test(p) && /Kategórie z Google Máp: Malerbetrieb, Stuckateur/.test(p) && /Web: https:\/\/englhardt\.example/.test(p),
+      'popis webu, kategórie a web sú tam ako konkrétny detail pre prvú vetu');
+    ok(/Prvá veta je o NICH/.test(p) && /Žiadne „Wir sind Firma X/.test(p) && /utorok alebo vo štvrtok dopoludnia, ALEBO odpoveď jedným slovom „Profile"/.test(p),
+      'pravidlá: prvá veta o nich, výzva s dvoma možnosťami');
+    ok(/bez otáznika/.test(p) && /najviac 60 znakov/.test(p) && /„Maler für Ihre Baustellen in Ingolstadt"/.test(p), 'pravidlá predmetu s príkladom z remesla a mesta', p.slice(-500));
+    ok(/Žiadne slovenské slová ani slovenské názvy remesiel/.test(p) && /Vykanie \(Sie\)/.test(p), 'zákaz slovenčiny, vykanie');
+    ok(/nemáme bežiacu zákazku — nepíš, že v ich regióne už pracujeme/.test(p), 'bez zákazky v okolí sa „sme v regióne" nesmie tvrdiť');
+    ok(/ide príloha: krátka prezentácia PDF/.test(p), 'model vie, že ide príloha');
+    const blizko = prompt({ lead, v, step: 1, lang: 'de', template: O.pickTemplate([], { step: 1 }), prev: null, pitch, search, near: { km: 42, city: 'Augsburg' }, attach: false });
+    ok(/Bežiaca zákazka do 42 km od firmy \(Augsburg\) — smieš napísať, že v ich regióne už pracujeme; stavbu ani odberateľa nemenuj/.test(blizko) && /nejde žiadna príloha/.test(blizko),
+      'so zákazkou do 80 km smie spomenúť región, bez mien; bez prílohy prílohu nespomína');
+    const ing = { lat: 48.7665, lng: 11.4258 };
+    ok(nearestSite(ing, [{ site_city: 'Augsburg', lat: 48.3705, lng: 10.8978 }, { site_city: 'Hamburg', lat: 53.55, lng: 10.0 }]).city === 'Augsburg'
+      && nearestSite(ing, [{ site_city: 'Hamburg', lat: 53.55, lng: 10.0 }]) === null && nearestSite({}, [{ lat: 48.4, lng: 10.9 }]) === null,
+      'najbližšia bežiaca zákazka len do 80 km a len so súradnicami firmy');
+    ok(SLOVAK.test('Maler für zatepľovanie') && !SLOVAK.test('Maler für Ihre Baustellen in München – Grüße, Straße, Nové Zámky'), 'kontrola slovenských písmen nechytá nemčinu');
+    ok(/\/\/ .*INTERN|interné/i.test(require('fs').readFileSync(path.join(FN, 'danubra-outreach-draft.js'), 'utf8')), 'interné údaje sú v kóde označené');
   }
 
   console.log(`\n${passed} prešlo, ${failed} zlyhalo`);

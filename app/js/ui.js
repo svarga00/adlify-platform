@@ -395,7 +395,7 @@ window.UI = {
     } else if (type === 'textarea') {
       input = `<textarea name="${name}" rows="${rows || 3}" placeholder="${this.esc(placeholder)}">${v}</textarea>`;
     } else if (type === 'checkbox') {
-      input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>${tipHtml}`;
+      input = `<label class="chk"><input type="checkbox" name="${name}"${ev} ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>${tipHtml}`;
       return `<div class="fld fld-chk">${input}${this.hint(hint)}</div>`;
     } else {
       const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';

@@ -5796,7 +5796,8 @@ console.log('Prehliadač');
       ok(/neoslovená/.test(out.neoslovena) && out.akcia, 'neoslovená firma a v riadku tlačidlo Osloviť', out.neoslovena);
       ok(/Prvý e-mail/.test(out.os) && /Otvoril 2×/.test(out.os) && /možno automaticky/.test(out.os) && /Klikol na punds\.eu\/referenzen/.test(out.os)
         && /Ďalšie pripomenutie/.test(out.os) && /Pripomenúť sa/.test(out.os), 'detail firmy: časová os s otvorením, klikom a pripomenutím', out.os.slice(0, 400));
-      ok(/Müller Bau GmbH/.test(out.predmet) && /Sehr geehrte Damen und Herren,/.test(out.text) && /in Ulm/.test(out.text), 'okno Osloviť: šablóna po nemecky s údajmi firmy', out.text);
+      ok(out.predmet === 'Trockenbauer für Ihre Baustellen in Ulm' && /Sehr geehrte Damen und Herren,/.test(out.text) && /in Ulm im Bereich Trockenbau/.test(out.text),
+        'okno Osloviť: šablóna po nemecky s údajmi firmy', `${out.predmet} | ${out.text}`);
       ok(/USt-IdNr\.: SK2122334455/.test(out.nahlad) && /Hier abmelden/.test(out.nahlad) && /Štefan Varga/.test(out.nahlad) && out.goOk,
         'náhľad s podpisom, Impressum a odhlásením', out.nahlad);
       ok(/AI Text für Müller/.test(out.ai), 'návrh od AI sa vloží do textu');
@@ -5813,6 +5814,135 @@ console.log('Prehliadač');
       ok(/Filtrom nič nezodpovedá/.test(out.odoslaneOdpovedal), 'filter „Odpovedal" — nikto neodpísal, zoznam to povie', out.odoslaneOdpovedal.slice(0, 200));
       ok(JSON.stringify(out.odoslaneNeodislo) === '["Schmidt Ausbau"]', 'filter stavu „Neodišlo"', JSON.stringify(out.odoslaneNeodislo));
       ok(out.nastavenia, 'nastavenia oslovovania (sledovanie, denný limit)');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+    // ── Marketing: okno Osloviť — nemčina natvrdo, remeslo po nemecky, osobný návrh sám (083) ──
+    // Majiteľ dostal pre Malerbetrieb v Ingolstadte anglický e-mail s textom
+    // „additional people for maliarstvo, omietky, zatepľovanie": nemecká
+    // šablóna bola vypnutá, podľa kľúča sa našla anglická, a {remeslo} bol
+    // slovenský text z hľadania. Tu sa stráži, že sa to nezopakuje.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          partners: [], subcontracts: [],
+          lead_searches: [{ id: 's1', kind: 'urls', status: 'done', params: { region: 'Bavorsko' }, seeds: [{ trade: 'Maler', keywords: ['Fassade', 'WDVS'] }] }],
+          leads: [{ id: 'l1', name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', email: 'info@englhardt.de', trade: 'maliarstvo, omietky, zatepľovanie',
+            contact_person: 'Herr Thomas Englhardt', status: 'new', source: 'outscraper', seed_search_id: 's1' }],
+          email_optout: [], outreach: [], outreach_events: [],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
+          // Nemecká šablóna vypnutá, anglická zapnutá — presne stav, v ktorom sa predtým vybrala angličtina.
+          message_templates: [
+            { id: 't1', key: 'outreach_intro', title: 'Oslovenie — prvý e-mail (DE)', language: 'de', channel: 'outreach', active: false, subject: 'Alt DE', body: 'Alt DE {remeslo}' },
+            { id: 't2', key: 'outreach_intro', title: 'Oslovenie — prvý e-mail (EN)', language: 'en', channel: 'outreach', active: true, subject: 'Additional skilled workers for {firma}?',
+              body: '{oslovenie}\n\nadditional people for {remeslo} in {mesto}.\n\nKind regards' },
+            { id: 't3', key: 'outreach_intro_2', title: 'Vlastná DE', language: 'de', channel: 'outreach', active: true, subject: 'Eigene {team}', body: '{oslovenie}\n\nEigene Vorlage für {remeslo} in {mesto}.\n\nMit freundlichen Grüßen' },
+          ],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Podzámska 4A, Nové Zámky', vat_id: 'SK2122334455', company_id: '57553921' },
+            marketing: { outreach: { daily_limit: 30 } } }],
+        };
+        const volania = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.update = async () => ({ data: null, error: null });
+        DB.client = { auth: { getSession: async () => ({ data: { session: { access_token: 'jwt-7' } } }) } };
+        const pravy = window.fetch;
+        let pustit = null;
+        const drz = new Promise(r => { pustit = r; });
+        window.fetch = async (u, o) => {
+          const url = String(u);
+          const body = o && o.body ? JSON.parse(o.body) : null;
+          volania.push({ url, body });
+          if (url.includes('danubra-outreach-draft')) {
+            await drz; // AI „píše" — dovtedy musí byť v poli šablóna
+            return new Response(JSON.stringify({ subject: 'Maler für Ihre Baustellen in Ingolstadt', source: 'ai', template_key: 'outreach_intro',
+              body: 'Sehr geehrter Herr Englhardt,\n\nIhr Malerbetrieb in Ingolstadt (AI).\n\nMit freundlichen Grüßen' }));
+          }
+          return new Response('{}');
+        };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        try { localStorage.removeItem('danubra_outreach_auto_ai'); } catch (e) { /* nič */ }
+        document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
+        Danubra.route = 'leads'; Lead.loaded = false; Outreach.loaded = false;
+        await Danubra.renderRoute();
+        const res = {};
+        // Predchádzajúce okno s prepnutou angličtinou nesmie ovplyvniť ďalšie (tu bez AI, aby sa počítalo len druhé okno).
+        Outreach.setAutoAi(false);
+        await Outreach.compose('l1', 1);
+        document.querySelector('#oc-form [name=lang]').value = 'en'; Outreach.useTemplate();
+        res.enText = document.querySelector('#oc-form [name=body]').value;
+        res.enOptions = [...document.querySelectorAll('#oc-form [name=template] option')].map(o => o.textContent);
+        UI.closeModal();
+        Outreach.setAutoAi(true);
+        await Outreach.compose('l1', 1);
+        const f = document.getElementById('oc-form');
+        res.lang = f.querySelector('[name=lang]').value;
+        res.options = [...f.querySelectorAll('[name=template] option')].map(o => `${o.value}|${o.textContent}`);
+        res.predmet = f.querySelector('[name=subject]').value;
+        res.text = f.querySelector('[name=body]').value;
+        res.priloha = f.querySelector('[name=attach_presentation]').checked;
+        res.autoChk = f.querySelector('[name=auto_ai]').checked;
+        res.tlacidlo = document.getElementById('oc-ai').textContent;
+        res.stav = document.getElementById('oc-src').textContent;
+        // Volanie serveru príde po načítaní prihlásenia (pár mikroúloh) — šablóna je dovtedy v poli.
+        await new Promise(r => setTimeout(r, 40));
+        res.textPocasAI = f.querySelector('[name=body]').value;
+        res.volaniaPred = volania.filter(v => v.url.includes('danubra-outreach-draft')).map(v => ({ lang: v.body.lang, priloha: v.body.attach_presentation }));
+        pustit();
+        for (let i = 0; i < 60 && !/AI\)/.test(document.querySelector('#oc-form [name=body]').value); i++) await new Promise(r => setTimeout(r, 25));
+        res.aiText = f.querySelector('[name=body]').value;
+        res.aiStav = document.getElementById('oc-src').textContent;
+        res.nahlad = document.getElementById('oc-preview').textContent;
+        // Zmena jazyka a šablóny návrh znova sama nespúšťa.
+        f.querySelector('[name=lang]').value = 'en'; Outreach.useTemplate();
+        res.enPoPrepnuti = f.querySelector('[name=body]').value;
+        f.querySelector('[name=lang]').value = 'de'; Outreach.useTemplate();
+        f.querySelector('[name=template]').value = 'outreach_intro_2'; Outreach.useTemplate();
+        res.vlastna = f.querySelector('[name=body]').value;
+        await new Promise(r => setTimeout(r, 60));
+        res.volaniaSpolu = volania.filter(v => v.url.includes('danubra-outreach-draft')).length;
+        // Príloha odškrtnutá → veta o prílohe zmizne (text zo šablóny).
+        f.querySelector('[name=template]').value = 'outreach_intro'; Outreach.useTemplate();
+        res.sPrilohou = /im Anhang/.test(f.querySelector('[name=body]').value);
+        f.querySelector('[name=attach_presentation]').checked = false; Outreach.attachChanged();
+        res.bezPrilohy = f.querySelector('[name=body]').value;
+        // Vypnutie automatického návrhu sa pamätá a ďalšie okno ho nespustí.
+        f.querySelector('[name=auto_ai]').checked = false; Outreach.setAutoAi(false);
+        UI.closeModal();
+        await Outreach.compose('l1', 1);
+        await new Promise(r => setTimeout(r, 60));
+        res.volaniaPoVypnuti = volania.filter(v => v.url.includes('danubra-outreach-draft')).length;
+        res.autoChk2 = document.querySelector('#oc-form [name=auto_ai]').checked;
+        UI.closeModal();
+        try { localStorage.removeItem('danubra_outreach_auto_ai'); } catch (e) { /* nič */ }
+        window.fetch = pravy;
+        return res;
+      });
+      ok(/additional people for painting, plastering and ETICS works in Ingolstadt/.test(out.enText) && out.enOptions.join() === 'Oslovenie — prvý e-mail (EN)',
+        'po prepnutí na angličtinu: anglická šablóna, remeslo po anglicky', out.enText);
+      ok(out.lang === 'de', 'nové okno: jazyk je nemčina, aj keď v predchádzajúcom bola angličtina', out.lang);
+      ok(JSON.stringify(out.options) === JSON.stringify(['outreach_intro_2|Vlastná DE']) && !out.options.some(o => /EN/.test(o)),
+        'na výber sú len nemecké šablóny (vypnutá DE nie, anglická nie)', JSON.stringify(out.options));
+      ok(out.predmet === 'Eigene Maler' && /Eigene Vorlage für Maler-, Putz- und WDVS-Arbeiten in Ingolstadt/.test(out.text) && /Sehr geehrter Herr Englhardt,/.test(out.text),
+        'šablóna po nemecky: remeslo „Maler-, Putz- und WDVS-Arbeiten", nie „maliarstvo"', `${out.predmet} | ${out.text}`);
+      ok(!/maliar|omiet|zatep|additional/i.test(out.text), 'v texte nie je slovenské ani anglické slovo');
+      ok(out.priloha && out.autoChk && /Píšem osobný návrh/.test(out.tlacidlo) && /AI k nej píše osobný návrh/.test(out.stav),
+        'hneď po otvorení AI píše osobný návrh — tlačidlo to hovorí a šablóna zostáva v poli', `${out.tlacidlo} | ${out.stav}`);
+      ok(JSON.stringify(out.volaniaPred) === JSON.stringify([{ lang: 'de', priloha: true }]) && out.textPocasAI === out.text,
+        'návrh sa pýta po nemecky, vie o prílohe a kým AI píše, v poli je šablóna', JSON.stringify(out.volaniaPred));
+      ok(/Ihr Malerbetrieb in Ingolstadt \(AI\)/.test(out.aiText) && /Návrh napísala AI/.test(out.aiStav) && /Ihr Malerbetrieb in Ingolstadt \(AI\)/.test(out.nahlad),
+        'návrh od AI sa vloží a je v náhľade', `${out.aiStav} | ${out.aiText}`);
+      ok(/additional people for painting/.test(out.enPoPrepnuti) && /Eigene Vorlage/.test(out.vlastna) && out.volaniaSpolu === 1,
+        'zmena jazyka a šablóny prepíše text zo šablóny, AI sa sama znova nespúšťa (1 volanie)', `${out.volaniaSpolu}`);
+      ok(out.sPrilohou && !/Anhang/.test(out.bezPrilohy) && /Eigene Vorlage|Passt Ihnen/.test(out.bezPrilohy), 'odškrtnutá príloha: veta o prílohe zmizne', out.bezPrilohy);
+      ok(out.volaniaPoVypnuti === 1 && out.autoChk2 === false, 'vypnutý automatický návrh sa pamätá — ďalšie okno AI nevolá');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
