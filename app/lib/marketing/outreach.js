@@ -87,8 +87,24 @@
   }
 
   // ── Šablóna ───────────────────────────────────────────────────────────────
-  const VARS = ['firma', 'mesto', 'konatel', 'remeslo', 'podobna', 'oslovenie', 'nasa_firma', 'podpis',
-    'web', 'telefon', 'email', 'portfolio', 'datum', 'predmet'];
+  // {remeslo}, {remeslo_kratke}, {team} a {mesto} sú vždy v jazyku e-mailu
+  // (pitch.js): `lead.trade` je slovenský voľný text z hľadania („maliarstvo,
+  // omietky") a do nemeckého e-mailu nepatrí. {priloha} = veta o prílohe, keď
+  // ide prezentácia, inak prázdne. {kedy} = „am 26.10.2026" / „vor einigen
+  // Tagen" (pripomenutie).
+  const VARS = ['firma', 'mesto', 'region', 'konatel', 'remeslo', 'remeslo_kratke', 'team', 'podobna', 'oslovenie',
+    'nasa_firma', 'podpis', 'web', 'telefon', 'email', 'portfolio', 'priloha', 'datum', 'kedy', 'predmet'];
+  /** Premenné, ktoré smú byť prázdne bez upozornenia (odsek jednoducho zmizne). */
+  const OPTIONAL = ['portfolio', 'priloha'];
+
+  const PRILOHA = {
+    de: 'Eine kurze Übersicht zu Leistungen, Unterlagen und Ablauf finden Sie im Anhang.',
+    en: 'A short overview of our services, documents and process is attached.',
+  };
+  const GENERIC_WORDS = {
+    de: { remeslo: 'Bau und Ausbau', team: 'Handwerker-Teams' },
+    en: { remeslo: 'construction and finishing works', team: 'skilled trade teams' },
+  };
 
   const fmtDe = (d) => {
     const x = new Date(d);
@@ -99,7 +115,10 @@
   /**
    * Premenné pre šablónu z firmy a nastavení.
    * @param {Object} lead       riadok danubra_leads
-   * @param {Object} ctx        { supplier, similarName, lang, portfolio, prev: { sent_at, subject } }
+   * @param {Object} ctx        { supplier, similarName, lang, portfolio, prev: { sent_at, subject },
+   *                              search (hľadanie, z ktorého firma prišla — na určenie remesla),
+   *                              marketing (danubra_settings.marketing — prepisy remesiel),
+   *                              attach (ide prezentácia v prílohe?) }
    */
   function vars(lead = {}, ctx = {}) {
     const s = ctx.supplier || {};
@@ -109,30 +128,39 @@
     const oslovenie = PI ? PI.salutation(konatel, lang) : lang === 'en'
       ? (konatel ? `Dear ${konatel},` : 'Dear Sir or Madam,')
       : (konatel ? `Guten Tag ${konatel},` : 'Sehr geehrte Damen und Herren,');
+    // Remeslo a región v jazyku e-mailu. Bez pitch.js radšej všeobecne než slovensky.
+    const w = PI && PI.tradeVars ? PI.tradeVars({ lead, search: ctx.search || null, marketing: ctx.marketing || null, lang }) : null;
+    const g = GENERIC_WORDS[lang];
+    const mesto = PI && PI.germanPlace ? PI.germanPlace(lead.city) : clean(lead.city);
+    const datum = ctx.prev && ctx.prev.sent_at ? fmtDe(ctx.prev.sent_at) : '';
+    const kedy = lang === 'en' ? (datum ? `On ${datum}` : 'A few days ago') : (datum ? `am ${datum}` : 'vor einigen Tagen');
     return {
-      firma: clean(lead.name), mesto: clean(lead.city), konatel, remeslo: clean(lead.trade),
+      firma: clean(lead.name), mesto, region: w ? w.region : '', konatel,
+      remeslo: w ? w.remeslo : g.remeslo, remeslo_kratke: w ? w.remeslo_kratke : g.remeslo, team: w ? w.team : g.team,
       podobna: clean(ctx.similarName), oslovenie,
       nasa_firma: clean(s.name), podpis: clean(s.signature || s.name), web: clean(s.web),
       telefon: clean(s.phone), email: clean(s.email), portfolio: String(ctx.portfolio || '').trim(),
-      datum: ctx.prev && ctx.prev.sent_at ? fmtDe(ctx.prev.sent_at) : '',
-      predmet: ctx.prev ? clean(ctx.prev.subject) : '',
+      priloha: ctx.attach ? PRILOHA[lang] : '',
+      datum, kedy, predmet: ctx.prev ? clean(ctx.prev.subject) : '',
     };
   }
 
   /**
    * Doplní premenné. `{mesto|Ihrer Region}` = keď mesto chýba, napíše sa
    * náhrada. Neznáma premenná zostane, ako je (aby ju bolo vidieť v náhľade).
-   * Prázdne riadky po chýbajúcom odseku (napr. {portfolio}) sa zlúčia.
+   * Prázdne riadky po chýbajúcom odseku (napr. {portfolio}) sa zlúčia,
+   * medzera po prázdnej {priloha} na začiatku riadka zmizne.
    */
   function fillTemplate(text, v = {}) {
     return String(text || '')
       .replace(/\{([a-z_]+)(?:\|([^{}]*))?\}/g, (m, k, alt) => {
         if (!VARS.includes(k)) return m;
-        const val = k === 'portfolio' ? String(v.portfolio || '').trim() : clean(v[k]);
+        const val = OPTIONAL.includes(k) ? String(v[k] || '').trim() : clean(v[k]);
         return val || (alt != null ? alt : '');
       })
       .replace(/[ \t]+([,.!?])/g, '$1')
       .replace(/[ \t]{2,}/g, ' ')
+      .replace(/^[ \t]+/gm, '')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
@@ -141,26 +169,37 @@
   function missingVars(text, v = {}) {
     const out = new Set();
     for (const m of String(text || '').matchAll(/\{([a-z_]+)(\|[^{}]*)?\}/g)) {
-      if (VARS.includes(m[1]) && !m[2] && !clean(v[m[1]]) && m[1] !== 'portfolio') out.add(m[1]);
+      if (VARS.includes(m[1]) && !m[2] && !clean(v[m[1]]) && !OPTIONAL.includes(m[1])) out.add(m[1]);
     }
     return [...out];
   }
 
-  /** Predvolené šablóny (keď v databáze nie sú). Sie-forma, krátko, bez sľubov. */
+  /**
+   * Predvolené šablóny (keď v databáze nie sú) — tie isté texty sú
+   * v migrácii 083. Studený B2B e-mail, na ktorý nemecká remeselná firma
+   * odpíše: predmet konkrétny a miestny (bez otáznika), prvá veta o nich
+   * (remeslo, mesto), jedna konkrétna ponuka, výzva s dvoma možnosťami.
+   * Žiadne „Wir sind Firma X…", žiadne sľuby, ktoré nevieme dodržať.
+   * Podpis a pätičku pridá appka.
+   */
   const TEMPLATES = {
     de: {
       intro: {
-        subject: 'Zusätzliche Fachkräfte für {firma}?',
+        subject: '{team} für Ihre Baustellen in {mesto|Ihrer Region}',
         body: [
           '{oslovenie}',
           '',
-          'wir sind {nasa_firma}, ein Nachunternehmer aus der Slowakei. Wir stellen erfahrene Handwerker '
-            + 'für Baustellen in Deutschland – im Werkvertrag, mit A1-Bescheinigung und Freistellungsbescheinigung nach § 48b EStG.',
+          'Ihr Betrieb ist in {mesto|Ihrer Region} im Bereich {remeslo} tätig – und wenn die Auftragsbücher voll sind, '
+            + 'fehlen auf der Baustelle meist nicht die Aufträge, sondern die Leute.',
+          '',
+          'Genau dafür stellen wir {team} aus der Slowakei: einzeln oder als eingespieltes Team, im Werkvertrag, abgerechnet nach Stunden. '
+            + 'A1-Bescheinigung und Freistellung nach § 48b EStG liegen vor Projektstart vor; ein deutschsprachiger Ansprechpartner '
+            + 'koordiniert Einsatz, Ersatz und Abrechnung.',
           '',
           '{portfolio}',
           '',
-          'Falls Sie in {mesto|Ihrer Region} in den nächsten Monaten zusätzliche Leute für {remeslo|Ihre Projekte} brauchen: '
-            + 'Darf ich Sie kurz anrufen oder Ihnen unsere Referenzen schicken?',
+          '{priloha} Passt Ihnen ein kurzes Telefonat am Dienstag oder Donnerstag Vormittag? Oder antworten Sie einfach mit „Profile“ – '
+            + 'dann schicke ich Ihnen zwei passende Teamprofile.',
           '',
           'Mit freundlichen Grüßen',
         ].join('\n'),
@@ -170,9 +209,11 @@
         body: [
           '{oslovenie}',
           '',
-          'ich wollte kurz nachfragen, ob meine Nachricht vom {datum|letzter Woche} bei Ihnen angekommen ist. '
-            + 'Wenn Sie aktuell oder demnächst Unterstützung für {remeslo|Ihre Baustellen} brauchen, genügt eine kurze Antwort – '
-            + 'ich melde mich dann mit einem konkreten Vorschlag.',
+          '{kedy} habe ich Ihnen {team} für Ihre Baustellen in {mesto|Ihrer Region} angeboten – vermutlich ist die E-Mail im Tagesgeschäft untergegangen.',
+          '',
+          'Kurz als Ergänzung: {portfolio|Den Starttermin nennen wir Ihnen nach Ihrer Anfrage verbindlich; die Unterlagen (A1, § 48b) liegen komplett vor.}',
+          '',
+          'Passt Ihnen ein kurzes Telefonat am Dienstag oder Donnerstag Vormittag? Oder antworten Sie einfach mit „Profile“.',
           '',
           'Mit freundlichen Grüßen',
         ].join('\n'),
@@ -180,17 +221,20 @@
     },
     en: {
       intro: {
-        subject: 'Additional skilled workers for {firma}?',
+        subject: 'Skilled {team} for your sites in {mesto|your region}',
         body: [
           '{oslovenie}',
           '',
-          'we are {nasa_firma}, a subcontractor from Slovakia. We provide experienced tradespeople for construction sites '
-            + 'in Germany – under a contract for work, with A1 certificates and an exemption certificate under § 48b EStG.',
+          'Your company carries out {remeslo} in {mesto|your region} – and when the order books are full, what is usually missing on site '
+            + 'is not work but reliable people.',
+          '',
+          'That is exactly what we provide: {team} from Slovakia, individually or as an experienced team, under a contract for work and billed by the hour. '
+            + 'A1 certificates and the § 48b EStG exemption are in place before the project starts; a German-speaking coordinator handles deployment, '
+            + 'replacements and invoicing.',
           '',
           '{portfolio}',
           '',
-          'If you need additional people for {remeslo|your projects} in {mesto|your region} in the coming months, '
-            + 'may I give you a short call or send you our references?',
+          '{priloha} Would a short call on Tuesday or Thursday morning suit you? Or simply reply with "Profiles" and I will send you two suitable team profiles.',
           '',
           'Kind regards',
         ].join('\n'),
@@ -200,8 +244,11 @@
         body: [
           '{oslovenie}',
           '',
-          'I just wanted to check whether my message from {datum|last week} reached you. If you need support for '
-            + '{remeslo|your sites} now or soon, a short reply is enough – I will then get back to you with a concrete proposal.',
+          '{kedy} I offered you {team} for your sites in {mesto|your region} – my e-mail has probably been buried in the daily business.',
+          '',
+          'One addition: {portfolio|we confirm a binding start date once we have your request; the documents (A1, § 48b) are complete.}',
+          '',
+          'Would a short call on Tuesday or Thursday morning suit you? Or simply reply with "Profiles".',
           '',
           'Kind regards',
         ].join('\n'),
@@ -209,14 +256,20 @@
     },
   };
 
-  /** Šablóna pre krok a jazyk: z databázy (kanál „outreach"), inak predvolená. */
+  const langOf = (t) => String((t && t.language) || 'de').toLowerCase();
+
+  /**
+   * Šablóna pre krok a jazyk: z databázy (kanál „outreach"), inak predvolená.
+   * Nikdy sa nesiahne po šablóne v inom jazyku — keď nemecká chýba alebo je
+   * vypnutá, príde predvolená nemecká, nie anglická z databázy.
+   */
   function pickTemplate(templates, { step = 1, lang = 'de', key = '' } = {}) {
     const kind = Number(step) > 1 ? 'followup' : 'intro';
-    const list = (templates || []).filter(t => t && t.active !== false && t.channel === 'outreach');
-    const byKey = key ? list.find(t => t.key === key && (t.language || 'de') === lang) || list.find(t => t.key === key) : null;
-    const db = byKey || list.find(t => t.key === `outreach_${kind}` && (t.language || 'de') === lang);
-    if (db && db.body) return { key: db.key, subject: db.subject || TEMPLATES[lang === 'en' ? 'en' : 'de'][kind].subject, body: db.body, source: 'db' };
-    const t = TEMPLATES[lang === 'en' ? 'en' : 'de'][kind];
+    const L = lang === 'en' ? 'en' : 'de';
+    const list = (templates || []).filter(t => t && t.active !== false && t.channel === 'outreach' && langOf(t) === L);
+    const db = (key ? list.find(t => t.key === key) : null) || list.find(t => t.key === `outreach_${kind}`);
+    if (db && db.body) return { key: db.key, subject: db.subject || TEMPLATES[L][kind].subject, body: db.body, source: 'db' };
+    const t = TEMPLATES[L][kind];
     return { key: `outreach_${kind}`, subject: t.subject, body: t.body, source: 'default' };
   }
 
@@ -687,7 +740,7 @@
   }
 
   const API = {
-    DEFAULTS, STOP, VARS, TEMPLATES, STATES, TRACK,
+    DEFAULTS, STOP, VARS, OPTIONAL, PRILOHA, TEMPLATES, STATES, TRACK,
     emailOk, settings, vars, fillTemplate, missingVars, pickTemplate, replySubject,
     impressumMissing, FOOT, footerLines, footerText, footerHtml,
     secretOf, sign, verify, ipHash, newToken, tokenOk, siteUrl, pixelUrl, clickUrl, unsubscribeUrl, safeTarget,

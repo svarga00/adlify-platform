@@ -25,6 +25,31 @@ console.log('Remeslo firmy');
   ok(P.detect({ trade: 'Trockenbau' }, null, { offered: ['maler'] }).length === 0, 'Nastavenia môžu obmedziť ponúkané remeslá');
 }
 
+console.log('\nRemeslo do vety (DE / EN) — nikdy slovensky');
+{
+  ok(P.TRADES.every(t => t.labelEn && t.teamEn && (t.noun || (Array.isArray(t.stems) && t.stems.length)) && t.nounEn) && P.GENERIC.labelEn && P.GENERIC.teamEn,
+    'každé remeslo má anglický názov a tím a slovo do vety');
+  const by = (k) => P.tradeByKey(k);
+  ok(P.tradePhrase([by('maler')]) === 'Malerarbeiten' && P.tradePhrase([by('wdvs')]) === 'Putz- und WDVS-Arbeiten', 'jedno remeslo: „Malerarbeiten", „Putz- und WDVS-Arbeiten"');
+  ok(P.tradePhrase([by('maler'), by('wdvs')]) === 'Maler-, Putz- und WDVS-Arbeiten', 'zložené nemecké slovo: „Maler-, Putz- und WDVS-Arbeiten"', P.tradePhrase([by('maler'), by('wdvs')]));
+  ok(P.tradePhrase([by('trockenbau'), by('fliesen'), by('maler')]) === 'Trockenbau sowie Fliesen- und Malerarbeiten', 'hlavné remeslo prvé, „sowie" keď už je „und"',
+    P.tradePhrase([by('trockenbau'), by('fliesen'), by('maler')]));
+  ok(P.tradePhrase([by('maler'), by('wdvs')], 'en') === 'painting, plastering and ETICS works' && P.tradePhrase([by('trockenbau')], 'en') === 'drywall works',
+    'po anglicky: „painting, plastering and ETICS works"', P.tradePhrase([by('maler'), by('wdvs')], 'en'));
+  ok(P.tradePhrase([], 'de') === 'Bau und Ausbau' && P.tradePhrase([], 'en') === 'construction and finishing works', 'bez remesla všeobecne');
+  const sk = P.tradeVars({ lead: { name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', trade: 'maliarstvo, omietky, zatepľovanie' } });
+  ok(sk.remeslo === 'Maler-, Putz- und WDVS-Arbeiten' && sk.remeslo_kratke === 'Malerarbeiten' && sk.team === 'Maler' && sk.label === 'Maler- und Lackierarbeiten',
+    'slovenské remeslo z hľadania → nemecké slová', JSON.stringify(sk.remeslo));
+  const en = P.tradeVars({ lead: { trade: 'maliarstvo, omietky, zatepľovanie' }, lang: 'en' });
+  ok(en.team === 'painters' && en.label === 'Painting and coating' && en.remeslo === 'painting, plastering and ETICS works', 'to isté po anglicky', JSON.stringify(en));
+  ok(P.tradeVars({ lead: { name: 'Müller GmbH' } }).remeslo === 'Bau und Ausbau' && P.tradeVars({ lead: { name: 'Müller GmbH' }, lang: 'en' }).team === 'skilled trade teams',
+    'neznáme remeslo → „Bau und Ausbau" / „skilled trade teams"');
+  ok(P.tradeVars({ lead: { region: 'Bavorsko' } }).region === 'Bayern' && P.tradeVars({ lead: { city: 'Ulm' } }).region === '', '{region} len spolková krajina, nie mesto');
+  ok(P.tradeVars({ lead: { trade: 'Trockenbau' }, marketing: { presentation: { trades: { trockenbau: { team: 'Trockenbau-Monteure' } } } } }).team === 'Trockenbau-Monteure',
+    'Nastavenia prepíšu tím');
+  ok(P.pitch({ lead: { trade: 'Maler' } }).words.remeslo === 'Malerarbeiten', 'pitch() nesie tie isté slová (words)');
+}
+
 console.log('\nRegión');
 ok(P.region({ region: 'Bayern', city: 'Ulm' }).phrase === 'in Bayern', 'spolková krajina z firmy');
 ok(P.region({ city: 'Augsburg' }).phrase === 'in Augsburg und Umgebung', 'inak mesto');

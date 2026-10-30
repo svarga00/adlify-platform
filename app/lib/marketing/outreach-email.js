@@ -78,6 +78,10 @@
     const de = lang !== 'en';
     const P = pitch || { headline: '', points: [], cta: null, trade: null, preheader: '' };
     const follow = Number(step) > 1;
+    // Keby v texte zostala premenná {priloha} (šablóna vyplnená inde), doplní
+    // sa podľa toho, či príloha naozaj ide — veta o prílohe bez prílohy nie.
+    const priloha = O && O.PRILOHA ? O.PRILOHA[de ? 'de' : 'en'] : '';
+    body = String(body || '').replace(/\{priloha(?:\|[^{}]*)?\}[ \t]*/g, attachment && attachment.name ? `${priloha} ` : '').replace(/^[ \t]+/gm, '');
     const looks = O && O.looksHtml ? O.looksHtml(body) : false;
     const { paras, greeting } = looks ? { paras: [], greeting: '' } : split(body);
     const bodyHtml = looks ? O.sanitizeHtml(body)

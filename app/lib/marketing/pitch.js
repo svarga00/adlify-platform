@@ -28,45 +28,108 @@
   /**
    * Remeslá, ktoré firmám ponúkame. `web` = kľúč v web/eu/pages/trade.js
    * (texty úloh sú odtiaľ), `app` = kľúče danubra_trades.
+   *
+   * Do vety v e-maile ({remeslo}) sa remeslo skladá z `stems` (nemecké
+   * zložené slovo „Maler-, Putz- und WDVS-Arbeiten") alebo z `noun`
+   * („Trockenbau"); po anglicky z `nounEn` („painting, plastering and ETICS
+   * works"). `labelEn` a `teamEn` sú pre anglický e-mail. Slovenský text
+   * z hľadania („maliarstvo, omietky") sa do e-mailu nikdy nedostane —
+   * ide len to, čo je tu.
    */
   const TRADES = [
-    { key: 'trockenbau', label: 'Trockenbau', team: 'Trockenbauer', web: 'sadrokarton', slug: 'trockenbau', app: ['trockenbau'],
+    { key: 'trockenbau', label: 'Trockenbau', team: 'Trockenbauer', labelEn: 'Drywall construction', teamEn: 'drywall installers',
+      noun: 'Trockenbau', nounEn: 'drywall', web: 'sadrokarton', slug: 'trockenbau', app: ['trockenbau'],
       kw: /trockenbau|akustikbau|innenausbau|gipskarton|rigips|standerwerk|abgehangte decke|abhangdecke|unterdecke|sadrokarton|drywall/,
       tasks: ['Ständerwerk stellen (CW-/UW-Profile) und ausrichten', 'Beplanken mit Gipsplatten, ein- oder zweilagig', 'Einbau von Dämmung in Wände und Decken', 'Abgehängte Decken und Unterdecken', 'Spachteln und Schleifen bis Q3/Q4, Einbau von Revisionsöffnungen'] },
-    { key: 'fliesen', label: 'Fliesenarbeiten', team: 'Fliesenleger', web: null, slug: null, app: ['obkladac'],
+    { key: 'fliesen', label: 'Fliesenarbeiten', team: 'Fliesenleger', labelEn: 'Tiling', teamEn: 'tilers',
+      stems: ['Fliesen'], nounEn: 'tiling', web: null, slug: null, app: ['obkladac'],
       kw: /fliese|plattenleger|naturstein|keramik|obklad|tiling/,
       tasks: ['Untergrundvorbereitung und Abdichtung nach Vorgabe', 'Verlegen von Wand- und Bodenfliesen', 'Verfugen und elastische Anschlussfugen', 'Fliesenarbeiten in Bädern, Küchen und Treppenhäusern'] },
-    { key: 'maler', label: 'Maler- und Lackierarbeiten', team: 'Maler', web: 'maliar', slug: 'maler', app: ['maliar'],
+    { key: 'maler', label: 'Maler- und Lackierarbeiten', team: 'Maler', labelEn: 'Painting and coating', teamEn: 'painters',
+      stems: ['Maler'], nounEn: 'painting', web: 'maliar', slug: 'maler', app: ['maliar'],
       kw: /maler|anstrich|lackier|tapezier|maliar|painter/,
       tasks: ['Untergrundvorbereitung: Abkleben, Schleifen, Grundieren', 'Spachteln von Wand- und Deckenflächen', 'Streichen und Rollen, auch im Airless-Spritzverfahren', 'Tapezieren mit Vlies-, Raufaser- und Glasgewebetapeten', 'Lackierarbeiten sowie Fassadenanstriche'] },
-    { key: 'wdvs', label: 'WDVS und Fassade', team: 'WDVS-Monteure', web: 'zateplovac', slug: 'wdvs', app: ['omietkar'],
+    { key: 'wdvs', label: 'WDVS und Fassade', team: 'WDVS-Monteure', labelEn: 'ETICS and facade', teamEn: 'ETICS installers',
+      stems: ['Putz', 'WDVS'], nounEn: ['plastering', 'ETICS'], web: 'zateplovac', slug: 'wdvs', app: ['omietkar'],
       kw: /wdvs|warmedammverbund|fassadendamm|fassade|stuckateur|verputz|putzarbeit|zateplen|omiet/,
       tasks: ['Prüfen und Vorbereiten des Untergrunds', 'Setzen von Sockel- und Anschlussprofilen', 'Kleben und Dübeln der Dämmplatten', 'Armierungsschicht mit Gewebe, Laibungen und Fensteranschlüsse', 'Brandriegel nach Vorgabe, Ober- bzw. Edelputz und Anstrich'] },
-    { key: 'elektro', label: 'Elektroinstallation', team: 'Elektriker', web: null, slug: null, app: ['elektrikar'],
+    { key: 'elektro', label: 'Elektroinstallation', team: 'Elektriker', labelEn: 'Electrical installation', teamEn: 'electricians',
+      noun: 'Elektroinstallation', nounEn: 'electrical installation', web: null, slug: null, app: ['elektrikar'],
       kw: /elektro|elektriker|elektrotechnik|elektrikar|electric/,
       tasks: ['Kabelzug und Verlegen von Leitungen und Kabeltrassen', 'Setzen von Dosen, Schaltern und Steckdosen', 'Montage von Unterverteilungen nach Plan', 'Zuarbeit unter Aufsicht Ihrer verantwortlichen Elektrofachkraft'] },
-    { key: 'schalung', label: 'Schalungsbau', team: 'Schalungsbauer', web: null, slug: null, app: ['betonar', 'tesar'],
+    { key: 'schalung', label: 'Schalungsbau', team: 'Schalungsbauer', labelEn: 'Formwork', teamEn: 'formwork carpenters',
+      noun: 'Schalungsbau', nounEn: 'formwork and concrete', web: null, slug: null, app: ['betonar', 'tesar'],
       kw: /schalung|stahlbetonbau|betonbau|rohbau|hochbau|betonar|debnen|formwork/,
       tasks: ['Ein- und Ausschalen von Wänden, Stützen und Decken', 'Arbeiten mit System- und konventioneller Schalung', 'Vorbereiten und Reinigen der Schalelemente', 'Mithilfe beim Betonieren'] },
-    { key: 'bewehrung', label: 'Bewehrungsarbeiten', team: 'Eisenflechter', web: null, slug: null, app: ['betonar'],
+    { key: 'bewehrung', label: 'Bewehrungsarbeiten', team: 'Eisenflechter', labelEn: 'Rebar fixing', teamEn: 'rebar fixers',
+      stems: ['Bewehrungs'], nounEn: 'rebar fixing', web: null, slug: null, app: ['betonar'],
       kw: /bewehrung|eisenflecht|betonstahl|biegeplatz|armovan|rebar/,
       tasks: ['Verlegen und Binden der Bewehrung nach Bewehrungsplan', 'Einbau von Abstandhaltern und Anschlussbewehrung', 'Bewehrung von Fundamenten, Decken, Wänden und Stützen'] },
-    { key: 'maurer', label: 'Maurerarbeiten', team: 'Maurer', web: null, slug: null, app: ['murar'],
+    { key: 'maurer', label: 'Maurerarbeiten', team: 'Maurer', labelEn: 'Masonry', teamEn: 'bricklayers',
+      stems: ['Maurer'], nounEn: 'masonry', web: null, slug: null, app: ['murar'],
       kw: /maurer|mauerwerk|murar|bricklay/,
       tasks: ['Mauerwerk aus Ziegel, Kalksandstein und Porenbeton', 'Setzen von Stürzen und Ausmauern von Öffnungen', 'Putz- und Ausbesserungsarbeiten', 'Mithilfe im Rohbau'] },
-    { key: 'schweissen', label: 'Schweißarbeiten', team: 'Schweißer', web: 'zvarac', slug: 'schweissen', app: ['zvarac'],
+    { key: 'schweissen', label: 'Schweißarbeiten', team: 'Schweißer', labelEn: 'Welding', teamEn: 'welders',
+      stems: ['Schweiß'], nounEn: 'welding', web: 'zvarac', slug: 'schweissen', app: ['zvarac'],
       kw: /schweiss|zvar|welding|welder/,
       tasks: ['Heften und Schweißen von Stahlkonstruktionen nach Zeichnung und WPS', 'Kehl- und Stumpfnähte in den geprüften Positionen', 'WIG-Schweißen von Edelstahl- und Rohrleitungen', 'Montage- und Reparaturschweißungen vor Ort', 'Nahtvorbereitung, Schleifen und Sichtprüfung der eigenen Nähte'] },
-    { key: 'metallbau', label: 'Metallbau und Schlosserei', team: 'Schlosser und Metallbauer', web: 'zamocnik', slug: 'metallbau', app: ['zamocnik'],
+    { key: 'metallbau', label: 'Metallbau und Schlosserei', team: 'Schlosser und Metallbauer', labelEn: 'Metal construction and locksmith work', teamEn: 'metalworkers and fitters',
+      noun: 'Metallbau', nounEn: 'metal construction', web: 'zamocnik', slug: 'metallbau', app: ['zamocnik'],
       kw: /metallbau|schlosser|stahlbau|zamoc|metalwork/,
       tasks: ['Fertigen von Bauteilen nach Werkstattzeichnung', 'Montage von Stahlkonstruktionen, Treppen, Geländern und Bühnen', 'Anpassen, Bohren und Verschrauben vor Ort nach Vorgabe', 'Heften und Schweißen einfacher Verbindungen (MAG)', 'Arbeiten mit Hubarbeitsbühne nach Einweisung'] },
-    { key: 'fenster', label: 'Fenster- und Türmontage', team: 'Fenster- und Türmonteure', web: 'okna', slug: 'fenster-tueren', app: ['montaznik'],
+    { key: 'fenster', label: 'Fenster- und Türmontage', team: 'Fenster- und Türmonteure', labelEn: 'Window and door installation', teamEn: 'window and door fitters',
+      noun: 'Fenster- und Türmontage', nounEn: 'window and door installation', web: 'okna', slug: 'fenster-tueren', app: ['montaznik'],
       kw: /fensterbau|fenstermontage|fenster|turenmontage|turmontage|okna|window/,
       tasks: ['Ausbau und Entsorgungsvorbereitung von Altfenstern und -türen', 'Einbau, Ausrichten und Befestigen der Elemente', 'Abdichten der Anschlussfuge mit Bändern und Folien', 'Einstellen der Beschläge und Funktionsprüfung', 'Montage von Innentüren, Zargen und Fensterbänken'] },
   ];
   /** Keď sa remeslo nedá určiť — všeobecne, bez sľubov. */
-  const GENERIC = { key: 'bau', label: 'Bau und Ausbau', team: 'Handwerker-Teams', web: null, slug: null, app: [],
+  const GENERIC = { key: 'bau', label: 'Bau und Ausbau', team: 'Handwerker-Teams', labelEn: 'Construction and finishing', teamEn: 'skilled trade teams',
+    noun: 'Bau und Ausbau', nounEn: 'construction and finishing', web: null, slug: null, app: [],
     tasks: ['Einzelne Fachkräfte oder eingespielte Teams', 'Hoch- und Ausbau, Fassade und Montage', 'Zuarbeit für Ihre Bauleitung nach Ihren Vorgaben'] };
+
+  // ── Remeslo do vety ─────────────────────────────────────────────────────
+  /** „Malerarbeiten", „WDVS-Arbeiten", „Maler-, Putz- und WDVS-Arbeiten" (Duden: posledné slovo celé). */
+  function arbeiten(stems) {
+    const whole = (s) => (/^[A-ZÄÖÜ0-9]{2,}$/.test(s) ? `${s}-Arbeiten` : `${s}arbeiten`);
+    if (!stems.length) return '';
+    if (stems.length === 1) return whole(stems[0]);
+    return `${stems.slice(0, -1).map(s => `${s}-`).join(', ')} und ${whole(stems[stems.length - 1])}`;
+  }
+  /** „A, B und C"; keď niektorá položka už „und" má, posledná spojka je „sowie". EN: „A, B and C". */
+  function joinList(items, lang = 'de') {
+    const z = items.filter(Boolean);
+    if (z.length <= 1) return z[0] || '';
+    const head = z.slice(0, -1).join(', '), last = z[z.length - 1];
+    if (lang === 'en') return `${head} and ${last}`;
+    return `${head} ${z.some(x => / und /.test(x)) ? 'sowie' : 'und'} ${last}`;
+  }
+  /**
+   * Remeslá (hlavné + ďalšie) ako jedna fráza do e-mailu.
+   * DE: „Maler-, Putz- und WDVS-Arbeiten", „Trockenbau sowie Maler- und Fliesenarbeiten"
+   * EN: „painting, plastering and ETICS works"
+   */
+  function tradePhrase(trades, lang = 'de') {
+    const list = (trades || []).filter(Boolean);
+    if (!list.length) return lang === 'en' ? `${GENERIC.nounEn} works` : GENERIC.noun;
+    if (lang === 'en') {
+      const seen = new Set();
+      const en = list.flatMap(t => [].concat(t.nounEn || GENERIC.nounEn)).filter(x => !seen.has(x) && seen.add(x));
+      return `${joinList(en, 'en')} works`;
+    }
+    const items = [];
+    const stems = [];
+    let at = -1;
+    for (const t of list) {
+      if (Array.isArray(t.stems) && t.stems.length) {
+        if (at < 0) { at = items.length; items.push(''); }
+        stems.push(...t.stems);
+      } else {
+        items.push(t.noun || t.label);
+      }
+    }
+    if (at >= 0) items[at] = arbeiten(stems);
+    return joinList(items, 'de');
+  }
 
   /**
    * Vecné texty o nás (DE). Prevzaté z punds.eu (o nás, remeslá, Impressum);
@@ -205,14 +268,37 @@
   }
 
   /**
+   * Slová o remesle do šablóny e-mailu — v jazyku e-mailu, nikdy slovensky.
+   * @returns {{ main, also, label, team, remeslo, remeslo_kratke, region }}
+   *   remeslo         hlavné + najviac 2 ďalšie („Maler-, Putz- und WDVS-Arbeiten")
+   *   remeslo_kratke  len hlavné („Malerarbeiten")
+   *   team            „Maler" / „WDVS-Monteure" / „Handwerker-Teams"; EN „painters"
+   *   region          spolková krajina z firmy alebo hľadania (bez mesta), inak ''
+   */
+  function tradeVars({ lead = {}, search = null, marketing = null, lang = 'de', trade = null } = {}) {
+    const T = texts(marketing);
+    const found = detect(lead, search, { offered: T.offered });
+    const main = withOverride((trade && tradeByKey(trade)) || (found[0] && found[0].trade) || GENERIC, T);
+    const also = found.map(x => x.trade).filter(t => t.key !== main.key).slice(0, 2).map(t => withOverride(t, T));
+    const en = lang === 'en';
+    const reg = germanPlace(lead.region) || (search ? germanPlace((search.params && search.params.region) || search.region) : '');
+    return {
+      main, also, region: reg,
+      label: en ? main.labelEn || GENERIC.labelEn : main.label,
+      team: en ? main.teamEn || GENERIC.teamEn : main.team,
+      remeslo: tradePhrase([main, ...also], lang),
+      remeslo_kratke: tradePhrase([main], lang),
+    };
+  }
+
+  /**
    * Čo firme napísať a ukázať.
    * @param {Object} o { lead, search, marketing (danubra_settings.marketing), lang, trade (vynútené) }
    */
   function pitch({ lead = {}, search = null, marketing = null, lang = 'de', trade = null } = {}) {
     const T = texts(marketing);
-    const found = detect(lead, search, { offered: T.offered });
-    const main = withOverride((trade && tradeByKey(trade)) || (found[0] && found[0].trade) || GENERIC, T);
-    const also = found.map(x => x.trade).filter(t => t.key !== main.key).slice(0, 2).map(t => withOverride(t, T));
+    const words = tradeVars({ lead, search, marketing, lang, trade });
+    const { main, also } = words;
     const reg = region(lead, search);
     const headline = `${main.team} für Ihre Baustellen${reg.phrase ? ` ${reg.phrase}` : ''}`;
     const tasks = main.tasks.slice(0, 3);
@@ -224,7 +310,7 @@
     ];
     const preheader = `${main.team} aus der Slowakei${reg.name ? ` für ${reg.name}` : ''} – mit vollständigen Unterlagen und einem festen Ansprechpartner.`;
     return {
-      lang, trade: main, also, trades: [main, ...also], region: reg, headline, preheader, points, texts: T,
+      lang, trade: main, also, trades: [main, ...also], region: reg, headline, preheader, points, texts: T, words,
       title: `punds – Ihr Partner für ${main.label}${reg.name ? ` in ${reg.name}` : ''}`,
       salutation: salutation(lead.contact_person, lang),
       cta: { url: T.cta_url, label: T.cta_label, reply: T.reply_label },
@@ -232,7 +318,8 @@
     };
   }
 
-  const API = { TRADES, GENERIC, TEXT, fold, detect, region, germanPlace, person, salutation, texts, tradeByKey, pitch };
+  const API = { TRADES, GENERIC, TEXT, fold, detect, region, germanPlace, person, salutation, texts, tradeByKey, pitch,
+    tradePhrase, tradeVars, joinList };
   if (typeof window !== 'undefined') window.DanubraPitch = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

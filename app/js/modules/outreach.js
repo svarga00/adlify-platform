@@ -262,10 +262,12 @@
         return UI.toast(Danubra.isAdmin() ? 'Najprv pridajte schránku (Nastavenia → Schránky)' : 'Nemáte pridelenú schránku — požiadajte administrátora', 'err');
       }
       const cfg = this.cfg();
-      this._c = { leadId, step: Number(step) || 1, lang: 'de', source: 'template', view: 'text' };
+      // Jazyk je vždy nemčina — firmy sú nemecké. Anglicky len keď človek
+      // prepne v okne; výber z predchádzajúceho okna sa neprenáša.
+      this._c = { leadId, step: Number(step) || 1, lang: 'de', source: 'template', view: 'text', autoDone: false };
       const tpl = this.tplOptions();
       UI.modal(this._c.step > 1 ? `Pripomenúť sa — ${lead.name}` : `Osloviť — ${lead.name}`, `
-        <form id="oc-form" onsubmit="event.preventDefault();Outreach.send()" oninput="Outreach.preview()">
+        <form id="oc-form" autocomplete="off" onsubmit="event.preventDefault();Outreach.send()" oninput="Outreach.preview()">
           <div class="form-grid">
             ${UI.field('mailbox_id', 'Od (schránka)', { value: this.boxes[0].id, add: false, onchange: 'Outreach.preview()',
               options: this.boxes.map(b => [b.id, `${b.display_name || b.name} <${b.email}>`]),
@@ -273,23 +275,26 @@
             ${UI.field('lang', 'Jazyk', { value: 'de', onchange: 'Outreach.useTemplate()', options: [['de', 'Nemecky (Sie)'], ['en', 'Anglicky']],
               tip: 'Nemeckým firmám píšte po nemecky, vykaním (Sie). Anglicky len vtedy, keď viete, že firma komunikuje po anglicky.' })}
             ${UI.field('template', 'Šablóna', { value: tpl[0][0], onchange: 'Outreach.useTemplate()', options: tpl,
-              tip: 'Východiskový text. Údaje firmy ({firma}, {mesto}, {konatel}, {remeslo}) sa doplnia samy. Šablóny spravujete v Marketing → Oslovovanie.' })}
+              tip: 'Východiskový text. Údaje firmy ({firma}, {mesto}, {konatel}, {remeslo} po nemecky, {team}) sa doplnia samy. Šablóny spravujete v Marketing → Oslovovanie.' })}
             ${UI.field('to', 'Komu', { type: 'email', value: lead.email || '', required: true,
               tip: 'E-mail firmy. Keď ho tu zmeníte, pošle sa na zmenenú adresu — pri firme sa neuloží. Odhlásená adresa sa neosloví.' })}
             <div class="fld-full">${UI.field('subject', 'Predmet', { value: '', required: true })}</div>
             <div class="fld-full">${UI.field('body', 'Text', { type: 'textarea', rows: 13, value: '',
               tip: 'Text si pred odoslaním prečítajte a upravte. Podpis schránky, pätička s Impressum a odkaz na odhlásenie sa pridajú samy.' })}</div>
           </div>
-          <div class="btn-row">
+          <div class="btn-row" style="align-items:center;">
             <button type="button" class="btn btn-outline btn-sm" id="oc-ai" onclick="Outreach.aiDraft()">${Icon('zap', 14)} Navrhnúť osobný text (AI)</button>${UI.tip(
-              'AI napíše krátky osobný e-mail z profilu firmy (čo robí, mesto, prečo sme ju vybrali) a z nášho portfólia v Nastaveniach oslovovania. Nič si nevymýšľa a nespomína našich odberateľov. Keď AI nie je zapnutá, vloží sa šablóna.')}
+              'AI napíše krátky osobný e-mail z profilu firmy (čo robí, mesto, web, prečo sme ju vybrali) a z nášho portfólia v Nastaveniach oslovovania. Nič si nevymýšľa a nespomína našich odberateľov. Keď AI nie je zapnutá, ostane šablóna.')}
             <button type="button" class="btn btn-ghost btn-sm" onclick="Outreach.useTemplate()">${Icon('repeat', 14)} Znova zo šablóny</button>
+            ${UI.field('auto_ai', 'Navrhovať osobný text automaticky', { type: 'checkbox', value: this.autoAi(), onchange: 'Outreach.setAutoAi(this.checked)',
+              tip: 'Po otvorení okna sa šablóna hneď doplní a AI k nej napíše osobný návrh. Kým píše, vidíte šablónu. Pri zmene jazyka alebo šablóny sa návrh znova nepíše sám — kliknite na tlačidlo. Voľba sa pamätá v tomto prehliadači.' })}
             <span id="oc-src" class="card-note" style="margin:0;"></span>
           </div>
           <div id="oc-check"></div>
           <div class="btn-row" style="align-items:center;">
             ${UI.field('attach_presentation', 'Priložiť prezentáciu (PDF)', { type: 'checkbox', value: this._c.step <= 1 && this.pres().attach_default,
-              tip: 'Krátka prezentácia punds po nemecky (4 strany, ~15 kB) pre remeslo a región tejto firmy. K prvému e-mailu áno, k pripomenutiu radšej nie — to má byť krátke.' })}
+              onchange: 'Outreach.attachChanged()',
+              tip: 'Krátka prezentácia punds po nemecky (4 strany, ~15 kB) pre remeslo a región tejto firmy. K prvému e-mailu áno, k pripomenutiu radšej nie — to má byť krátke. Veta o prílohe v texte ({priloha}) sa podľa toho doplní alebo zmizne.' })}
             <button type="button" class="btn btn-ghost btn-sm" id="oc-pdf" onclick="Outreach.downloadPresentation('${leadId}')">${Icon('download', 14)} Stiahnuť prezentáciu</button>
           </div>
           <div class="form-section">Náhľad${UI.tip('Text = čo uvidí program bez obrázkov. E-mail = ako ho uvidí firma v Outlooku či Gmaili: nadpis a body podľa remesla a regiónu, Váš text, tlačidlo, podpis a pätička s odhlásením. Odkaz na odhlásenie je tu ukážkový, skutočný má každý e-mail vlastný.')}
@@ -307,21 +312,46 @@
             <button type="submit" class="btn btn-primary" id="oc-go">${Icon('mail', 14)} Odoslať</button>
           </div>
         </form>`, { wide: true });
+      // Prehliadač by mohol do nového <select> vrátiť starú hodnotu — nemčina natvrdo.
+      const langSel = document.querySelector('#oc-form [name=lang]');
+      if (langSel) langSel.value = 'de';
       this.useTemplate();
+      // Osobný návrh od AI je predvolený, nie tlačidlo, na ktoré treba myslieť.
+      // Beží raz po otvorení; šablóna zostáva viditeľná, kým AI píše.
+      if (this.autoAi() && !this._c.autoDone) { this._c.autoDone = true; this.aiDraft({ auto: true }); }
     },
 
-    /** Šablóny pre krok (z databázy, inak predvolená). */
+    /** Má sa po otvorení okna sám napísať osobný návrh (AI)? Pamätá sa v prehliadači, predvolene áno. */
+    autoAi() {
+      try { return localStorage.getItem('danubra_outreach_auto_ai') !== '0'; } catch (e) { return true; }
+    },
+    setAutoAi(on) {
+      try { localStorage.setItem('danubra_outreach_auto_ai', on ? '1' : '0'); } catch (e) { /* bez pamäte */ }
+    },
+
+    /** Šablóny pre krok a jazyk (z databázy, inak predvolená). Iný jazyk sa nikdy neponúkne. */
     tplOptions() {
       const kind = this._c && this._c.step > 1 ? 'followup' : 'intro';
-      const lang = (this._c && this._c.lang) || 'de';
-      const z = this.templates.filter(t => t.active !== false && String(t.key || '').includes(kind) && (t.language || 'de') === lang)
+      const lang = this._c && this._c.lang === 'en' ? 'en' : 'de';
+      const z = this.templates.filter(t => t.active !== false && String(t.key || '').includes(kind) && String(t.language || 'de').toLowerCase() === lang)
         .map(t => [t.key, t.title || t.key]);
-      return z.length ? z : [[`outreach_${kind}`, kind === 'followup' ? 'Pripomenutie (predvolené)' : 'Prvý e-mail (predvolené)']];
+      return z.length ? z : [[`outreach_${kind}`, `${kind === 'followup' ? 'Pripomenutie' : 'Prvý e-mail'} (predvolené, ${lang === 'en' ? 'EN' : 'DE'})`]];
     },
 
+    /** Je zaškrtnutá príloha? (veta {priloha} v texte) */
+    attachOn() {
+      const c = document.querySelector('#oc-form [name=attach_presentation]');
+      return !!(c && c.checked);
+    },
+
+    /**
+     * Premenné pre šablónu: remeslo a mesto po nemecky (alebo anglicky) podľa
+     * firmy a hľadania, z ktorého prišla — nikdy slovenský text z hľadania.
+     */
     _vars(lead, lang) {
       const prev = this._c.step > 1 ? OO().lastSent(this.ofLead(lead.id)) : null;
       return { prev, v: OO().vars(lead, { supplier: Danubra.supplier(), lang, portfolio: this.cfg().portfolio, prev,
+        search: this.searchOf(lead), marketing: Danubra.cfg('marketing'), attach: this.attachOn(),
         similarName: window.Lead && lead.similar_to ? Lead.partnerName(lead.similar_to) : '' }) };
     },
 
@@ -340,29 +370,59 @@
       const { v, prev } = this._vars(lead, lang);
       f.querySelector('[name=subject]').value = this._c.step > 1 && prev ? OO().replySubject(prev.subject) : OO().fillTemplate(t.subject, v);
       f.querySelector('[name=body]').value = OO().fillTemplate(t.body, v);
-      this._c.source = 'template'; this._c.template_key = t.key;
+      this._c.source = 'template'; this._c.template_key = t.key; this._c.filled = f.querySelector('[name=body]').value;
       const src = document.getElementById('oc-src');
       if (src) src.textContent = 'Text je zo šablóny.';
       this.preview();
     },
 
-    async aiDraft() {
+    /** Zmena prílohy: veta o prílohe v texte sa doplní alebo zmizne (keď text ešte nikto neprepísal). */
+    attachChanged() {
+      const f = document.getElementById('oc-form');
+      if (!f || !this._c) return;
+      const body = f.querySelector('[name=body]');
+      const veta = OO().PRILOHA[this._c.lang === 'en' ? 'en' : 'de'];
+      if (this._c.source === 'template' && body.value === this._c.filled) this.useTemplate();
+      else if (!this.attachOn() && body.value.includes(veta)) { body.value = body.value.replace(`${veta} `, '').replace(veta, '').trim(); this.preview(); }
+      else this.preview();
+    },
+
+    /**
+     * Osobný návrh od AI. `auto` = spustené po otvorení okna: šablóna ostáva
+     * v poli, kým AI píše; keď človek medzitým text upravil, návrh sa nevloží.
+     */
+    async aiDraft({ auto = false } = {}) {
       const f = document.getElementById('oc-form');
       if (!f || !this._c) return;
       const b = document.getElementById('oc-ai');
-      if (b) { b.disabled = true; b.textContent = 'Píšem návrh…'; }
+      const body = f.querySelector('[name=body]');
+      const pred = body.value;
+      if (b) { b.disabled = true; b.textContent = auto ? 'Píšem osobný návrh…' : 'Píšem návrh…'; }
+      const src = document.getElementById('oc-src');
+      if (src && auto) src.textContent = 'Šablóna je doplnená. AI k nej píše osobný návrh…';
       try {
         const r = await call('danubra-outreach-draft', { lead_id: this._c.leadId, step: this._c.step, lang: this._c.lang,
-          template_key: f.querySelector('[name=template]').value });
-        if (!document.getElementById('oc-form')) return;
-        f.querySelector('[name=subject]').value = r.subject || '';
-        f.querySelector('[name=body]').value = r.body || '';
-        this._c.source = r.source; this._c.template_key = r.template_key;
-        const src = document.getElementById('oc-src');
-        if (src) src.textContent = r.source === 'ai' ? 'Návrh napísala AI — prečítajte si ho pred odoslaním.' : (r.ai_error || 'Text je zo šablóny.');
+          template_key: f.querySelector('[name=template]').value, attach_presentation: this.attachOn() });
+        if (!document.getElementById('oc-form') || !this._c) return;
+        const s = document.getElementById('oc-src');
+        if (auto && body.value !== pred) {
+          if (s) s.textContent = 'Text ste medzitým upravili — návrh AI sa nevložil. Chcete ho? Kliknite „Navrhnúť osobný text (AI)“.';
+          return;
+        }
+        if (r.source === 'ai') {
+          f.querySelector('[name=subject]').value = r.subject || '';
+          body.value = r.body || '';
+          this._c.source = 'ai'; this._c.template_key = r.template_key;
+          if (s) s.textContent = 'Návrh napísala AI — prečítajte si ho pred odoslaním.';
+        } else {
+          // AI nenapísala (bez kľúča, chyba, dlhé čakanie) — šablóna ostáva a povie sa prečo.
+          if (!auto) { f.querySelector('[name=subject]').value = r.subject || ''; body.value = r.body || ''; this._c.source = 'template'; this._c.template_key = r.template_key; }
+          if (s) s.textContent = r.ai_error || 'Text je zo šablóny.';
+        }
         this.preview();
       } catch (e) {
-        UI.toast(e.message, 'err');
+        if (auto) { const s = document.getElementById('oc-src'); if (s) s.textContent = `Osobný návrh sa nepodaril (${e.message}) — ostala šablóna.`; }
+        else UI.toast(e.message, 'err');
       } finally {
         if (b && document.body.contains(b)) { b.disabled = false; b.innerHTML = `${Icon('zap', 14)} Navrhnúť osobný text (AI)`; }
       }
@@ -806,9 +866,9 @@
     templatesHtml() {
       const admin = Danubra.isAdmin();
       const list = this.templates;
-      return `<div class="regimebox">Premenné: <code>{oslovenie}</code> <code>{firma}</code> <code>{mesto}</code> <code>{konatel}</code> <code>{remeslo}</code>
-          <code>{podobna}</code> <code>{portfolio}</code> <code>{nasa_firma}</code> <code>{datum}</code>. Keď firma údaj nemá, použije sa náhrada za čiarou:
-          <code>{mesto|Ihrer Region}</code>.${UI.tip('{oslovenie} = „Guten Tag <konateľ>," alebo „Sehr geehrte Damen und Herren,". {podobna} = náš odberateľ, na ktorého sa firma podobá — do e-mailu ho dávajte len výnimočne, s kým robíme, je obchodné tajomstvo. {portfolio} = text z Nastavení oslovovania. {datum} = kedy odišiel predchádzajúci e-mail (pri pripomenutí). Pätičku s Impressum a odhlásením pridá appka vždy sama.')}</div>
+      return `<div class="regimebox">Premenné: <code>{oslovenie}</code> <code>{firma}</code> <code>{mesto}</code> <code>{region}</code> <code>{konatel}</code> <code>{remeslo}</code>
+          <code>{remeslo_kratke}</code> <code>{team}</code> <code>{priloha}</code> <code>{podobna}</code> <code>{portfolio}</code> <code>{nasa_firma}</code> <code>{kedy}</code> <code>{datum}</code>.
+          Keď firma údaj nemá, použije sa náhrada za čiarou: <code>{mesto|Ihrer Region}</code>.${UI.tip('{oslovenie} = „Sehr geehrter Herr Müller," alebo „Sehr geehrte Damen und Herren,". {remeslo} = remeslo firmy po nemecky („Maler-, Putz- und WDVS-Arbeiten"), {remeslo_kratke} len hlavné, {team} = „Maler", „WDVS-Monteure" — slovenský text z hľadania sa do e-mailu nedostane. {priloha} = veta o prílohe, len keď ide prezentácia. {podobna} = náš odberateľ, na ktorého sa firma podobá — do e-mailu ho dávajte len výnimočne, s kým robíme, je obchodné tajomstvo. {portfolio} = text z Nastavení oslovovania. {kedy} = „am 26.10.2026" (pri pripomenutí), {datum} len dátum. Pätičku s Impressum a odhlásením pridá appka vždy sama.')}</div>
         ${admin ? `<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="Outreach.templateForm()">${Icon('plus', 14)} Nová šablóna</button></div>`
           : '<p class="card-note">Šablóny mení administrátor. Pri oslovení si text môžete vždy upraviť.</p>'}
         ${DataList.html(this.templatesConfig(list.map(t => ({ id: t.id, t, title: t.title || t.key || '',
