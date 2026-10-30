@@ -19,6 +19,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { simpleParser } = require('mailparser');
 const S = require('../../app/lib/mail/secret.js');
 const M = require('../../app/lib/mail/mail.js');
+const OS = require('../../app/lib/marketing/outreach-server.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -85,8 +86,10 @@ async function syncFolder(client, mb, folder, state, ents) {
         } else if (ex && ex[0] && ex[0].uid != null) hotovo = true;
       }
       if (!hotovo) {
-        const { error } = await supabase.from('danubra_mail_messages').insert(row);
+        const { data: saved, error } = await supabase.from('danubra_mail_messages').insert(row).select('id').maybeSingle();
         if (error && !/duplicate|unique/i.test(error.message)) throw error;
+        // Odpoveď firmy na oslovenie alebo nedoručenka (078) — chyba tu synchronizáciu nezastaví.
+        if (!error && !out) await OS.onIncoming(supabase, { row, id: saved && saved.id, parsed }).catch(() => null);
       }
       last = Math.max(last, uid);
       pocet++;

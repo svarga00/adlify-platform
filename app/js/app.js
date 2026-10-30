@@ -148,6 +148,8 @@ window.Danubra = {
                     ['bank', 'Banka a cash-flow', 'euro', 'staffing', 'finance']]],
     // Marketing smerom k firmám: noví odberatelia, e-maily, inzercia.
     ['MARKETING',  [['leads', 'Marketing', 'marketing'],
+                    // Oslovovanie firiem po jednom: dnes na rade, čo sa s e-mailmi stalo (078).
+                    ['outreach', 'Oslovovanie', 'eye'],
                     // Obsah webov punds.sk a punds.eu (texty, kontakty, tím, fotky).
                     ['website', 'Weby punds', 'site'],
                     ['campaigns', 'E-maily firmám', 'mail'],
@@ -206,6 +208,7 @@ window.Danubra = {
     advances: 'Zálohy živnostníkom a čo im dlhujeme — za všetkých naraz',
     marketing: 'Inzeráty a odkiaľ chodia ľudia',
     leads: 'Nemecké firmy podobné našim odberateľom — z mapy alebo cez AI, s e-mailom a stavom oslovenia',
+    outreach: 'Firmy po jednom e-mailom: komu čo išlo, kto otvoril, klikol, odpovedal — a komu sa dnes pripomenúť',
     campaigns: 'E-maily firmám po nemecky, cez Vašu schránku, s odhlásením',
     printwork: 'Vizitky, obálka DL a hlavičkový list v podobe punds — PDF pre tlačiareň',
     website: 'Weby punds.sk a punds.eu: čo z nich prišlo, kontakty, tím, fotky a všetky texty po jazykoch',
@@ -249,6 +252,8 @@ window.Danubra = {
     task:       { route: 'tasks',        handle: 'Tsk',   ico: 'tasks',     what: 'Úloha', method: 'form' },
     accommodation: { route: 'accommodations', handle: 'Acc', ico: 'bed',    what: 'Ubytovanie' },
     order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka' },
+    // Nová firma z marketingu (úloha „Pripomenúť sa firme X" ukazuje na ňu).
+    lead:       { route: 'leads',        handle: 'Lead',  ico: 'marketing', what: 'Firma' },
   },
 
   /** Vie sa na tento typ záznamu vôbec preklikať? */
@@ -379,7 +384,7 @@ window.Danubra = {
     trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
     mailboxes: 'settings', archiv: 'settings',
     // Marketing: nové firmy, e-maily im, inzercia.
-    website: 'leads', campaigns: 'leads', marketing: 'leads', printwork: 'leads',
+    website: 'leads', campaigns: 'leads', marketing: 'leads', printwork: 'leads', outreach: 'leads',
   },
 
   // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
@@ -389,7 +394,7 @@ window.Danubra = {
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
-    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', campaigns: 'E-maily', printwork: 'Tlačoviny', website: 'Weby',
+    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', outreach: 'Oslovovanie', campaigns: 'E-maily', printwork: 'Tlačoviny', website: 'Weby',
     money: 'Prehľad', invoices: 'Vydané', costs: 'Prijaté', advances: 'Zálohy a výplaty', bank: 'Banka',
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
     mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné', archiv: 'Archív',
@@ -408,7 +413,7 @@ window.Danubra = {
     timesheets: 'Kto koľko odrobil', hoursheet: 'Na podpis Nemcovi', accommodations: 'Kde ľudia bývajú',
     workers: 'Kartotéka', hiring: 'Koho hľadáme', candidates: 'Kto sa ozval', ads: 'Kde inzerujeme',
     recruiting: 'Z telefonátov', marketing: 'Portály a čo to stojí', crews: 'Kto chodí spolu',
-    leads: 'Podobné našim odberateľom', campaigns: 'Rozoslať a odhlásenia', printwork: 'Vizitky, obálky, listy', website: 'Texty, tím, fotky',
+    leads: 'Podobné našim odberateľom', outreach: 'Po jednom a kto reagoval', campaigns: 'Rozoslať a odhlásenia', printwork: 'Vizitky, obálky, listy', website: 'Texty, tím, fotky',
     money: 'Čo čaká a čo zaplatiť', invoices: 'Vystaviť a pozrieť', costs: 'Faktúry a bločky od iných',
     advances: 'Čo dlhujeme ľuďom',
     bank: 'Výpis a platby',

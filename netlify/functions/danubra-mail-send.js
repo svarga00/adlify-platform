@@ -13,8 +13,7 @@
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MAIL_SECRET (voliteľné)
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
-const MailComposer = require('nodemailer/lib/mail-composer');
-const M = require('../../app/lib/mail/mail.js');
+const M =require('../../app/lib/mail/mail.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -65,7 +64,6 @@ exports.handler = async (event) => {
   if (!to.length) return out(400, { error: 'Zadajte aspoň jedného adresáta.' });
 
   try {
-    const pass = srv.password(mb);
     const attachments = [];
     for (const a of (b.attachments || []).slice(0, 20)) {
       if (!a || !a.storage_path) continue;
@@ -84,60 +82,19 @@ exports.handler = async (event) => {
         contentType: a.type || data.type || undefined });
     }
     const text = String(b.text || '');
-    const mail = {
-      from: { name: mb.display_name || mb.name || '', address: mb.email },
-      to: to.map(M.fmtAddress), cc: cc.map(M.fmtAddress), bcc: bcc.map(M.fmtAddress),
-      subject: String(b.subject || '').slice(0, 500), text,
+    // Odoslanie, kópia do Odoslaných a zápis do appky sú spoločné
+    // s oslovovaním firiem — app/lib/mail/server.js → sendAndStore.
+    const r = await srv.sendAndStore(mb, {
+      user, to, cc, bcc, subject: b.subject, text,
       // Grafický podpis schránky (vizitka) namiesto textového — M.bodyHtml.
       html: M.bodyHtml(text, mb, `${process.env.URL || 'https://adlify-app.netlify.app'}/web/public`),
-      inReplyTo: b.in_reply_to || undefined, references: b.references || undefined, attachments,
-    };
-    // Správa sa poskladá raz: tá istá ide cez SMTP aj do Odoslaných.
-    const raw = await new MailComposer(mail).compile().build();
-    const messageId = (String(raw).match(/^Message-ID:\s*(<[^>]+>)/mi) || [])[1] || null;
-    const envelope = { from: mb.email, to: [...to, ...cc, ...bcc].map(a => a.address) };
-    await srv.smtp(mb, pass).sendMail({ envelope, raw });
-
-    // Kópia do Odoslaných — keď nevyjde, e-mail je aj tak odoslaný.
-    let uloz = null;
-    try {
-      const client = srv.imap(mb, pass);
-      await Promise.race([client.connect(), casovac(5000)]);
-      const folder = mb.sent_folder || await srv.findSent(client);
-      if (folder) { await Promise.race([client.append(folder, raw, ['\\Seen']), casovac(5000)]); uloz = folder; }
-      await client.logout();
-    } catch (e) { /* bez kópie v Odoslaných */ }
-
-    const links = b.links || {};
-    const auto = M.matchEntities([...to, ...cc], await (async () => {
-      const [w, p, l] = await Promise.all([
-        // Service role — archivovaní (migrácia 066) sa k e-mailu nepriradia.
-        supabase.from('danubra_workers').select('id,email').not('email', 'is', null).is('archived_at', null).limit(5000),
-        supabase.from('danubra_partners').select('id,email').not('email', 'is', null).is('archived_at', null).limit(5000),
-        supabase.from('danubra_leads').select('id,email').not('email', 'is', null).limit(10000),
-      ]);
-      return { workers: w.data || [], partners: p.data || [], leads: l.data || [] };
-    })());
-    const row = {
-      mailbox_id: mb.id, folder: uloz || mb.sent_folder || 'Sent', uid: null, direction: 'out', seen: true,
-      message_id: messageId, in_reply_to: b.in_reply_to || null, refs: b.references || null,
-      thread_key: M.threadKey({ references: b.references, inReplyTo: b.in_reply_to, messageId, subject: b.subject }),
-      from_email: mb.email, from_name: mb.display_name || mb.name, to_list: to, cc_list: cc,
-      subject: mail.subject || '(bez predmetu)', sent_at: new Date().toISOString(), snippet: M.snippet(text),
-      text_body: text, html_body: null,
-      attachments: attachments.map((a, i) => ({ name: a.filename, type: a.contentType, size: a.content.length,
+      inReplyTo: b.in_reply_to || null, references: b.references || null, attachments,
+      attachmentsMeta: attachments.map((a, i) => ({ name: a.filename, type: a.contentType, size: a.content.length,
         storage_path: (b.attachments || []).filter(x => x && x.storage_path)[i].storage_path })),
-      worker_id: links.worker_id || auto.worker_id, partner_id: links.partner_id || auto.partner_id,
-      lead_id: links.lead_id || auto.lead_id, created_by: user.id,
-    };
-    const { data: saved } = await supabase.from('danubra_mail_messages').insert(row).select('id').single();
-    if (row.lead_id) {
-      await supabase.from('danubra_leads').update({ last_contact_at: row.sent_at }).eq('id', row.lead_id);
-      await supabase.from('danubra_leads').update({ status: 'contacted' }).eq('id', row.lead_id).eq('status', 'new');
-    }
-    return out(200, { ok: true, id: saved && saved.id, sent_folder: uloz });
+      links: b.links || {},
+    });
+    return out(200, { ok: true, id: r.id, sent_folder: r.sentFolder });
   } catch (e) {
-    const t = String(e.responseText || e.message || e);
-    return out(502, { error: /auth|535|534|credentials/i.test(t) ? 'Schránka odmietla prihlásenie — skontrolujte heslo v Nastaveniach → Schránky.' : t.slice(0, 300) });
+    return out(502, { error: srv.smtpError(e) });
   }
 };

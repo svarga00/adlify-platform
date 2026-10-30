@@ -4603,7 +4603,33 @@ console.log('Prehliadač');
         Danubra.route = 'leads'; Lead.loaded = false;
         await Danubra.renderRoute();
         const res = { menu: [...document.querySelectorAll('#sidebar-nav .nav-item .nav-text')].map(x => x.textContent.trim()),
-          karty: [...document.querySelectorAll('#view .acc-name')].map(x => x.textContent.trim()) };
+          karty: [...document.querySelectorAll('#view .dl-title b')].map(x => x.textContent.trim()) };
+        // Hľadanie podľa webov firiem: prvá voľba v okne.
+        Lead.findForm();
+        res.prvaVolba = (document.querySelector('[data-fmode].active') || {}).textContent;
+        const ta = document.querySelector('#find-urls [name=urls]');
+        ta.value = 'https://www.huber-trockenbau.de/leistungen\nhuber-trockenbau.de\nschmidt-ausbau.de\nhttp://localhost/\nweber-bau.de';
+        ta.dispatchEvent(new Event('input'));
+        res.domeny = [...document.querySelectorAll('#find-urls-out .link-chip span')].map(x => x.textContent);
+        res.nahlad = document.getElementById('find-urls-out').textContent.replace(/\s+/g, ' ');
+        document.querySelector('#find-urls [name=u_count]').value = '30';
+        document.querySelector('#find-urls [name=u_note]').value = 'len suchá výstavba';
+        await Lead.searchUrls();
+        const hl = zapis.find(z => z.t === 'lead_searches');
+        res.hladanie = hl ? [hl.row.kind, hl.row.params.urls.length, hl.row.params.count, hl.row.params.note] : null;
+        const fv = volania.find(v => v.url.includes('danubra-leads-from-urls-background'));
+        res.funkciaWeby = fv ? fv.auth : null;
+        res.bezi = document.querySelector('#view').textContent.includes('Hľadám firmy podobné zadaným webom');
+        // Firma z hľadania podľa webov: skóre, e-mail z Impressum, konateľ, filter Hľadanie.
+        Lead.rows.push({ id: 'l5', name: 'Maier Innenausbau GmbH', city: 'Augsburg', email: 'info@maier.de', status: 'new', source: 'urls',
+          score: 91, contact_person: 'Thomas Maier', vat_id: 'DE811222333', seed_search_id: 'n1',
+          profile: { email_source: 'impressum', similar_to_url: 'https://www.huber-trockenbau.de/' } });
+        await Danubra.renderRoute();
+        res.skore = [...document.querySelectorAll('#view .dl-row')].map(r => r.textContent.replace(/\s+/g, ' ')).find(t => t.includes('Maier')) || '';
+        Lead.detail('l5');
+        res.detail = (document.querySelector('.modal') || document.body).textContent.replace(/\s+/g, ' ');
+        UI.closeModal();
+        Lead._findMode = 'partners';
         Lead.findForm();
         const sp = window.setTimeout;
         window.setTimeout = (f, ms) => sp(f, Math.min(ms || 0, 5));
@@ -4630,6 +4656,15 @@ console.log('Prehliadač');
       });
       ok(out.menu.includes('Marketing') && out.menu.includes('Fakturácia'), 'v menu je Marketing aj Fakturácia', out.menu.join(', '));
       ok(out.karty.includes('Fliesen Huber'), 'Nové firmy ukazujú uložené firmy', out.karty.join(', '));
+      ok(out.prvaVolba === 'Podľa webov firiem', 'prvá voľba v hľadaní je „Podľa webov firiem"', out.prvaVolba);
+      ok(JSON.stringify(out.domeny) === '["huber-trockenbau.de","schmidt-ausbau.de","weber-bau.de"]', 'rozpoznané domény bez duplicít', JSON.stringify(out.domeny));
+      ok(/dvakrát/.test(out.nahlad) && /localhost/.test(out.nahlad), 'ukážka povie o duplicite aj o nepoužiteľnej adrese', out.nahlad);
+      ok(JSON.stringify(out.hladanie) === '["urls",3,30,"len suchá výstavba"]', 'hľadanie sa založí s adresami, počtom a poznámkou', JSON.stringify(out.hladanie));
+      ok(out.funkciaWeby === 'Bearer jwt-123', 'a zavolá server s prihlásením', String(out.funkciaWeby));
+      ok(out.bezi, 'kým beží, obrazovka to povie');
+      ok(/91/.test(out.skore) && /z Impressum/.test(out.skore) && /Thomas Maier|podľa webov/.test(out.skore), 'v zozname je skóre a e-mail z Impressum', out.skore);
+      ok(/konateľ Thomas Maier/.test(out.detail) && /DE811222333/.test(out.detail) && /ako huber-trockenbau\.de/.test(out.detail),
+        'karta firmy ukáže konateľa, USt-IdNr a ktorej firme sa podobá', out.detail.slice(0, 300));
       ok(JSON.stringify(out.najdene) === '["Müller Bau GmbH"]', 'mapa nájde firmy pri meste odberateľa, už uloženú nie', JSON.stringify(out.najdene));
       ok(JSON.stringify(out.ulozene) === '[["Müller Bau GmbH","osm","info@mueller-bau.de"]]', 'vybraná firma sa uloží aj s e-mailom', JSON.stringify(out.ulozene));
       ok(out.smtp, 'E-maily ukážu, z akej adresy sa posiela');
@@ -4777,6 +4812,105 @@ console.log('Prehliadač');
       ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@punds.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
         'uloženie pošle heslo len serveru, s prístupmi a podpisom', JSON.stringify(out.ulozenie));
       ok(out.zaSync, 'po uložení sa e-maily hneď začnú sťahovať');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+    // ── Marketing: oslovovanie firiem po jednom (078) ────────────────────
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const dnes = new Date().toISOString();
+        const DATA = {
+          partners: [], subcontracts: [], lead_searches: [],
+          leads: [{ id: 'l1', name: 'Müller Bau GmbH', city: 'Ulm', email: 'info@mueller-bau.de', trade: 'Trockenbau', status: 'new', source: 'manual' },
+            { id: 'l2', name: 'Schmidt Ausbau', city: 'Augsburg', email: 'off@schmidt.de', status: 'new', source: 'manual' },
+            { id: 'l3', name: 'Weber Bau', city: 'Ulm', email: 'info@weber.de', status: 'contacted', source: 'manual' }],
+          email_optout: [{ email: 'off@schmidt.de' }],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
+          outreach: [{ id: 'o3', lead_id: 'l3', step: 1, lang: 'de', status: 'sent', to_email: 'info@weber.de', subject: 'Fachkräfte für Weber Bau?',
+            sent_at: '2026-01-05T09:00:00Z', message_id: '<x@punds.eu>', opened_at: '2026-01-05T10:00:00Z', open_count: 2,
+            auto_opened_at: '2026-01-05T09:00:03Z', auto_open_count: 1, clicked_at: '2026-01-05T10:01:00Z', click_count: 1,
+            next_followup_at: '2026-01-12T09:00:00Z' }],
+          outreach_events: [{ id: 'e1', outreach_id: 'o3', lead_id: 'l3', type: 'click', url: 'https://punds.eu/referenzen', at: '2026-01-05T10:01:00Z', automated: false },
+            { id: 'e2', outreach_id: 'o3', lead_id: 'l3', type: 'open', at: '2026-01-05T09:00:03Z', automated: true, auto_reason: 'Apple Mail (ochrana súkromia) predčítal obrázky' }],
+          message_templates: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Podzámska 4A, Nové Zámky', vat_id: 'SK2122334455', company_id: '57553921' },
+            marketing: { outreach: { daily_limit: 30 } } }],
+        };
+        const volania = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.update = async () => ({ data: null, error: null });
+        DB.client = { auth: { getSession: async () => ({ data: { session: { access_token: 'jwt-7' } } }) } };
+        const pravy = window.fetch;
+        window.fetch = async (u, o) => {
+          const url = String(u);
+          const body = o && o.body ? JSON.parse(o.body) : null;
+          volania.push({ url, auth: o && o.headers && o.headers.Authorization, body });
+          if (url.includes('danubra-outreach-draft')) return new Response(JSON.stringify({ subject: 'Fachkräfte für Müller Bau?', body: 'Sehr geehrte Damen und Herren,\n\nAI Text für Müller.\n\nMit freundlichen Grüßen', source: 'ai' }));
+          if (url.includes('danubra-outreach-send')) return new Response(JSON.stringify({ ok: true, id: 'o9', sent_at: dnes, next_followup_at: new Date(Date.now() + 5 * 864e5).toISOString() }));
+          return new Response('{}');
+        };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
+        Danubra.route = 'leads'; Lead.loaded = false; Outreach.loaded = false;
+        await Danubra.renderRoute();
+        const res = {};
+        const riadok = (m) => [...document.querySelectorAll('#view .dl-row')].find(r => r.textContent.includes(m));
+        res.stlpec = !!riadok('Weber Bau') && !!riadok('Weber Bau').querySelector('[title^="Otvoril"]') && !!riadok('Weber Bau').querySelector('[title^="Klikol"]');
+        res.neoslovena = (riadok('Müller Bau') || {}).textContent || '';
+        res.akcia = !!(riadok('Müller Bau') || document).querySelector('[aria-label^="Osloviť"]');
+        // Detail firmy: časová os
+        Lead.detail('l3');
+        res.os = (document.querySelector('.modal') || document.body).textContent.replace(/\s+/g, ' ');
+        UI.closeModal();
+        // Okno Osloviť
+        await Outreach.compose('l1', 1);
+        const f = document.getElementById('oc-form');
+        res.predmet = f.querySelector('[name=subject]').value;
+        res.text = f.querySelector('[name=body]').value;
+        res.nahlad = document.getElementById('oc-preview').textContent;
+        res.goOk = !document.getElementById('oc-go').disabled;
+        await Outreach.aiDraft();
+        res.ai = f.querySelector('[name=body]').value;
+        await Outreach.send();
+        res.poslane = volania.filter(v => v.url.includes('danubra-outreach-send')).map(v => ({ auth: v.auth, lead: v.body.lead_id, mb: v.body.mailbox_id,
+          step: v.body.step, sig: /-- \nŠtefan Varga$/.test(v.body.body) }));
+        // Odhlásená firma: Odoslať je zablokované a povie sa prečo
+        await Outreach.compose('l2', 1);
+        res.blok = document.getElementById('oc-check').textContent;
+        res.blokGo = document.getElementById('oc-go').disabled;
+        UI.closeModal();
+        // Obrazovka Oslovovanie
+        Danubra.route = 'outreach'; Outreach.tab = 'today';
+        await Danubra.renderRoute();
+        res.prehlad = document.querySelector('#view').textContent.replace(/\s+/g, ' ');
+        Outreach.setTab('settings');
+        await new Promise(r => setTimeout(r, 30));
+        res.nastavenia = !!document.querySelector('#os-form [name=track_opens]') && !!document.querySelector('#os-form [name=daily_limit]');
+        window.fetch = pravy;
+        return res;
+      });
+      ok(out.stlpec, 'zoznam firiem: stĺpec Oslovenie ukáže otvoril a klikol');
+      ok(/neoslovená/.test(out.neoslovena) && out.akcia, 'neoslovená firma a v riadku tlačidlo Osloviť', out.neoslovena);
+      ok(/Prvý e-mail/.test(out.os) && /Otvoril 2×/.test(out.os) && /možno automaticky/.test(out.os) && /Klikol na punds\.eu\/referenzen/.test(out.os)
+        && /Ďalšie pripomenutie/.test(out.os) && /Pripomenúť sa/.test(out.os), 'detail firmy: časová os s otvorením, klikom a pripomenutím', out.os.slice(0, 400));
+      ok(/Müller Bau GmbH/.test(out.predmet) && /Sehr geehrte Damen und Herren,/.test(out.text) && /in Ulm/.test(out.text), 'okno Osloviť: šablóna po nemecky s údajmi firmy', out.text);
+      ok(/USt-IdNr\.: SK2122334455/.test(out.nahlad) && /Hier abmelden/.test(out.nahlad) && /Štefan Varga/.test(out.nahlad) && out.goOk,
+        'náhľad s podpisom, Impressum a odhlásením', out.nahlad);
+      ok(/AI Text für Müller/.test(out.ai), 'návrh od AI sa vloží do textu');
+      ok(JSON.stringify(out.poslane) === JSON.stringify([{ auth: 'Bearer jwt-7', lead: 'l1', mb: 'b1', step: 1, sig: true }]),
+        'odoslanie ide cez server s prihlásením, zo schránky, s podpisom', JSON.stringify(out.poslane));
+      ok(/odhlásila/.test(out.blok) && out.blokGo, 'odhlásenú firmu appka nedovolí osloviť a povie prečo', out.blok);
+      ok(/Oslovovanie/.test(out.prehlad) && /Pripomenúť sa/.test(out.prehlad) && /Ako to ide/.test(out.prehlad) && /§ 7 UWG/.test(out.prehlad),
+        'Oslovovanie: dnes na rade, čísla a právne upozornenie', out.prehlad.slice(0, 300));
+      ok(out.nastavenia, 'nastavenia oslovovania (sledovanie, denný limit)');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }

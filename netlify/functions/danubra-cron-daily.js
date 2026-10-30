@@ -9,6 +9,7 @@
 //   - požiadavky bez odozvy > 24 h → alert
 //   - ponuky po valid_until → expired
 //   - záznamy z formulárov webov po lehote → anonymizované osobné údaje
+//   - oslovené firmy bez odpovede po termíne → úloha „Pripomenúť sa firme X"
 //
 // Idempotentné — opakované spustenie v ten istý deň nesmie duplikovať záznamy
 // (upozornenia sa píšu s dennou značkou a pred zápisom sa kontrolujú).
@@ -16,6 +17,8 @@
 // Ochrana: hlavička Authorization: Bearer ${CRON_SECRET}
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
+// Komu sa pripomenúť po e-maile oslovenia — pravidlá s testami (078).
+const Outreach = require('../../app/lib/marketing/outreach.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -321,6 +324,42 @@ exports.handler = async (event) => {
           deleted_at: new Date().toISOString(),
         }).eq('id', r.id);
         s.purgedRecordings++;
+      }
+    }
+    // ── 7b. Oslovenie bez odpovede → úloha „Pripomenúť sa" (078) ────────
+    // Keď nadíde termín pripomenutia a firma neodpísala (ani sa neodhlásila,
+    // e-mail sa doručil), vznikne úloha pri firme. Kľúč `outreach:<id>:<krok>`
+    // = jedna úloha na jeden e-mail; po odoslaní pripomenutia sa uzavrie sama.
+    if (await tableExists('danubra_outreach')) {
+      const { data: due } = await supabase.from('danubra_outreach')
+        .select('id, lead_id, step, status, subject, sent_at, next_followup_at, replied_at, bounced_at, unsubscribed_at, archived_at')
+        .eq('status', 'sent').is('replied_at', null).is('archived_at', null)
+        .not('next_followup_at', 'is', null).lte('next_followup_at', new Date().toISOString()).limit(500);
+      const leadIds = [...new Set((due || []).map(o => o.lead_id))];
+      if (leadIds.length) {
+        const [{ data: leads }, { data: all }, { data: cfgRows }] = await Promise.all([
+          supabase.from('danubra_leads').select('id, name, city, status, archived_at').in('id', leadIds),
+          // Všetky e-maily tých firiem — pripomína sa len podľa posledného.
+          supabase.from('danubra_outreach').select('id, lead_id, step, status, sent_at, next_followup_at, replied_at, bounced_at, unsubscribed_at, archived_at')
+            .in('lead_id', leadIds).is('archived_at', null),
+          supabase.from('danubra_settings').select('marketing').limit(1),
+        ]);
+        const cfg = Outreach.settings(cfgRows && cfgRows[0] && cfgRows[0].marketing);
+        for (const { outreach: o, lead } of Outreach.followupsDue(all || [], leads || [], new Date(), cfg)) {
+          const step = Number(o.step) || 1;
+          const kde = lead.city ? ` (${lead.city})` : '';
+          const ok = await upsertAutoTask({
+            source_key: `outreach:${o.id}:${step}`,
+            source_field: 'danubra_outreach.next_followup_at',
+            title: `Pripomenúť sa firme ${lead.name}${kde}`,
+            description: `${step === 1 ? 'Prvý e-mail' : `${step}. e-mail`} „${o.subject || ''}" odišiel ${String(o.sent_at || '').slice(0, 10)} `
+              + 'a firma zatiaľ neodpísala. V Marketingu pri firme kliknite „Pripomenúť sa" — krátka správa pôjde v tom istom vlákne. '
+              + 'Ak firma nemá záujem, nastavte jej stav Nemá záujem.',
+            entity_type: 'lead', entity_id: lead.id, entity_label: lead.name,
+            priority: 'normal', due_date: today,
+          });
+          if (ok) s.outreachTasks = (s.outreachTasks || 0) + 1;
+        }
       }
     }
     // ── 8. Lehota uchovania záznamov z formulárov webov (GDPR) ──────────
