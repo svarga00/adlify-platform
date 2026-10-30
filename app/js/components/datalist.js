@@ -51,6 +51,7 @@
 //                                            // ico/label smú byť aj (r) => …; show: (r) => bool
 //       empty: { ico: 'invoices', title: 'Zatiaľ žiadne faktúry', sub: '…', cta: '<button …>' },
 //       export: { name: ['faktury'] },           // tlačidlo Export → CSV toho, čo je vidieť
+//                                            // more: [{ label, ico, title, run: (viditeľné riadky) => … }] = ďalšie exporty v ponuke vedľa
 //       foot: (rows) => ({ cells: { num: 'Spolu', sum: Money.format(…) } }),  // päta so súčtami (alebo HTML)
 //     });
 //   }
@@ -71,6 +72,25 @@
 //          range-number: value, unit;   toggle: test(row);   ktorýkoľvek: match(row, hodnota)
 // Prvé štyri filtre (bez `more`) sú v lište, ostatné v „Ďalšie filtre". Na
 // telefóne sú všetky v paneli „Filtre". Hľadanie sa nepamätá, ostatné áno.
+//
+// Stĺpce podľa seba: tlačidlo „Stĺpce" v lište otvorí panel — zaškrtnutím
+// stĺpec ukážete / skryjete, poradie zmeníte ťahaním za úchyt alebo
+// šípkami (aj klávesnicou), hustota Bežné / Kompaktné, „Pôvodné nastavenie"
+// vráti všetko. Šírku stĺpca zmeníte ťahaním za pravý okraj jeho hlavičky
+// (dvojklik vráti pôvodnú). Prvý stĺpec (`mobile: 'title'` alebo
+// `required: true`) sa skryť nedá. Stĺpec s `hidden: true` je predvolene
+// skrytý (dá sa zapnúť). Pamätá sa to pre každý zoznam a každého
+// používateľa zvlášť (localStorage „danubra_dlc_<používateľ>_<storageKey>";
+// v appke nie je úložisko nastavení na používateľa, takže platí pre toto
+// zariadenie). `columnsChooser: false` tlačidlo vypne.
+//
+// Keď sa stĺpce do šírky nezmestia, posúva sa vodorovne len tabuľka vo
+// svojej karte (hlavička spolu s riadkami, prvý stĺpec ostane stáť) —
+// lišta s filtrami ani stránka sa neposúvajú. `hideBelow` funguje ďalej.
+//
+// Export: tlačidlo Export = všetky údaje riadkov, ktoré je vidieť (stĺpce
+// z `export.columns`, inak všetky stĺpce zoznamu). V paneli „Stĺpce" je
+// navyše „Exportovať len zobrazené stĺpce" — v poradí a výbere z tabuľky.
 //
 // Ďalej:  DataList.render(el, cfg)       vykreslí do prvku
 //         DataList.refresh(id, rows?)    prekreslí zoznam (napr. po uložení)
@@ -101,6 +121,25 @@
     try { localStorage.setItem(STORE + inst.cfg.storageKey, JSON.stringify(L().persistable(inst.state, inst.cfg))); } catch {}
   }
 
+  // Stĺpce podľa seba — pre každého používateľa zvlášť.
+  const CSTORE = 'danubra_dlc_';
+  function userId() {
+    try { return String((window.Danubra && Danubra.user && Danubra.user.id) || 'anon'); } catch { return 'anon'; }
+  }
+  const colsKey = (inst) => `${CSTORE}${cssId(userId())}_${cssId(inst.cfg.storageKey || inst.id)}`;
+  function loadCols(inst) {
+    try { const s = localStorage.getItem(colsKey(inst)); return s ? JSON.parse(s) : null; } catch { return null; }
+  }
+  function saveCols(inst) {
+    try {
+      if (L().isCustomCols(inst.cols, inst.cfg)) localStorage.setItem(colsKey(inst), JSON.stringify({ v: 1, ...inst.cols }));
+      else localStorage.removeItem(colsKey(inst));
+    } catch {}
+  }
+  const chooserOn = (cfg) => cfg.columnsChooser !== false && cols(cfg).length > 2;
+  /** Stĺpce, ktoré sa kreslia: poradie, skryté a šírky používateľa. */
+  const vcols = (inst) => L().visibleColumns(inst.cfg, inst.cols);
+
   const searchDef = (cfg) => (cfg.filters || []).find(d => d.type === 'search') || null;
   const filterDefs = (cfg) => (cfg.filters || []).filter(d => d.type !== 'search');
   function split(cfg) {
@@ -115,7 +154,7 @@
     const id = cssId(cfg.id || 'list');
     let inst = reg[id];
     if (!inst) {
-      inst = reg[id] = { id, cfg, state: L().sanitize(load(cfg.storageKey), cfg), openKey: null, panel: false };
+      inst = reg[id] = { id, cfg, state: L().sanitize(load(cfg.storageKey), cfg), openKey: null, panel: false, colsPanel: false };
     } else {
       // Znova vykreslená obrazovka: filtre zostanú, aj rozpísané hľadanie.
       const prev = inst.state;
@@ -125,6 +164,10 @@
       if (s && prev.f && typeof prev.f[s.key] === 'string') inst.state.f[s.key] = prev.f[s.key];
     }
     inst.rows = cfg.rows || [];
+    // Iný používateľ (odhlásenie a prihlásenie) = iné stĺpce.
+    const uid = userId();
+    inst.cols = L().sanitizeCols(inst.colsUid === uid ? inst.cols : loadCols(inst), cfg);
+    inst.colsUid = uid;
     return inst;
   }
 
@@ -141,7 +184,7 @@
     const v = compute(inst);
     const s = searchDef(cfg);
     const label = cfg.label || 'Zoznam';
-    return `<div class="dl" id="dl-${inst.id}" data-dl-root="${inst.id}">
+    return `<div class="dl${inst.cols.density === 'compact' ? ' is-compact' : ''}" id="dl-${inst.id}" data-dl-root="${inst.id}">
       <div class="dl-bar card" role="search" aria-label="Filtre: ${esc(label)}">
         ${s ? `<label class="dl-search">${ico('search', 15)}
           <input type="search" data-dl-a="q" data-k="${esc(s.key)}" value="${esc(inst.state.f[s.key] || '')}"
@@ -150,6 +193,7 @@
         <div class="dl-right" data-dl-part="right">${rightHtml(inst, v)}</div>
       </div>
       <div data-dl-part="panel">${panelHtml(inst)}</div>
+      <div data-dl-part="cols">${colsPanelHtml(inst)}</div>
       <div class="dl-sub" data-dl-part="sub">${subHtml(inst)}</div>
       <div data-dl-part="body">${bodyHtml(inst, v)}</div>
     </div>`;
@@ -297,9 +341,62 @@
     const w = (n) => (noun ? ` ${L().plural(n, noun[0], noun[1], noun[2])}` : '');
     const count = shown === v.total ? `<b>${v.total}</b>${w(v.total)}`
       : `<b>${shown}</b> z ${v.total}${w(v.total)}`;
+    const custom = L().isCustomCols(inst.cols, cfg);
     return `<span class="dl-count" aria-live="polite">${count}</span>
+      ${chooserOn(cfg) ? `<button type="button" class="dl-more-btn dl-cols-btn${inst.colsPanel ? ' on' : ''}" data-dl-a="cols"
+        aria-expanded="${inst.colsPanel}" aria-controls="dl-${inst.id}-cols" title="Vybrať, usporiadať a nastaviť stĺpce tabuľky">
+        ${ico('columns', 14)}<span class="dl-only-d">Stĺpce</span>${custom ? '<i class="dl-dot" aria-label="upravené"></i>' : ''}</button>` : ''}
       ${cfg.export ? `<button type="button" class="btn btn-outline btn-sm dl-export" data-dl-a="export"
-        title="Exportovať do CSV to, čo je práve vidieť" aria-label="Export do CSV">${ico('download', 14)}<span class="dl-only-d">Export</span></button>` : ''}`;
+        title="Exportovať do CSV všetky údaje riadkov, ktoré sú práve vidieť (len zobrazené stĺpce: v paneli Stĺpce)" aria-label="Export do CSV">${ico('download', 14)}<span class="dl-only-d">Export</span></button>` : ''}
+      ${cfg.export && (cfg.export.more || []).length ? `<details class="dl-dd dl-exp" data-dl-dd="__export"${inst.openKey === '__export' ? ' open' : ''}>
+        <summary class="dl-dd-btn dl-exp-btn" aria-label="Ďalšie exporty" title="Ďalšie exporty">${ico('chevron', 12)}</summary>
+        <div class="dl-pop right" role="menu" aria-label="Ďalšie exporty"><div class="dl-pop-h">Ďalšie exporty</div>
+          ${cfg.export.more.map((x, i) => `<button type="button" class="dl-opt" role="menuitem" data-dl-a="exportx" data-i="${i}"${x.title ? ` title="${esc(x.title)}"` : ''}>
+            <i class="dl-tick" style="visibility:visible;color:var(--ink-mute)">${ico(x.ico || 'download', 14)}</i><span>${esc(x.label)}</span></button>`).join('')}
+        </div></details>` : ''}`;
+  }
+
+  /** Panel „Stĺpce": viditeľnosť, poradie (ťahanie aj šípky), hustota, pôvodné nastavenie. */
+  function colsPanelHtml(inst) {
+    if (!inst.colsPanel || !chooserOn(inst.cfg)) return '';
+    const { cfg } = inst;
+    const p = inst.cols;
+    const by = new Map(cols(cfg).map(c => [c.key, c]));
+    const req = L().requiredCols(cfg);
+    const hid = new Set(p.hidden);
+    const n = p.order.length;
+    const items = p.order.map((k, i) => {
+      const c = by.get(k);
+      if (!c) return '';
+      const on = !hid.has(k), must = req.includes(k);
+      const name = esc(c.label || c.sortLabel || k);
+      return `<li class="dl-ci${on ? '' : ' is-off'}" draggable="true" data-dl-ci="${esc(k)}">
+        <span class="dl-grip" aria-hidden="true" title="Potiahnite na iné miesto">${ico('grip', 14)}</span>
+        <label class="dl-ci-l"><input type="checkbox" data-dl-a="colvis" data-k="${esc(k)}"${on ? ' checked' : ''}${must ? ' disabled' : ''}>
+          <span>${name}${must ? ' <em>vždy</em>' : ''}${p.widths[k] ? ` <em>${p.widths[k]} px</em>` : ''}</span></label>
+        <button type="button" class="dl-ci-b" data-dl-a="colmove" data-k="${esc(k)}" data-v="-1"${i === 0 ? ' disabled' : ''}
+          aria-label="Stĺpec ${name} posunúť vyššie (doľava)" title="Vyššie (doľava)">${ico('chevron', 13)}</button>
+        <button type="button" class="dl-ci-b is-down" data-dl-a="colmove" data-k="${esc(k)}" data-v="1"${i === n - 1 ? ' disabled' : ''}
+          aria-label="Stĺpec ${name} posunúť nižšie (doprava)" title="Nižšie (doprava)">${ico('chevron', 13)}</button>
+      </li>`;
+    }).join('');
+    const d = p.density;
+    return `<div class="dl-panel dl-cols card" id="dl-${inst.id}-cols" role="region" aria-label="Stĺpce tabuľky">
+      <div class="dl-cols-top">
+        <p class="dl-hint">Zaškrtnite stĺpce, ktoré chcete vidieť. Poradie zmeníte ťahaním za úchyt alebo šípkami,
+          šírku ťahaním za pravý okraj hlavičky stĺpca (dvojklik vráti pôvodnú). Platí len pre Vás.</p>
+        <div class="dl-seg dl-dens" role="group" aria-label="Hustota riadkov">
+          <button type="button" class="${d === 'normal' ? 'on' : ''}" data-dl-a="density" data-v="normal" aria-pressed="${d === 'normal'}">Bežné</button>
+          <button type="button" class="${d === 'compact' ? 'on' : ''}" data-dl-a="density" data-v="compact" aria-pressed="${d === 'compact'}">Kompaktné</button>
+        </div>
+      </div>
+      <ol class="dl-cl" aria-label="Stĺpce v poradí zľava doprava">${items}</ol>
+      <div class="dl-panel-foot">
+        ${cfg.export ? `<button type="button" class="dl-link" data-dl-a="export-visible" title="CSV len so stĺpcami, ktoré sú teraz v tabuľke, v tomto poradí">${ico('download', 13)}Exportovať len zobrazené stĺpce</button>` : ''}
+        ${L().isCustomCols(p, cfg) ? `<button type="button" class="dl-link" data-dl-a="colreset">${ico('repeat', 13)}Pôvodné nastavenie</button>` : ''}
+        <button type="button" class="btn btn-primary btn-sm" data-dl-a="cols">Hotovo</button>
+      </div>
+    </div>`;
   }
 
   function panelHtml(inst) {
@@ -370,16 +467,19 @@
   function cols(cfg) { return (cfg.columns || []).filter(Boolean); }
 
   function styleHtml(inst) {
-    const c = cols(inst.cfg);
+    const c = vcols(inst);
     const acts = (inst.cfg.rowActions || []).length;
     const tpl = (list) => [...list.map(x => x.width || 'minmax(0, 1fr)'), ...(acts ? [`${acts * 32}px`] : [])].join(' ');
+    // Najmenšia šírka riadku: keď sa stĺpce nezmestia, posúva sa tabuľka, nie stránka.
+    const minw = (list) => L().tableMinWidth(list, { acts: acts ? acts * 32 : 0 });
     const sel = `#dl-${inst.id} .dl-table`;
-    let css = `${sel} { --dl-cols: ${tpl(c)}; }`;
+    let css = `${sel} { --dl-cols: ${tpl(c)}; --dl-minw: ${minw(c)}px; }`;
     const bps = [...new Set(c.filter(x => x.hideBelow).map(x => Number(x.hideBelow)))].sort((a, b) => b - a);
     for (const bp of bps) {
       const hidden = c.filter(x => x.hideBelow && Number(x.hideBelow) >= bp);
+      const rest = c.filter(x => !hidden.includes(x));
       css += `@container dl (min-width: 761px) and (max-width: ${bp}px) {
-        ${sel} { --dl-cols: ${tpl(c.filter(x => !hidden.includes(x)))}; }
+        ${sel} { --dl-cols: ${tpl(rest)}; --dl-minw: ${minw(rest)}px; }
         ${hidden.map(x => `#dl-${inst.id} .dl-col-${cssId(x.key)}`).join(', ')} { display: none; } }`;
     }
     return `<style>${css}</style>`;
@@ -405,7 +505,7 @@
     const label = cfg.rowLabel ? cfg.rowLabel(row) : '';
     return `<div class="dl-row${click ? ' is-click' : ''}${extra ? ` ${esc(extra)}` : ''}" role="row" data-dl-row="${esc(id)}"${
       click ? ' tabindex="0"' : ''}${label ? ` aria-label="${esc(label)}"` : ''}>${
-      cols(cfg).map(c => cellHtml(c, row)).join('')}${
+      vcols(inst).map(c => cellHtml(c, row)).join('')}${
       acts.length ? `<div class="dl-c dl-acts" role="cell">${acts.map((a, i) => {
         if (a.show && !a.show(row)) return '';
         // `ico` a `label` smú byť aj funkcie riadku — jedno miesto pre dve
@@ -420,17 +520,21 @@
   function headHtml(inst) {
     const { cfg, state } = inst;
     const so = L().sortOptions(cfg);
-    return `<div class="dl-head" role="row">${cols(cfg).map(c => {
+    const rsz = chooserOn(cfg);
+    return `<div class="dl-head" role="row">${vcols(inst).map(c => {
       const s = so.find(x => x.key === c.key && x.column);
       const on = s && state.sort && state.sort.key === c.key;
       const desc = on && state.sort.dir < 0;
       const aria = on ? (desc ? 'descending' : 'ascending') : 'none';
       const cls = `dl-th dl-col-${cssId(c.key)}${c.align === 'right' ? ' is-right' : c.align === 'center' ? ' is-center' : ''}`;
       const tip = c.tip && window.UI ? UI.tip(c.tip) : '';
+      // Úchyt na zmenu šírky (ťahanie za pravý okraj hlavičky, dvojklik = pôvodná).
+      const grip = rsz ? `<span class="dl-rsz" data-dl-rsz="${esc(c.key)}" aria-hidden="true"
+          title="Ťahaním zmeníte šírku stĺpca, dvojklikom vrátite pôvodnú"></span>` : '';
       return s
         ? `<div class="${cls}" role="columnheader" aria-sort="${aria}"><button type="button" class="dl-sort${on ? ' on' : ''}${desc ? ' desc' : ''}"
-            data-dl-a="sort" data-k="${esc(c.key)}" title="Zoradiť podľa: ${esc(c.label)}">${esc(c.label)}${ico('chevron', 11)}</button>${tip}</div>`
-        : `<div class="${cls}" role="columnheader"><span>${esc(c.label || '')}</span>${tip}</div>`;
+            data-dl-a="sort" data-k="${esc(c.key)}" title="Zoradiť podľa: ${esc(c.label)}">${esc(c.label)}${ico('chevron', 11)}</button>${tip}${grip}</div>`
+        : `<div class="${cls}" role="columnheader"><span>${esc(c.label || '')}</span>${tip}${grip}</div>`;
     }).join('')}${(cfg.rowActions || []).length ? '<div class="dl-th dl-acts" role="columnheader" aria-label="Akcie"></div>' : ''}</div>`;
   }
 
@@ -467,7 +571,7 @@
     if (!f) return '';
     if (typeof f === 'string') return `<div class="dl-foot is-line" role="row"><div class="dl-c" role="cell">${f}</div></div>`;
     const cells = f.cells || {};
-    return `<div class="dl-foot" role="row">${cols(cfg).map(c => `<div class="dl-c dl-col-${cssId(c.key)}${
+    return `<div class="dl-foot" role="row">${vcols(inst).map(c => `<div class="dl-c dl-col-${cssId(c.key)}${
       c.align === 'right' ? ' is-right' : c.align === 'center' ? ' is-center' : ''}" role="cell">${cells[c.key] || ''}</div>`).join('')}${
       (cfg.rowActions || []).length ? '<div class="dl-c dl-acts" role="cell"></div>' : ''}</div>`;
   }
@@ -484,10 +588,12 @@
         ? `[data-${a === 'dlA' ? 'dl-a' : a}="${CSS.escape(ae.dataset[a])}"]` : '')).join('');
     }
     const v = compute(inst);
+    root.classList.toggle('is-compact', inst.cols.density === 'compact');
     const part = (name, fn) => { const el = root.querySelector(`[data-dl-part="${name}"]`); if (el) el.innerHTML = fn(); };
     part('filters', () => filtersHtml(inst));
     part('right', () => rightHtml(inst, v));
     part('panel', () => panelHtml(inst));
+    part('cols', () => colsPanelHtml(inst));
     part('sub', () => subHtml(inst));
     part('body', () => bodyHtml(inst, v));
     const q = searchDef(inst.cfg);
@@ -500,6 +606,7 @@
   }
 
   function commit(inst) { save(inst); paint(inst); }
+  function colsCommit(inst) { saveCols(inst); paint(inst); }
 
   // ── Udalosti (jeden poslucháč pre všetky zoznamy) ─────────────────────────
   let bound = false;
@@ -544,7 +651,19 @@
         for (const x of filterDefs(inst.cfg)) s.f[x.key] = def.f[x.key];
         return commit(inst);
       }
-      case 'panel': inst.panel = !inst.panel; inst.openKey = null; return paint(inst);
+      case 'panel': inst.panel = !inst.panel; inst.colsPanel = false; inst.openKey = null; return paint(inst);
+      case 'cols': inst.colsPanel = !inst.colsPanel; inst.panel = false; inst.openKey = null; return paint(inst);
+      case 'colmove': inst.cols = L().moveCol(inst.cols, inst.cfg, k, Number(el.getAttribute('data-v'))); return colsCommit(inst);
+      case 'colreset': inst.cols = L().defaultCols(inst.cfg); return colsCommit(inst);
+      case 'density': inst.cols = L().setDensity(inst.cols, inst.cfg, el.getAttribute('data-v')); return colsCommit(inst);
+      case 'export-visible': return exportCsv(inst, { visibleOnly: true });
+      case 'exportx': {
+        const x = ((inst.cfg.export || {}).more || [])[Number(el.getAttribute('data-i'))];
+        inst.openKey = null;
+        closeDd(null);
+        if (x && typeof x.run === 'function') return x.run(compute(inst).rows);
+        return undefined;
+      }
       case 'sort': {
         const o = L().sortOptions(inst.cfg).find(x => x.key === k);
         if (!o) return undefined;
@@ -571,13 +690,14 @@
     }
   }
 
-  function exportCsv(inst) {
+  function exportCsv(inst, { visibleOnly = false } = {}) {
     const E = window.DanubraExport;
     const rows = compute(inst).rows;
     if (!rows.length) return window.UI && UI.toast('Nie je čo exportovať — zoznam je prázdny.', 'err');
     if (!E) return undefined;
     const ex = inst.cfg.export || {};
-    const name = E.download(L().csvRows(rows, inst.cfg), ex.name || [inst.cfg.id]);
+    const data = visibleOnly ? L().csvVisible(rows, inst.cfg, inst.cols) : L().csvRows(rows, inst.cfg);
+    const name = E.download(data, visibleOnly ? [...(ex.name || [inst.cfg.id]), 'zobrazene'] : (ex.name || [inst.cfg.id]));
     if (window.UI) UI.toast(`Uložené: ${name}`, 'ok');
     return name;
   }
@@ -631,6 +751,9 @@
       const val = el.getAttribute('data-v');
       if (el.checked) cur.add(val); else cur.delete(val);
       s.f[k] = [...cur];
+    } else if (a === 'colvis') {
+      c.inst.cols = L().toggleCol(c.inst.cols, c.inst.cfg, k);
+      return colsCommit(c.inst);
     } else if (a === 'sel') {
       s.f[k] = el.value;
     } else if (a === 'range') {
@@ -675,6 +798,100 @@
     if (q && window.matchMedia && matchMedia('(hover: hover)').matches) q.focus();
   }
 
+  // ── Poradie stĺpcov ťahaním v paneli „Stĺpce" ─────────────────────────────
+  let dragKey = null;
+  function onDragStart(e) {
+    const li = e.target && e.target.closest && e.target.closest('.dl-ci[data-dl-ci]');
+    if (!li) return;
+    dragKey = li.getAttribute('data-dl-ci');
+    li.classList.add('is-drag');
+    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragKey); } catch {}
+  }
+  function onDragOver(e) {
+    const li = dragKey && e.target && e.target.closest && e.target.closest('.dl-ci[data-dl-ci]');
+    if (!li) return;
+    e.preventDefault();
+    const r = li.getBoundingClientRect();
+    const after = e.clientY > r.top + r.height / 2;
+    li.parentNode.querySelectorAll('.dl-ci').forEach(x => x.classList.remove('is-over-a', 'is-over-b'));
+    li.classList.add(after ? 'is-over-a' : 'is-over-b');
+  }
+  function onDrop(e) {
+    const li = dragKey && e.target && e.target.closest && e.target.closest('.dl-ci[data-dl-ci]');
+    if (!li) return;
+    e.preventDefault();
+    const c = ctx(li);
+    const target = li.getAttribute('data-dl-ci');
+    const after = li.classList.contains('is-over-a');
+    if (c && target !== dragKey) {
+      const order = c.inst.cols.order;
+      const from = order.indexOf(dragKey);
+      let to = order.indexOf(target) + (after ? 1 : 0);
+      if (from < to) to -= 1;
+      c.inst.cols = L().moveCol(c.inst.cols, c.inst.cfg, dragKey, 0, to);
+      colsCommit(c.inst);
+    }
+    dragKey = null;
+  }
+  function onDragEnd() {
+    dragKey = null;
+    document.querySelectorAll('.dl-ci').forEach(x => x.classList.remove('is-drag', 'is-over-a', 'is-over-b'));
+  }
+
+  // ── Šírka stĺpca ťahaním za okraj hlavičky ────────────────────────────────
+  let rs = null;
+  function onPointerDown(e) {
+    const h = e.target && e.target.closest && e.target.closest('.dl-rsz[data-dl-rsz]');
+    if (!h || e.button > 0) return;
+    const c = ctx(h);
+    const th = h.closest('.dl-th');
+    const table = h.closest('.dl-table');
+    if (!c || !th || !table) return;
+    e.preventDefault();
+    const key = h.getAttribute('data-dl-rsz');
+    rs = { inst: c.inst, key, x: e.clientX, w: th.getBoundingClientRect().width, table, cur: null };
+    table.classList.add('is-resizing');
+    try { h.setPointerCapture(e.pointerId); } catch {}
+  }
+  function onPointerMove(e) {
+    if (!rs) return;
+    const w = Math.round(Math.max(56, Math.min(720, rs.w + e.clientX - rs.x)));
+    rs.cur = w;
+    // Naživo bez prekreslenia: šírka do premennej tabuľky.
+    const tmp = L().setColWidth(rs.inst.cols, rs.inst.cfg, rs.key, w);
+    const acts = (rs.inst.cfg.rowActions || []).length;
+    const list = L().visibleColumns(rs.inst.cfg, tmp).filter(x => {
+      const cell = rs.table.querySelector(`.dl-th.dl-col-${cssId(x.key)}`);
+      return !cell || getComputedStyle(cell).display !== 'none';
+    });
+    rs.table.style.setProperty('--dl-cols', [...list.map(x => x.width || 'minmax(0, 1fr)'), ...(acts ? [`${acts * 32}px`] : [])].join(' '));
+    rs.table.style.setProperty('--dl-minw', `${L().tableMinWidth(list, { acts: acts ? acts * 32 : 0 })}px`);
+  }
+  function onPointerUp() {
+    if (!rs) return;
+    const x = rs;
+    rs = null;
+    x.table.classList.remove('is-resizing');
+    if (x.cur == null) return;
+    x.inst.cols = L().setColWidth(x.inst.cols, x.inst.cfg, x.key, x.cur);
+    x.table.style.removeProperty('--dl-cols');
+    x.table.style.removeProperty('--dl-minw');
+    colsCommit(x.inst);
+  }
+  function onDblClick(e) {
+    const h = e.target && e.target.closest && e.target.closest('.dl-rsz[data-dl-rsz]');
+    const c = h && ctx(h);
+    if (!c) return;
+    c.inst.cols = L().setColWidth(c.inst.cols, c.inst.cfg, h.getAttribute('data-dl-rsz'), null);
+    colsCommit(c.inst);
+  }
+
+  /** Tieň pri prvom stĺpci, keď je tabuľka posunutá do boku. */
+  function onScroll(e) {
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('dl-table')) t.classList.toggle('is-scrolled', t.scrollLeft > 2);
+  }
+
   function bind() {
     if (bound || typeof document === 'undefined' || !document.addEventListener) return;
     bound = true;
@@ -683,6 +900,16 @@
     document.addEventListener('change', onChange);
     document.addEventListener('keydown', onKey, true);
     document.addEventListener('toggle', onToggle, true);
+    document.addEventListener('dragstart', onDragStart);
+    document.addEventListener('dragover', onDragOver);
+    document.addEventListener('drop', onDrop);
+    document.addEventListener('dragend', onDragEnd);
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+    document.addEventListener('dblclick', onDblClick);
+    document.addEventListener('scroll', onScroll, true);
   }
 
   // ── Verejné API ───────────────────────────────────────────────────────────

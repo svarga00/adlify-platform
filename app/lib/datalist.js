@@ -22,6 +22,12 @@
 // Hodnota riadku pre select/multi je `value` (funkcia alebo cesta, predvolene
 // `key`). Smie byť aj pole — riadok s viacerými štítkami.
 //
+// Stĺpce podľa seba (`sanitizeCols`, `visibleColumns`, `toggleCol`,
+// `moveCol`, `setColWidth`, `setDensity`): poradie, skryté stĺpce, šírky
+// a hustota riadkov — ukladá ich komponent pre každého používateľa zvlášť.
+// `tableMinWidth` = šírka, pod ktorú sa tabuľka nezmenší (užší zoznam sa
+// posúva vodorovne vo svojej karte, nie celá stránka).
+//
 // Testy: node app/lib/datalist.test.js
 // ============================================================================
 (function () {
@@ -423,6 +429,137 @@
     return [ex.map(c => c[0]), ...(rows || []).map(r => ex.map(c => cell(c[1](r))))];
   }
 
+  // ── Stĺpce podľa seba (poradie, skryté, šírky, hustota) ─────────────────
+  // „Chcem si vedieť tabuľku prispôsobiť podľa seba." Každý zoznam si pamätá
+  // pre každého používateľa zvlášť: ktoré stĺpce vidí, v akom poradí, akú
+  // majú šírku (ťahaním za okraj hlavičky) a či sú riadky kompaktné.
+  // Prvý stĺpec (názov — `mobile: 'title'`, alebo `required: true`) sa
+  // skryť nedá: bez neho by riadok nebolo čím otvoriť ani podľa čoho spoznať.
+  const DENSITY = ['normal', 'compact'];
+  const W_MIN = 56, W_MAX = 720;
+
+  const colList = (cfg) => ((cfg && cfg.columns) || []).filter(Boolean);
+  /** Kľúče stĺpcov, ktoré musia ostať vidieť. */
+  function requiredCols(cfg) {
+    const c = colList(cfg);
+    const req = c.filter(x => x.required || x.mobile === 'title').map(x => x.key);
+    return req.length ? req : (c[0] ? [c[0].key] : []);
+  }
+  function defaultCols(cfg) {
+    return { order: colList(cfg).map(c => c.key), hidden: colList(cfg).filter(c => c.hidden === true && !requiredCols(cfg).includes(c.key)).map(c => c.key),
+      widths: {}, density: 'normal' };
+  }
+  /**
+   * Zapamätané nastavenie stĺpcov, očistené proti dnešnej konfigurácii:
+   * neznáme kľúče preč, nové stĺpce na svoje miesto podľa konfigurácie
+   * (za predchádzajúci stĺpec), povinné vždy viditeľné, šírky v medziach.
+   */
+  function sanitizeCols(saved, cfg) {
+    const d = defaultCols(cfg);
+    if (!saved || typeof saved !== 'object') return d;
+    const keys = d.order;
+    const req = requiredCols(cfg);
+    const order = (Array.isArray(saved.order) ? saved.order : []).map(String).filter((k, i, a) => keys.includes(k) && a.indexOf(k) === i);
+    keys.forEach((k, i) => {
+      if (order.includes(k)) return;
+      const prev = keys.slice(0, i).reverse().find(p => order.includes(p));
+      order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, k);
+    });
+    const known = new Set(Array.isArray(saved.order) ? saved.order.map(String) : []);
+    // Stĺpec, ktorý pribudol po uložení, dostane predvolenú viditeľnosť.
+    const hidden = [...new Set([
+      ...(Array.isArray(saved.hidden) ? saved.hidden.map(String) : []),
+      ...d.hidden.filter(k => !known.has(k)),
+    ])].filter(k => keys.includes(k) && !req.includes(k));
+    const widths = {};
+    if (saved.widths && typeof saved.widths === 'object') {
+      for (const [k, v] of Object.entries(saved.widths)) {
+        const n = Math.round(Number(v));
+        if (keys.includes(k) && Number.isFinite(n)) widths[k] = Math.min(W_MAX, Math.max(W_MIN, n));
+      }
+    }
+    return { order, hidden, widths, density: DENSITY.includes(saved.density) ? saved.density : 'normal' };
+  }
+  /** Stĺpce v poradí používateľa, bez skrytých; šírka z ťahania má prednosť. */
+  function visibleColumns(cfg, prefs) {
+    const p = prefs || defaultCols(cfg);
+    const by = new Map(colList(cfg).map(c => [c.key, c]));
+    const hid = new Set(p.hidden || []);
+    return (p.order || []).filter(k => by.has(k) && !hid.has(k)).map(k => {
+      const c = by.get(k);
+      const w = p.widths && p.widths[k];
+      return w ? { ...c, width: `${w}px`, userWidth: w } : c;
+    });
+  }
+  function toggleCol(prefs, cfg, key) {
+    const p = sanitizeCols(prefs, cfg);
+    if (requiredCols(cfg).includes(key) || !p.order.includes(key)) return p;
+    p.hidden = p.hidden.includes(key) ? p.hidden.filter(k => k !== key) : [...p.hidden, key];
+    return p;
+  }
+  /** Posun o jedno miesto (`dir` -1 / +1) alebo na index (`to`). */
+  function moveCol(prefs, cfg, key, dir, to) {
+    const p = sanitizeCols(prefs, cfg);
+    const i = p.order.indexOf(key);
+    if (i < 0) return p;
+    const j = to != null ? Math.max(0, Math.min(p.order.length - 1, Number(to))) : i + (dir < 0 ? -1 : 1);
+    if (j < 0 || j >= p.order.length || j === i) return p;
+    p.order.splice(i, 1);
+    p.order.splice(j, 0, key);
+    return p;
+  }
+  function setColWidth(prefs, cfg, key, px) {
+    const p = sanitizeCols(prefs, cfg);
+    if (!p.order.includes(key)) return p;
+    if (px == null || px === '') { delete p.widths[key]; return p; }
+    const n = Math.round(Number(px));
+    if (Number.isFinite(n)) p.widths[key] = Math.min(W_MAX, Math.max(W_MIN, n));
+    return p;
+  }
+  function setDensity(prefs, cfg, density) {
+    const p = sanitizeCols(prefs, cfg);
+    p.density = DENSITY.includes(density) ? density : 'normal';
+    return p;
+  }
+  /** Líši sa nastavenie od pôvodného? (Na tlačidlo „Pôvodné nastavenie".) */
+  function isCustomCols(prefs, cfg) {
+    const p = sanitizeCols(prefs, cfg), d = defaultCols(cfg);
+    return JSON.stringify(p.order) !== JSON.stringify(d.order) || !sameValue(p.hidden, d.hidden)
+      || Object.keys(p.widths).length > 0 || p.density !== d.density;
+  }
+  /**
+   * Najmenšia šírka stĺpca v px z CSS šírky: „104px" → 104,
+   * „minmax(180px, 2fr)" → 180, „1fr" / „minmax(0, 1fr)" → `fallback`.
+   */
+  function minWidthOf(width, fallback = 72) {
+    const w = String(width || '').trim();
+    const m = w.match(/^minmax\(\s*(\d+(?:\.\d+)?)px/i) || w.match(/^(\d+(?:\.\d+)?)px$/i);
+    return m ? Number(m[1]) : fallback;
+  }
+  /**
+   * Šírka, pod ktorú sa riadok tabuľky nezmenší. Keď je zoznam užší,
+   * posúva sa vodorovne len tabuľka (nie celá stránka).
+   */
+  function tableMinWidth(cols, { gap = 12, pad = 32, acts = 0 } = {}) {
+    const list = (cols || []).map(c => minWidthOf(c.width));
+    if (acts) list.push(acts);
+    if (!list.length) return 0;
+    return Math.round(list.reduce((a, b) => a + b, 0) + gap * (list.length - 1) + pad);
+  }
+
+  /**
+   * Riadky do CSV len zo zobrazených stĺpcov (v poradí používateľa).
+   * Stĺpec bez `csv` a bez `sortValue` sa vezme ako hodnota `key`.
+   */
+  function csvVisible(rows, cfg, prefs) {
+    const strip = (h) => String(h == null ? '' : h).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+    const ex = visibleColumns(cfg, prefs).filter(c => c.csv !== false && c.label)
+      .map(c => [c.label, c.csv || c.sortValue || (c.render ? (r) => strip(c.render(r)) : (r) => pluck(r, c.key))]);
+    const cell = (v) => (Array.isArray(v) ? v.filter(x => !blank(x)).join(' ') : v == null ? '' : v);
+    return [ex.map(c => c[0]), ...(rows || []).map(r => ex.map(c => cell(c[1](r))))];
+  }
+
   function plural(n, one, few, many) {
     const a = Math.abs(n);
     if (a === 1) return one;
@@ -445,6 +582,8 @@
     options, toggleCount, labelOf, presetOf, chips, activeCount,
     compare, sortRows, groupRows, visible, csvRows,
     fmtDay, rangeText, daysBetween, plural, countText,
+    DENSITY, requiredCols, defaultCols, sanitizeCols, visibleColumns, toggleCol, moveCol, setColWidth,
+    setDensity, isCustomCols, minWidthOf, tableMinWidth, csvVisible,
   };
   if (typeof window !== 'undefined') window.DanubraDataList = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

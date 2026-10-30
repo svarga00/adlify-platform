@@ -292,6 +292,9 @@
         'Aktuálnosť: raz týždenne (a tlačidlom „Overiť znova") appka overí firmy na Google Mapách, ich web a poštový server e-mailu. Zatvorenej firme e-mail nepošle.',
         'Kým hľadanie beží, pás „Hľadanie beží" ukazuje percentá, kroky, čo sa práve robí a posledné udalosti — v okne aj tu na obrazovke. „Zastaviť" ho ukončí a uloží firmy, ktoré AI už ohodnotila.',
         'Palec hore / dole pri firme (stĺpec „Vhodná?" a karta): AI sa z toho učí a pri ďalšom hľadaní hľadá podobné ako dobré firmy a vynecháva podobné ako zlé. Pri palci dole môžete dať krátky dôvod.',
+        'Detail firmy (klik na riadok): hore kde je, ako ďaleko je od kancelárie a od najbližšej bežiacej zákazky (vzdušnou čiarou, cesta autom približne), telefón, web, e-mail a Google hodnotenie; pod tým lišta akcií a záložky Prehľad, Kontakty a oslovenie, Podrobnosti a Web.',
+        'Logá: pri firme je logo z jej webu; kým nie je načítané, ikona webu (služba Google s2/favicons, posiela sa len doména), inak iniciály. „Obnoviť logá a náhľady" ich doplní všetkým firmám s webom — zadarmo, stiahne sa len úvodná stránka webu.',
+        '„Stĺpce" v lište: ktoré stĺpce vidíte, ich poradie (ťahaním alebo šípkami), šírka (ťahaním za okraj hlavičky) a kompaktné riadky. Platí len pre Vás na tomto zariadení. Navyše sú tu stĺpce Ďalší krok, Od nás a Posledný kontakt.',
       ],
       how: [
         'Firma, ktorú už máte (medzi odberateľmi alebo tu), sa neuloží druhýkrát — aj keď sa píše trochu inak. Pri hľadaní podľa webov sa porovnáva aj doména webu a vynechajú sa firmy, ktoré sa odhlásili z e-mailov.',
@@ -301,6 +304,8 @@
         'Náklady: Outscraper účtuje za každý vrátený záznam z Google Máp. Prehľadá sa asi trikrát viac firiem, než chcete uložiť, najviac strop OUTSCRAPER_MAX_RECORDS (predvolene 200). Odhad vidíte v okne hľadania pred spustením.',
         'Stav: Nová → Oslovená (po e-maile sa nastaví sám) → Odpísala → Má záujem → „Urobiť odberateľa".',
         'Poznámky sa len pridávajú, staré sa neprepisujú.',
+        '„Zobraziť web tu" ukáže web firmy priamo v okne, len keď to web dovoľuje (hlavičky X-Frame-Options a CSP zisťuje server pri načítaní náhľadu). Inak sa web otvorí v novom okne.',
+        'Export dáva všetky údaje zobrazených riadkov (aj vzdialenosť, ďalší krok a popis webu). „Firmy s kontaktmi" a „Všetky kontakty" pri Exporte pridajú hovory, ďalšie kroky a e-maily; „Exportovať len zobrazené stĺpce" je v paneli Stĺpce.',
         'Navrhované hľadania v okne „Podľa webov firiem": AI (alebo pravidlá) navrhne oblasť a vzorové weby z Vašich odberateľov a firiem so záujmom; klik vyplní formulár. Pri oblasti a poznámke appka našepkáva.',
         'Keď sa server dlhšie ako 3 minúty neozve, pás napíše „Hľadanie sa zrejme prerušilo" a ponúkne „Spustiť znova". Po skončení je pri hľadaní krátke „Čo AI zistila".',
       ],
@@ -323,8 +328,15 @@
         'Odhlásený sa znova neosloví nikdy. Denný limit (predvolene 30) chráni schránku pred spamovými filtrami.',
         'V každom e-maile je pätička s Impressum (názov, adresa, IČ DPH z Nastavení) a odkaz na odhlásenie. Bez Impressum e-mail neodíde.',
         'Sledovanie otvorení a klikov, denný limit, počet pripomenutí a veta o našej ponuke sa nastavujú v záložke Nastavenia (mení administrátor).',
+        'Kategória firmy hovorí, kde s ňou sme (Nová, Oslovená, Odpísala, Má záujem, Stretnutie, Ponuka, Je odberateľ, Ozvať sa neskôr, Nemá záujem, Nedostupná, Odhlásená). Zmena sa zapíše do histórie. Nemá záujem, Ozvať sa neskôr, Stretnutie a Ponuka zastavia pripomínanie e-mailom.',
+        'Po hovore kliknite, ako kontakt dopadol — appka podľa toho navrhne kategóriu a ďalší krok; oboje môžete zmeniť. Kto od nás sa s firmou bavil, tomu bude úloha s ďalším krokom.',
+        'Ďalší krok: na jeho deň je úloha v Úlohách (zdroj „kontakt s firmou"); kým nepríde, appka nepripomína e-mailom. Termín z textu („o 2–3 týždne", „nach Ostern") navrhne AI alebo pravidlá appky — pri rozsahu berie skorší termín. Nič sa neuloží samo, kliknite „Použiť" a skontrolujte.',
+        'Záznam o kontakte sa po uložení nemení — „Opraviť záznam" pridá opravu pod pôvodný s dátumom a menom.',
+        'K prvému e-mailu sa prikladá krátka prezentácia punds po nemecky pre remeslo a región firmy (~15 kB); k pripomenutiu nie. Náhľad e-mailu ukáže, ako ho uvidí firma v Outlooku či Gmaili. Ceny a referencie v prezentácii: prázdne ceny = „Konditionen nennen wir Ihnen im Angebot", prázdne referencie = sekcia sa neukáže.',
+        'Záložka „Firmy a kontakty": firmy, s ktorými sa niečo dialo — kategória, posledný kontakt, ďalší krok (červené = dnes alebo skôr). Export „Firmy s kontaktmi" a „Všetky kontakty" je CSV pre Excel.',
       ],
-      why: ['V Nemecku je nevyžiadaný obchodný e-mail rizikový (§ 7 UWG). Oslovujte po jednom, firmy, pri ktorých sa dá predpokladať záujem, vecne a podľa rady právnika.'],
+      why: ['V Nemecku je nevyžiadaný obchodný e-mail rizikový (§ 7 UWG). Oslovujte po jednom, firmy, pri ktorých sa dá predpokladať záujem, vecne a podľa rady právnika.',
+        'Dohodnutý ďalší krok s termínom je to, čo z hovoru robí obchod — preto vzniká ako úloha pre konkrétneho človeka a nedá sa naň zabudnúť.'],
       links: [['leads', 'Nové firmy'], ['mail', 'Správy'], ['tasks', 'Úlohy']],
     },
     'screen.campaigns': {
@@ -2443,6 +2455,8 @@
         'Pravidlá vyrábajú úlohy z dátumov: koniec platnosti dokladu, koniec obdobia, '
         + 'splatnosť faktúry, výročie zmluvy.',
         'Odložená úloha sa vráti sama v deň, na ktorý bola odložená.',
+        'Úloha so zdrojom „kontakt s firmou" vznikla v Marketingu z dohodnutého ďalšieho kroku s firmou. '
+        + 'Keď sa s firmou dohodnete na novom kroku, stará úloha sa uzavrie sama.',
       ],
       why: [
         'Pripomienky sa nedajú nechať na pamäť. V tomto biznise je zabudnutý A1 '

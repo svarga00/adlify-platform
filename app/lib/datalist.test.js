@@ -218,5 +218,80 @@ const st = (f) => ({ ...L.defaults(CFG).f, ...f });
   eq(L.countText(2, 2, ['zákazka', 'zákazky', 'zákaziek']), '2 zákazky', 'keď sa nefiltruje, len počet');
 }
 
+// ── Stĺpce podľa seba ───────────────────────────────────────────────────────
+console.log('\nStĺpce podľa seba');
+{
+  const C = {
+    columns: [
+      { key: 'firma', label: 'Firma', width: 'minmax(180px, 2fr)', mobile: 'title', sortValue: r => r.firma },
+      { key: 'stav', label: 'Stav', width: '104px', render: r => `<b>${r.stav}</b>` },
+      { key: 'mail', label: 'E-mail', width: 'minmax(150px, 1.3fr)', csv: r => r.mail },
+      { key: 'web', label: 'Web', width: '130px', hidden: true },
+      null,
+      { key: 'pozn', label: 'Poznámka' },
+    ],
+  };
+  const d = L.defaultCols(C);
+  eq(d, { order: ['firma', 'stav', 'mail', 'web', 'pozn'], hidden: ['web'], widths: {}, density: 'normal' }, 'predvolené: poradie z konfigurácie, `hidden: true` skrytý');
+  eq(L.requiredCols(C), ['firma'], 'povinný je stĺpec s názvom (mobile: title)');
+  eq(L.requiredCols({ columns: [{ key: 'a' }, { key: 'b', required: true }] }), ['b'], 'alebo `required: true`');
+  eq(L.requiredCols({ columns: [{ key: 'a' }, { key: 'b' }] }), ['a'], 'inak prvý');
+  eq(L.visibleColumns(C, d).map(c => c.key), ['firma', 'stav', 'mail', 'pozn'], 'kreslia sa len viditeľné, v poradí');
+
+  let p = L.toggleCol(d, C, 'stav');
+  eq(p.hidden, ['web', 'stav'], 'skrytie stĺpca');
+  p = L.toggleCol(p, C, 'web');
+  eq(p.hidden, ['stav'], 'zapnutie predvolene skrytého');
+  eq(L.toggleCol(p, C, 'firma').hidden, ['stav'], 'povinný stĺpec sa skryť nedá');
+  eq(L.toggleCol(p, C, 'neznamy').hidden, ['stav'], 'neznámy kľúč nič nespraví');
+
+  p = L.moveCol(d, C, 'mail', -1);
+  eq(p.order, ['firma', 'mail', 'stav', 'web', 'pozn'], 'posun doľava');
+  eq(L.moveCol(p, C, 'firma', -1).order, p.order, 'prvý sa doľava neposunie');
+  eq(L.moveCol(p, C, 'pozn', 1).order, p.order, 'posledný doprava tiež nie');
+  eq(L.moveCol(d, C, 'pozn', 0, 1).order, ['firma', 'pozn', 'stav', 'mail', 'web'], 'presun na miesto (ťahanie)');
+  eq(L.moveCol(d, C, 'stav', 0, 99).order, ['firma', 'mail', 'web', 'pozn', 'stav'], 'cieľ za koncom = na koniec');
+
+  p = L.setColWidth(d, C, 'mail', 240);
+  eq(p.widths, { mail: 240 }, 'šírka z ťahania');
+  eq(L.visibleColumns(C, p).find(c => c.key === 'mail').width, '240px', 'kreslí sa v px');
+  eq(L.setColWidth(d, C, 'mail', 5).widths.mail, 56, 'najmenej 56 px');
+  eq(L.setColWidth(d, C, 'mail', 5000).widths.mail, 720, 'najviac 720 px');
+  eq(L.setColWidth(p, C, 'mail', null).widths, {}, 'dvojklik = pôvodná šírka');
+  eq(L.setDensity(d, C, 'compact').density, 'compact', 'hustota kompaktná');
+  eq(L.setDensity(d, C, 'obrovská').density, 'normal', 'neznáma hustota = bežná');
+
+  ok(!L.isCustomCols(d, C), 'pôvodné nastavenie nie je „upravené"');
+  ok(L.isCustomCols(L.toggleCol(d, C, 'stav'), C) && L.isCustomCols(L.setColWidth(d, C, 'stav', 90), C)
+    && L.isCustomCols(L.moveCol(d, C, 'stav', 1), C) && L.isCustomCols(L.setDensity(d, C, 'compact'), C), 'každá zmena je „upravené"');
+
+  // Zapamätané nastavenie proti zmenenej konfigurácii.
+  const saved = { order: ['mail', 'zmazany', 'firma', 'mail', 'stav'], hidden: ['firma', 'zmazany', 'stav'], widths: { mail: '300', x: 100, stav: 'nie' }, density: 'compact' };
+  const s = L.sanitizeCols(saved, C);
+  eq(s.order, ['mail', 'web', 'pozn', 'firma', 'stav'], 'neznáme a dvojité preč, nové stĺpce hneď za svojím predchodcom z konfigurácie');
+  eq(s.hidden, ['stav', 'web'], 'povinný nikdy skrytý; nový stĺpec s `hidden: true` ostane skrytý');
+  eq(s.widths, { mail: 300 }, 'šírky len známych stĺpcov a čísla');
+  eq(s.density, 'compact', 'hustota sa zapamätá');
+  eq(L.sanitizeCols({ order: ['firma', 'stav', 'mail', 'web', 'pozn'], hidden: [] }, C).hidden, [], 'stĺpec, ktorý si zapol, ostane zapnutý');
+  eq(L.sanitizeCols(null, C), d, 'nič uložené = predvolené');
+  eq(L.sanitizeCols('blbosť', C), d, 'pokazené uložené = predvolené');
+  eq(L.sanitizeCols({ order: ['firma'] }, { columns: [{ key: 'firma', mobile: 'title' }, { key: 'novy' }] }).order, ['firma', 'novy'], 'nový stĺpec na koniec');
+  eq(L.sanitizeCols({ order: ['b'] }, { columns: [{ key: 'a' }, { key: 'b' }] }).order, ['a', 'b'], 'nový prvý stĺpec na začiatok');
+
+  // Najmenšia šírka tabuľky (vodorovné posúvanie len v karte).
+  eq(L.minWidthOf('104px'), 104, 'pevná šírka');
+  eq(L.minWidthOf('minmax(180px, 2fr)'), 180, 'minmax s px');
+  eq(L.minWidthOf('minmax(0, 1fr)'), 72, 'pružný stĺpec bez minima = 72 px');
+  eq(L.minWidthOf(undefined, 60), 60, 'bez šírky = náhradná hodnota');
+  eq(L.tableMinWidth([{ width: '100px' }, { width: 'minmax(200px, 1fr)' }], { acts: 64 }), 100 + 200 + 64 + 2 * 12 + 32, 'súčet stĺpcov, medzier, odsadenia a akcií');
+  eq(L.tableMinWidth([]), 0, 'bez stĺpcov nula');
+
+  // CSV len zo zobrazených stĺpcov.
+  const rows = [{ firma: 'Maier GmbH', stav: 'Nová', mail: 'info@maier.de', pozn: 'x' }];
+  const pv = L.moveCol(L.toggleCol(d, C, 'pozn'), C, 'mail', -1);
+  eq(L.csvVisible(rows, C, pv), [['Firma', 'E-mail', 'Stav'], ['Maier GmbH', 'info@maier.de', 'Nová']],
+    'len zobrazené, v poradí používateľa; bez `csv` sa vezme text bunky bez HTML');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

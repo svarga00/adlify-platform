@@ -410,6 +410,11 @@
           ['email', 'E-mail', 'email'],
           ['phone', 'Telefón', 'text'],
           ['address', 'Adresa', 'text'],
+          // Odkiaľ sa ráta „ako ďaleko je to od nás" pri nových firmách (leads.js).
+          ['office_coords', 'Poloha kancelárie', 'text', '', 'napr. 47.98544, 18.16195 alebo odkaz z Google Máp', null,
+            'Súradnice kancelárie (alebo odkaz z Google Máp). Pri nových firmách sa podľa nich ukazuje, ako ďaleko sú od nás '
+              + '(vzdušnou čiarou). Keď pole necháte prázdne, appka ho doplní sama z adresy pri „Obnoviť logá a náhľady" '
+              + '(Marketing → Nové firmy). Netlačí sa na dokumenty.'],
           // Hlavička a päta dokumentov (vzhľad punds). Prázdne = pri Partner
           // und Service „punds" a web z domény e-mailu.
           ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. punds'],
