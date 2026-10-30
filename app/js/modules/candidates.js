@@ -126,7 +126,8 @@
       Danubra.setActions(
         `<button class="btn btn-outline btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.filtered();
+      // Názvy náborov do stĺpca „Nábor" — jeden malý dotaz, len raz.
+      await this.loadPlaybook();
 
       const waiting = this.items.filter(c => c.status === 'new' && !c.first_contact_at);
       const times = this.items.map(c => this.responseMinutes(c)).filter(x => x != null);
@@ -139,7 +140,8 @@
         + (placed ? ` · ${placed} ${Shell.plural(placed, 'nasadený', 'nasadení', 'nasadených')}` : '')) +
         (waiting.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${waiting.length} ${waiting.length === 1 ? 'kandidát čaká' : 'kandidátov čaká'}
-          na prvý kontakt — cieľ je ozvať sa do desiatich minút.</div>` : '') + `
+          na prvý kontakt — cieľ je ozvať sa do desiatich minút.
+          <button type="button" class="dl-link" onclick="Cand.showWaiting()">Ukázať, kto čaká</button></div>` : '') + `
 
         ${this.kpiHtml(avg, placed, conv)}
 
@@ -149,31 +151,212 @@
         ${UI.tip('Keď práve volá človek na inzerát: otvorí sa sprievodca hovorom. Vyberiete inzerát, zapíšete meno a appka Vám ukáže, na čo sa pýtať. Kandidát sa založí sám.')}
         </div>
 
-        <div class="filterbar">
-          <input class="fb-search" placeholder="Hľadať meno, telefón, mesto…" value="${UI.esc(this.filters.q)}"
-            oninput="Cand.setF('q',this.value)">
-          <select onchange="Cand.setF('outcome',this.value)">
-            ${[['active', 'V procese'], ['hired', 'Prijatí'], ['rejected', 'Zamietnutí'], ['', 'Všetci']]
-              .map(([v, l]) => `<option value="${v}" ${this.filters.outcome === v ? 'selected' : ''}>${l}</option>`).join('')}
-          </select>
-          <select onchange="Cand.setF('source',this.value)">
-            <option value="">Všetky zdroje</option>
-            ${SOURCES.map(s => `<option value="${s[0]}" ${this.filters.source === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
-          </select>
-          <div class="pillbar" style="margin-left:auto;">
-            <button class="pill${this.viewMode() === 'table' ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
-            <button class="pill${this.viewMode() === 'kanban' ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
-          </div>
-          ${UI.tip('Kanban = kandidáti v stĺpcoch podľa stavu (Nový, Kontaktovaný, Pohovor…), aby bolo vidieť, kde sa kto zasekol. Zoznam = všetci pod sebou.')}
-        </div>
+        ${this.listHtml()}
 
-        ${rows.length === 0
-          ? UI.empty('workers', 'Žiadni kandidáti', 'Pridajte prvého kandidáta do pipeline.',
-              `<button class="btn btn-primary" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`)
-          : this.viewMode() === 'kanban' ? this.kanban(rows) : this.table(rows)}
-
-        ${this.closedHtml()}
         ${this.sourcesHtml()}`;
+      // Kanban kreslí tie isté riadky, aké prepustia filtre zoznamu.
+      this.paintExtras();
+    },
+
+    // ── Zoznam kandidátov (DataList) ──────────────────────────────────────
+    // Lišta filtrov je jedna pre zoznam aj kanban: kanban je len iný pohľad
+    // na tie isté vyfiltrované riadky. Dovtedy tu bolo pole hľadania a dva
+    // výbery (výsledok, zdroj) a riadky bez stĺpcov.
+
+    /** Prepínač Zoznam / Kanban a zoznam pod ním. */
+    listHtml() {
+      const kanban = this.viewMode() === 'kanban';
+      const dl = DataList.html(this.listConfig(this.items.map(c => this.listRow(c))));
+      return `<div class="pl-mode" role="group" aria-label="Pohľad">
+          <div class="pillbar">
+            <button class="pill${!kanban ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
+            <button class="pill${kanban ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
+          </div>
+          ${UI.tip('Kanban = kandidáti v stĺpcoch podľa stavu (Nový, Kontaktovaný, Pohovor…), aby bolo vidieť, kde sa kto zasekol. Zoznam = všetci pod sebou. Filtre platia pre oba.')}
+        </div>
+        <div id="cand-list" class="${kanban ? 'pl-kanban-mode' : ''}">${dl}</div>
+        <div id="cand-kanban"></div>
+        <div id="cand-closed"></div>`;
+    },
+
+    /** Kanban a riadok o uzavretých — prekreslí sa pri každej zmene filtra. */
+    paintExtras(rows) {
+      const vis = rows || (DataList._reg.kandidati ? DataList.visible('kandidati') : []);
+      const kb = document.getElementById('cand-kanban');
+      if (kb) {
+        kb.innerHTML = this.viewMode() === 'kanban' && this.items.length
+          ? (vis.length ? this.kanban(vis.map(r => r.c)) : '') : '';
+      }
+      const cl = document.getElementById('cand-closed');
+      if (cl) cl.innerHTML = this.closedHtml();
+    },
+
+    /** Kto čaká na prvý telefonát — zapne prepínač v zozname. */
+    showWaiting() {
+      DataList.set('kandidati', 'vysledok', 'active');
+      DataList.set('kandidati', 'caka', true);
+      const el = document.getElementById('dl-kandidati');
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
+    /** Hodnota na zoradenie a filter „Kedy prišiel". */
+    ageText(iso) {
+      if (!iso) return '';
+      const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+      if (min < 60) return `pred ${min} min`;
+      const h = Math.round(min / 60);
+      if (h < 24) return `pred ${h} h`;
+      const d = Math.round(h / 24);
+      return `pred ${d} ${Shell.plural(d, 'dňom', 'dňami', 'dňami')}`;
+    },
+
+    /** Riadok zoznamu: kandidát a to, čo sa o ňom počíta raz za vykreslenie. */
+    listRow(c) {
+      const pr = this.progressOf(c);
+      const ad = this.adOf(c);
+      const plan = (this.plans || []).find(p => p.id === c.plan_id) || null;
+      const waiting = !c.outcome && c.status === 'new' && !c.first_contact_at;
+      const t = c.received_at ? new Date(c.received_at).getTime() : null;
+      return {
+        id: c.id, c, pr, ad, plan, waiting,
+        name: c.full_name || '', phone: c.phone || '', city: c.city || '',
+        trade: c.profession ? this.professionLabel(c.profession) : '',
+        source: this.adLabel(c),
+        sourceKey: ad ? `ad:${ad.id}` : (c.source ? `src:${c.source}` : ''),
+        stageIdx: STAGES.findIndex(s => s[0] === c.status),
+        mins: this.responseMinutes(c),
+        waitMin: waiting && t ? Math.round((Date.now() - t) / 60000) : null,
+        t,
+      };
+    },
+
+    /** Konfigurácia zoznamu kandidátov pre `DataList`. */
+    listConfig(rows) {
+      const VYSL = [['active', 'V procese'], ['hired', 'Prijatí'], ['rejected', 'Zamietnutí']];
+      const scoreTone = (v) => (v === 'strong' ? 'green' : v === 'reject' ? 'red' : v === 'ok' ? 'blue' : 'amber');
+      const outcomeOf = (c) => (c.outcome === 'hired' ? 'hired' : c.outcome === 'rejected' ? 'rejected' : c.outcome ? c.outcome : 'active');
+      const stageCell = (r) => {
+        const c = r.c;
+        const badge = c.outcome === 'hired' ? UI.badge(c.status === 'placed' ? 'nasadený' : 'prijatý', 'green')
+          : c.outcome === 'rejected' ? UI.badge('zamietnutý', 'gray') : this.badge(c.status);
+        const step = !c.outcome && r.pr.total ? (r.pr.currentStep ? r.pr.currentStep.title : 'proces hotový') : '';
+        return `<span class="pl-stage">${badge}${r.pr.total && !c.outcome ? `<span class="pl-prog" title="${UI.esc(`Postup: ${r.pr.done} z ${r.pr.total} krokov`)}"><i style="width:${r.pr.percent}%"${
+          r.pr.flagCount ? ' class="is-bad"' : ''}></i></span>` : ''}${step ? `<small>${UI.esc(step)}</small>` : ''}</span>`;
+      };
+      const ageCell = (r) => {
+        const c = r.c;
+        const when = this.ageText(c.received_at);
+        let sub = '';
+        if (r.waiting) {
+          sub = `<span class="dl-note ${r.waitMin != null && r.waitMin > 10 ? 'is-red' : 'is-amber'}">čaká na telefonát</span>`;
+        } else if (r.mins != null) {
+          sub = `<span class="dl-note ${r.mins <= 10 ? 'is-green' : 'is-mute'}">ozvali sme sa za ${r.mins} min</span>`;
+        }
+        return when || sub ? `<span class="dl-two"><b title="${UI.esc(c.received_at ? new Date(c.received_at).toLocaleString('sk-SK') : '')}">${when}</b>${sub}</span>` : '';
+      };
+      const scoreCell = (r) => {
+        const c = r.c;
+        const out = [];
+        if (c.screening_score != null) {
+          out.push(`<span title="${UI.esc((VERDICT[c.screening_verdict] || VERDICT.unknown)[0])}">${UI.badge(`${Math.round(c.screening_score)} %`, scoreTone(c.screening_verdict))}</span>`);
+        }
+        if (r.pr.flagCount) {
+          out.push(`<span class="dl-note is-red" title="Varovania z náborového procesu — treba ich preveriť pred nasadením">${Icon('alert', 12)} ${r.pr.flagCount}</span>`);
+        }
+        return out.length ? `<span class="pl-score">${out.join('')}</span>` : '';
+      };
+
+      return {
+        id: 'kandidati', storageKey: 'kandidati', label: 'Kandidáti',
+        noun: ['kandidát', 'kandidáti', 'kandidátov'],
+        rows,
+        rowClick: (r) => Cand.detail(r.id),
+        rowClass: (r) => (r.waiting && r.waitMin != null && r.waitMin > 10 ? 'is-hot'
+          : r.waiting || r.pr.flagCount ? 'is-warn' : r.c.outcome ? 'is-muted' : ''),
+        rowLabel: (r) => `Kandidát ${r.name}`,
+        rowActions: [
+          { ico: 'phone', label: 'Prejsť hovor', run: (r) => Guide.continueCall(r.id), show: (r) => !r.c.outcome && !!window.Guide },
+          { ico: 'chevron', label: 'Otvoriť kandidáta', run: (r) => Cand.detail(r.id) },
+        ],
+        onChange: (st, vis) => this.paintExtras(vis),
+        columns: [
+          { key: 'meno', label: 'Meno', width: 'minmax(160px, 1.3fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}${r.c.type === 'crew'
+              ? ` <span class="pl-crew">partia${r.c.crew_size ? ` ${UI.esc(r.c.crew_size)}` : ''}</span>` : ''}</b>${
+              r.phone ? `<small>${UI.esc(r.phone)}</small>` : ''}</span>`,
+            sortValue: (r) => r.name },
+          { key: 'remeslo', label: 'Remeslo', width: 'minmax(100px, .8fr)',
+            render: (r) => (r.trade || r.city ? `<span class="dl-two"><b>${UI.esc(r.trade || '—')}</b>${
+              r.city ? `<small>${UI.esc(r.city)}</small>` : ''}</span>` : ''),
+            sortValue: (r) => r.trade },
+          { key: 'zdroj', label: 'Zdroj', width: 'minmax(120px, 1fr)',
+            tip: 'Inzerát, na ktorý sa ozval, a pod ním kanál. Bez inzerátu je to zdroj zapísaný pri kandidátovi.',
+            render: (r) => `<span class="dl-two"><b>${UI.esc(r.source)}</b>${r.ad
+              ? `<small>${UI.esc(DanubraAds.channelLabel(r.ad.channel))}</small>`
+              : r.c.source_detail ? `<small>${UI.esc(r.c.source_detail)}</small>` : ''}</span>`,
+            sortValue: (r) => r.source },
+          { key: 'krok', label: 'Krok', width: '150px', mobile: 'badge', tip: STAGETIP,
+            render: stageCell, sortValue: (r) => [r.c.outcome ? 1 : 0, r.stageIdx] },
+          { key: 'prisiel', label: 'Prišiel', width: '132px', mobileLabel: 'prišiel',
+            tip: 'Kedy sa ozval a ako rýchlo sme sa mu ozvali my. Cieľ je do desiatich minút.',
+            render: ageCell, sortValue: (r) => r.t, sortDir: -1, sortLabel: 'Kedy prišiel' },
+          { key: 'hodnotenie', label: 'Hodnotenie', width: '96px',
+            tip: 'Skóre z telefonátu (od 80 % zelené) a počet varovaní z náborového procesu.',
+            render: scoreCell, sortValue: (r) => (r.c.screening_score != null ? Number(r.c.screening_score) : null), sortDir: -1 },
+          { key: 'nabor', label: 'Nábor', width: 'minmax(110px, .9fr)', hideBelow: 1080,
+            render: (r) => (r.plan ? Danubra.link('plan', r.plan.id, r.plan.title) : ''),
+            sortValue: (r) => (r.plan ? r.plan.title : null) },
+        ],
+        sorts: [
+          // Čo horí hore: kto čaká na telefonát (najdlhšie čakajúci prvý),
+          // potom kto má varovania, potom podľa kroku; uzavretí na koniec.
+          { key: 'hori', label: 'Čo horí', value: (r) => [r.c.outcome ? 1 : 0, r.waiting ? 0 : 1,
+            r.waiting ? r.t : null, -(r.pr.flagCount || 0), r.stageIdx, -(r.t || 0)] },
+        ],
+        sort: { key: 'hori', dir: 1 },
+        groups: [{ key: 'krok', label: 'Krok', value: (r) => r.c.status,
+          labelOf: (k) => this.stageMeta(k)[1],
+          tone: (k) => ({ new: 'amber', contacted: 'blue', interview: 'blue', documents: 'blue', ready: 'green', placed: 'green', rejected: 'red', lost: 'gray' }[k] || 'gray'),
+          order: STAGES.map(s => s[0]) }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať meno, telefón, mesto…',
+            label: 'Hľadať meno, telefón, mesto alebo remeslo', fields: ['name', 'phone', 'city', 'trade', 'source'] },
+          { key: 'krok', type: 'multi', label: 'Krok', value: (r) => r.c.status,
+            options: STAGES.map(s => [s[0], s[1]]), sortOptions: false, allLabel: 'Všetky',
+            presets: [{ label: 'V procese', value: PIPELINE.slice(), hint: 'Nový, Kontaktovaný, Pohovor, Doklady, Pripravený' }] },
+          { key: 'zdroj', type: 'select', label: 'Zdroj', value: (r) => r.sourceKey,
+            optionLabel: (v, r) => (r ? r.source : v), emptyLabel: 'Neuvedený', allLabel: 'Všetky zdroje' },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', value: (r) => r.c.profession,
+            optionLabel: (v) => this.professionLabel(v), emptyLabel: 'Bez remesla', allLabel: 'Všetky remeslá' },
+          { key: 'caka', type: 'toggle', label: 'Čaká na prvý telefonát', test: (r) => r.waiting,
+            hint: 'Noví kandidáti, ktorým sme sa ešte neozvali. Cieľ je ozvať sa do desiatich minút — kto čaká dlhšie, volá konkurencii.' },
+          { key: 'vysledok', type: 'select', label: 'Výsledok', more: true, default: 'active', value: (r) => outcomeOf(r.c),
+            options: VYSL, allLabel: 'Všetci',
+            hint: 'V procese = ešte sa rozhoduje. Prijatí a zamietnutí sú uzavretí — nič sa nemaže, len sú predvolene skrytí.' },
+          { key: 'nabor', type: 'select', label: 'Nábor', more: true, value: (r) => r.c.plan_id,
+            optionLabel: (v, r) => (r && r.plan ? r.plan.title : 'Nábor'), emptyLabel: 'Bez náboru', allLabel: 'Všetky nábory' },
+          { key: 'varovania', type: 'toggle', label: 'S varovaním', more: true, test: (r) => r.pr.flagCount > 0,
+            hint: 'Kandidáti, pri ktorých náborový proces hlási niečo, čo by ich mohlo vyradiť.' },
+          { key: 'mesto', type: 'select', label: 'Mesto', more: true, value: 'city', allLabel: 'Všetky mestá' },
+          { key: 'prisiel', type: 'range-date', label: 'Prišiel', more: true, field: 'c.received_at' },
+        ],
+        empty: { ico: 'workers', title: 'Žiadni kandidáti', sub: 'Pridajte prvého kandidáta do pipeline.',
+          cta: `<button class="btn btn-primary" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>` },
+        export: {
+          name: ['kandidati'],
+          columns: [
+            ['Meno', r => r.c.full_name], ['Typ', r => (r.c.type === 'crew' ? `partia ${r.c.crew_size || ''}`.trim() : 'jednotlivec')],
+            ['Telefón', r => r.c.phone], ['E-mail', r => r.c.email], ['Mesto', r => r.c.city],
+            ['Remeslo', r => r.trade], ['Zdroj', r => r.source], ['Kanál', r => (r.ad ? DanubraAds.channelLabel(r.ad.channel) : this.sourceLabel(r.c.source))],
+            ['Stav', r => this.stageMeta(r.c.status)[1]],
+            ['Výsledok', r => ({ active: 'v procese', hired: 'prijatý', rejected: 'zamietnutý' }[outcomeOf(r.c)] || r.c.outcome)],
+            ['Krok procesu', r => (r.pr.currentStep ? r.pr.currentStep.title : '')], ['Postup %', r => (r.pr.total ? r.pr.percent : '')],
+            ['Prišiel', r => r.c.received_at], ['Reakcia min', r => r.mins],
+            ['Skóre %', r => (r.c.screening_score != null ? Math.round(r.c.screening_score) : '')], ['Varovania', r => r.pr.flagCount || 0],
+            ['Nábor', r => (r.plan ? r.plan.title : '')],
+          ],
+        },
+      };
     },
 
     /**
@@ -290,12 +473,18 @@
 
     /** Uzavretí kandidáti — vizuálne stlmení, ale dohľadateľní. */
     closedHtml() {
-      if (this.filters.outcome !== 'active') return '';
+      // Filtre drží zoznam (`DataList`); uzavretí sú v ňom za filtrom
+      // „Výsledok". Tu je len riadok, že existujú, a cesta k nim.
+      const st = DataList._reg.kandidati ? DataList.state('kandidati') : null;
+      const outcome = st ? st.f.vysledok : this.filters.outcome;
+      if (outcome !== 'active') return '';
       const closed = this.items.filter(c => c.outcome);
       if (!closed.length) return '';
       const hired = closed.filter(c => c.outcome === 'hired').length;
-      return `<div class="form-section">Uzavretí — ${hired} nastúpených, ${closed.length - hired} zamietnutých</div>
-        <div style="opacity:.62;">${this.table(closed)}</div>`;
+      return `<div class="pl-closed">${Icon('archive', 14)}
+        <span>Uzavretí — ${hired} ${Shell.plural(hired, 'nastúpený', 'nastúpení', 'nastúpených')}, ${closed.length - hired} ${
+          Shell.plural(closed.length - hired, 'zamietnutý', 'zamietnutí', 'zamietnutých')}. V zozname sú skrytí, nič sa nemaže.</span>
+        <button type="button" class="dl-link" onclick="DataList.set('kandidati','vysledok','')">Zobraziť aj uzavretých</button></div>`;
     },
 
     /** Ktorý kanál koľko priniesol — na vyhodnotenie marketingu. */
@@ -337,7 +526,13 @@
           </div>`).join('')}`;
     },
 
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+    /** Filter z kódu (staré volania). Filtre drží `DataList`. */
+    setF(k, v) {
+      this.filters[k] = v;
+      const map = { q: ['q', v || ''], outcome: ['vysledok', v || ''], source: ['zdroj', v ? `src:${v}` : ''] };
+      if (map[k] && DataList._reg.kandidati) { DataList.set('kandidati', map[k][0], map[k][1]); return; }
+      Danubra.renderRoute();
+    },
     setView(v) { this.view_ = v; Danubra.renderRoute(); },
 
     /** Kanban sa oplatí, až keď je v procese dosť ľudí na to, aby sa posúvali. */

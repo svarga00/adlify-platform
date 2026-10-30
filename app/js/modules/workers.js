@@ -172,7 +172,11 @@
 
     docsOf(id) { return this.docs.filter(d => d.worker_id === id); },
     statusBadge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
-    professionLabel(p) { const x = PROFESSIONS.find(y => y[0] === p); return x ? x[1] : (p || '—'); },
+    professionLabel(p) {
+      const x = PROFESSIONS.find(y => y[0] === p);
+      // Kľúč, ktorý v zozname nie je („elektrikar"), aspoň s veľkým písmenom.
+      return x ? x[1] : (p ? String(p).charAt(0).toUpperCase() + String(p).slice(1) : '—');
+    },
     /** Zoznam remesiel pre iné moduly (partie), nech ho nemajú dvakrát. */
     professions() { return PROFESSIONS.slice(); },
 
@@ -230,7 +234,10 @@
     exportCsv() {
       const DOC = { valid: 'platí', expiring: 'čoskoro skončí', expired: 'po platnosti',
         missing: 'chýba', no_scan: 'bez skenu' };
-      Shell.exportCsv(this.filtered(), [
+      // Keď je zoznam na obrazovke, exportuje sa to, čo je v ňom vidieť
+      // (filtre DataListu); inak staré filtre `this.filters`.
+      const shown = DataList._reg.ludia ? DataList.visible('ludia').map(r => r.w) : this.filtered();
+      Shell.exportCsv(shown, [
         ['Meno', w => w.full_name],
         ['Profesia', w => this.professionLabel(w.profession)],
         ['Stav', w => (STATUS.find(x => x[0] === w.status) || [])[1] || w.status],
@@ -277,7 +284,6 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Wrk.form()">${Icon('plus')} Pridať pracovníka</button>`);
-      const rows = this.filtered();
       const ready = this.items.filter(w => w.status === 'ready').length;
       const deployed = this.items.filter(w => w.status === 'deployed').length;
       // koľkým chýba alebo končí A1
@@ -287,42 +293,252 @@
       // Nadpis sa musí volať rovnako ako položka v menu. Keď menu hovorí
       // „Živnostníci" a obrazovka „Pracovníci", človek nevie, či je tam, kam
       // klikol.
+      //
+      // Zoznam je spoločný komponent (`DataList`): lišta filtrov, čipy toho,
+      // čo je zapnuté, a riadky po stĺpcoch. Dovtedy tu boli pilulky stavov,
+      // dva výbery a karty — papiere boli len tri (GDPR, zmluva, objednávka)
+      // a A1 sa ukázalo, až keď chýbalo. Dnes je v riadku všetkých šesť.
+      const today = new Date().toISOString().slice(0, 10);
       el.innerHTML = Danubra.header(Danubra.labelOf('workers'),
         `${this.items.length} v databáze · ${ready} pripravených · ${deployed} vyslaných`) +
-        this.nowHtml(a1Issues) + `
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;max-width:100%;overflow-x:auto;">
-          <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Wrk.setF('status','')">Všetci</button>
-          ${STATUS.map(s => {
-            const n = this.items.filter(w => w.status === s[0]).length;
-            return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Wrk.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
-          }).join('')}
-        </div>
-        ${Shell.filterbar({
-          search: { value: this.filters.q, placeholder: 'Hľadať meno, telefón, mesto, IČO…',
-            oninput: 'Wrk.setF("q", this.value)' },
-          selects: [
-            { value: this.filters.profession, label: 'Profesia',
-              onchange: 'Wrk.setF("profession", this.value)',
-              options: [['', 'Všetky profesie'], ...PROFESSIONS] },
-            { value: this.filters.doc, label: 'Doklady',
-              onchange: 'Wrk.setF("doc", this.value)',
-              options: [['', 'Doklady — všetko'],
-                ['nogdpr', 'Chýba súhlas GDPR'], ['nocontract', 'Chýba zmluva o dielo'],
-                ['noorder', 'Chýba stavba alebo objednávka'],
-                ['problem', 'Chýba alebo prepadol A1'],
-                ['expiring', 'A1 čoskoro skončí'], ['ok', 'A1 platí'],
-                ['noscan', 'Doklady bez skenu']] },
+        this.nowHtml(a1Issues) +
+        DataList.html(this.listConfig(this.items.map(w => this.listRow(w, today))));
+
+      // Odkaz z Prehľadu (`Wrk.filters.doc = 'nogdpr'`) a staré `setF` nastavia
+      // filter zoznamu. Ostatné filtre sa pri tom vrátia na predvolené, aby
+      // bolo vidieť presne tých ľudí, kvôli ktorým sem človek prišiel.
+      if (this.filters.doc) {
+        DataList.reset('ludia');
+        DataList.set('ludia', 'doc', [this.filters.doc]);
+        this.filters.doc = '';
+      }
+    },
+
+    // ── Zoznam ľudí (DataList) ────────────────────────────────────────────
+    // Papiere v riadku: tri od nás (GDPR, zmluva, objednávka — `stepsOf`)
+    // a tri od neho (A1, živnosť, doklad totožnosti — `DanubraDocs`). Výpočty
+    // sú tie isté ako na profile; zoznam len ukazuje ich výsledok.
+    PAPER_TIP: 'GDPR = súhlas so spracovaním údajov, Zml = rámcová zmluva o dielo, Obj = objednávka k stavbe, '
+      + 'A1 = formulár A1, ŽL = živnostenský list, OP = doklad totožnosti (občiansky alebo pas). '
+      + 'Zelené platí, oranžové čoskoro skončí, červené chýba alebo prepadlo, prerušovane červené je zapísané bez skenu. '
+      + 'Ukážte myšou na štítok — povie podrobnosti.',
+
+    /** Jeden doklad od človeka: stav z `DanubraDocs` (nahratý má prednosť). */
+    paperDoc(workerId, kinds, today) {
+      const docs = this.docsOf(workerId).filter(d => !['requested', 'missing'].includes(d.status));
+      let pick = null, rank = -1;
+      for (const k of kinds) {
+        const d = DanubraDocs.best(docs, k, today);
+        const st = DanubraDocs.state(d, today);
+        const r = DanubraDocs.RANK[st] || 0;
+        if (d && r > rank) { pick = d; rank = r; }
+      }
+      return { doc: pick, state: DanubraDocs.state(pick, today) };
+    },
+
+    /**
+     * Šesť papierov človeka ako štítky: { key, short, label, tone, text }.
+     * `tone`: ok | warn | bad | scan (zapísané bez skenu) | idle (netreba teraz) | na.
+     */
+    papersOf(w, st, today) {
+      const DOC_TONE = { valid: 'ok', expiring: 'warn', no_scan: 'scan', expired: 'bad', missing: 'bad', not_yet: 'bad' };
+      const DOC_TEXT = { valid: 'platí', expiring: 'čoskoro skončí', no_scan: 'zapísané, ale bez skenu',
+        expired: 'prepadlo', missing: 'chýba', not_yet: 'ešte neplatí' };
+      const step = (i) => {
+        if (i.needs === 'scan') return 'scan';
+        if (i.done) return i.warn ? 'warn' : 'ok';
+        if (i.key === 'objednavka' && i.needs === 'assign') return 'idle';
+        return 'bad';
+      };
+      const [g, z, o] = st.items;
+      const a1 = this.docStatus(w.id);
+      const zl = this.paperDoc(w.id, ['trade_licence'], today);
+      const op = this.paperDoc(w.id, ['id_card', 'passport'], today);
+      const doc = (key, short, label, x, na) => {
+        if (na) return { key, short, label, tone: 'na', text: 'netreba' };
+        const to = x.doc && x.doc.valid_to ? ` (do ${DanubraDataList.fmtDay(x.doc.valid_to)})` : '';
+        return { key, short, label, tone: DOC_TONE[x.state] || 'bad', text: `${DOC_TEXT[x.state] || x.state}${x.state === 'missing' ? '' : to}` };
+      };
+      return [
+        { key: 'gdpr', short: 'GDPR', label: 'Súhlas GDPR', tone: step(g), text: g.text },
+        { key: 'zmluva', short: 'Zml', label: 'Zmluva o dielo', tone: step(z), text: z.text },
+        { key: 'objednavka', short: 'Obj', label: 'Stavba a objednávka', tone: step(o), text: o.text },
+        doc('a1', 'A1', 'Formulár A1', { doc: a1.a1, state: a1.state }),
+        doc('zl', 'ŽL', 'Živnostenský list', zl, w.legal_form === 'employee'),
+        doc('op', 'OP', 'Doklad totožnosti', op),
+      ];
+    },
+
+    /** Riadok zoznamu: človek a to, čo sa o ňom počíta raz za vykreslenie. */
+    listRow(w, today) {
+      const st = this.stepsOf(w);
+      const off = ['inactive', 'blacklist'].includes(w.status);
+      const papers = this.papersOf(w, st, today);
+      const bad = off ? 0 : papers.filter(p => p.tone === 'bad' || p.tone === 'scan').length;
+      const warn = off ? 0 : papers.filter(p => p.tone === 'warn').length;
+      const site = this.siteOf(w.id);
+      const crew = this.crewOf(w);
+      const a1 = this.docStatus(w.id).state;
+      const tone = (k) => (papers.find(p => p.key === k) || {}).tone;
+      const okish = (k) => ['ok', 'warn', 'na'].includes(tone(k));
+      // Čo chýba — kľúče sú tie isté, aké posiela Prehľad (`Wrk.filters.doc`).
+      const doc = [];
+      if (!off) {
+        if (!st.items[0].done) doc.push('nogdpr');
+        if (!st.items[1].done) doc.push('nocontract');
+        if (!st.items[2].done) doc.push('noorder');
+      }
+      if (['missing', 'expired'].includes(a1)) doc.push('problem');
+      if (a1 === 'expiring') doc.push('expiring');
+      if (a1 === 'valid') doc.push('ok');
+      if (!off && !okish('zl')) doc.push('notrade');
+      if (!off && !okish('op')) doc.push('noid');
+      if (this.unscannedOf(w.id).length) doc.push('noscan');
+      const rate = w.legal_form !== 'employee' && Number(w.hourly_cost) ? Number(w.hourly_cost) : null;
+      return {
+        id: w.id, w, st, off, papers, bad, warn, site, crew, doc,
+        name: w.full_name || '', phone: w.phone || '', city: w.city || '',
+        trade: w.profession ? this.professionLabel(w.profession) : '',
+        rate, gross: !rate && Number(w.gross_monthly) ? Number(w.gross_monthly) : null,
+        // Horí: stojí na stavbe a chýba mu papier (alebo je bez skenu).
+        hot: !off && !!site && bad > 0,
+        // Pripravený na nasadenie: nie je na stavbe a má všetko, čo sa pri
+        // nasadení kontroluje — súhlas, zmluvu, A1, živnosť a totožnosť.
+        free: !off && !site && ['gdpr', 'zmluva', 'a1', 'zl', 'op'].every(okish),
+        sev: off ? 4 : (site && bad) ? 0 : bad ? 1 : warn ? 2 : 3,
+      };
+    },
+
+    /** Konfigurácia zoznamu ľudí pre `DataList`. */
+    listConfig(rows) {
+      const statusIdx = (k) => { const i = STATUS.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const LANG = { sk: 'Slovenčina', hu: 'Maďarčina', cs: 'Čeština', ua: 'Ukrajinčina', pl: 'Poľština', ro: 'Rumunčina', de: 'Nemčina' };
+      const TONE = { ok: 'platí', warn: 'pozor', bad: 'chýba', scan: 'bez skenu', idle: 'netreba teraz', na: 'netreba' };
+      const papersCell = (r) => `<span class="pl-docs${r.off ? ' is-off' : ''}">${r.papers.map(p =>
+        `<span class="pl-doc is-${p.tone}" title="${UI.esc(`${p.label}: ${p.text}`)}"
+          aria-label="${UI.esc(`${p.label}: ${TONE[p.tone]}`)}">${UI.esc(p.short)}</span>`).join('')}</span>`;
+      const who = (r) => `<span class="pl-who">${this.avatar(r.w, 34)}<span class="dl-title"><b>${UI.esc(r.name)}</b>${
+        r.phone ? `<small>${UI.esc(r.phone)}</small>` : ''}</span></span>`;
+      const docOpts = [
+        ['nogdpr', 'Chýba súhlas GDPR'], ['nocontract', 'Chýba zmluva o dielo'],
+        ['noorder', 'Chýba stavba alebo objednávka'],
+        ['problem', 'Chýba alebo prepadol A1'], ['expiring', 'A1 čoskoro skončí'], ['ok', 'A1 platí'],
+        ['notrade', 'Chýba živnostenský list'], ['noid', 'Chýba doklad totožnosti'],
+        ['noscan', 'Doklady bez skenu'],
+      ];
+      const DOC_TXT = {
+        valid: 'platí', expiring: 'čoskoro skončí', expired: 'po platnosti', missing: 'chýba', no_scan: 'bez skenu',
+      };
+
+      return {
+        id: 'ludia', storageKey: 'ludia', label: 'Ľudia',
+        noun: ['človek', 'ľudia', 'ľudí'],
+        rows,
+        rowClick: (r) => Wrk.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.bad && !r.off ? 'is-warn' : r.off ? 'is-muted' : ''),
+        rowLabel: (r) => `Človek ${r.name}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť kartu človeka', run: (r) => Wrk.detail(r.id) }],
+        columns: [
+          { key: 'meno', label: 'Meno', width: 'minmax(190px, 1.6fr)', mobile: 'title',
+            render: who, sortValue: (r) => r.name, sortLabel: 'Meno' },
+          { key: 'remeslo', label: 'Remeslo', width: 'minmax(100px, .9fr)',
+            render: (r) => (r.trade ? `<span class="dl-two"><b>${UI.esc(r.trade)}</b>${
+              r.w.skill_level ? `<small>${r.w.skill_level === 'fachwerker' ? 'Fachwerker (LG2)' : 'Werker (LG1)'}</small>` : ''}</span>` : ''),
+            sortValue: (r) => r.trade },
+          { key: 'stav', label: 'Stav', width: '112px', mobile: 'badge',
+            render: (r) => this.statusBadge(r.w.status), sortValue: (r) => statusIdx(r.w.status) },
+          { key: 'zakazka', label: 'Kde je · partia', width: 'minmax(150px, 1.3fr)',
+            tip: 'Zákazka z aktívneho nasadenia a partia, v ktorej človek je. Klik otvorí zákazku alebo partiu.',
+            render: (r) => {
+              const out = [
+                r.site ? Danubra.link('subcontract', r.site.id, r.site.title || r.site.contract_number) : '',
+                r.crew ? Danubra.link('crew', r.crew.id, r.crew.name) : '',
+              ].filter(Boolean);
+              return out.length ? `<span class="pl-links">${out.join('')}</span>`
+                : (r.off ? '' : '<span class="dl-note is-mute">nie je nasadený</span>');
+            },
+            sortValue: (r) => (r.site ? r.site.title || r.site.contract_number : null) },
+          { key: 'papiere', label: 'Papiere', width: '232px', mobile: 'line', tip: this.PAPER_TIP,
+            render: papersCell,
+            // Čo horí hore: na stavbe bez papierov, potom komu niečo chýba,
+            // potom čo čoskoro skončí; neaktívni na koniec.
+            sortValue: (r) => [r.sev, -r.bad, -r.warn, r.name], sortLabel: 'Čo horí (papiere)' },
+          { key: 'sadzba', label: 'Sadzba', width: '84px', align: 'right', mobileLabel: 'sadzba',
+            render: (r) => (r.rate ? `<span class="dl-num"><b>${UI.money(r.rate)}</b> / h</span>`
+              : r.gross ? `<span class="dl-num">${UI.money(r.gross)}</span>` : ''),
+            sortValue: (r) => r.rate || r.gross || null, sortDir: -1 },
+          { key: 'mesto', label: 'Mesto', width: 'minmax(80px, .7fr)', hideBelow: 1180,
+            render: (r) => (r.city ? UI.esc(r.city) : ''), sortValue: (r) => r.city },
+        ],
+        sorts: [
+          { key: 'pridany', label: 'Naposledy pridaný', value: (r) => r.w.created_at, dir: -1 },
+          { key: 'od', label: 'Voľný od', value: (r) => r.w.available_from },
+        ],
+        sort: { key: 'papiere', dir: 1 },
+        groups: [
+          { key: 'stav', label: 'Stav', value: (r) => r.w.status || 'candidate',
+            labelOf: (k) => (STATUS.find(s => s[0] === k) || [k, k])[1],
+            tone: (k) => ({ candidate: 'gray', screening: 'amber', ready: 'blue', deployed: 'green', inactive: 'gray', blacklist: 'red' }[k] || 'gray'),
+            order: STATUS.map(s => s[0]) },
+          { key: 'zakazka', label: 'Zákazka', value: (r) => (r.site ? r.site.title || r.site.contract_number : ''),
+            emptyLabel: 'Nie je nasadený' },
+          { key: 'partia', label: 'Partia', value: (r) => (r.crew ? r.crew.name : ''), emptyLabel: 'Bez partie' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať meno, telefón, mesto, IČO…',
+            label: 'Hľadať meno, telefón, mesto, e-mail, IČO alebo remeslo',
+            // IČO je v `company_id` (migrácia 014) — stĺpec `ico` neexistuje.
+            fields: ['name', 'phone', 'city', 'w.email', 'w.company_id', 'trade'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.w.status,
+            options: STATUS.map(s => [s[0], s[1]]), sortOptions: false, allLabel: 'Všetci',
+            presets: [
+              { label: 'Aktívni', value: ['candidate', 'screening', 'ready', 'deployed'], hint: 'Bez neaktívnych a tých, s ktorými nespolupracujeme' },
+              { label: 'Pripravení a vyslaní', value: ['ready', 'deployed'] },
+            ] },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', value: (r) => r.w.profession,
+            optionLabel: (v) => this.professionLabel(v), emptyLabel: 'Bez remesla', allLabel: 'Všetky remeslá' },
+          { key: 'doc', type: 'multi', label: 'Papiere', chipLabel: 'Papiere', value: (r) => r.doc,
+            options: docOpts, sortOptions: false, allLabel: 'Všetko',
+            hint: 'Komu čo chýba. GDPR, zmluvu a objednávku rátame len u ľudí, s ktorými robíme — rovnako ako Prehľad.',
+            presets: [{ label: 'Čo chýba', value: ['nogdpr', 'nocontract', 'noorder', 'problem', 'notrade', 'noid', 'noscan'],
+              hint: 'Komukoľvek chýba niektorý papier alebo je zapísaný bez skenu' }] },
+          { key: 'volny', type: 'toggle', label: 'Pripravený na nasadenie', test: (r) => r.free,
+            hint: 'Nie je na žiadnej stavbe a má všetko, čo sa pri nasadení kontroluje: súhlas GDPR, zmluvu o dielo, A1, živnostenský list a doklad totožnosti.' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', more: true, value: (r) => (r.site ? r.site.id : ''),
+            optionLabel: (v, r) => (r && r.site ? r.site.title || r.site.contract_number : v),
+            emptyLabel: 'Nie je nasadený', allLabel: 'Všetky zákazky' },
+          { key: 'partia', type: 'select', label: 'Partia', more: true, value: (r) => (r.crew ? r.crew.id : ''),
+            optionLabel: (v, r) => (r && r.crew ? r.crew.name : v), emptyLabel: 'Bez partie', allLabel: 'Všetky partie' },
+          { key: 'mesto', type: 'select', label: 'Mesto', more: true, value: 'city', allLabel: 'Všetky mestá' },
+          { key: 'jazyk', type: 'select', label: 'Jazyk', more: true, value: (r) => r.w.language,
+            optionLabel: (v) => LANG[v] || String(v).toUpperCase(), emptyLabel: 'Nezadaný', allLabel: 'Všetky jazyky' },
+          { key: 'hori', type: 'toggle', label: 'Na stavbe bez papierov', more: true, test: (r) => r.hot,
+            hint: 'Ľudia, ktorí stoja na stavbe a chýba im niektorý papier alebo ho nemajú nahratý.' },
+        ],
+        empty: { ico: 'workers', title: 'Žiadni pracovníci', sub: 'Pridajte prvého pracovníka do databázy.',
+          cta: `<button class="btn btn-primary" onclick="Wrk.form()">${Icon('plus')} Pridať pracovníka</button>` },
+        export: {
+          name: ['zivnostnici'],
+          columns: [
+            ['Meno', r => r.w.full_name],
+            ['Profesia', r => this.professionLabel(r.w.profession)],
+            ['Stav', r => (STATUS.find(x => x[0] === r.w.status) || [])[1] || r.w.status],
+            ['Telefón', r => r.w.phone],
+            ['E-mail', r => r.w.email],
+            ['Mesto', r => r.w.city],
+            // IČO živnostníka je `company_id` (migrácia 014).
+            ['IČO', r => r.w.company_id],
+            ['Forma', r => ({ szco: 'živnostník', sro: 's.r.o.' }[r.w.legal_form] || 'zamestnanec')],
+            ['Sadzba €/h', r => DanubraExport.num(r.w.hourly_cost)],
+            ['A1', r => DOC_TXT[this.docStatus(r.id).state] || ''],
+            ...[['gdpr', 'GDPR'], ['zmluva', 'Zmluva o dielo'], ['objednavka', 'Objednávka'],
+              ['zl', 'Živnostenský list'], ['op', 'Doklad totožnosti']].map(([k, label]) =>
+              [label, r => { const p = r.papers.find(x => x.key === k); return p ? TONE[p.tone] : ''; }]),
+            ['Partia', r => (r.crew || {}).name],
+            ['Zákazka', r => (r.site || {}).title],
           ],
-          exportCsv: 'Wrk.exportCsv()',
-          total: this.items.length, shown: rows.length,
-        })}
-        ${rows.length === 0
-          ? (this.items.length
-              ? UI.empty('search', 'Filtru nič nesedí',
-                  `V databáze je ${this.items.length} ľudí, ale ani jeden nevyhovuje.`)
-              : UI.empty('workers', 'Žiadni pracovníci', 'Pridajte prvého pracovníka do databázy.',
-                  `<button class="btn btn-primary" onclick="Wrk.form()">${Icon('plus')} Pridať pracovníka</button>`))
-          : `<div class="cards">${rows.map(w => this.card(w)).join('')}</div>`}`;
+        },
+      };
     },
 
     card(w) {
@@ -367,7 +583,19 @@
         </div>`;
     },
 
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+    /**
+     * Nastaví filter zoznamu z kódu (staré volania `Wrk.setF('status', …)`).
+     * Filtre drží `DataList`; `this.filters` zostáva kvôli odkazom zvonka.
+     */
+    setF(k, v) {
+      this.filters[k] = v;
+      const map = { status: ['stav', v ? [v] : []], profession: ['remeslo', v || ''], q: ['q', v || ''] };
+      if (map[k] && DataList._reg.ludia) {
+        DataList.set('ludia', map[k][0], map[k][1]);
+        return;
+      }
+      Danubra.renderRoute();
+    },
 
     // ── Čo ešte treba, aby mohol ísť na stavbu ────────────────────────────
     // Kroky 4–6 reťazca pre jedného človeka: súhlas, zmluva, objednávka.

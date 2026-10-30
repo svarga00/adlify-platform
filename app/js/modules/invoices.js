@@ -113,7 +113,8 @@
         <button class="btn btn-outline btn-sm" onclick="Inv.books()">${Icon('download', 14)} Pre účtovníčku</button>
         <button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.rows();
+      // Zákazka v stĺpci zoznamu: názvy zákaziek sú v dátach faktúry v2.
+      if (!this.v2.loaded) { try { await this.loadV2(); } catch (e) { /* zoznam pôjde aj bez názvov zákaziek */ } }
 
       // Stavy v1 a v2 sa volajú inak (`draft_pending_approval` vs
       // `pending_approval`, `issued` vs `sent`). Keď sa vymenúvajú tie, čo
@@ -130,34 +131,235 @@
       // povie, čo tam je. Toto povie jedno aj druhé.
       const q = DanubraInvoice.queue(this.items, Danubra._dayISO());
 
+      // Zoznam je spoločný komponent (`DataList`): stĺpce, filtre s počtami,
+      // čipy, zoradenie, súčet v päte a na telefóne karty. Dovtedy tu boli
+      // pilulky stavov, hľadanie, obdobie a karty v dvoch skupinách — pilulky
+      // sú dnes filter „Stav" (s počtami), skupiny „Čaká na Vás / Ostatné"
+      // sú zoskupenie „Čo je na rade".
       el.innerHTML = Danubra.header(Danubra.labelOf('invoices'),
         `${this.items.length} celkom · nezaplatené ${UI.money(unpaidSum)}`) +
-        this.nowHtml(q) + `
-        <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
-          <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Inv.setF('status','')">Všetky</button>
-          ${STATUS.map(s => {
-            const n = this.items.filter(x => x.status === s[0]).length;
-            return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inv.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
-          }).join('')}
-          ${UI.tip('Faktúra ide krokmi: Návrh → Čaká na schválenie → Schválená → Vystavená → '
-            + 'Odoslaná → Zaplatená. Mimo poradia sú Po splatnosti (appka označí sama) a Stornovaná. '
-            + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
-        </div>
-        ${Shell.filterbar({
-          search: { value: this.filters.q, placeholder: 'Hľadať číslo faktúry alebo odberateľa…',
-            oninput: 'Inv.setF("q", this.value)' },
-          period: { field: 'issue_date', key: this.filters.period, from: this.filters.from,
-            to: this.filters.to, label: 'Vystavené', set: 'Inv.setF' },
-          exportCsv: 'Inv.exportCsv()',
-          total: this.items.length, shown: rows.length,
-        })}
-        ${rows.length === 0
-          ? (this.items.length
-              ? UI.empty('search', 'Filtru nič nesedí',
-                  `V databáze je ${this.items.length} faktúr, ale ani jedna nevyhovuje.`)
-              : UI.empty('invoices', 'Žiadne faktúry', 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
-                  `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`))
-          : this.listHtml(rows, q)}`;
+        this.nowHtml(q) +
+        DataList.html(this.listConfig(this.listRows(q)));
+
+      // Odkaz odinakiaľ („Otvoriť návrhy" po mesačnej fakturácii) nastaví
+      // `Inv.filters.status` — zoznam si ho prevezme ako filter stavu.
+      const pre = this.filters.status;
+      if (pre) {
+        this.filters.status = '';
+        DataList.set('faktury', 'stav', [pre === 'draft_pending_approval' ? 'pending_approval' : pre]);
+      }
+    },
+
+    /** Stavy, s ktorými sa ešte pracuje — predvolený filter zoznamu („Otvorené"). */
+    OPEN_STATUSES: ['draft', 'pending_approval', 'approved', 'issued', 'sent', 'overdue'],
+
+    /**
+     * Riadok zoznamu: faktúra a to, čo sa o nej počíta raz za vykreslenie.
+     * „Po splatnosti" a „čaká na Vás" berie z tej istej knižnice ako veta
+     * hore (`DanubraInvoice.queue`), aby zoznam a veta nehovorili dve veci.
+     */
+    listRows(q) {
+      const today = Danubra._dayISO();
+      const DL = DanubraDataList;
+      const late = new Set((q.overdue || []).map(x => x.id));
+      const nase = new Set([...(q.pending || []), ...(q.drafts || [])].map(x => x.id));
+      const subs = new Map(((this.v2 && this.v2.subcontracts) || []).map(s => [s.id, s.title || s.contract_number || 'Zákazka']));
+      const OPEN = ['issued', 'sent', 'overdue'];
+      return this.items.map(x => {
+        const who = this.counterparty(x);
+        const st = x.status === 'draft_pending_approval' ? 'pending_approval' : x.status;
+        const due = x.due_date ? String(x.due_date).slice(0, 10) : '';
+        const open = OPEN.includes(x.status);
+        // Suma v centoch. Čo reálne príde (po zrážke §48b), počíta knižnica.
+        const w = DanubraInvoice.withholding(x);
+        const dun = this.dunQueue ? DanubraDunning.next(x, this.reminders, today) : null;
+        return {
+          id: x.id, x, st, who,
+          number: x.invoice_number || '',
+          partner: who ? who.name : '', partnerKey: who ? `${who.type}:${who.id}` : '',
+          subTitle: x.subcontract_id ? (subs.get(x.subcontract_id) || 'Zákazka') : '',
+          late: late.has(x.id), ours: nase.has(x.id), open,
+          days: due ? DL.daysBetween(today, due) : null,
+          cents: w.gross, net: w.net, withheld: w.withheld,
+          left: open ? w.net : 0,
+          currency: x.currency || 'EUR',
+          reminders: dun ? dun.count : 0, dun,
+          rad: nase.has(x.id) ? 'nas' : late.has(x.id) ? 'late' : open || x.status === 'approved' ? 'wait' : 'done',
+        };
+      });
+    },
+
+    /** Suma v centoch v mene faktúry (Money.format píše vždy €). */
+    fmt(cents, currency) {
+      return !currency || currency === 'EUR' ? Money.format(cents) : UI.money(Money.fromCents(cents), currency);
+    },
+
+    /** Súčet v päte zoznamu: v centoch a po menách (euro a koruna sa nesčítajú). */
+    footSums(rows, pick) {
+      const by = new Map();
+      for (const r of rows) {
+        const c = r.currency || 'EUR';
+        if (!by.has(c)) by.set(c, []);
+        by.get(c).push(pick(r));
+      }
+      return [...by.entries()].map(([c, list]) => this.fmt(Money.sum(list), c)).join(' + ');
+    },
+
+    /** Konfigurácia zoznamu faktúr pre `DataList`. */
+    listConfig(rows) {
+      const DL = DanubraDataList;
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      // Dátum bez roka, keď je tohtoročný — stĺpce sú užšie a rok je jasný.
+      const rok = Danubra._dayISO().slice(0, 4);
+      const day = (d) => DL.fmtDay(d, { year: String(d).slice(0, 4) !== rok });
+      const statusIdx = (k) => { const i = STATUS.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const RAD = { nas: ['Čaká na Vás', 'amber'], late: ['Po splatnosti', 'red'], wait: ['Čaká na peniaze', 'blue'], done: ['Uzavreté', 'gray'] };
+      const admin = Danubra.isAdmin();
+      const dueCell = (r) => {
+        if (!r.x.due_date) return '';
+        const d = `<b>${day(r.x.due_date)}</b>`;
+        if (!r.open && r.x.status !== 'approved') return `<span class="dl-two">${d}</span>`;
+        let note = '';
+        if (r.days != null && r.days < 0) note = `<span class="dl-note is-red">po splatnosti ${dni(-r.days)}</span>`;
+        else if (r.days === 0) note = '<span class="dl-note is-amber">splatná dnes</span>';
+        else if (r.days != null) note = `<span class="dl-note ${r.days <= 7 ? 'is-amber' : 'is-mute'}">splatná o ${dni(r.days)}</span>`;
+        return `<span class="dl-two">${d}${note}</span>`;
+      };
+      const payCell = (r) => {
+        if (r.x.status === 'paid') {
+          return `<span class="dl-two"><span class="dl-ok">${Icon('check', 13)} uhradená</span>${
+            r.x.paid_at ? `<small>${DL.fmtDay(r.x.paid_at)}</small>` : ''}</span>`;
+        }
+        if (!r.open) return '';
+        return `<span class="dl-two"><b class="dl-num">${this.fmt(r.left, r.currency)}</b><small>zostáva${r.withheld ? ' po §48b' : ''}</small></span>`;
+      };
+      const dunCell = (r) => {
+        const d = r.dun;
+        if (!d) return '';
+        if (d.due) {
+          return `<button type="button" class="tip-btn dl-flag${d.level >= 2 ? '' : ' is-amber'}"
+            data-tip="${UI.esc(`Na rade: ${d.meta.sk}. Vytvorí sa v detaile faktúry alebo cez tlačidlo Upomienky.`)}"
+            aria-label="Na rade upomienka: ${UI.esc(d.meta.sk)}">${Icon('alert', 12)} na rade ${d.level}.</button>`;
+        }
+        if (!d.count) return '';
+        const last = d.last || {};
+        const m = DanubraDunning.meta(last.level) || {};
+        return `<span class="dl-two"><b>${d.count}× poslaná</b><small>${UI.esc(m.sk || '')}${last.sent_at ? ` · ${DL.fmtDay(last.sent_at)}` : ''}</small></span>`;
+      };
+
+      return {
+        id: 'faktury', storageKey: 'faktury', label: 'Vydané faktúry',
+        noun: ['faktúra', 'faktúry', 'faktúr'],
+        rows,
+        rowClick: (r) => Inv.detail(r.id),
+        rowClass: (r) => (r.late ? 'is-hot' : r.ours ? 'is-warn' : r.rad === 'done' ? 'is-muted' : ''),
+        rowLabel: (r) => `Faktúra ${r.number || 'bez čísla'}${r.partner ? ` — ${r.partner}` : ''}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť faktúru', run: (r) => Inv.detail(r.id) }],
+        columns: [
+          { key: 'cislo', label: 'Faktúra', width: '108px', mobile: 'title',
+            tip: TIP_NUMBER,
+            // Pod číslom obdobie, za ktoré sa fakturuje; inak typ (okrem bežnej faktúry odberateľovi).
+            render: (r) => {
+              const sub = r.x.billing_period_from ? DL.rangeText(r.x.billing_period_from, r.x.billing_period_to)
+                : r.x.type && r.x.type !== 'standard' ? (TYPE[r.x.type] || r.x.type) : '';
+              return `<span class="dl-title">${r.number ? `<b class="mono">${UI.esc(r.number)}</b>`
+                : '<b class="dl-nonum">Návrh bez čísla</b>'}${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
+            },
+            sortValue: (r) => r.number, sortLabel: 'Číslo' },
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(120px, 1.2fr)',
+            render: (r) => (r.who ? Danubra.link(r.who.type, r.who.id, r.who.name) : ''),
+            sortValue: (r) => r.partner },
+          { key: 'zakazka', label: 'Zákazka', width: 'minmax(100px, 1fr)', hideBelow: 1020,
+            render: (r) => (r.x.subcontract_id ? Danubra.link('subcontract', r.x.subcontract_id, r.subTitle) : ''),
+            sortValue: (r) => r.subTitle || null },
+          { key: 'vystavena', label: 'Vystavená', width: '72px', mobileLabel: 'vystavená',
+            render: (r) => (r.x.issue_date ? `<span class="dl-num">${day(r.x.issue_date)}</span>` : ''),
+            sortValue: (r) => r.x.issue_date || null, sortDir: -1 },
+          { key: 'splatnost', label: 'Splatnosť', width: '118px', mobileLabel: 'splatná',
+            render: dueCell, sortValue: (r) => r.x.due_date || null },
+          { key: 'suma', label: 'Suma', width: '100px', align: 'right', mobileLabel: 'suma',
+            render: (r) => `<span class="dl-two"><b class="dl-num dl-amt">${this.fmt(r.cents, r.currency)}</b>${
+              r.withheld ? `<small title="Zrážka §48b: odberateľ ju pošle nemeckému finančnému úradu, na účet príde ${UI.esc(this.fmt(r.net, r.currency))}">zrážka §48b</small>` : ''}</span>`,
+            sortValue: (r) => r.cents, sortDir: -1, csv: false },
+          { key: 'uhrada', label: 'Úhrada', width: '94px', align: 'right', mobileLabel: '',
+            tip: 'Koľko z faktúry ešte má prísť na účet (po zrážke §48b). Zaplatená faktúra ukáže, kedy prišli peniaze.',
+            render: payCell, sortValue: (r) => (r.open ? r.left : null), sortDir: -1, csv: false },
+          { key: 'stav', label: 'Stav', width: '126px', mobile: 'badge',
+            tip: 'Faktúra ide krokmi: Návrh → Čaká na schválenie → Schválená → Vystavená → '
+              + 'Odoslaná → Zaplatená. Mimo poradia sú Po splatnosti (appka označí sama) a Stornovaná. '
+              + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
+            render: (r) => this.badge(r.x.status),
+            // Predvolené poradie: čo čaká na Vás, po splatnosti, čo čaká na peniaze, uzavreté.
+            sortValue: (r) => [['nas', 'late', 'wait', 'done'].indexOf(r.rad), r.x.due_date || '9999', statusIdx(r.st)],
+            sortLabel: 'Čo je na rade' },
+          { key: 'upomienky', label: 'Upomienky', width: '90px', hideBelow: 1120,
+            tip: 'Koľko upomienok už odišlo a či je na rade ďalšia. Upomienka sa vytvára v detaile faktúry.',
+            render: dunCell, sortValue: (r) => (r.dun && r.dun.due ? 10 + r.dun.level : r.reminders || null), sortDir: -1 },
+        ],
+        sort: { key: 'stav', dir: 1 },
+        groups: [
+          { key: 'rad', label: 'Čo je na rade', value: 'rad', labelOf: (k) => (RAD[k] || ['—'])[0],
+            tone: (k) => (RAD[k] || [, 'gray'])[1], order: ['nas', 'late', 'wait', 'done'] },
+          { key: 'stav', label: 'Stav', value: 'st', labelOf: (k) => L(k),
+            tone: (k) => (STATUS.find(s => s[0] === k) || [, , 'gray'])[2], order: STATUS.map(s => s[0]) },
+          { key: 'odberatel', label: 'Odberateľ', value: (r) => r.partner || '—' },
+        ],
+        group: 'rad',
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať číslo, odberateľa, zákazku…',
+            label: 'Hľadať číslo faktúry, odberateľa alebo zákazku',
+            fields: ['number', 'partner', 'subTitle', (r) => L(r.st)] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: 'st', default: this.OPEN_STATUSES,
+            options: STATUS.filter(s => s[0] !== 'draft_pending_approval').map(s => [s[0], s[1]]),
+            sortOptions: false, allLabel: 'Všetky',
+            hint: 'Faktúra ide krokmi: Návrh → Čaká na schválenie → Schválená → Vystavená → Odoslaná → Zaplatená. '
+              + 'Mimo poradia sú Po splatnosti a Stornovaná.',
+            presets: [
+              { label: 'Otvorené', value: this.OPEN_STATUSES, hint: 'Všetko okrem zaplatených a stornovaných' },
+              { label: 'Nezaplatené', value: ['issued', 'sent', 'overdue'], hint: 'Vystavené, odoslané a po splatnosti — čaká sa na peniaze' },
+              { label: 'Rozpracované', value: ['draft', 'pending_approval', 'approved'], hint: 'Návrhy, čakajúce na schválenie a schválené, ešte nevystavené' },
+            ] },
+          { key: 'odberatel', type: 'select', label: 'Odberateľ', value: 'partnerKey',
+            optionLabel: (v, r) => (r ? r.partner : v), emptyLabel: 'Bez odberateľa', allLabel: 'Všetci odberatelia' },
+          { key: 'late', type: 'toggle', label: 'Po splatnosti', test: (r) => r.late,
+            hint: 'Vystavené a odoslané faktúry, ktorých splatnosť uplynula a peniaze neprišli — aj keď ich appka ešte neoznačila.' },
+          ...(admin ? [{ key: 'schvalit', type: 'toggle', label: 'Čaká na moje schválenie', more: true,
+            test: (r) => r.st === 'pending_approval',
+            hint: 'Faktúry, ktoré musí schváliť administrátor. Bez schválenia sa faktúra nevystaví ani neodošle.' }] : []),
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (r) => r.x.subcontract_id || '', more: true,
+            optionLabel: (v, r) => (r ? r.subTitle : v), emptyLabel: 'Bez zákazky', allLabel: 'Všetky zákazky' },
+          { key: 'vystavena', type: 'range-date', label: 'Vystavená', field: 'x.issue_date', more: true },
+          { key: 'splatnost', type: 'range-date', label: 'Splatnosť', field: 'x.due_date', more: true },
+          { key: 'suma', type: 'range-number', label: 'Suma', value: (r) => r.cents / 100, unit: '€', more: true },
+          { key: 'typ', type: 'select', label: 'Typ', value: (r) => r.x.type || '', more: true,
+            optionLabel: (v) => TYPE[v] || v, allLabel: 'Všetky typy' },
+        ],
+        empty: { ico: 'invoices', title: 'Žiadne faktúry', sub: 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
+          cta: `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>` },
+        // Súčet toho, čo je vidieť — v centoch, nie sčítaním floatov.
+        foot: (list) => {
+          const open = list.filter(r => r.open);
+          return { cells: {
+            cislo: `<span class="dl-foot-l">Spolu <em>${list.length} ${Shell.plural(list.length, 'faktúra', 'faktúry', 'faktúr')}</em></span>`,
+            suma: `<b class="dl-num" data-sum="suma">${this.footSums(list, r => r.cents)}</b>`,
+            uhrada: open.length ? `<span class="dl-two"><b class="dl-num" data-sum="zostava">${this.footSums(open, r => r.left)}</b><small>zostáva</small></span>` : '',
+          } };
+        },
+        export: {
+          name: ['faktury'],
+          columns: [
+            ['Číslo', r => r.number], ['Vystavená', r => r.x.issue_date], ['Splatnosť', r => r.x.due_date],
+            ['Odberateľ', r => r.partner], ['Zákazka', r => r.subTitle],
+            ['Stav', r => L(r.x.status)], ['Typ', r => TYPE[r.x.type] || r.x.type],
+            ['Mena', r => r.currency],
+            ['Suma', r => DanubraExport.num(r.x.total)], ['Základ', r => DanubraExport.num(r.x.amount_net)],
+            ['Zrážka §48b', r => DanubraExport.num(r.x.withholding_amount)],
+            ['Zostáva', r => (r.open ? DanubraExport.num(Money.fromCents(r.left)) : '')],
+            ['Zaplatená', r => (r.x.paid_at ? String(r.x.paid_at).slice(0, 10) : '')],
+            ['Upomienky', r => r.reminders || ''],
+          ],
+        },
+      };
     },
 
     /**
@@ -183,27 +385,6 @@
         why: 'Keď niečo pribudne, bude to tu napísané ako prvé.', hot: false };
     },
 
-    /**
-     * Zoznam. Hore to, čo čaká na nás — schválenie a rozpracované podklady —
-     * až pod tým ostatné. Pri zapnutom filtri stavu sa nedelí: človek si už
-     * vybral, čo chce vidieť, a dve sekcie by ho klamali o tom, čo je vo filtri.
-     */
-    listHtml(rows, q) {
-      if (this.filters.status) {
-        return `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`;
-      }
-      const nase = new Set([...q.pending, ...q.drafts].map(x => x.id));
-      const hore = rows.filter(x => nase.has(x.id));
-      const zvysok = rows.filter(x => !nase.has(x.id));
-      if (!hore.length) return `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`;
-
-      return `
-        <div class="form-section">Čaká na Vás (${hore.length})</div>
-        <div class="cards">${hore.map(x => this.card(x)).join('')}</div>
-        ${zvysok.length ? `<div class="form-section">Ostatné (${zvysok.length})</div>
-          <div class="cards">${zvysok.map(x => this.card(x)).join('')}</div>` : ''}`;
-    },
-
     /** Komu sa fakturuje: v2 nemeckému odberateľovi, v1 klientovi z ubytovania. */
     partnerOf(id) { return (this.partners || []).find(p => p.id === id) || null; },
     counterparty(x) {
@@ -213,62 +394,29 @@
       return c ? { type: 'client', id: c.id, name: c.name } : null;
     },
 
-    card(x) {
-      const who = this.counterparty(x);
-      const late = x.status === 'overdue';
-      return `
-        <div class="acc-card card" role="button" tabindex="0" onclick="Inv.detail('${x.id}')">
-          <div class="acc-card-head">
-            <div style="min-width:0;">
-              <div class="acc-name mono" style="font-size:13px;letter-spacing:.02em;">${UI.esc(x.invoice_number || '—')}</div>
-              ${TYPE[x.type] || x.type ? `<div class="acc-loc">${UI.esc(TYPE[x.type] || x.type)}</div>` : ''}
-            </div>
-            ${this.badge(x.status)}
-          </div>
-          ${who || x.subcontract_id ? `<div class="link-row" style="margin-bottom:9px;">
-            ${who ? Danubra.link(who.type, who.id, who.name) : ''}
-            ${x.subcontract_id ? Danubra.link('subcontract', x.subcontract_id, 'Zákazka') : ''}
-          </div>` : ''}
-          <div class="acc-meta">
-            <span style="font-weight:700;color:var(--navy);">${UI.money(x.total, x.currency)}</span>
-            <span>${Icon('calendar', 14)} splatnosť ${UI.date(x.due_date)}</span>
-            ${late ? `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} po splatnosti</span>` : ''}
-            ${x.billing_period_from ? `<span>${Icon('repeat', 14)} ${UI.date(x.billing_period_from)}–${UI.date(x.billing_period_to)}</span>` : ''}
-          </div>
-        </div>`;
-    },
-
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
-
     /**
-     * Čo je po filtroch vidieť. Je to metóda, nie premenná v `view()`, aby
-     * export vyviezol presne to, čo má človek pred sebou.
+     * Filter z kódu (napr. „Inv.setF('status','draft')"). Zoznam má filtre
+     * v `DataList`; staré kľúče sa naň len prekladajú.
      */
-    rows() {
-      const f = this.filters;
-      return Shell.filterRows(this.items, {
-        q: f.q,
-        // Faktúra sa hľadá podľa čísla, ale aj podľa toho, komu sa fakturovala —
-        // a odberateľ je v inej tabuľke.
-        fields: ['invoice_number', 'status', (x) => (this.counterparty(x) || {}).name],
-        equals: { status: f.status },
-        period: { field: 'issue_date', key: f.period, from: f.from, to: f.to },
-      });
+    setF(k, v) {
+      if (k === 'status') this.filters.status = v || '';
+      else this.filters[k] = v;
+      if (k === 'q' && window.DataList && DataList._reg.faktury) return DataList.set('faktury', 'q', v || '');
+      Danubra.renderRoute();
     },
 
+    /** Čo je po filtroch vidieť — to isté, čo vyvezie export. */
+    rows() {
+      const vid = window.DataList && DataList._reg.faktury ? DataList.visible('faktury') : null;
+      return vid ? vid.map(r => r.x) : this.items.slice();
+    },
+
+    /** Export do CSV — presne to, čo je v zozname vidieť. */
     exportCsv() {
-      const f = this.filters;
-      Shell.exportCsv(this.rows(), [
-        ['Číslo', x => x.invoice_number],
-        ['Vystavená', x => x.issue_date],
-        ['Splatnosť', x => x.due_date],
-        ['Odberateľ', x => (this.counterparty(x) || {}).name],
-        ['Stav', x => (STATUS.find(s => s[0] === x.status) || [])[1] || x.status],
-        ['Typ', x => TYPE[x.type] || x.type],
-        ['Suma', x => DanubraExport.num(x.total)],
-        ['Základ', x => DanubraExport.num(x.amount_net)],
-        ['Zrážka §48b', x => DanubraExport.num(x.withholding_amount)],
-      ], ['faktury', Shell.periodSlug({ field: 'issue_date', key: f.period, from: f.from, to: f.to })]);
+      const inst = window.DataList && DataList._reg.faktury;
+      if (!inst) return Shell.exportCsv(this.items, [['Číslo', x => x.invoice_number]], ['faktury']);
+      const btn = document.querySelector('#dl-faktury [data-dl-a="export"]');
+      if (btn) btn.click();
     },
 
     /** Faktúra v2 pozná odberateľa alebo podklad; v1 má klienta z ubytovania. */

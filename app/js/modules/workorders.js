@@ -94,24 +94,27 @@
       return o.rate ? `${UI.money(o.rate)}/h` : '';
     },
 
-    setKind(k) { this.kind = k; Danubra.renderRoute(); },
-    setQ(v) { this.q = v; this.paint(); },
-
-    list() {
-      const q = String(this.q || '').trim().toLowerCase();
-      return this.rows.filter(o => o.kind === this.kind).filter((o) => {
-        if (!q) return true;
-        const kto = o.kind === 'customer'
-          ? this.partnerOf(o.partner_id).name : this.workerOf(o.worker_id).full_name;
-        return [o.order_number, o.their_ref, o.title, kto]
-          .filter(Boolean).join(' ').toLowerCase().includes(q);
-      });
+    /**
+     * Prepne zoznam na jednu stranu (filter „Druh"). Nová objednávka sa
+     * potom zakladá pre tú stranu, ktorá je vybraná.
+     */
+    setKind(k) {
+      this.kind = k || 'customer';
+      if (window.DataList && DataList.state('objednavky')) return DataList.set('objednavky', 'druh', k || '');
+      return Danubra.renderRoute();
     },
+    setQ(v) { this.q = v; if (window.DataList) DataList.set('objednavky', 'q', v || ''); },
 
+    // ── Zoznam ────────────────────────────────────────────────────────────
+    // Spoločný komponent `DataList`. Dovtedy dve tlačidlá strán, hľadanie
+    // a karty v dvoch stĺpcoch — objednávka bez popisu diela alebo bez
+    // čísla odberateľa sa dala nájsť len prezretím všetkých.
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Ord.form()">
         ${Icon('plus')} Objednávka</button>`);
+      const today = Danubra._dayISO();
+      const rows = this.rows.map(o => this.listRow(o, today));
       el.innerHTML = Danubra.header('Objednávky',
         `${this.rows.filter(o => o.kind === 'customer').length} od odberateľov · `
         + `${this.rows.filter(o => o.kind === 'worker').length} živnostníkom`)
@@ -119,65 +122,170 @@
             čo si u nás objednal; jeho číslo patrí na našu faktúru.
             <strong>Živnostníkovi</strong> — čo sme objednali u neho, jedna na nasadenie.
             Tá druhá je doklad, ktorý pri kontrole obháji, že ide o dielo a nie
-            o prenájom pracovnej sily.</p>
-          <div class="fb-row no-print">
-            ${KIND.map(([k, l]) => `<button class="fb-chip${this.kind === k ? ' active' : ''}"
-              onclick="Ord.setKind('${k}')">${UI.esc(l)}
-              <em>${this.rows.filter(o => o.kind === k).length}</em></button>`).join('')}
-            <label class="kpi-search" style="max-width:280px;margin-left:auto;">
-              ${Icon('search', 14)}
-              <input type="search" value="${UI.esc(this.q)}" placeholder="Hľadať…"
-                oninput="Ord.setQ(this.value)">
-            </label>
-          </div>
-          <div id="ord-list"></div>`;
-      this.paint();
+            o prenájom pracovnej sily.</p>`
+        + DataList.html(this.listConfig(rows));
+      const st = DataList.state('objednavky');
+      if (st && st.f.druh) this.kind = st.f.druh;
     },
 
-    paint() {
-      const el = document.getElementById('ord-list');
-      if (!el) return;
-      const rows = this.list();
-      if (!rows.length) {
-        el.innerHTML = UI.empty('orders',
-          this.q ? 'Nič také tu nie je' : 'Zatiaľ žiadna objednávka',
-          this.kind === 'customer'
-            ? 'Keď odberateľ pošle objednávku, zapíšte ju aj s jeho číslom — to potom ide na faktúru.'
-            : 'Objednávka živnostníkovi vzniká k nasadeniu. Je to doklad, ktorý obháji Werkvertrag.',
-          `<button class="btn btn-primary" onclick="Ord.form()">${Icon('plus')} Objednávka</button>`);
-        return;
-      }
-      el.innerHTML = `<div class="panels panels-2">${rows.map(o => this.card(o)).join('')}</div>`;
-    },
+    /** Stavy, s ktorými sa ešte pracuje — predvolený filter zoznamu. */
+    OPEN_STATUSES: ['draft', 'sent', 'confirmed'],
 
-    card(o) {
-      const kto = o.kind === 'customer'
-        ? this.partnerOf(o.partner_id).name : this.workerOf(o.worker_id).full_name;
+    /**
+     * Riadok zoznamu. „Problém" je to, na čo sa pýta kontrola alebo účtovné
+     * oddelenie odberateľa: chýbajúci popis diela, chýbajúce číslo
+     * odberateľa (ide na faktúru) a objednávka živnostníkovi, ktorá ešte
+     * nie je odoslaná, hoci nástup už je alebo bude do týždňa.
+     */
+    listRow(o, today) {
+      const L = DanubraDataList;
+      const cust = o.kind === 'customer';
+      const p = cust ? this.partnerOf(o.partner_id) : {};
+      const w = cust ? {} : this.workerOf(o.worker_id);
       const sc = this.subOf(o.subcontract_id);
-      const cena = this.priceText(o);
-      return `<div class="card card-pad" role="button" tabindex="0" onclick="Ord.detail('${o.id}')">
-        <div class="card-head">
-          <div class="card-title">${UI.esc(o.title || '—')}</div>
-          ${this.badge(o.status)}
-        </div>
-        <div style="font-size:12.5px;color:var(--ink-mute);">
-          ${o.order_number ? UI.esc(o.order_number) : '<em>bez čísla</em>'}
-          ${kto ? ` · ${UI.esc(kto)}` : ''}
-        </div>
-        ${o.their_ref ? `<div style="margin-top:6px;font-size:12.5px;">
-          <strong>Ich číslo: ${UI.esc(o.their_ref)}</strong>
-          <span style="color:var(--ink-mute);"> — ide na faktúru</span></div>` : ''}
-        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 14px;
-          font-size:12.5px;color:var(--ink-sub);">
-          ${sc.title ? `<span>${Icon('site', 13)} ${UI.esc(sc.title)}</span>` : ''}
-          ${cena ? `<span>${Icon('euro', 13)} ${UI.esc(cena)}</span>` : ''}
-          ${o.date_from ? `<span>${Icon('calendar', 13)}
-            ${UI.esc(UI.dateRange(o.date_from, o.date_to))}</span>` : ''}
-        </div>
-        ${!o.scope ? `<p class="ms-lead" style="margin-top:8px;color:var(--amber);">
-          ${Icon('alert', 12)} Nie je napísané, čo je dielo${o.kind === 'worker'
-            ? ' — práve na to sa pýta kontrola' : ''}.</p>` : ''}
-      </div>`;
+      const open = this.OPEN_STATUSES.includes(o.status || 'draft');
+      const left = o.date_to ? L.daysBetween(today, String(o.date_to).slice(0, 10)) : null;
+      const toStart = o.date_from ? L.daysBetween(today, String(o.date_from).slice(0, 10)) : null;
+      const noScope = !String(o.scope || '').trim();
+      const noRef = cust && !String(o.their_ref || '').trim();
+      const late = !cust && (o.status || 'draft') === 'draft' && toStart != null && toStart <= 7;
+      const ram = cust ? null : this.ramcovaOf(o.worker_id);
+      let rank = 6;
+      if (!open) rank = 9;
+      else if (noScope && !cust) rank = 0;
+      else if (late) rank = 1;
+      else if (noRef) rank = 2;
+      else if (noScope) rank = 3;
+      else if ((o.status || 'draft') === 'draft') rank = 4;
+      else if (o.status === 'sent') rank = 5;
+      return {
+        id: o.id, o, cust, sc, open, left, toStart, noScope, noRef, late, ram, rank,
+        hot: open && rank <= 1, problem: open && (noScope || noRef || late),
+        title: o.title || o.order_number || 'Objednávka',
+        whoId: cust ? o.partner_id : o.worker_id,
+        who: (cust ? p.name : w.full_name) || '',
+        job: sc.title || sc.contract_number || '',
+      };
+    },
+
+    /** Konfigurácia zoznamu objednávok pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const esc = UI.esc;
+      const ST = STATUS.map(s => [s[0], s[1]]);
+      const statusIdx = (k) => { const i = ST.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const kindLabel = (k) => (KIND.find(x => x[0] === k) || [k, k])[1];
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+
+      const titleCell = (r) => {
+        const warn = r.noScope && r.open
+          ? `<span class="dl-note ${r.cust ? 'is-amber' : 'is-red'}" title="${r.cust
+            ? 'Bez popisu diela sa nedá skontrolovať, či faktúra sedí s objednávkou.'
+            : 'Práve na to sa pýta kontrola — bez toho je Werkvertrag len na papieri.'}">${Icon('alert', 11)} nie je napísané, čo je dielo</span>` : '';
+        return `<span class="dl-title"><b>${esc(r.title)}</b><small>${
+          r.o.order_number ? esc(r.o.order_number) : '<em>bez čísla</em>'}${r.job ? ` · ${esc(r.job)}` : ''}</small>${warn}</span>`;
+      };
+      const refCell = (r) => {
+        if (r.cust) {
+          if (r.o.their_ref) return `<span class="dl-two"><b class="prt-vat">${esc(r.o.their_ref)}</b><small>ide na faktúru</small></span>`;
+          return r.open ? '<span class="dl-two is-wrap"><span class="dl-note is-amber">chýba ich číslo</span><small>bez neho faktúru nepustia</small></span>' : '';
+        }
+        if (r.ram) return `<span class="dl-two"><b>rámcová ${esc(r.ram.number || '')}</b><small>${r.ram.signedAt ? `od ${L.fmtDay(r.ram.signedAt)}` : 'živnostník'}</small></span>`;
+        return r.open ? '<span class="dl-note is-mute">bez rámcovej zmluvy</span>' : '';
+      };
+      const obdobieCell = (r) => {
+        const t = L.rangeText(r.o.date_from, r.o.date_to);
+        if (!t) return '';
+        let note = '';
+        if (r.open) {
+          if (r.late && r.toStart < 0) note = `<span class="dl-note is-red">nástup bol pred ${dni(-r.toStart)}</span>`;
+          else if (r.late) note = `<span class="dl-note is-amber">nástup ${r.toStart === 0 ? 'dnes' : `o ${dni(r.toStart)}`}</span>`;
+          else if (r.toStart != null && r.toStart > 0 && r.toStart <= 30) note = `<span class="dl-note is-mute">začína o ${dni(r.toStart)}</span>`;
+          else if (r.left != null && r.left >= 0 && r.left <= 30) note = `<span class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">končí o ${dni(r.left)}</span>`;
+          else if (r.left != null && r.left < 0) note = `<span class="dl-note is-mute">skončilo pred ${dni(-r.left)}</span>`;
+        }
+        return `<span class="dl-two is-wrap"><b>${t}</b>${note}</span>`;
+      };
+
+      return {
+        id: 'objednavky', storageKey: 'objednavky', label: 'Objednávky',
+        noun: ['objednávka', 'objednávky', 'objednávok'],
+        rows,
+        rowClick: (r) => Ord.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.problem ? 'is-warn' : !r.open ? 'is-muted' : ''),
+        rowLabel: (r) => `Objednávka ${r.title}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť objednávku', run: (r) => Ord.detail(r.id) }],
+        onChange: (state) => {
+          // Nová objednávka sa zakladá pre stranu, ktorá je práve vybraná.
+          if (state && state.f && state.f.druh) this.kind = state.f.druh;
+        },
+        columns: [
+          { key: 'objednavka', label: 'Objednávka', width: 'minmax(180px, 1.7fr)', mobile: 'title',
+            render: titleCell, sortValue: (r) => r.o.order_number || r.title, sortLabel: 'Číslo' },
+          { key: 'druh', label: 'Druh', width: '118px', mobile: 'meta', hideBelow: 1000,
+            render: (r) => `<span class="ord-kind${r.cust ? '' : ' is-worker'}">${Icon(r.cust ? 'clients' : 'user', 13)}${esc(kindLabel(r.o.kind))}</span>`,
+            sortValue: (r) => kindLabel(r.o.kind) },
+          { key: 'komu', label: 'Odberateľ · živnostník', width: 'minmax(130px, 1fr)',
+            render: (r) => (r.whoId && r.who ? Danubra.link(r.cust ? 'partner' : 'worker', r.whoId, r.who) : ''),
+            sortValue: (r) => r.who },
+          { key: 'ref', label: 'Ich číslo · rámcová', width: '160px', hideBelow: 880,
+            tip: 'Od odberateľa: číslo jeho objednávky (Bestellung) — ide na našu faktúru, bez neho ju jeho účtovné oddelenie často neprepustí. Živnostníkovi: rámcová zmluva, na ktorú sa objednávka odvoláva.',
+            render: refCell, sortValue: (r) => r.o.their_ref || (r.ram && r.ram.number) || null },
+          { key: 'obdobie', label: 'Obdobie', width: '150px',
+            render: obdobieCell, sortValue: (r) => r.o.date_from || null, sortLabel: 'Začiatok' },
+          { key: 'sadzba', label: 'Sadzba', width: '82px', align: 'right', hideBelow: 1180,
+            render: (r) => { const t = this.priceText(r.o); return t ? `<span class="dl-num">${esc(t)}</span>` : ''; },
+            sortValue: (r) => Number(r.o.rate) || null, sortDir: -1 },
+          { key: 'stav', label: 'Stav', width: '108px', mobile: 'badge',
+            render: (r) => this.badge(r.o.status), sortValue: (r) => statusIdx(r.o.status || 'draft') },
+        ],
+        sorts: [
+          { key: 'hori', label: 'Čo horí', value: (r) => [r.rank, r.toStart == null ? 1e6 : r.toStart, r.o.order_number || r.title] },
+          { key: 'zalozena', label: 'Založená', value: (r) => r.o.created_at, dir: -1 },
+        ],
+        sort: { key: 'hori', dir: 1 },
+        groups: [
+          { key: 'druh', label: 'Druh', value: (r) => r.o.kind, labelOf: kindLabel, order: KIND.map(k => k[0]),
+            tone: (k) => (k === 'worker' ? 'blue' : 'amber') },
+          { key: 'stav', label: 'Stav', value: (r) => r.o.status || 'draft', labelOf: (k) => (STATUS.find(s => s[0] === k) || [k, k])[1],
+            order: ST.map(s => s[0]), tone: (k) => (STATUS.find(s => s[0] === k) || [])[2] || 'gray' },
+          { key: 'zakazka', label: 'Zákazka', value: 'job', emptyLabel: 'Bez zákazky' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať objednávku…', label: 'Hľadať číslo, ich číslo, názov, odberateľa, živnostníka alebo zákazku',
+            fields: ['o.order_number', 'o.their_ref', 'title', 'who', 'job', 'o.scope'] },
+          { key: 'druh', type: 'select', label: 'Druh', value: (r) => r.o.kind, options: KIND, allLabel: 'Obe strany',
+            hint: 'Od odberateľa = čo si u nás objednal nemecký odberateľ. Živnostníkovi = čo sme objednali u neho.' },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.o.status || 'draft', default: this.OPEN_STATUSES,
+            options: ST, sortOptions: false, allLabel: 'Všetky',
+            presets: [
+              { label: 'Otvorené', value: this.OPEN_STATUSES, hint: 'Rozpracované, odoslané a potvrdené — bez vybavených a zrušených' },
+              { label: 'Uzavreté', value: ['done', 'cancelled'] },
+            ] },
+          { key: 'komu', type: 'select', label: 'Komu · od koho', value: 'whoId',
+            optionLabel: (v, r) => (r ? `${r.who}${r.cust ? '' : ' (živnostník)'}` : v), emptyLabel: 'Nezadané', allLabel: 'Všetci' },
+          { key: 'problem', type: 'toggle', label: 'Len s problémom', test: (r) => r.problem,
+            hint: 'Objednávky bez popisu diela, objednávky od odberateľa bez jeho čísla (ide na faktúru) a objednávky živnostníkovi, ktoré ešte nie sú odoslané, hoci nástup je do týždňa alebo už bol.' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (r) => r.o.subcontract_id, more: true,
+            optionLabel: (v, r) => (r ? r.job || v : v), emptyLabel: 'Bez zákazky', allLabel: 'Všetky zákazky' },
+          { key: 'obdobie', type: 'range-date', label: 'Obdobie', start: 'o.date_from', end: 'o.date_to', more: true,
+            hint: 'Objednávky, ktorých obdobie sa prekrýva so zvoleným. Objednávka bez dátumov sa neukáže.' },
+        ],
+        empty: { ico: 'orders', title: 'Zatiaľ žiadna objednávka',
+          sub: 'Keď odberateľ pošle objednávku, zapíšte ju aj s jeho číslom — to potom ide na faktúru. Objednávka živnostníkovi vzniká k nasadeniu a obháji Werkvertrag.',
+          cta: `<button class="btn btn-primary" onclick="Ord.form()">${Icon('plus')} Objednávka</button>` },
+        export: {
+          name: ['objednavky'],
+          columns: [
+            ['Číslo', r => r.o.order_number], ['Druh', r => kindLabel(r.o.kind)], ['Názov', r => r.title],
+            ['Odberateľ / živnostník', r => r.who],
+            ['Ich číslo', r => r.o.their_ref], ['Zákazka', r => r.job],
+            ['Od', r => r.o.date_from], ['Do', r => r.o.date_to], ['Sadzba', r => this.priceText(r.o)],
+            ['Stav', r => (STATUS.find(s => s[0] === (r.o.status || 'draft')) || [, ''])[1]],
+            ['Popis diela', r => r.o.scope],
+          ],
+        },
+      };
     },
 
     // ── Formulár ──────────────────────────────────────────────────────────

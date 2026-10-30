@@ -54,7 +54,6 @@
       const vidno = ludia.filter(r => !q || r.name.toLowerCase().includes(q));
       const zalohy = ludia.reduce((s, r) => s + r.advCents, 0);
       const dlh = ludia.reduce((s, r) => s + Math.max(0, r.owed), 0);
-      const posledne = this.advances.filter(a => !a.voided_at).slice(0, 12);
 
       el.innerHTML = Danubra.header(Danubra.labelOf('advances'),
         `Zálohy nevyrovnané ${Money.format(zalohy)} · na výplatu ${Money.format(dlh)}`) + `
@@ -85,17 +84,117 @@
             Záloha sa nemaže — omyl sa ruší s dôvodom na karte človeka.</p>
         </div>
 
-        <div class="card card-pad" style="margin-top:12px;">
-          <div class="card-head"><div class="card-title">Posledné zálohy${Help.btn('screen.advances', { size: 13 })}</div></div>
-          ${posledne.length ? posledne.map(a => `<div class="adv-row">
-            <div class="adv-who">${Danubra.link('worker', a.worker_id, this.nameOf(a.worker_id), { inline: true })}
-              <span>${UI.date(a.paid_on)} · ${UI.esc(Enums.label('advance_method', a.method) || a.method || '')}${a.note ? ` · ${UI.esc(a.note)}` : ''}</span></div>
-            <b class="adv-sum">${Money.format(Money.toCents(a.amount))}</b>
-            ${a.settled_at ? UI.badge('odpočítaná', 'green') + UI.tip('Záloha je už odpočítaná z jeho faktúry — vyrovnané.')
-              : UI.badge('nevyrovnaná', 'amber') + UI.tip('Zálohu dostal, ale ešte sa neodpočítala z jeho faktúry. '
-                + 'Odpočíta sa z najbližšej.')}
-          </div>`).join('') : '<div class="js-empty">Zatiaľ žiadne zálohy.</div>'}
-        </div>`;
+        <div class="fk-sec">Všetky zálohy${Help.btn('screen.advances', { size: 13 })}</div>
+        ${DataList.html(this.listConfig(this.listRows()))}`;
+    },
+
+    /** Stav zálohy: nevyrovnaná (ešte sa neodpočítala), odpočítaná, zrušená. */
+    stateOf(a) { return a.voided_at ? 'void' : a.settled_at ? 'settled' : 'open'; },
+    methodLabel(m) {
+      const FB = { bank: 'Prevodom', cash: 'V hotovosti', other: 'Inak' };
+      const l = Enums.label('advance_method', m);
+      return l && l !== m ? l : (FB[m] || l || '');
+    },
+
+    listRows() {
+      return this.advances.map(a => ({
+        id: a.id, a, st: this.stateOf(a),
+        name: a.worker_id ? this.nameOf(a.worker_id) : '—',
+        method: this.methodLabel(a.method),
+        cents: Money.toCents(a.amount),
+      }));
+    },
+
+    /**
+     * Zoznam všetkých záloh pre `DataList`. Dovtedy tu bolo posledných
+     * dvanásť bez filtrov; zrušené sa neukazovali vôbec — dnes sú vo filtri
+     * stavu (záloha sa nemaže, omyl sa ruší s dôvodom).
+     */
+    listConfig(rows) {
+      const DL = DanubraDataList;
+      const ST = { open: ['nevyrovnaná', 'amber'], settled: ['odpočítaná', 'green'], void: ['zrušená', 'gray'] };
+      const TIP = {
+        open: 'Zálohu dostal, ale ešte sa neodpočítala z jeho faktúry. Odpočíta sa z najbližšej.',
+        settled: 'Záloha je už odpočítaná z jeho faktúry — vyrovnané.',
+        void: 'Záloha je zrušená (omyl) — zostala v histórii aj s dôvodom, nikam sa nepočíta.',
+      };
+      return {
+        id: 'zalohy', storageKey: 'zalohy', label: 'Zálohy',
+        noun: ['záloha', 'zálohy', 'záloh'],
+        rows,
+        rowClick: (r) => (r.a.worker_id ? Danubra.open('worker', r.a.worker_id) : null),
+        rowClass: (r) => (r.st === 'void' ? 'is-muted' : ''),
+        rowLabel: (r) => `Záloha ${r.name} ${Money.format(r.cents)}`,
+        rowActions: [
+          { ico: 'plus', label: 'Záloha / platba pre tohto človeka', show: (r) => !!r.a.worker_id, run: (r) => Wrk.payMenu(r.a.worker_id) },
+        ],
+        columns: [
+          { key: 'komu', label: 'Komu', width: 'minmax(160px, 1.4fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b>${r.a.note ? `<small>${UI.esc(r.a.note)}</small>` : ''}</span>`,
+            sortValue: (r) => r.name, sortLabel: 'Meno' },
+          { key: 'kedy', label: 'Kedy', width: '96px', mobileLabel: '',
+            render: (r) => (r.a.paid_on ? `<span class="dl-num">${DL.fmtDay(r.a.paid_on)}</span>` : ''),
+            sortValue: (r) => r.a.paid_on || null, sortDir: -1 },
+          { key: 'sposob', label: 'Spôsob', width: '120px',
+            render: (r) => `<span class="dl-tag">${Icon(r.a.method === 'bank' ? 'euro' : 'wallet', 14)}${UI.esc(r.method)}</span>`,
+            sortValue: (r) => r.method },
+          { key: 'vyrovnana', label: 'Vyrovnaná', width: 'minmax(150px, 1fr)', mobile: 'line',
+            tip: 'Záloha sa vyrovná tak, že sa odpočíta z jeho najbližšej faktúry.',
+            render: (r) => (r.st === 'settled' ? `<span class="dl-ok">${Icon('check', 13)} odpočítaná${r.a.settled_at ? ` ${DL.fmtDay(r.a.settled_at)}` : ''}</span>`
+              : r.st === 'void' ? `<span class="dl-note is-mute">zrušená${r.a.void_reason ? ` — ${UI.esc(r.a.void_reason)}` : ''}</span>`
+                : '<span class="dl-note is-amber">čaká na odpočítanie z faktúry</span>'),
+            sortValue: (r) => r.a.settled_at || null },
+          { key: 'suma', label: 'Suma', width: '110px', align: 'right',
+            render: (r) => `<b class="dl-num dl-amt">${Money.format(r.cents)}</b>`,
+            sortValue: (r) => r.cents, sortDir: -1 },
+          { key: 'stav', label: 'Stav', width: '128px', mobile: 'badge',
+            render: (r) => `<span class="dl-nowrap">${UI.badge(ST[r.st][0], ST[r.st][1])}${UI.tip(TIP[r.st])}</span>`,
+            sortValue: (r) => ['open', 'settled', 'void'].indexOf(r.st) },
+        ],
+        sort: { key: 'kedy', dir: -1 },
+        groups: [
+          { key: 'komu', label: 'Človek', value: 'name' },
+          { key: 'stav', label: 'Stav', value: 'st', labelOf: (k) => (ST[k] || ['—'])[0], tone: (k) => (ST[k] || [, 'gray'])[1],
+            order: ['open', 'settled', 'void'] },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať meno alebo poznámku…', label: 'Hľadať meno alebo poznámku',
+            fields: ['name', 'a.note', 'method'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: 'st', default: ['open', 'settled'], sortOptions: false,
+            options: [['open', 'Nevyrovnaná'], ['settled', 'Odpočítaná'], ['void', 'Zrušená']],
+            presets: [{ label: 'Platné', value: ['open', 'settled'], hint: 'Bez zrušených' },
+              { label: 'Nevyrovnané', value: ['open'], hint: 'Ešte sa neodpočítali z faktúry' }] },
+          { key: 'komu', type: 'select', label: 'Komu', value: (r) => r.a.worker_id || '',
+            optionLabel: (v, r) => (r ? r.name : v), allLabel: 'Všetci ľudia' },
+          { key: 'kedy', type: 'range-date', label: 'Kedy', field: 'a.paid_on' },
+          { key: 'sposob', type: 'select', label: 'Spôsob', value: (r) => r.a.method || '', more: true,
+            optionLabel: (v, r) => (r ? r.method : v), allLabel: 'Všetky spôsoby' },
+          { key: 'suma', type: 'range-number', label: 'Suma', value: (r) => r.cents / 100, unit: '€', more: true },
+        ],
+        empty: { ico: 'wallet', title: 'Zatiaľ žiadne zálohy',
+          sub: 'Zálohu zapíšete tlačidlom „Dať zálohu" alebo na karte človeka.',
+          cta: `<button class="btn btn-primary" onclick="Adv.pickWorker('advance')">${Icon('plus')} Dať zálohu</button>` },
+        // Súčet toho, čo je vidieť — v centoch. Zrušené sa do súčtu nerátajú.
+        foot: (list) => {
+          const live = list.filter(r => r.st !== 'void');
+          const open = list.filter(r => r.st === 'open');
+          return { cells: {
+            komu: `<span class="dl-foot-l">Spolu <em>${live.length} ${Shell.plural(live.length, 'záloha', 'zálohy', 'záloh')}${
+              live.length < list.length ? ` · bez ${list.length - live.length} zrušených` : ''}</em></span>`,
+            vyrovnana: open.length ? `<span class="dl-two"><b class="dl-num" data-sum="nevyrovnane">${Money.format(Money.sum(open.map(r => r.cents)))}</b><small>nevyrovnané</small></span>` : '',
+            suma: `<b class="dl-num" data-sum="suma">${Money.format(Money.sum(live.map(r => r.cents)))}</b>`,
+          } };
+        },
+        export: {
+          name: ['zalohy'],
+          columns: [
+            ['Komu', r => r.name], ['Kedy', r => r.a.paid_on], ['Spôsob', r => r.method],
+            ['Suma', r => DanubraExport.num(r.a.amount)], ['Stav', r => ST[r.st][0]],
+            ['Odpočítaná', r => (r.a.settled_at ? String(r.a.settled_at).slice(0, 10) : '')],
+            ['Poznámka', r => r.a.note || ''], ['Dôvod zrušenia', r => r.a.void_reason || ''],
+          ],
+        },
+      };
     },
 
     /** Vyber človeka a hneď otvor, čo s ním treba spraviť. */

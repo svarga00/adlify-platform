@@ -48,8 +48,10 @@
 //       groups: [{ key: 'status', label: 'Stav', value: 'status', labelOf: (k) => …, tone: (k) => 'red', order: [...] }],
 //       group: '',                               // predvolene bez zoskupenia
 //       rowActions: [{ ico: 'chevron', label: 'Otvoriť', run: (r) => Inv.open(r.id) }],
+//                                            // ico/label smú byť aj (r) => …; show: (r) => bool
 //       empty: { ico: 'invoices', title: 'Zatiaľ žiadne faktúry', sub: '…', cta: '<button …>' },
 //       export: { name: ['faktury'] },           // tlačidlo Export → CSV toho, čo je vidieť
+//       foot: (rows) => ({ cells: { num: 'Spolu', sum: Money.format(…) } }),  // päta so súčtami (alebo HTML)
 //     });
 //   }
 //
@@ -404,9 +406,15 @@
     return `<div class="dl-row${click ? ' is-click' : ''}${extra ? ` ${esc(extra)}` : ''}" role="row" data-dl-row="${esc(id)}"${
       click ? ' tabindex="0"' : ''}${label ? ` aria-label="${esc(label)}"` : ''}>${
       cols(cfg).map(c => cellHtml(c, row)).join('')}${
-      acts.length ? `<div class="dl-c dl-acts" role="cell">${acts.map((a, i) => (a.show && !a.show(row) ? ''
-        : `<button type="button" class="dl-act" data-dl-a="act" data-i="${i}" title="${esc(a.label)}"
-            aria-label="${esc(a.label)}">${ico(a.ico || 'chevron', 15)}</button>`)).join('')}</div>` : ''}<i class="dl-br" aria-hidden="true"></i></div>`;
+      acts.length ? `<div class="dl-c dl-acts" role="cell">${acts.map((a, i) => {
+        if (a.show && !a.show(row)) return '';
+        // `ico` a `label` smú byť aj funkcie riadku — jedno miesto pre dve
+        // opačné akcie (napr. Odstrániť / Vrátiť), nie dva stĺpce tlačidiel.
+        const al = typeof a.label === 'function' ? a.label(row) : a.label;
+        const ai = typeof a.ico === 'function' ? a.ico(row) : a.ico;
+        return `<button type="button" class="dl-act" data-dl-a="act" data-i="${i}" title="${esc(al)}"
+            aria-label="${esc(al)}">${ico(ai || 'chevron', 15)}</button>`;
+      }).join('')}</div>` : ''}<i class="dl-br" aria-hidden="true"></i></div>`;
   }
 
   function headHtml(inst) {
@@ -444,7 +452,24 @@
         <span role="cell" class="dl-sec-in"><i></i><span>${esc(gr.label)}</span> <span class="dl-sec-n">${gr.rows.length}</span></span></div>` : '')
       + gr.rows.map(r => rowHtml(inst, r)).join('')).join('');
     return `${styleHtml(inst)}<div class="dl-table card" role="table" aria-label="${esc(cfg.label || 'Zoznam')}"
-        aria-rowcount="${v.rows.length}">${headHtml(inst)}${body}</div>`;
+        aria-rowcount="${v.rows.length}">${headHtml(inst)}${body}${footHtml(inst, v)}</div>`;
+  }
+
+  /**
+   * Päta so súčtami za to, čo je práve vidieť (`foot: (rows) => …`).
+   * Vráti HTML na celú šírku, alebo `{ cells: { kľúč stĺpca: HTML } }` —
+   * vtedy sedí každá suma pod svojím stĺpcom. Bez `foot` sa nič nekreslí.
+   */
+  function footHtml(inst, v) {
+    const { cfg } = inst;
+    if (typeof cfg.foot !== 'function' || !v.rows.length) return '';
+    const f = cfg.foot(v.rows);
+    if (!f) return '';
+    if (typeof f === 'string') return `<div class="dl-foot is-line" role="row"><div class="dl-c" role="cell">${f}</div></div>`;
+    const cells = f.cells || {};
+    return `<div class="dl-foot" role="row">${cols(cfg).map(c => `<div class="dl-c dl-col-${cssId(c.key)}${
+      c.align === 'right' ? ' is-right' : c.align === 'center' ? ' is-center' : ''}" role="cell">${cells[c.key] || ''}</div>`).join('')}${
+      (cfg.rowActions || []).length ? '<div class="dl-c dl-acts" role="cell"></div>' : ''}</div>`;
   }
 
   // ── Prekreslenie ──────────────────────────────────────────────────────────

@@ -24,7 +24,6 @@
 
   const Con = {
     items: [], amendments: [], partners: [], loaded: false,
-    filters: { status: '', q: '' },
 
     async load() {
       const [c, a, p] = await Promise.all([
@@ -75,57 +74,206 @@
         ended: 'gray', cancelled: 'red' }[s] || 'gray';
     },
 
+    // ── Zoznam ────────────────────────────────────────────────────────────
+    // Spoločný komponent `DataList`. Dovtedy tu boli karty a výber stavu —
+    // zmluva, ktorej sa blíži koniec platnosti alebo už skončila a ľudia
+    // stále robia, sa v zozname nedala nájsť.
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-
-      const withPartner = this.items.map(c => ({ ...c, partner_name: this.partnerName(c.partner_id) }));
-      const rows = Shell.filterRows(withPartner, {
-        q: this.filters.q,
-        fields: ['title', 'contract_number', 'partner_name'],
-        equals: { status: this.filters.status },
-      });
-
-      const card = (c) => {
-        const am = this.amendmentsOf(c.id);
-        return `
-          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Con.detail('${c.id}')">
-            <div class="card-head">
-              <div class="card-title">${UI.esc(c.title)}</div>
-              ${UI.badge(Enums.label('contract_status', c.status), this.statusKind(c.status))}
-            </div>
-            <div class="meta-row">
-              <span>${Icon('clients', 14)} ${UI.esc(c.partner_name)}</span>
-              <span>${Icon('note', 14)} ${UI.esc(Enums.label('contract_kind', c.kind))}</span>
-              ${c.date_from ? `<span>${Icon('clock', 14)} ${UI.dateRange(c.date_from, c.date_to)}</span>` : ''}
-              ${c.charge_rate ? `<span>${Icon('invoices', 14)} ${Money.format(Money.toCents(c.charge_rate))}/h</span>` : ''}
-              ${am.length ? `<span>${Icon('repeat', 14)} ${am.length} ${DanubraQuotes.plural(am.length, 'dodatok', 'dodatky', 'dodatkov')}</span>` : ''}
-            </div>
-            ${!c.scope ? `<div class="meta-row" style="color:var(--amber);">
-              ${Icon('alert', 14)} chýba predmet diela</div>` : ''}
-          </div>`;
-      };
+      const today = Danubra._dayISO();
+      const rows = this.items.map(c => this.listRow(c, today));
 
       Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Con.form()">${Icon('plus')} Nová zmluva</button>`);
       el.innerHTML = Danubra.header(Danubra.labelOf('contracts'),
         'Dohodnuté podmienky sa neprepisujú — menia sa dodatkom')
-        + Shell.list({
-          rows, total: this.items.length, render: card, layout: 'cards',
-          emptyIcon: 'note', emptyTitle: 'Zatiaľ žiadna zmluva',
-          emptySub: 'Zmluva vzniká z prijatej ponuky alebo sa založí priamo.',
-          filter: {
-            search: { value: this.filters.q, placeholder: 'Hľadať zmluvu, odberateľa…',
-              oninput: 'Con.setF("q", this.value)' },
-            selects: [{
-              value: this.filters.status, label: 'Stav',
-              onchange: 'Con.setF("status", this.value)',
-              options: [['', 'Všetky stavy'], ...Enums.options('contract_status')],
-            }],
-          },
-        });
+        + DataList.html(this.listConfig(rows));
     },
 
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+    /** Kompatibilita: nastaví filter zoznamu z kódu. */
+    setF(k, v) {
+      if (k === 'status') return DataList.set('zmluvy', 'stav', v ? [v] : []);
+      if (k === 'q') return DataList.set('zmluvy', 'q', v || '');
+      return undefined;
+    },
+
+    /** Zmluvy, ktoré platia alebo sa pripravujú — predvolený filter zoznamu. */
+    OPEN_STATUSES: ['draft', 'sent', 'signed', 'active'],
+    /** Koľko dní pred koncom platnosti je zmluva „končí čoskoro". */
+    SOON_DAYS: 30,
+
+    STATUS: [['draft', 'Rozpracovaná'], ['sent', 'Odoslaná na podpis'], ['signed', 'Podpísaná'],
+      ['active', 'Prebieha'], ['ended', 'Ukončená'], ['cancelled', 'Zrušená']],
+    KIND: [['werkvertrag', 'Zmluva o dielo'], ['framework', 'Rámcová zmluva']],
+    /** Názov z číselníka; keď číselník nie je načítaný, záloha tu (nie kľúč). */
+    enumLabel(kind, key, list) {
+      const l = window.Enums ? Enums.label(kind, key) : '';
+      return l && l !== key ? l : ((list.find(x => x[0] === key) || [key, key])[1] || '');
+    },
+    statusLabel(s) { return this.enumLabel('contract_status', s, this.STATUS); },
+    kindLabel(k) { return this.enumLabel('contract_kind', k || 'werkvertrag', this.KIND); },
+
+    /**
+     * Riadok zoznamu: zmluva, koľko dní do konca platnosti, dodatky.
+     * „Po platnosti" je podpísaná alebo bežiaca zmluva, ktorej koniec už
+     * prešiel — treba ju predĺžiť dodatkom alebo ukončiť.
+     */
+    listRow(c, today) {
+      const L = DanubraDataList;
+      const am = this.amendmentsOf(c.id);
+      const unsigned = am.filter(a => !a.signed_at).length;
+      const live = ['signed', 'active'].includes(c.status);
+      const open = this.OPEN_STATUSES.includes(c.status);
+      const left = c.date_to ? L.daysBetween(today, String(c.date_to).slice(0, 10)) : null;
+      const toStart = c.date_from ? L.daysBetween(today, String(c.date_from).slice(0, 10)) : null;
+      const expired = live && left != null && left < 0;
+      const soon = live && left != null && left >= 0 && left <= this.SOON_DAYS;
+      const noScope = !String(c.scope || '').trim();
+      const noScan = live && !c.storage_path;
+      // Čo horí: po platnosti, končí do 7 dní, bez predmetu diela (pri
+      // kontrole rozhoduje obsah), nepodpísaný dodatok, končí do 30 dní,
+      // čaká na podpis, rozpracovaná. Ukončené a zrušené na koniec.
+      let rank = 7;
+      if (!open) rank = 9;
+      else if (expired) rank = 0;
+      else if (soon && left <= 7) rank = 1;
+      else if (noScope) rank = 2;
+      else if (unsigned) rank = 3;
+      else if (soon) rank = 4;
+      else if (c.status === 'sent') rank = 5;
+      else if (c.status === 'draft') rank = 6;
+      return {
+        id: c.id, c, am, unsigned, live, open, left, toStart, expired, soon, noScope, noScan, rank,
+        hot: rank <= 1, problem: open && (expired || noScope || unsigned > 0 || (soon && left <= 7)),
+        title: c.title || c.contract_number || 'Zmluva',
+        partner: c.partner_id ? this.partnerName(c.partner_id) : '',
+        city: c.site_city || '',
+      };
+    },
+
+    /** Konfigurácia zoznamu zmlúv pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const esc = UI.esc;
+      const ST = this.STATUS.slice();
+      for (const [k] of (window.Enums ? Enums.options('contract_status') : [])) {
+        if (k && !ST.some(s => s[0] === k)) ST.push([k, this.statusLabel(k)]);
+      }
+      const statusIdx = (k) => { const i = ST.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+
+      const platnostCell = (r) => {
+        const t = L.rangeText(r.c.date_from, r.c.date_to);
+        if (!t) return r.open ? '<span class="dl-note is-amber">bez dátumov</span>' : '';
+        let note = '';
+        if (r.expired) note = `<span class="dl-note is-red">skončila pred ${dni(-r.left)}</span>`;
+        else if (r.live && r.left === 0) note = '<span class="dl-note is-amber">končí dnes</span>';
+        else if (r.soon) note = `<span class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">končí o ${dni(r.left)}</span>`;
+        else if (r.open && r.toStart != null && r.toStart > 0 && r.toStart <= 30) note = `<span class="dl-note is-mute">začína o ${dni(r.toStart)}</span>`;
+        else if (r.live && !r.c.date_to) note = '<span class="dl-note is-mute">bez konca</span>';
+        return `<span class="dl-two is-wrap"><b>${t}</b>${note}</span>`;
+      };
+      const predmetCell = (r) => (r.noScope
+        ? `<span class="dl-note ${r.open ? 'is-amber' : 'is-mute'}">${Icon('alert', 12)} chýba predmet diela</span>`
+        : `<span class="con-scope" title="${esc(r.c.scope)}">${esc(r.c.scope)}</span>`);
+      const dodatkyCell = (r) => {
+        const n = r.am.length;
+        const notes = [
+          r.unsigned ? `<span class="dl-note is-amber">${r.unsigned} ${Shell.plural(r.unsigned, 'nepodpísaný', 'nepodpísané', 'nepodpísaných')}</span>` : '',
+          r.noScan ? '<span class="dl-note is-mute">bez skenu originálu</span>' : '',
+        ].filter(Boolean).join('');
+        if (!n && !notes) return '';
+        return `<span class="dl-two">${n ? `<b>${n} ${Shell.plural(n, 'dodatok', 'dodatky', 'dodatkov')}</b>` : ''}${notes}</span>`;
+      };
+
+      return {
+        id: 'zmluvy', storageKey: 'zmluvy', label: 'Zmluvy',
+        noun: ['zmluva', 'zmluvy', 'zmlúv'],
+        rows,
+        rowClick: (r) => Con.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.problem || r.soon ? 'is-warn' : !r.open ? 'is-muted' : ''),
+        rowLabel: (r) => `Zmluva ${r.title}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť zmluvu', run: (r) => Con.detail(r.id) }],
+        columns: [
+          { key: 'zmluva', label: 'Zmluva', width: 'minmax(170px, 1.5fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${esc(r.title)}</b><small>${
+              [r.c.contract_number, (r.c.kind || 'werkvertrag') === 'framework' ? 'rámcová' : 'o dielo'].filter(Boolean).map(esc).join(' · ')}</small></span>`,
+            sortValue: (r) => r.title, sortLabel: 'Názov' },
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(120px, 1fr)',
+            render: (r) => (r.c.partner_id ? Danubra.link('partner', r.c.partner_id, r.partner) : ''),
+            sortValue: (r) => r.partner },
+          { key: 'predmet', label: 'Predmet diela', width: 'minmax(150px, 1.5fr)', mobile: 'line', hideBelow: 960,
+            tip: 'Čo je dielo. Pri kontrole rozhoduje obsah zmluvy, nie jej názov — bez popisu diela vyzerá ako zmluva o práci.',
+            render: predmetCell, sortValue: (r) => (r.noScope ? 0 : 1), sortLabel: 'Predmet diela' },
+          { key: 'platnost', label: 'Platí od – do', width: '150px', mobileLabel: 'platí',
+            render: platnostCell, sortValue: (r) => r.c.date_to || null, sortLabel: 'Koniec platnosti' },
+          { key: 'sadzba', label: 'Sadzba', width: '78px', align: 'right', hideBelow: 1100,
+            render: (r) => {
+              if ((r.c.price_model || 'hourly') === 'hourly') {
+                return r.c.charge_rate ? `<span class="dl-num" title="${esc(this.priceText(r.c))}">${
+                  Number(r.c.charge_rate).toLocaleString('sk-SK', { maximumFractionDigits: 2 })} €/h</span>` : '';
+              }
+              return r.c.fixed_price || r.c.unit_price ? `<span class="dl-num">${this.priceText(r.c)}</span>` : '';
+            },
+            sortValue: (r) => Number(r.c.charge_rate) || null, sortDir: -1 },
+          { key: 'stav', label: 'Stav', width: '138px', mobile: 'badge',
+            render: (r) => UI.badge(this.statusLabel(r.c.status), this.statusKind(r.c.status)),
+            sortValue: (r) => statusIdx(r.c.status) },
+          { key: 'dodatky', label: 'Dodatky', width: '118px',
+            tip: 'Koľko dodatkov zmluva má a koľko z nich ešte neprišlo podpísaných. Pri podpísanej zmluve aj to, či je nahratý sken originálu.',
+            render: dodatkyCell, sortValue: (r) => r.am.length || null, sortDir: -1 },
+        ],
+        sorts: [
+          { key: 'hori', label: 'Čo horí', value: (r) => [r.rank, r.left == null ? 1e6 : r.left, r.title] },
+          { key: 'podpisana', label: 'Podpísaná', value: (r) => r.c.signed_at, dir: -1 },
+        ],
+        sort: { key: 'hori', dir: 1 },
+        groups: [
+          { key: 'stav', label: 'Stav', value: (r) => r.c.status, labelOf: (k) => this.statusLabel(k), order: ST.map(s => s[0]),
+            tone: (k) => this.statusKind(k) },
+          { key: 'odberatel', label: 'Odberateľ', value: 'partner', emptyLabel: 'Bez odberateľa' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať zmluvu…', label: 'Hľadať názov, číslo, odberateľa, predmet diela alebo mesto',
+            fields: ['title', 'c.contract_number', 'partner', 'c.scope', 'city', 'c.site_name', 'c.contact_name'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.c.status, default: this.OPEN_STATUSES,
+            options: ST, sortOptions: false, allLabel: 'Všetky',
+            presets: [
+              { label: 'Platné a rozpracované', value: this.OPEN_STATUSES, hint: 'Všetko okrem ukončených a zrušených' },
+              { label: 'Podpísané', value: ['signed', 'active'], hint: 'Podpísaná a Prebieha — podmienky sa menia už len dodatkom' },
+              { label: 'Uzavreté', value: ['ended', 'cancelled'] },
+            ] },
+          { key: 'odberatel', type: 'select', label: 'Odberateľ', value: (r) => r.c.partner_id,
+            optionLabel: (v, r) => (r ? r.partner : v), emptyLabel: 'Bez odberateľa', allLabel: 'Všetci odberatelia' },
+          { key: 'druh', type: 'select', label: 'Druh', value: (r) => r.c.kind || 'werkvertrag',
+            options: this.KIND.map(k => [k[0], this.kindLabel(k[0])]), allLabel: 'Všetky druhy' },
+          { key: 'konci', type: 'toggle', label: 'Končí čoskoro', test: (r) => r.soon || r.expired,
+            hint: `Podpísané a bežiace zmluvy, ktorým platnosť skončí do ${this.SOON_DAYS} dní alebo už skončila. Predĺžte ich dodatkom alebo ukončite.` },
+          { key: 'problem', type: 'toggle', label: 'Len s problémom', more: true, test: (r) => r.problem,
+            hint: 'Zmluvy po platnosti alebo s koncom do 7 dní, bez predmetu diela, alebo s dodatkom, ktorý ešte neprišiel podpísaný.' },
+          { key: 'bez_skenu', type: 'toggle', label: 'Bez skenu originálu', more: true, test: (r) => r.noScan,
+            hint: 'Podpísané a bežiace zmluvy, ku ktorým nie je nahratý podpísaný originál.' },
+          { key: 'mesto', type: 'select', label: 'Mesto stavby', value: 'city', emptyLabel: 'Bez mesta', allLabel: 'Všetky mestá', more: true },
+          { key: 'obdobie', type: 'range-date', label: 'Platnosť', start: 'c.date_from', end: 'c.date_to', more: true,
+            hint: 'Zmluvy, ktoré v zvolenom období platia aspoň jeden deň. Zmluva bez dátumov sa neukáže.' },
+        ],
+        empty: { ico: 'note', title: 'Zatiaľ žiadna zmluva',
+          sub: 'Zmluva vzniká z prijatej ponuky alebo ju založíte priamo.',
+          cta: `<button class="btn btn-primary" onclick="Con.form()">${Icon('plus')} Nová zmluva</button>` },
+        export: {
+          name: ['zmluvy'],
+          columns: [
+            ['Číslo', r => r.c.contract_number], ['Zmluva', r => r.title], ['Odberateľ', r => r.partner],
+            ['Druh', r => this.kindLabel(r.c.kind)], ['Predmet diela', r => r.c.scope], ['Mesto', r => r.city],
+            ['Od', r => r.c.date_from], ['Do', r => r.c.date_to], ['Dní do konca', r => (r.live ? r.left : '')],
+            ['Sadzba €/h', r => r.c.charge_rate], ['Splatnosť dní', r => r.c.payment_terms_days || 30],
+            ['Zádržné %', r => r.c.retention_pct], ['Stav', r => this.statusLabel(r.c.status)],
+            ['Podpísaná', r => r.c.signed_at], ['Dodatkov', r => r.am.length], ['Nepodpísaných dodatkov', r => r.unsigned],
+            ['Sken originálu', r => (r.c.storage_path ? 'áno' : 'nie')],
+          ],
+        },
+      };
+    },
 
     detail(id) {
       const c = this.items.find(x => x.id === id);
@@ -174,7 +322,7 @@
 
       const body = `
         <div class="detail-head">
-          ${UI.badge(Enums.label('contract_status', c.status), this.statusKind(c.status))}
+          ${UI.badge(this.statusLabel(c.status), this.statusKind(c.status))}
           ${c.contract_number ? `<span class="mono doc-no">${UI.esc(c.contract_number)}</span>` : ''}
           <select class="verif-sel" onchange="Con.setStatus('${c.id}',this.value)">
             ${Enums.options('contract_status').map(([k, l]) =>
@@ -189,7 +337,7 @@
 
         <div class="kv">
           <div><span>Odberateľ</span><strong>${UI.esc(this.partnerName(c.partner_id))}</strong></div>
-          <div><span>Druh${UI.tip('Zmluva o dielo (Werkvertrag) = na jednu konkrétnu prácu (stavbu). Rámcová zmluva (Rahmenvertrag) = spoločné podmienky na dlhšiu spoluprácu, jednotlivé práce sa potom objednávajú zvlášť.')}</span><strong>${UI.esc(Enums.label('contract_kind', c.kind))}</strong></div>
+          <div><span>Druh${UI.tip('Zmluva o dielo (Werkvertrag) = na jednu konkrétnu prácu (stavbu). Rámcová zmluva (Rahmenvertrag) = spoločné podmienky na dlhšiu spoluprácu, jednotlivé práce sa potom objednávajú zvlášť.')}</span><strong>${UI.esc(this.kindLabel(c.kind))}</strong></div>
           ${c.date_from ? `<div><span>Platnosť</span><strong>${UI.dateRange(c.date_from, c.date_to)}</strong></div>` : ''}
           <div><span>Cena</span><strong>${this.priceText(c)}</strong></div>
           <div><span>Splatnosť${UI.tip('Koľko dní po vystavení faktúry má odberateľ na zaplatenie. Z toho sa počíta dátum splatnosti na faktúre.')}</span><strong>${c.payment_terms_days || 30} dní</strong></div>

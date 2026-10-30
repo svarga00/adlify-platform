@@ -18,7 +18,6 @@
 
   const Prt = {
     items: [], subcontracts: [], invoices: [], logos: new Map(), loaded: false,
-    filters: { q: '', is_construction: '' },
 
     async load() {
       const [p, s, i] = await Promise.all([
@@ -34,18 +33,6 @@
 
     subsOf(id) { return this.subcontracts.filter(s => s.partner_id === id); },
     ratingBadge(r) { const m = RATING.find(x => x[0] === r); return m ? UI.badge(m[1], m[2]) : ''; },
-
-    filtered() {
-      const f = this.filters;
-      return this.items.filter(p => {
-        if (f.is_construction !== '' && String(!!p.is_construction) !== f.is_construction) return false;
-        if (f.q) {
-          const hay = `${p.name} ${p.city || ''} ${p.contact_person || ''} ${p.ust_idnr || ''}`.toLowerCase();
-          if (!hay.includes(f.q.toLowerCase())) return false;
-        }
-        return true;
-      });
-    },
 
     /**
      * Jedna veta, čo spraviť s odberateľmi. Všetko sa to točí okolo
@@ -72,28 +59,159 @@
       });
     },
 
+    // Zoznam je spoločný komponent (`DataList`). Dovtedy tu boli karty, pole
+    // hľadania a jeden výber typu prác — kto neplatí alebo nemá overené
+    // USt-IdNr, sa dalo zistiť len otvorením každej karty.
     async view(el) {
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Prt.form()">${Icon('plus')} Pridať odberateľa</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.filtered();
+      const today = Danubra._dayISO();
+      const rows = this.items.map(p => this.listRow(p, today));
 
       el.innerHTML = Danubra.header('Odberatelia v Nemecku',
         `${this.items.length} celkom · ${this.items.filter(p => p.is_construction).length} stavebných`) +
-        this.nowHtml() + `
-        <div class="filterbar">
-          <input class="fb-search" placeholder="Hľadať názov, mesto, kontakt, USt-IdNr…" value="${UI.esc(this.filters.q)}"
-            oninput="Prt.setF('q',this.value)">
-          <select onchange="Prt.setF('is_construction',this.value)">
-            <option value="">Všetky typy prác</option>
-            <option value="true" ${this.filters.is_construction === 'true' ? 'selected' : ''}>Stavebné</option>
-            <option value="false" ${this.filters.is_construction === 'false' ? 'selected' : ''}>Dielenské</option>
-          </select>
-        </div>
-        <div class="count-line">${rows.length} ZÁZNAMOV</div>
-        ${rows.length === 0
-          ? UI.empty('clients', 'Žiadni odberatelia', 'Pridajte prvého nemeckého odberateľa.',
-              `<button class="btn btn-primary" onclick="Prt.form()">${Icon('plus')} Pridať odberateľa</button>`)
-          : `<div class="cards">${rows.map(p => this.card(p)).join('')}</div>`}`;
+        this.nowHtml() +
+        DataList.html(this.listConfig(rows));
+    },
+
+    /** Kompatibilita: starý filter typu prác ('true' | 'false' | ''). */
+    setF(k, v) {
+      if (k === 'is_construction') return DataList.set('odberatelia', 'typ', v === 'true' ? 'stavba' : v === 'false' ? 'dielna' : '');
+      if (k === 'q') return DataList.set('odberatelia', 'q', v || '');
+      return undefined;
+    },
+
+    /**
+     * Riadok zoznamu: odberateľ, overenie USt-IdNr (rovnaké ako v detaile
+     * a v „Čo spraviť teraz"), zákazky a pohľadávky z jeho faktúr.
+     * Do pohľadávok nepatria rozpracované a stornované faktúry.
+     */
+    listRow(p, today) {
+      const subs = this.subsOf(p.id);
+      const bezi = subs.filter(s => ['won', 'active'].includes(s.status)).length;
+      const inv = this.invoices.filter(i => i.partner_id === p.id && !['cancelled', 'draft'].includes(i.status));
+      const disc = DanubraPayment.discipline(inv, { today });
+      const v = DanubraOpp.verification({ verify_result: p.vies_result, company_vat: p.ust_idnr });
+      const noVat = !String(p.ust_idnr || '').trim();
+      // Čo horí: neplatné USt-IdNr, chýbajúce USt-IdNr, faktúry po splatnosti,
+      // nepreverené číslo. Poradie ako v „Čo spraviť teraz" (DanubraNow.clients),
+      // len peniaze po splatnosti sú hneď za chýbajúcim číslom.
+      const rank = v.state === 'invalid' ? 0 : noVat ? 1 : disc.overdue ? 2 : v.state !== 'valid' ? 3 : 4;
+      return {
+        id: p.id, p, subs, bezi, disc, v, noVat, rank,
+        name: p.name || '', city: p.city || '', country: p.country || '',
+        typ: p.is_construction ? 'stavba' : 'dielna',
+        outstanding: disc.outstanding / 100,
+      };
+    },
+
+    /** Konfigurácia zoznamu odberateľov pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const esc = UI.esc;
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const RT = { a: ['A', 'green'], b: ['B', 'amber'], c: ['C', 'red'] };
+
+      const ustCell = (r) => {
+        if (r.noVat) {
+          return `<span class="dl-two"><b class="prt-vat is-none">chýba</b><span class="dl-note is-red">bez neho nie §13b</span></span>`;
+        }
+        const st = r.v.state;
+        const note = st === 'valid'
+          ? `<span class="dl-note is-green">${Icon('check', 11)} overené${r.p.vies_checked_at ? ` ${L.fmtDay(r.p.vies_checked_at)}` : ''}</span>`
+          : st === 'invalid' ? '<span class="dl-note is-red">register ho nepozná</span>'
+            : st === 'unavailable' ? '<span class="dl-note is-amber">register neodpovedal</span>'
+              : '<span class="dl-note is-mute">neoverené</span>';
+        return `<span class="dl-two" title="${esc(r.v.label)}"><b class="prt-vat">${esc(r.p.ust_idnr)}</b>${note}</span>`;
+      };
+      const zakazkyCell = (r) => {
+        if (!r.subs.length) return '';
+        return `<span class="dl-two"><b class="dl-num">${r.subs.length}</b>${
+          r.bezi ? `<small>${r.bezi} ${Shell.plural(r.bezi, 'beží', 'bežia', 'beží')}</small>` : '<small>žiadna nebeží</small>'}</span>`;
+      };
+      const peniazeCell = (r) => {
+        const d = r.disc;
+        if (!d.open) return d.total ? `<span class="dl-ok">${Icon('check', 13)} všetko uhradené</span>` : '';
+        return `<span class="dl-two"><b class="dl-num">${esc(Money.format(d.outstanding))}</b>${d.overdue
+          ? `<span class="dl-note is-red">${d.overdue} po splatnosti · ${dni(d.oldestOverdueDays)}</span>`
+          : `<small>${d.open} ${Shell.plural(d.open, 'otvorená', 'otvorené', 'otvorených')}</small>`}</span>`;
+      };
+      const platbyCell = (r) => {
+        const rt = RT[r.p.rating];
+        const terms = r.p.payment_terms_days || 30;
+        const avg = r.disc.avgDaysToPay != null ? Math.round(r.disc.avgDaysToPay) : null;
+        return `<span class="dl-two is-wrap">${rt ? `<span title="${esc((RATING.find(x => x[0] === r.p.rating) || [])[1] || '')}">${UI.badge(rt[0], rt[1])}</span>` : '<b class="opp-none">bez hodnotenia</b>'}<small>${
+          avg != null ? `platí za ${avg} dní (splatnosť ${terms})` : `splatnosť ${terms} dní`}</small></span>`;
+      };
+
+      return {
+        id: 'odberatelia', storageKey: 'odberatelia', label: 'Odberatelia',
+        noun: ['odberateľ', 'odberatelia', 'odberateľov'],
+        rows,
+        rowClick: (r) => Prt.detail(r.id),
+        rowClass: (r) => (r.rank === 0 || (r.disc.overdue && r.disc.oldestOverdueDays > 30) ? 'is-hot' : r.rank <= 2 ? 'is-warn' : ''),
+        rowLabel: (r) => `Odberateľ ${r.name}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť odberateľa', run: (r) => Prt.detail(r.id) }],
+        columns: [
+          { key: 'firma', label: 'Odberateľ', width: 'minmax(190px, 1.8fr)', mobile: 'title',
+            render: (r) => `<span class="prt-name">${this.logo(r.p, 30)}<span class="dl-title"><b>${esc(r.name)}</b>${
+              r.p.contact_person || r.p.phone ? `<small>${[r.p.contact_person, r.p.phone].filter(Boolean).map(esc).join(' · ')}</small>` : ''}</span></span>`,
+            sortValue: (r) => r.name, sortLabel: 'Názov' },
+          { key: 'mesto', label: 'Mesto · typ', width: 'minmax(110px, 0.8fr)',
+            render: (r) => `<span class="dl-two"><b>${esc([r.city, r.country && r.country !== 'DE' ? r.country : ''].filter(Boolean).join(', ') || '—')}</b><small>${
+              r.p.is_construction ? 'stavebné' : 'dielenské'}</small></span>`,
+            sortValue: (r) => r.city },
+          { key: 'ust', label: 'USt-IdNr', width: '148px', mobileLabel: 'USt-IdNr',
+            tip: 'Nemecké IČ DPH odberateľa a či ho pozná register EÚ (VIES). Bez platného čísla nemôžeme fakturovať v reverse charge (§13b) — daň by sme zaplatili my. Overíte ho v detaile odberateľa.',
+            render: ustCell, sortValue: (r) => [r.rank <= 1 || r.rank === 3 ? r.rank : 4, r.p.ust_idnr || ''], sortLabel: 'USt-IdNr' },
+          { key: 'zakazky', label: 'Zákazky', width: '84px', mobileLabel: 'zákazky',
+            render: zakazkyCell, sortValue: (r) => r.subs.length || null, sortDir: -1 },
+          { key: 'peniaze', label: 'Otvorené faktúry', width: '150px', mobileLabel: 'neuhradené',
+            tip: 'Koľko nám odberateľ dlhuje za vystavené a ešte neuhradené faktúry (bez rozpracovaných a stornovaných). Červené je po splatnosti — s počtom dní najstaršej.',
+            render: peniazeCell, sortValue: (r) => r.disc.outstanding || null, sortDir: -1 },
+          { key: 'platby', label: 'Platby', width: '150px', hideBelow: 1060,
+            tip: 'Hodnotenie A/B/C (Vaše rozhodnutie, v detaile appka navrhne podľa faktúr), dohodnutá splatnosť a za koľko dní priemerne naozaj platí.',
+            render: platbyCell, sortValue: (r) => r.p.rating || null },
+        ],
+        sorts: [{ key: 'hori', label: 'Čo horí', value: (r) => [r.rank, -(r.disc.overdueAmount || 0), r.name] }],
+        sort: { key: 'hori', dir: 1 },
+        groups: [
+          { key: 'typ', label: 'Typ prác', value: 'typ', labelOf: (k) => (k === 'stavba' ? 'Stavebné' : 'Dielenské'), order: ['stavba', 'dielna'] },
+          { key: 'mesto', label: 'Mesto', value: 'city', emptyLabel: 'Bez mesta' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať odberateľa…', label: 'Hľadať názov, mesto, kontakt, USt-IdNr, telefón alebo e-mail',
+            fields: ['name', 'city', 'p.contact_person', 'p.ust_idnr', 'p.phone', 'p.email', 'p.website', 'p.source'] },
+          { key: 'typ', type: 'select', label: 'Typ prác', value: 'typ',
+            options: [['stavba', 'Stavebné'], ['dielna', 'Dielenské']], allLabel: 'Všetky typy prác' },
+          { key: 'mesto', type: 'select', label: 'Mesto', value: 'city', emptyLabel: 'Bez mesta', allLabel: 'Všetky mestá' },
+          { key: 'bez_ust', type: 'toggle', label: 'Bez USt-IdNr', test: (r) => r.noVat || r.v.state === 'invalid',
+            hint: 'Odberatelia bez USt-IdNr alebo s číslom, ktoré register EÚ nepozná. Bez platného čísla sa nedá fakturovať v reverse charge (§13b).' },
+          { key: 'po_splatnosti', type: 'toggle', label: 'Po splatnosti', test: (r) => r.disc.overdue > 0,
+            hint: 'Odberatelia, ktorí majú aspoň jednu faktúru po splatnosti.' },
+          { key: 'neoverene', type: 'toggle', label: 'Neoverené USt-IdNr', more: true, test: (r) => !r.noVat && r.v.state !== 'valid',
+            hint: 'Číslo je zapísané, ale register EÚ ho zatiaľ nepotvrdil (neoverené, neplatné alebo register neodpovedal).' },
+          { key: 'bezi', type: 'toggle', label: 'Má bežiacu zákazku', more: true, test: (r) => r.bezi > 0 },
+          { key: 'hodnotenie', type: 'select', label: 'Hodnotenie', value: (r) => r.p.rating, more: true,
+            options: RATING.map(x => [x[0], x[1]]), emptyLabel: 'Bez hodnotenia', allLabel: 'Všetky hodnotenia' },
+          { key: 'krajina', type: 'select', label: 'Krajina', value: 'country', emptyLabel: 'Nezadaná', allLabel: 'Všetky krajiny', more: true },
+          { key: 'dlh', type: 'range-number', label: 'Otvorené faktúry', value: 'outstanding', unit: '€', more: true },
+        ],
+        empty: { ico: 'clients', title: 'Žiadni odberatelia', sub: 'Pridajte prvého nemeckého odberateľa — alebo ho založte z dopytu.',
+          cta: `<button class="btn btn-primary" onclick="Prt.form()">${Icon('plus')} Pridať odberateľa</button>` },
+        export: {
+          name: ['odberatelia'],
+          columns: [
+            ['Odberateľ', r => r.name], ['USt-IdNr', r => r.p.ust_idnr], ['Overenie', r => (r.noVat ? 'chýba' : r.v.label)],
+            ['Mesto', r => r.city], ['Krajina', r => r.country], ['Typ prác', r => (r.p.is_construction ? 'Stavebné' : 'Dielenské')],
+            ['Kontakt', r => r.p.contact_person], ['Telefón', r => r.p.phone], ['E-mail', r => r.p.email],
+            ['Zákaziek', r => r.subs.length], ['Bežiacich', r => r.bezi],
+            ['Otvorené faktúry €', r => r.outstanding], ['Po splatnosti €', r => r.disc.overdueAmount / 100],
+            ['Splatnosť dní', r => r.p.payment_terms_days || 30], ['Platí priemerne za dní', r => r.disc.avgDaysToPay],
+            ['Hodnotenie', r => (r.p.rating || '').toUpperCase()],
+          ],
+        },
+      };
     },
 
     // ── Logo firmy ────────────────────────────────────────────────────────
@@ -133,32 +251,6 @@
         ${url ? `<img src="${UI.esc(url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
       </span>`;
     },
-
-    card(p) {
-      const subs = this.subsOf(p.id);
-      return `
-        <div class="acc-card card" role="button" tabindex="0" onclick="Prt.detail('${p.id}')">
-          <div class="acc-card-head">
-            <div class="w-head" style="min-width:0;">
-              ${this.logo(p)}
-              <div style="min-width:0;">
-                <div class="acc-name">${UI.esc(p.name)}</div>
-                <div class="acc-loc">${UI.esc(p.city || '')}${p.country ? `, ${UI.esc(p.country)}` : ''}${p.contact_person ? ` · ${UI.esc(p.contact_person)}` : ''}</div>
-              </div>
-            </div>
-            ${this.ratingBadge(p.rating) || UI.badge(p.is_construction ? 'Stavba' : 'Dielňa', p.is_construction ? 'amber' : 'blue')}
-          </div>
-          <div class="acc-meta">
-            ${p.ust_idnr ? `<span>${Icon('receipt', 14)} ${UI.esc(p.ust_idnr)}</span>`
-              : `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} bez USt-IdNr${UI.tip('USt-IdNr = nemecké IČ DPH firmy (napr. DE123456789). Bez platného čísla nemôžeme fakturovať bez nemeckej DPH (prenesenie daňovej povinnosti, §13b) a daň by sme zaplatili my.')}</span>`}
-            <span>${Icon('clock', 14)} splatnosť ${p.payment_terms_days || 30} dní</span>
-            ${subs.length ? `<span>${Icon('site', 14)} ${subs.length} ${subs.length === 1 ? 'zákazka' : 'zákaziek'}</span>` : ''}
-            ${p.factoring_eligible ? `<span style="color:var(--green);">${Icon('check', 14)} faktoring${UI.tip('Faktoring = faktúru tohto odberateľa môžeme predať faktoringovej spoločnosti a peniaze dostať hneď, nie až keď on zaplatí (za poplatok).')}</span>` : ''}
-          </div>
-        </div>`;
-    },
-
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
 
     /**
      * Rámcová zmluva s nemeckým odberateľom — dvojjazyčne.

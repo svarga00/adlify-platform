@@ -36,7 +36,7 @@
 
   const Mail = {
     boxes: [], messages: [], contacts: [], loaded: false,
-    box: null, folder: 'in', openId: null, q: '', unread: false, images: new Set(), cache: new Map(),
+    box: null, folder: 'in', openId: null, q: '', unread: false, attach: false, images: new Set(), cache: new Map(),
 
     async load() {
       const [b, m] = await Promise.all([
@@ -53,11 +53,48 @@
     unreadIn(boxId) { return this.messages.filter(m => m.mailbox_id === boxId && m.direction === 'in' && !m.seen).length; },
     setF(k, v) { this[k] = v; if (k === 'box' || k === 'folder') this.openId = null; Danubra.renderRoute(); },
 
+    /**
+     * E-maily v otvorenom priečinku po filtroch. Hľadanie je bez ohľadu na
+     * diakritiku a veľkosť písmen a každé slovo zvlášť („gruber angebot"
+     * nájde aj „Angebot … Hans Gruber") — rovnako ako v ostatných zoznamoch.
+     */
     rows() {
-      const q = String(this.q || '').toLowerCase();
+      const DL = window.DanubraDataList;
+      const q = String(this.q || '').trim();
+      const fields = [(m) => [m.subject, m.from_name, m.from_email, m.snippet,
+        ...(m.to_list || []).map(a => `${a.name || ''} ${a.address || ''}`),
+        ...(m.cc_list || []).map(a => `${a.name || ''} ${a.address || ''}`),
+        ...(m.attachments || []).map(a => a.name || '')].filter(Boolean).join(' ')];
+      const hit = (m) => (DL ? DL.matchSearch(m, q, fields) : fields[0](m).toLowerCase().includes(q.toLowerCase()));
       return this.messages.filter(m => m.mailbox_id === this.box && m.direction === this.folder
         && (!this.unread || !m.seen)
-        && (!q || `${m.subject} ${m.from_name || ''} ${m.from_email || ''} ${m.snippet || ''} ${(m.to_list || []).map(a => a.address).join(' ')}`.toLowerCase().includes(q)));
+        && (!this.attach || (m.attachments || []).length > 0)
+        && (!q || hit(m)));
+    },
+
+    /** Hľadanie pri písaní: prekreslí len zoznam, aby sa nestratil kurzor. */
+    search(v) {
+      clearTimeout(this._qt);
+      this._qt = setTimeout(() => { this.q = v; this.paintRows(); }, 160);
+    },
+    rowsHtml(rows) {
+      const filt = this.q || this.unread || this.attach;
+      const n = rows.length;
+      const head = filt ? `<div class="mail-count" aria-live="polite">${n ? `<b>${n}</b> ${Shell.plural(n, 'e-mail', 'e-maily', 'e-mailov')}${n > 300 ? ' — ukazuje sa prvých 300' : ''}` : ''}
+        <button type="button" class="dl-link" onclick="Mail.clearF()">${Icon('x', 13)}Zrušiť filtre</button></div>` : '';
+      return head + (n ? rows.slice(0, 300).map(m => this.rowHtml(m)).join('')
+        : `<div class="js-empty" style="padding:16px;">${filt ? 'Hľadaniu nič nezodpovedá.' : this.messages.some(m => m.mailbox_id === this.box) ? 'Nič tu nie je.' : 'Zatiaľ žiadne e-maily — kliknite Obnoviť.'}</div>`);
+    },
+    paintRows() {
+      const box = document.getElementById('mail-rows');
+      if (box) box.innerHTML = this.rowsHtml(this.rows());
+    },
+    clearF() {
+      this.q = ''; this.unread = false; this.attach = false;
+      const i = document.querySelector('.mail-tools input[type=search]');
+      if (i) i.value = '';
+      document.querySelectorAll('.mail-tools input[type=checkbox]').forEach(c => { c.checked = false; });
+      this.paintRows();
     },
 
     async view(el) {
@@ -93,11 +130,13 @@
           </aside>
           <section class="mail-list">
             <div class="mail-tools">
-              <input type="search" placeholder="Hľadať v e-mailoch…" value="${UI.esc(this.q)}" onchange="Mail.setF('q', this.value)">
-              <label class="chk"><input type="checkbox" ${this.unread ? 'checked' : ''} onchange="Mail.setF('unread', this.checked)"> Neprečítané</label>
+              <label class="mail-q">${Icon('search', 14)}<input type="search" placeholder="Hľadať odosielateľa, predmet, text…" value="${UI.esc(this.q)}"
+                aria-label="Hľadať v e-mailoch: odosielateľ, adresát, predmet, text, príloha" autocomplete="off"
+                oninput="Mail.search(this.value)" onchange="Mail.search(this.value)"></label>
+              <label class="chk"><input type="checkbox" ${this.unread ? 'checked' : ''} onchange="Mail.unread=this.checked;Mail.paintRows()"> Neprečítané</label>
+              <label class="chk"><input type="checkbox" ${this.attach ? 'checked' : ''} onchange="Mail.attach=this.checked;Mail.paintRows()"> S prílohou</label>
             </div>
-            ${rows.length ? rows.slice(0, 300).map(m => this.rowHtml(m)).join('')
-              : `<div class="js-empty" style="padding:16px;">${this.messages.some(m => m.mailbox_id === this.box) ? 'Nič tu nie je.' : 'Zatiaľ žiadne e-maily — kliknite Obnoviť.'}</div>`}
+            <div id="mail-rows">${this.rowsHtml(rows)}</div>
           </section>
           <section class="mail-read" id="mail-read">${open ? UI.loading() : `<div class="mail-empty">${Icon('mail', 28)}<span>Vyberte e-mail zo zoznamu</span></div>`}</section>
         </div>`;

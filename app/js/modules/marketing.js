@@ -93,47 +93,150 @@
           ['expenses', 'Výdavky', 'receipt', this.expenses.length],
         ], this.tab, k => `Mkt.setTab('${k}')`)}
         ${this.tab === 'listings' ? this.listingsHtml() : this.expensesHtml()}`;
+      if (this.tab === 'expenses') this.paintExpenseSum();
     },
 
+    // Zoznamy sú spoločný komponent (`DataList`): dovtedy tu boli karty
+    // inzerátov a holé riadky výdavkov bez filtrov a bez exportu.
     listingsHtml() {
-      if (!this.listings.length) {
-        return UI.empty('marketing', 'Žiadne inzeráty', 'Pridajte prvý inzerát a nastavte dátum obnovenia.',
-          `<button class="btn btn-primary" onclick="Mkt.listingForm()">${Icon('plus')} Pridať inzerát</button>`);
-      }
-      return `<div class="cards">${this.listings.map(l => `
-        <div class="acc-card card" role="button" tabindex="0" onclick="Mkt.listingForm('${l.id}')">
-          <div class="acc-card-head">
-            <div>
-              <div class="acc-name">${UI.esc(this.platformLabel(l.platform))}</div>
-              <div class="acc-loc">${UI.esc(l.listing_type || '')}${l.language ? ` · ${l.language.toUpperCase()}` : ''}</div>
-            </div>
-            ${this.badge(l.status)}
-          </div>
-          <div class="acc-meta">
-            ${l.published_at ? `<span>${Icon('calendar', 14)} od ${UI.date(l.published_at)}</span>` : ''}
-            ${l.renew_at ? `<span style="${l.status === 'to_renew' ? 'color:var(--amber);font-weight:700;' : ''}">
-              ${Icon('repeat', 14)} obnoviť ${UI.date(l.renew_at)}</span>` : ''}
-            ${UI.safeUrl(l.url) ? `<a href="${UI.safeUrl(l.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">otvoriť</a>` : ''}
-          </div>
-          ${l.performance_note ? `<div style="font-size:12px;color:var(--ink-sub);margin-top:6px;">${UI.esc(l.performance_note)}</div>` : ''}
-        </div>`).join('')}</div>`;
+      return DataList.html(this.listingsConfig(this.listings.map(l => this.listingRow(l))));
     },
+
+    /** Riadok inzerátu: koľko dní ostáva do obnovenia (záporné = po termíne). */
+    listingRow(l, today = (Danubra._dayISO ? Danubra._dayISO() : new Date().toISOString().slice(0, 10))) {
+      const left = l.renew_at ? DanubraDataList.daysBetween(today, String(l.renew_at).slice(0, 10)) : null;
+      return { id: l.id, l, platform: this.platformLabel(l.platform), left,
+        soon: l.status !== 'expired' && left != null && left <= 7 };
+    },
+
+    /** Konfigurácia zoznamu inzerátov pre `DataList`. */
+    listingsConfig(rows) {
+      const L = DanubraDataList;
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const renewCell = (r) => {
+        if (!r.l.renew_at) return '';
+        let note = '';
+        if (r.l.status === 'expired') note = '<small class="dl-note is-mute">skončil</small>';
+        else if (r.left < 0) note = `<small class="dl-note is-red">po termíne ${dni(-r.left)}</small>`;
+        else if (r.left === 0) note = '<small class="dl-note is-red">dnes</small>';
+        else note = `<small class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">o ${dni(r.left)}</small>`;
+        return `<span class="dl-two"><b class="dl-num">${L.fmtDay(r.l.renew_at)}</b>${note}</span>`;
+      };
+      const STI = (k) => { const i = STATUS.findIndex(s => s[0] === k); return i < 0 ? 9 : i; };
+      return {
+        id: 'inzercia', storageKey: 'inzercia', label: 'Inzeráty',
+        noun: ['inzerát', 'inzeráty', 'inzerátov'],
+        rows,
+        rowClick: (r) => Mkt.listingForm(r.id),
+        rowClass: (r) => (r.l.status === 'expired' ? 'is-muted' : r.soon && r.left <= 0 ? 'is-hot' : r.soon || r.l.status === 'to_renew' ? 'is-warn' : ''),
+        rowLabel: (r) => `Inzerát ${r.platform}`,
+        rowActions: [{ ico: 'edit', label: 'Upraviť inzerát', run: (r) => Mkt.listingForm(r.id) }],
+        columns: [
+          { key: 'portal', label: 'Portál', width: 'minmax(170px, 1.5fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.platform)}</b>${UI.safeUrl(r.l.url)
+              ? `<small><a href="${UI.safeUrl(r.l.url)}" target="_blank" rel="noopener">otvoriť inzerát</a></small>` : ''}</span>`,
+            sortValue: (r) => r.platform, csv: (r) => r.platform },
+          { key: 'co', label: 'Čo', width: 'minmax(130px, 1.2fr)', mobileLabel: '',
+            render: (r) => (r.l.listing_type || r.l.language ? `<span class="dl-two"><b>${UI.esc(r.l.listing_type || '—')}</b>${
+              r.l.language ? `<small>${UI.esc(String(r.l.language).toUpperCase())}</small>` : ''}</span>` : ''),
+            sortValue: (r) => r.l.listing_type || null, csv: (r) => r.l.listing_type || '' },
+          { key: 'od', label: 'Uverejnené', width: '104px', hideBelow: 900, mobileLabel: 'od',
+            render: (r) => (r.l.published_at ? `<span class="dl-num">${L.fmtDay(r.l.published_at)}</span>` : ''),
+            sortValue: (r) => r.l.published_at || null, sortDir: -1, csv: (r) => r.l.published_at || '' },
+          { key: 'obnova', label: 'Obnoviť do', width: '132px', mobileLabel: 'obnoviť',
+            tip: 'Deň, keď inzerát na portáli vyprší alebo ho treba znova zaplatiť, a koľko dní ostáva. Týždeň predtým appka inzerát sama označí „Na obnovenie".',
+            // Expirované na koniec, inak podľa dátumu — čo treba obnoviť najskôr, je hore.
+            render: renewCell, sortValue: (r) => [r.l.status === 'expired' ? 1 : 0, r.l.renew_at || null], csv: (r) => r.l.renew_at || '' },
+          { key: 'stav', label: 'Stav', width: '118px', mobile: 'badge',
+            render: (r) => this.badge(r.l.status), sortValue: (r) => STI(r.l.status),
+            csv: (r) => (STATUS.find(s => s[0] === r.l.status) || STATUS[0])[1] },
+          { key: 'pozn', label: 'Ako sa osvedčil', width: 'minmax(140px, 1.4fr)', hideBelow: 1040, hideOnMobile: true,
+            render: (r) => (r.l.performance_note ? `<span class="dl-note is-mute" title="${UI.esc(r.l.performance_note)}">${UI.esc(r.l.performance_note)}</span>` : ''),
+            csv: (r) => r.l.performance_note || '' },
+        ],
+        sort: { key: 'obnova', dir: 1 },
+        groups: [{ key: 'stav', label: 'Stav', value: (r) => r.l.status || 'active', labelOf: (k) => (STATUS.find(s => s[0] === k) || [k, k])[1],
+          tone: (k) => ({ active: 'green', to_renew: 'amber', expired: 'gray' }[k] || 'gray'), order: STATUS.map(s => s[0]) }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať portál, typ, poznámku…', label: 'Hľadať portál, typ inzerátu alebo poznámku',
+            fields: ['platform', 'l.listing_type', 'l.performance_note', 'l.url'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.l.status || 'active', sortOptions: false, allLabel: 'Všetky',
+            options: STATUS.map(s => [s[0], s[1]]),
+            presets: [{ label: 'Bežiace', value: ['active', 'to_renew'], hint: 'Aktívne a na obnovenie — bez expirovaných' }],
+            hint: 'Na obnovenie nastaví appka sama 7 dní pred dátumom „Obnoviť do". Expirovaný = inzerát skončil a už ho neobnovíte.' },
+          { key: 'portal', type: 'select', label: 'Portál', value: (r) => r.l.platform, allLabel: 'Všetky portály',
+            optionLabel: (v) => this.platformLabel(v), emptyLabel: 'Nezadaný' },
+          { key: 'skoro', type: 'toggle', label: 'Obnoviť do 7 dní', test: (r) => r.soon,
+            hint: 'Inzeráty, ktorým do dátumu „Obnoviť do" ostáva 7 dní alebo menej, aj tie po termíne (okrem expirovaných).' },
+          { key: 'jazyk', type: 'select', label: 'Jazyk', value: (r) => (r.l.language ? String(r.l.language).toUpperCase() : ''),
+            allLabel: 'Všetky jazyky', emptyLabel: 'Nezadaný', more: true },
+          { key: 'obnova', type: 'range-date', label: 'Obnoviť do', field: 'l.renew_at', more: true },
+          { key: 'od', type: 'range-date', label: 'Uverejnené', field: 'l.published_at', more: true },
+        ],
+        empty: { ico: 'marketing', title: 'Žiadne inzeráty', sub: 'Pridajte prvý inzerát a nastavte dátum obnovenia.',
+          cta: `<button class="btn btn-primary" onclick="Mkt.listingForm()">${Icon('plus')} Pridať inzerát</button>` },
+        export: {
+          name: ['inzeraty'],
+          columns: [
+            ['Portál', r => r.platform], ['Typ', r => r.l.listing_type || ''], ['Jazyk', r => String(r.l.language || '').toUpperCase()],
+            ['Stav', r => (STATUS.find(s => s[0] === r.l.status) || STATUS[0])[1]], ['Uverejnené', r => r.l.published_at || ''],
+            ['Obnoviť do', r => r.l.renew_at || ''], ['Dní do obnovenia', r => r.left], ['Odkaz', r => r.l.url || ''],
+            ['Ako sa osvedčil', r => r.l.performance_note || ''],
+          ],
+        },
+      };
+    },
+
+    channelLabel(k) { return (CHANNELS.find(c => c[0] === k) || [, k])[1] || '—'; },
 
     expensesHtml() {
-      if (!this.expenses.length) {
-        return UI.empty('euro', 'Žiadne výdavky', 'Zapíšte, koľko a kam ide marketingový rozpočet.',
-          `<button class="btn btn-primary" onclick="Mkt.expenseForm()">${Icon('plus')} Pridať výdavok</button>`);
-      }
-      return this.expenses.map(e => `
-        <div class="list-row">
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc((CHANNELS.find(c => c[0] === e.channel) || [, e.channel])[1] || '—')}</strong>
-            <span style="color:var(--ink-mute);"> · ${UI.date(e.spent_at)}</span>
-            ${e.note ? `<span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(e.note)}</span>` : ''}
-          </span>
-          <strong style="font-variant-numeric:tabular-nums;">${UI.money(e.amount)}</strong>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Archivovať výdavok" aria-label="Archivovať výdavok" onclick="Mkt.delExpense('${e.id}')">${Icon('archive', 15)}</button>
-        </div>`).join('');
+      return `<div class="mkt-sum" id="mkt-exp-sum" aria-live="polite"></div>`
+        + DataList.html(this.expensesConfig(this.expenses.map(e => ({ id: e.id, e, channel: this.channelLabel(e.channel), amount: Number(e.amount) || 0 }))));
+    },
+
+    /** Súčet výdavkov, ktoré sú práve vidieť (po filtroch). */
+    paintExpenseSum(rows) {
+      const el = document.getElementById('mkt-exp-sum');
+      if (!el) return;
+      const list = rows || (window.DataList ? DataList.visible('vydavky') : []);
+      const all = this.expenses.length;
+      el.innerHTML = list.length ? `Spolu za ${list.length === all ? 'všetky výdavky' : `${list.length} z ${all} výdavkov`}: <b>${UI.money(list.reduce((a, r) => a + r.amount, 0))}</b>` : '';
+    },
+
+    /** Konfigurácia zoznamu výdavkov pre `DataList`. */
+    expensesConfig(rows) {
+      const L = DanubraDataList;
+      return {
+        id: 'vydavky', storageKey: 'vydavky', label: 'Výdavky',
+        noun: ['výdavok', 'výdavky', 'výdavkov'],
+        rows,
+        rowLabel: (r) => `Výdavok ${r.channel} ${L.fmtDay(r.e.spent_at)}`,
+        rowActions: [{ ico: 'archive', label: 'Archivovať výdavok', run: (r) => Mkt.delExpense(r.id) }],
+        onChange: (state, visible) => this.paintExpenseSum(visible),
+        columns: [
+          { key: 'datum', label: 'Dátum', width: '110px', mobileLabel: '',
+            render: (r) => `<span class="dl-num">${L.fmtDay(r.e.spent_at)}</span>`, sortValue: (r) => r.e.spent_at || null, sortDir: -1,
+            csv: (r) => r.e.spent_at || '' },
+          { key: 'kanal', label: 'Kanál', width: 'minmax(150px, 1fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.channel)}</b></span>`, sortValue: (r) => r.channel },
+          { key: 'pozn', label: 'Poznámka', width: 'minmax(160px, 2fr)', mobile: 'line',
+            render: (r) => (r.e.note ? `<span class="dl-note is-mute">${UI.esc(r.e.note)}</span>` : ''), csv: (r) => r.e.note || '' },
+          { key: 'suma', label: 'Suma', width: '110px', align: 'right', mobile: 'badge',
+            render: (r) => `<b class="dl-num">${UI.money(r.amount)}</b>`, sortValue: (r) => r.amount, sortDir: -1 },
+        ],
+        sort: { key: 'datum', dir: -1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať v poznámke…', label: 'Hľadať v poznámke alebo kanáli', fields: ['channel', 'e.note'] },
+          { key: 'kanal', type: 'multi', label: 'Kanál', value: (r) => r.e.channel, sortOptions: false, allLabel: 'Všetky',
+            options: CHANNELS.map(c => [c[0], c[1]]) },
+          { key: 'datum', type: 'range-date', label: 'Obdobie', field: 'e.spent_at',
+            hint: 'Podľa dátumu výdavku. „Tento mesiac" = to isté, čo sa ráta do mesačného rozpočtu.' },
+          { key: 'suma', type: 'range-number', label: 'Suma', value: 'amount', unit: '€', more: true },
+        ],
+        empty: { ico: 'euro', title: 'Žiadne výdavky', sub: 'Zapíšte, koľko a kam ide marketingový rozpočet.',
+          cta: `<button class="btn btn-primary" onclick="Mkt.expenseForm()">${Icon('plus')} Pridať výdavok</button>` },
+        export: { name: ['marketing-vydavky'] },
+      };
     },
 
     setTab(t) { this.tab = t; Danubra.renderRoute(); },

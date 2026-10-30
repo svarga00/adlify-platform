@@ -254,22 +254,7 @@
 
       el.innerHTML = Danubra.header(Danubra.labelOf('hoursheet'),
         `KW ${s.week}/${s.year} · ${UI.date(s.from)} – ${UI.date(s.to)}${UI.tip('KW (Kalenderwoche) = poradové číslo týždňa v roku, tak ho počítajú Nemci. Výkaz je vždy za jeden týždeň od pondelka do nedele a za jednu zákazku — celú alebo len jednu partiu z nej. Predvolene sa otvorí minulý týždeň.')}`) + `
-        <div class="filterbar">
-          <select onchange="HS.setCrew(this.value)" style="min-width:220px;" aria-label="Partia">
-            <option value="" ${this.crewId ? '' : 'selected'}>Celá zákazka (všetci ľudia)</option>
-            ${this.crews.map(c => `<option value="${c.id}" ${c.id === this.crewId ? 'selected' : ''}>
-              ${UI.esc(c.name)}</option>`).join('')}
-          </select>
-          <div class="pillbar">
-            <button class="pill" onclick="HS.shift(-1)" title="Predošlý týždeň">${Icon('back', 15)}</button>
-            <span class="pill active is-static">KW ${s.week} / ${s.year}</span>
-            <button class="pill" onclick="HS.shift(1)" title="Ďalší týždeň">${Icon('chevron', 15)}</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="HS.thisWeek()">Aktuálny týždeň</button>
-          ${site && (this.crewId ? viac === 1 : true) ? `<span class="muted-sm">${Icon('site', 13)} ${UI.esc(site.title)}${
-            this.crewId ? UI.tip('Zákazka sa zistila z nasadení a hodín partie v tomto týždni.') : ''}</span>
-            ${this.crewId ? '' : `<button class="btn btn-ghost btn-sm" onclick="HS.setSub('')">Iná zákazka</button>`}` : ''}
-        </div>
+        ${this.barHtml(s, site, viac)}
 
         ${!site ? pick(!this.crewId ? 'Vyberte zákazku, za ktorú je výkaz.'
           : viac > 1 ? 'Partia v tomto týždni robila na viacerých zákazkách — každá má svoj výkaz. Vyberte, za ktorú je tento.'
@@ -291,6 +276,63 @@
           Výkaz je len papier na tlač. Hodiny aj podpis majstra sa zapisujú
           na jednom mieste — „Zapísať hodiny" — a z tej istej evidencie vzniká faktúra.
         </p>`;
+    },
+
+    /**
+     * Horná lišta v štýle zoznamov (`DataList`): Partia, Zákazka a týždeň
+     * s posunom. Výkaz nie je zoznam — je to jeden papier za jednu zákazku
+     * a jeden týždeň —, preto len lišta, bez tabuľky riadkov. Dovtedy tu bol
+     * obyčajný výber partie a pilulky týždňa.
+     */
+    barHtml(s, site, viac) {
+      this.bindBar();
+      const c = this.crew();
+      const tick = Icon('check', 14);
+      const opt = (on, onclick, label, sub) => `<button type="button" class="dl-opt${on ? ' on' : ''}" onclick="${onclick}"
+          role="menuitemradio" aria-checked="${on}"><i class="dl-tick">${tick}</i><span>${UI.esc(label)}${
+          sub ? ` <small class="hs-opt-sub">${UI.esc(sub)}</small>` : ''}</span></button>`;
+      const dd = (key, label, value, on, body) => `<details class="dl-dd${on ? ' on' : ''}" data-hs-dd="${key}">
+          <summary class="dl-dd-btn" aria-label="${UI.esc(label)}${value ? `: ${UI.esc(value)}` : ''}">
+            <span>${UI.esc(label)}</span>${value ? `<em>${UI.esc(value)}</em>` : ''}${Icon('chevron', 12)}</summary>
+          <div class="dl-pop" role="group" aria-label="${UI.esc(label)}">${body}</div></details>`;
+
+      const crewDd = dd('crew', 'Partia', c ? c.name : 'Celá zákazka', !!c,
+        opt(!this.crewId, "HS.setCrew('')", 'Celá zákazka (všetci ľudia)')
+        + this.crews.map(x => opt(x.id === this.crewId, `HS.setCrew('${x.id}')`, x.name)).join(''));
+
+      // Zákazka sa vyberá len tam, kde je z čoho: celá zákazka (bez partie)
+      // alebo partia na viacerých zákazkách v týždni. Inak sa zistí sama.
+      const canPick = !this.crewId || viac > 1;
+      const choices = this.siteChoices();
+      const subDd = canPick
+        ? dd('sub', 'Zákazka', site ? site.title : '', !!site,
+          choices.map(x => opt(site && x.id === site.id, `HS.setSub('${x.id}')`, x.title, x.site_city)).join('')
+          + (site && !this.crewId ? `<div class="dl-pop-foot"><button type="button" class="dl-link" onclick="HS.setSub('')">Zrušiť výber</button></div>` : ''))
+        : (site ? `<span class="hs-site">${Icon('site', 13)} ${UI.esc(site.title)}${
+          UI.tip('Zákazka sa zistila z nasadení a hodín partie v tomto týždni.')}</span>` : '');
+
+      const now = DanubraHourSheet.isoWeek(new Date());
+      const isNow = now.year === s.year && now.week === s.week;
+      return `<div class="dl-bar card hs-bar no-print" role="search" aria-label="Výber výkazu">
+          ${crewDd}${subDd}
+          <div class="hs-week" role="group" aria-label="Týždeň">
+            <button type="button" class="dl-dd-btn hs-step" onclick="HS.shift(-1)" title="Predošlý týždeň" aria-label="Predošlý týždeň">${Icon('back', 14)}</button>
+            <span class="hs-kwbox"><b>KW ${s.week} / ${s.year}</b><small>${UI.esc(DanubraDataList.rangeText(s.from, s.to))}</small></span>
+            <button type="button" class="dl-dd-btn hs-step" onclick="HS.shift(1)" title="Ďalší týždeň" aria-label="Ďalší týždeň">${Icon('chevron', 14)}</button>
+          </div>
+          ${isNow ? '' : `<button type="button" class="dl-link" onclick="HS.thisWeek()">Aktuálny týždeň</button>`}
+          <div class="dl-right"><span class="dl-count">${s.rows.length} ${Shell.plural(s.rows.length, 'človek', 'ľudia', 'ľudí')} · <b>${
+            UI.esc(DanubraHourSheet.hoursText(s.total) || '0')} h</b></span></div>
+        </div>`;
+    },
+
+    /** Rozbalené okno v lište sa zavrie klikom mimo neho alebo Esc. */
+    bindBar() {
+      if (this._barBound || typeof document === 'undefined') return;
+      this._barBound = true;
+      const close = (except) => document.querySelectorAll('details[data-hs-dd][open]').forEach(d => { if (d !== except) d.open = false; });
+      document.addEventListener('click', (e) => { const t = e.target; close(t && t.closest ? t.closest('details[data-hs-dd]') : null); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(null); });
     },
 
     /**

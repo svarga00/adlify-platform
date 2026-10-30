@@ -35,44 +35,88 @@
       });
     },
 
+    /** Konfigurácia zoznamu ľudí pre `DataList`. */
+    listConfig(items, admin) {
+      const modName = (k) => { const mm = P().MODULES.find(x => x.key === k); return mm ? mm.label : k; };
+      const roleIdx = (k) => { const i = P().ROLES.findIndex(r => r[0] === k); return i < 0 ? 9 : i; };
+      const modsCell = (m) => {
+        if (m.active === false) return '<span class="dl-note is-mute">bez prístupu</span>';
+        if (m.role === 'admin') return '<span class="dl-note is-green">všetko</span>';
+        const mods = P().modulesOf(m);
+        if (!mods.length) return '<span class="dl-note is-mute">nič</span>';
+        const own = (m.modules || []).filter(Boolean).length > 0;
+        return `<span class="mem-mods" title="${UI.esc(mods.map(modName).join(', '))}">${mods.slice(0, 3).map(k => `<span class="dl-tag mem-mod">${UI.esc(modName(k))}</span>`).join('')}${
+          mods.length > 3 ? `<span class="mem-more">+${mods.length - 3}</span>` : ''}${own ? '<small class="dl-note is-amber">na mieru</small>' : ''}</span>`;
+      };
+      return {
+        id: 'clenovia', storageKey: 'clenovia', label: 'Používatelia',
+        noun: ['človek', 'ľudia', 'ľudí'],
+        rows: items,
+        rowClick: admin ? (m) => Mem.form(m.id) : null,
+        rowClass: (m) => (m.active === false ? 'is-muted' : ''),
+        rowLabel: (m) => `Používateľ ${m.full_name || m.email || ''}`,
+        rowActions: admin ? [{ ico: 'edit', label: 'Upraviť práva', run: (m) => Mem.form(m.id) }] : [],
+        columns: [
+          { key: 'meno', label: 'Meno', width: 'minmax(170px, 1.4fr)', mobile: 'title',
+            render: (m) => {
+              const ja = Danubra.me && Danubra.me.id === m.id;
+              return `<span class="mem-who"><span class="t-who">${UI.esc((m.full_name || m.email || '?').slice(0, 2).toUpperCase())}</span>
+                <span class="dl-title"><b>${UI.esc(m.full_name || m.email || 'bez mena')}${ja ? ' <em class="mem-me">ja</em>' : ''}</b>${
+                  m.note ? `<small title="${UI.esc(m.note)}">${UI.esc(m.note)}</small>` : ''}</span></span>`;
+            },
+            sortValue: (m) => m.full_name || m.email || '', csv: (m) => m.full_name || '' },
+          { key: 'email', label: 'E-mail', width: 'minmax(160px, 1.3fr)', mobileLabel: '',
+            render: (m) => (m.email ? `<a href="mailto:${UI.esc(m.email)}">${UI.esc(m.email)}</a>` : ''),
+            sortValue: (m) => m.email || null, csv: (m) => m.email || '' },
+          { key: 'rola', label: 'Rola', width: '128px', mobile: 'badge',
+            tip: 'Rola je hotová predvoľba, na ktoré obrazovky človek smie. Na mieru = upravená zaškrtnutím.',
+            render: (m) => UI.badge(P().roleLabel(m.role), m.role === 'admin' ? 'red' : m.role === 'custom' ? 'gray' : 'blue'),
+            sortValue: (m) => roleIdx(m.role), csv: (m) => P().roleLabel(m.role) },
+          { key: 'moduly', label: 'Na čo má', width: 'minmax(200px, 2fr)', mobile: 'line',
+            tip: 'Obrazovky, na ktoré človek smie. Ukážte myšou — povie všetky. Schvaľovanie faktúr, výnimky a používateľov má vždy len administrátor.',
+            render: modsCell, sortValue: (m) => (m.active === false ? -1 : P().modulesOf(m).length), sortDir: -1,
+            csv: (m) => P().describe(m), sortLabel: 'Počet obrazoviek' },
+          { key: 'aktivny', label: 'Prístup', width: '104px', mobileLabel: '',
+            tip: 'Vypnutý = do appky sa už nedostane. Nič sa nemaže — jeho úlohy, poznámky a schválenia zostanú aj s menom.',
+            render: (m) => (m.active === false ? '<span class="dl-note is-mute">vypnutý</span>' : `<span class="dl-ok">${Icon('check', 13)} má prístup</span>`),
+            sortValue: (m) => (m.active === false ? 1 : 0), csv: (m) => (m.active === false ? 'vypnutý' : 'má prístup') },
+        ],
+        sort: { key: 'rola', dir: 1 },
+        sorts: [{ key: 'pridany', label: 'Pridaný', value: (m) => m.created_at || null }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať meno alebo e-mail…', label: 'Hľadať meno, e-mail alebo poznámku',
+            fields: ['full_name', 'email', 'note'] },
+          { key: 'rola', type: 'multi', label: 'Rola', value: 'role', sortOptions: false, allLabel: 'Všetky role',
+            options: P().ROLES.map(r => [r[0], r[1]]) },
+          { key: 'aktivny', type: 'select', label: 'Prístup', value: (m) => (m.active === false ? 'off' : 'on'), allLabel: 'Všetci',
+            options: [['on', 'Má prístup'], ['off', 'Vypnutý']] },
+          { key: 'modul', type: 'select', label: 'Má obrazovku', value: (m) => P().modulesOf(m), allLabel: 'Akúkoľvek', more: true,
+            options: P().MODULES.map(x => [x.key, x.label]), sortOptions: false,
+            hint: 'Kto smie na zvolenú obrazovku (podľa roly alebo zaškrtnutia na mieru).' },
+          { key: 'namieru', type: 'toggle', label: 'Práva na mieru', test: (m) => m.role !== 'admin' && (m.modules || []).filter(Boolean).length > 0, more: true,
+            hint: 'Ľudia, ktorým niekto upravil zaškrtnutie oproti role.' },
+        ],
+        empty: { ico: 'clients', title: 'Zatiaľ žiadny používateľ', sub: 'Pridajte seba ako administrátora a potom ostatných.',
+          cta: admin ? `<button class="btn btn-primary" onclick="Mem.form()">${Icon('plus')} Pridať človeka</button>` : '' },
+        export: {
+          name: ['pouzivatelia'],
+          columns: [
+            ['Meno', m => m.full_name || ''], ['E-mail', m => m.email || ''], ['Rola', m => P().roleLabel(m.role)],
+            ['Prístup', m => (m.active === false ? 'vypnutý' : 'má prístup')], ['Na čo má', m => P().describe(m)],
+            ['Obrazovky', m => P().modulesOf(m).map(modName).join(', ')], ['Poznámka', m => m.note || ''],
+          ],
+        },
+      };
+    },
+
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.rows();
       const admin = Danubra.isAdmin();
       const prvy = P().bootstrap(this.items);
 
       Danubra.setActions(admin
         ? `<button class="btn btn-primary btn-sm" onclick="Mem.form()">${Icon('plus')} Pridať človeka</button>`
         : '');
-
-      const card = (m) => {
-        const ja = Danubra.me && Danubra.me.id === m.id;
-        const mods = P().modulesOf(m);
-        return `
-          <div class="card card-pad list-card${m.active === false ? ' is-off' : ''}"
-               ${admin ? `role="button" tabindex="0" onclick="Mem.form('${m.id}')"` : ''}>
-            <div class="card-head">
-              <div class="card-title">
-                <span class="t-who">${UI.esc((m.full_name || m.email || '?').slice(0, 2).toUpperCase())}</span>
-                ${UI.esc(m.full_name || m.email || 'bez mena')}${ja ? ' <em class="mem-me">ja</em>' : ''}
-              </div>
-              ${m.active === false ? UI.badge('vypnutý', 'gray')
-                : UI.badge(P().roleLabel(m.role), m.role === 'admin' ? 'red' : 'blue')}
-            </div>
-            <div class="meta-row">
-              ${m.email ? `<span>${Icon('mail', 14)} ${UI.esc(m.email)}</span>` : ''}
-              <span>${Icon('shield', 14)} ${UI.esc(P().describe(m))}</span>
-            </div>
-            ${(m.modules || []).length ? `<div class="ad-promise">
-              ${mods.slice(0, 8).map(k => {
-                const mm = P().MODULES.find(x => x.key === k);
-                return `<span>${UI.esc(mm ? mm.label : k)}</span>`;
-              }).join('')}
-              ${mods.length > 8 ? `<span>+${mods.length - 8}</span>` : ''}
-            </div>` : ''}
-            ${m.note ? `<p class="card-note">${UI.esc(m.note)}</p>` : ''}
-          </div>`;
-      };
 
       el.innerHTML = Danubra.header(Danubra.labelOf('members'),
         'Kto smie do appky a na čo')
@@ -82,20 +126,9 @@
             nezabudnite pridať aj seba ako administrátora.</div>` : '')
         + (!admin ? `<div class="regimebox" style="margin-bottom:14px;">
             Práva mení len administrátor. Toto je na pozretie, kto čo má.</div>` : '')
-        + Shell.list({
-          rows, total: this.items.length, render: card, layout: 'cards',
-          emptyIcon: 'clients', emptyTitle: 'Zatiaľ žiadny používateľ',
-          emptySub: 'Pridajte seba ako administrátora a potom ostatných.',
-          filter: {
-            search: { value: this.filters.q, placeholder: 'Hľadať meno alebo e-mail…',
-              oninput: 'Mem.setF("q", this.value)' },
-            selects: [{
-              value: this.filters.role, label: 'Rola',
-              onchange: 'Mem.setF("role", this.value)',
-              options: [['', 'Všetky role'], ...P().ROLES.map(r => [r[0], r[1]])],
-            }],
-          },
-        })
+        // Zoznam je spoločný komponent (`DataList`): dovtedy tu boli karty
+        // s hľadaním a jedným výberom roly, bez stĺpcov a bez filtra prístupu.
+        + DataList.html(this.listConfig(this.items, admin))
         + `<div class="form-section">Čo môže len administrátor${UI.tip('Administrátor je rola s plnými právami. '
              + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom — a toto právo sa nedá dať nikomu inému.')}</div>
            <p class="card-note" style="margin:0 0 8px;">Toto sa nedá prideliť nikomu

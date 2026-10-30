@@ -287,17 +287,160 @@
      * a pritom je to hlavná vec na obrazovke: koho naberáme, koľkých už
      * máme a čo chýba. Bežiace a rozpracované sú karty, uzavreté len riadky.
      */
+    //
+    // Dnes je to spoločný zoznam (`DataList`) v riadkoch: koľko treba a koľko
+    // máme, termín s odpočtom, inzeráty a čo chýba — s filtrami a exportom.
+    // Uzavreté nezmizli, sú za filtrom „Stav". Karty (`card`, `row`) zostávajú
+    // pre iné miesta.
     plansHtml() {
       if (!this.plans.length) return '';
-      const PORADIE = { active: 0, draft: 1, paused: 2 };
-      const otvorene = this.plans.filter(p => p.status in PORADIE)
-        .sort((a, b) => PORADIE[a.status] - PORADIE[b.status]
-          || String(a.start_date || '9999').localeCompare(String(b.start_date || '9999')));
-      const zavrete = this.plans.filter(p => !(p.status in PORADIE));
-      return `<div class="form-section">Náborové plány · ${otvorene.length} otvorených${UI.tip('Na karte: „nabraných" = kandidáti z náboru v stave Pripravený alebo Nasadený, „v procese" = ešte rozpracovaní. Marža = čo fakturujeme mínus čo platíme živnostníkovi, za hodinu. Podklady = texty a otázky, ktoré pripravila appka.')}</div>
-        <div class="pcards">${otvorene.map(p => this.card(p)).join('')}</div>
-        ${zavrete.length ? `<details class="pclosed"><summary>Uzavreté (${zavrete.length})</summary>
-          ${zavrete.map(p => this.row(p)).join('')}</details>` : ''}`;
+      const otvorene = this.plans.filter(p => this.OPEN.includes(p.status)).length;
+      const today = Danubra._dayISO();
+      const sched = this.weekSchedule();
+      return `<div class="form-section">Náborové plány · ${otvorene} otvorených${UI.tip('V riadku: „z … nabraných" = kandidáti z náboru v stave Pripravený alebo Nasadený, pod tým koľkí sú ešte v procese. Termín je nástup a odpočet do neho. Inzeráty = koľko inzerátov k náboru beží. Marža = čo fakturujeme mínus čo platíme živnostníkovi, za hodinu.')}</div>
+        ${DataList.html(this.listConfig(this.plans.map(p => this.listRow(p, today, sched))))}`;
+    },
+
+    /** Stavy otvorených náborov — predvolený filter zoznamu. */
+    OPEN: ['draft', 'active', 'paused'],
+
+    /** Riadok zoznamu: nábor a to, čo sa o ňom počíta raz za vykreslenie. */
+    listRow(p, today, sched) {
+      const L = DanubraDataList;
+      const pr = this.progress(p);
+      const done = this.nabrani(p.id);
+      const need = Number(p.headcount) || 0;
+      const inProc = this.candidates.filter(c => c.plan_id === p.id && !c.outcome
+        && !['ready', 'placed'].includes(c.status)).length;
+      const ads = (this.ads || []).filter(a => a.plan_id === p.id);
+      const running = ads.filter(a => DanubraAds.isRunning(a, today));
+      const sub = (this.subcontracts || []).find(s => s.id === p.subcontract_id) || null;
+      const s = sched === undefined ? this.weekSchedule() : sched;
+      const sp = s && s.projects ? s.projects.find(x => x.key === p.id) : null;
+      const open = this.OPEN.includes(p.status);
+      const left = p.start_date ? L.daysBetween(today, String(p.start_date).slice(0, 10)) : null;
+      const dl = p.deadline ? L.daysBetween(today, String(p.deadline).slice(0, 10)) : null;
+      const full = need > 0 && done >= need;
+      // Nestíha: plán po týždňoch hovorí, že ľudí nebudeme mať k nástupu,
+      // alebo už je po termíne „dokedy musím mať ľudí" a nie sú všetci.
+      const late = open && !full && (!!(sp && sp.late) || (dl != null && dl < 0) || (left != null && left < 0));
+      const noAds = p.status === 'active' && !running.length && !full;
+      return {
+        id: p.id, p, pr, done, need, inProc, ads, running, sub, sp, open, left, dl, full, late, noAds,
+        title: p.title || 'Nábor', trade: this.tradeName(p.trade_key), city: p.city || '',
+        marza: this.marzaText(p),
+        // Čo chýba: najprv to, čo bráni spusteniu, potom inzerát.
+        missing: !open ? '' : !pr.ready ? `Doplňte: ${String(pr.next.title || '').toLowerCase()}`
+          : noAds ? 'Nebeží žiadny inzerát' : '',
+        hot: late,
+      };
+    },
+
+    /** Konfigurácia zoznamu náborov pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const ORDER = ['active', 'draft', 'paused', 'done', 'cancelled'];
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const termCell = (r) => {
+        if (!r.p.start_date) return r.open ? '<span class="dl-note is-amber">nástup chýba</span>' : '';
+        let note = '';
+        if (r.open && !r.full) {
+          if (r.sp && r.sp.late) note = `<span class="dl-note is-red">nestihne sa — ľudia ${UI.esc(L.fmtDay(r.sp.ready, { year: false }))}</span>`;
+          else if (r.left < 0) note = `<span class="dl-note is-red">nástup bol pred ${dni(-r.left)}</span>`;
+          else if (r.left === 0) note = '<span class="dl-note is-red">nástup dnes</span>';
+          else note = `<span class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">o ${dni(r.left)}</span>`;
+        }
+        return `<span class="dl-two"><b>${L.fmtDay(r.p.start_date)}</b>${note}</span>`;
+      };
+      const peopleCell = (r) => {
+        const pct = r.need ? Math.min(100, Math.round(100 * r.done / r.need)) : 0;
+        return `<span class="pl-people">
+          <span><b class="${r.full ? 't-ok' : ''}">${r.done} z ${r.need || '?'}</b> nabraných</span>
+          <span class="pl-prog"><i style="width:${pct}%"${r.full ? ' class="is-ok"' : ''}></i></span>
+          ${r.inProc ? `<small>${r.inProc} v procese</small>` : ''}</span>`;
+      };
+      const adsCell = (r) => {
+        if (!r.ads.length) return r.open ? '<span class="dl-note is-mute">žiadny</span>' : '';
+        return `<span class="dl-two"><b>${r.running.length} ${Shell.plural(r.running.length, 'beží', 'bežia', 'beží')}</b>${
+          r.ads.length > r.running.length ? `<small>z ${r.ads.length}</small>` : ''}</span>`;
+      };
+      return {
+        id: 'nabor', storageKey: 'nabor', label: 'Náborové plány',
+        noun: ['nábor', 'nábory', 'náborov'],
+        rows,
+        rowClick: (r) => Hire.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.missing ? 'is-warn' : !r.open ? 'is-muted' : ''),
+        rowLabel: (r) => `Nábor ${r.title}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť nábor', run: (r) => Hire.detail(r.id) }],
+        columns: [
+          { key: 'nazov', label: 'Nábor', width: 'minmax(180px, 1.6fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.title)}</b>${[r.trade !== '—' ? r.trade : '', r.city]
+              .filter(Boolean).length ? `<small>${[r.trade !== '—' ? r.trade : '', r.city].filter(Boolean).map(UI.esc).join(' · ')}</small>` : ''}</span>`,
+            sortValue: (r) => r.title, sortLabel: 'Názov' },
+          { key: 'zakazka', label: 'Zákazka', width: 'minmax(110px, .9fr)',
+            render: (r) => (r.sub ? Danubra.link('subcontract', r.sub.id, r.sub.title || r.sub.contract_number)
+              : r.open ? '<span class="dl-note is-mute">do zásoby</span>' : ''),
+            sortValue: (r) => (r.sub ? r.sub.title : null) },
+          { key: 'ludia', label: 'Ľudia', width: '124px', mobileLabel: 'ľudia',
+            tip: 'Koľkých z koľkých už máme (kandidáti v stave Pripravený alebo Nasadený) a koľkí sú ešte v procese.',
+            render: peopleCell, sortValue: (r) => (r.need ? r.done / r.need : null) },
+          { key: 'termin', label: 'Nástup', width: '124px', mobileLabel: 'nástup',
+            tip: 'Deň nástupu a koľko do neho zostáva. Červené: podľa plánu po týždňoch sa to nestihne, alebo je termín už za nami.',
+            render: termCell, sortValue: (r) => r.p.start_date },
+          { key: 'inzeraty', label: 'Inzeráty', width: '84px', mobileLabel: 'inzeráty',
+            render: adsCell, sortValue: (r) => r.running.length, sortDir: -1 },
+          { key: 'marza', label: 'Sadzba · marža', width: '124px', hideBelow: 1240,
+            render: (r) => (r.p.offer_rate ? `<span class="dl-two"><b>${UI.esc(String(r.p.offer_rate).replace('.', ','))} €/h</b>${
+              r.marza ? `<small class="${r.marza.ok ? 't-ok' : 't-bad'}">marža ${UI.esc(r.marza.text)}</small>` : ''}</span>` : ''),
+            sortValue: (r) => Number(r.p.offer_rate) || null, sortDir: -1 },
+          { key: 'stav', label: 'Stav', width: '100px', mobile: 'badge',
+            render: (r) => this.badge(r.p.status), sortValue: (r) => ORDER.indexOf(r.p.status) },
+          { key: 'chyba', label: 'Čo chýba', width: 'minmax(120px, 1fr)', mobile: 'line',
+            render: (r) => (r.missing ? `<span class="dl-note ${r.pr.ready ? 'is-amber' : 'is-red'}">${Icon('alert', 12)} ${UI.esc(r.missing)}</span>`
+              : r.open ? `<span class="dl-ok">${Icon('check', 13)} nič</span>` : ''),
+            // Čo horí hore: nestíha termín, potom čo nemá doplnené alebo
+            // nemá inzerát, potom podľa nástupu; uzavreté na koniec.
+            sortValue: (r) => [r.open ? 0 : 1, r.late ? 0 : 1, r.missing ? 0 : 1, r.p.start_date || '9999-12-31', r.title],
+            sortLabel: 'Čo horí' },
+        ],
+        sort: { key: 'chyba', dir: 1 },
+        sorts: [{ key: 'vytvoreny', label: 'Naposledy založený', value: (r) => r.p.created_at, dir: -1 }],
+        groups: [{ key: 'stav', label: 'Stav', value: (r) => r.p.status || 'draft',
+          labelOf: (k) => (STATUS[k] || STATUS.draft)[0],
+          tone: (k) => ({ active: 'green', draft: 'gray', paused: 'amber', done: 'blue', cancelled: 'red' }[k] || 'gray'),
+          order: ORDER }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať nábor, remeslo, mesto…',
+            label: 'Hľadať názov náboru, remeslo, mesto alebo zákazku', fields: ['title', 'trade', 'city', 'sub.title'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.p.status, default: this.OPEN.slice(),
+            options: ORDER.map(k => [k, STATUS[k][0]]), sortOptions: false, allLabel: 'Všetky',
+            presets: [{ label: 'Otvorené', value: this.OPEN.slice(), hint: 'Rozpracované, bežiace a pozastavené — bez uzavretých a zrušených' }] },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', value: (r) => r.p.trade_key,
+            optionLabel: (v) => this.tradeName(v), emptyLabel: 'Bez remesla', allLabel: 'Všetky remeslá' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (r) => r.p.subcontract_id,
+            optionLabel: (v, r) => (r && r.sub ? r.sub.title : 'Zákazka'), emptyLabel: 'Do zásoby', allLabel: 'Všetky zákazky' },
+          { key: 'nestiha', type: 'toggle', label: 'Nestíha termín', test: (r) => r.late,
+            hint: 'Otvorené nábory, pri ktorých podľa plánu po týždňoch nebudú ľudia k nástupu, alebo je termín už za nami a ľudí nie je dosť.' },
+          { key: 'bezinz', type: 'toggle', label: 'Beží bez inzerátu', more: true, test: (r) => r.noAds,
+            hint: 'Bežiaci nábor, ku ktorému dnes nebeží žiadny inzerát — nikto sa nemá na čo ozvať.' },
+          { key: 'mesto', type: 'select', label: 'Mesto', more: true, value: 'city', allLabel: 'Všetky mestá' },
+          { key: 'nastup', type: 'range-date', label: 'Nástup', more: true, field: 'p.start_date' },
+        ],
+        empty: { ico: 'zap', title: 'Žiadny nábor', sub: 'Nábor sa začína rozhodnutím: koho, koľko, kam a za koľko.',
+          cta: `<button class="btn btn-primary" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>` },
+        export: {
+          name: ['nabory'],
+          columns: [
+            ['Nábor', r => r.title], ['Remeslo', r => (r.trade === '—' ? '' : r.trade)], ['Mesto', r => r.city],
+            ['Zákazka', r => (r.sub ? r.sub.title : '')], ['Stav', r => (STATUS[r.p.status] || STATUS.draft)[0]],
+            ['Treba', r => r.need], ['Nabraní', r => r.done], ['V procese', r => r.inProc],
+            ['Nástup', r => r.p.start_date], ['Ľudí mať do', r => r.p.deadline],
+            ['Inzeráty bežia', r => r.running.length], ['Inzeráty spolu', r => r.ads.length],
+            ['Sadzba €/h', r => r.p.offer_rate], ['Fakturujeme €/h', r => r.p.client_rate],
+            ['Čo chýba', r => r.missing || (r.late ? 'nestíha termín' : '')],
+          ],
+        },
+      };
     },
 
     /** Marža len vtedy, keď sú obe sadzby. Bez sadzby živnostníka by vyšla celá Nemcova. */

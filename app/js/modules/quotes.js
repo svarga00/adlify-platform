@@ -13,7 +13,6 @@
 (function () {
   const Quo = {
     items: [], partners: [], opportunities: [], loaded: false,
-    filters: { status: '', q: '' },
 
     async load() {
       const [q, p, o] = await Promise.all([
@@ -55,63 +54,205 @@
     /** Prahy z Nastavení → Cenník a pravidlá. */
     thresholds() { return Cfg.j('staffing'); },
 
+    // ── Zoznam ────────────────────────────────────────────────────────────
+    // Spoločný komponent `DataList`. Dovtedy tu boli karty a jeden výber
+    // stavu — ponuka po platnosti alebo so zápornou maržou sa v zozname
+    // nedala nájsť inak než preklikaním.
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const today = new Date().toISOString().slice(0, 10);
-
-      const withPartner = this.items.map(q => ({ ...q, partner_name: this.partnerName(q.partner_id) }));
-      const rows = Shell.filterRows(withPartner, {
-        q: this.filters.q,
-        fields: ['title', 'quote_number', 'partner_name', 'site_city'],
-        equals: { status: this.filters.status },
-      });
-
-      const card = (q) => {
-        const rev = DanubraQuotes.review(q, this.thresholds(), { today });
-        const m = rev.margin;
-        const tone = m.perHour < 0 ? 'red' : (rev.warnings.length ? 'amber' : 'green');
-        return `
-          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Quo.detail('${q.id}')">
-            <div class="card-head">
-              <div class="card-title">${UI.esc(q.title)}</div>
-              ${UI.badge(Enums.label('quote_status', q.status), this.statusKind(q.status))}
-            </div>
-            <div class="meta-row">
-              <span>${Icon('clients', 14)} ${UI.esc(q.partner_name)}</span>
-              ${q.site_city ? `<span>${Icon('site', 14)} ${UI.esc(q.site_city)}</span>` : ''}
-              <span>${Icon('workers', 14)} ${q.headcount || 1}</span>
-              ${q.charge_rate ? `<span>${Icon('invoices', 14)} ${Money.format(Money.toCents(q.charge_rate))}/h</span>` : ''}
-            </div>
-            <div class="meta-row" style="color:var(--${tone === 'red' ? 'red' : tone === 'amber' ? 'amber' : 'green'});">
-              ${Icon(m.perHour < 0 ? 'alert' : 'check', 14)}
-              marža ${Money.format(m.perHour)}/h${m.pct != null ? ` · ${UI.pct(m.pct)}` : ''}
-              ${m.perMonth ? ` · ${Money.format(m.perMonth)} mesačne` : ''}
-              ${UI.tip('Marža = čo fakturujeme mínus čo platíme živnostníkovi a réžia, za jednu hodinu. Percento je z fakturovanej sumy. Mesačne = za všetkých ľudí pri zadanom počte hodín.')}
-            </div>
-          </div>`;
-      };
+      const today = Danubra._dayISO();
+      const rows = this.items.map(q => this.listRow(q, today));
 
       Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Quo.form()">${Icon('plus')} Nová ponuka</button>`);
       el.innerHTML = Danubra.header(Danubra.labelOf('quotes'),
         'Marža je vidieť skôr, než ponuka odíde')
-        + Shell.list({
-          rows, total: this.items.length, render: card, layout: 'cards',
-          emptyIcon: 'offers', emptyTitle: 'Zatiaľ žiadna ponuka',
-          emptySub: 'Ponuka je prvý krok — z prijatej sa spraví zmluva.',
-          filter: {
-            search: { value: this.filters.q, placeholder: 'Hľadať ponuku, odberateľa, mesto…',
-              oninput: 'Quo.setF("q", this.value)' },
-            selects: [{
-              value: this.filters.status, label: 'Stav',
-              onchange: 'Quo.setF("status", this.value)',
-              options: [['', 'Všetky stavy'], ...Enums.options('quote_status')],
-            }],
-          },
-        });
+        + DataList.html(this.listConfig(rows));
     },
 
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+    /** Kompatibilita: nastaví filter zoznamu z kódu. */
+    setF(k, v) {
+      if (k === 'status') return DataList.set('ponuky', 'stav', v ? [v] : []);
+      if (k === 'q') return DataList.set('ponuky', 'q', v || '');
+      return undefined;
+    },
+
+    /** Stavy, s ktorými sa ešte pracuje — predvolený filter zoznamu. */
+    OPEN_STATUSES: ['draft', 'sent'],
+
+    /** Stavy v poradí, v akom ponuka ide. Názvy z číselníka, záloha tu. */
+    STATUS: [['draft', 'Rozpracovaná'], ['sent', 'Odoslaná'], ['accepted', 'Prijatá'],
+      ['rejected', 'Odmietnutá'], ['expired', 'Prepadla']],
+    statusLabel(s) {
+      const l = window.Enums ? Enums.label('quote_status', s) : '';
+      return l && l !== s ? l : ((this.STATUS.find(x => x[0] === s) || [s, s])[1]);
+    },
+
+    /**
+     * Riadok zoznamu. Kontrola (`DanubraQuotes.review`) je tá istá ako
+     * v detaile ponuky — zoznam len ukazuje jej výsledok.
+     */
+    listRow(q, today) {
+      const rev = DanubraQuotes.review(q, this.thresholds(), { today });
+      const open = this.OPEN_STATUSES.includes(q.status);
+      const valid = q.valid_until ? String(q.valid_until).slice(0, 10) : '';
+      const left = valid ? DanubraDataList.daysBetween(today, valid) : null;
+      const expired = open && left != null && left < 0;
+      const blockers = rev.reasons;
+      // Čo horí: odoslaná po platnosti (treba sa rozhodnúť), ponuka s chybou,
+      // ktorá by nemala odísť, končiaca platnosť, koncept, ktorý čaká na
+      // odoslanie, upozornenia. Uzavreté na koniec.
+      let rank = 6;
+      if (!open) rank = 9;
+      else if (expired) rank = 0;
+      else if (blockers.length) rank = 1;
+      else if (left != null && left <= 7) rank = 2;
+      else if (q.status === 'draft') rank = 3;
+      else if (rev.warnings.length) rank = 4;
+      return {
+        id: q.id, q, rev, open, left, expired, rank, blockers,
+        hot: rank <= 1, warn: open && (rank === 2 || rev.warnings.length > 0),
+        problem: open && (expired || blockers.length > 0),
+        title: q.title || q.quote_number || 'Ponuka',
+        partner: q.partner_id ? this.partnerName(q.partner_id) : '',
+        trade: q.trade_key && window.Wrk ? Wrk.professionLabel(q.trade_key) : (q.trade_key || ''),
+        city: q.site_city || '',
+        marza: rev.margin.perHour / 100,
+      };
+    },
+
+    /** Konfigurácia zoznamu ponúk pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const esc = UI.esc;
+      const ST = this.STATUS.slice();
+      for (const [k] of (window.Enums ? Enums.options('quote_status') : [])) {
+        if (k && !ST.some(s => s[0] === k)) ST.push([k, this.statusLabel(k)]);
+      }
+      const statusIdx = (k) => { const i = ST.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const rate = (n) => `${Number(n).toLocaleString('sk-SK', { maximumFractionDigits: 2 })} €/h`;
+
+      const sadzbaCell = (r) => {
+        const m = r.rev.margin;
+        if (!r.q.charge_rate) return '<span class="dl-note is-red">bez sadzby</span>';
+        const tone = m.perHour < 0 ? 'is-red' : r.rev.warnings.some(w => /margin|below_target/.test(w.rule)) ? 'is-amber' : 'is-green';
+        return `<span class="dl-two" title="${esc(m.perMonth ? `${Money.format(m.perMonth)} mesačne pri ${r.q.headcount || 1} ľuďoch a ${r.q.hours_per_month || 0} h` : '')}">
+          <b class="dl-num">${esc(rate(r.q.charge_rate))}</b>
+          <span class="dl-note ${tone}">marža ${esc(Money.format(m.perHour))}/h${m.pct != null ? ` · ${esc(UI.pct(Math.round(m.pct)))}` : ''}</span></span>`;
+      };
+      const platiCell = (r) => {
+        if (!r.q.valid_until) return r.open ? '<span class="dl-note is-amber">bez platnosti</span>' : '';
+        let note = '';
+        if (r.open && r.left != null) {
+          if (r.left < 0) note = `<span class="dl-note is-red">po platnosti ${dni(-r.left)}</span>`;
+          else if (r.left === 0) note = '<span class="dl-note is-amber">platí len dnes</span>';
+          else if (r.left <= 30) note = `<span class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">ešte ${dni(r.left)}</span>`;
+        }
+        return `<span class="dl-two"><b>${L.fmtDay(r.q.valid_until)}</b>${note}</span>`;
+      };
+      const kontrolaCell = (r) => {
+        if (!r.open) {
+          if (r.q.status === 'rejected' && r.q.reject_reason) {
+            return `<span class="dl-note is-mute" title="${esc(r.q.reject_reason)}">${esc(r.q.reject_reason)}</span>`;
+          }
+          return r.q.decided_at ? `<span class="dl-note is-mute">${L.fmtDay(r.q.decided_at)}</span>` : '';
+        }
+        if (r.blockers.length) {
+          const why = r.blockers.map(b => b.label).join(' · ');
+          return `<button type="button" class="tip-btn dl-flag" data-tip="${esc(why)}" aria-label="Chyby: ${esc(why)}">${
+            Icon('alert', 12)} ${r.blockers.length} ${Shell.plural(r.blockers.length, 'chyba', 'chyby', 'chýb')}</button>`;
+        }
+        if (r.rev.warnings.length) {
+          const why = r.rev.warnings.map(w => w.label).join(' · ');
+          return `<button type="button" class="tip-btn dl-flag is-amber" data-tip="${esc(why)}" aria-label="Upozornenia: ${esc(why)}">${
+            r.rev.warnings.length} ${Shell.plural(r.rev.warnings.length, 'upozornenie', 'upozornenia', 'upozornení')}</button>`;
+        }
+        return `<span class="dl-ok">${Icon('check', 13)} v poriadku</span>`;
+      };
+
+      return {
+        id: 'ponuky', storageKey: 'ponuky', label: 'Ponuky',
+        noun: ['ponuka', 'ponuky', 'ponúk'],
+        rows,
+        rowClick: (r) => Quo.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.warn ? 'is-warn' : !r.open ? 'is-muted' : ''),
+        rowLabel: (r) => `Ponuka ${r.title}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť ponuku', run: (r) => Quo.detail(r.id) }],
+        columns: [
+          { key: 'ponuka', label: 'Ponuka', width: 'minmax(170px, 1.6fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${esc(r.title)}</b><small>${
+              [r.q.quote_number, r.city].filter(Boolean).map(esc).join(' · ')}</small></span>`,
+            sortValue: (r) => r.title, sortLabel: 'Názov' },
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(124px, 1fr)',
+            render: (r) => (r.q.partner_id ? Danubra.link('partner', r.q.partner_id, r.partner) : '<span class="dl-note is-red">bez odberateľa</span>'),
+            sortValue: (r) => r.partner },
+          { key: 'remeslo', label: 'Remeslo · ľudia', width: '124px', hideBelow: 980,
+            render: (r) => `<span class="dl-two">${r.trade ? `<b>${esc(r.trade)}</b>` : '<b class="opp-none">remeslo?</b>'}<small>${
+              r.q.headcount || 1} ${Shell.plural(Number(r.q.headcount) || 1, 'človek', 'ľudia', 'ľudí')} · ${r.q.work_type === 'workshop' ? 'dielňa' : 'stavba'}</small></span>`,
+            sortValue: (r) => r.trade },
+          { key: 'sadzba', label: 'Sadzba · marža', width: '150px', mobileLabel: 'sadzba',
+            tip: 'Hore sadzba, ktorú fakturujeme odberateľovi za hodinu (bez DPH). Dole marža na hodinu po odpočítaní živnostníka a réžie, a jej percento z fakturovanej sumy. Mesačnú maržu ukáže myš.',
+            render: sadzbaCell, sortValue: (r) => r.rev.margin.perHour, sortDir: -1, sortLabel: 'Marža' },
+          { key: 'plati', label: 'Platí do', width: '118px', mobileLabel: 'platí do', render: platiCell,
+            sortValue: (r) => r.q.valid_until || null },
+          { key: 'stav', label: 'Stav', width: '108px', mobile: 'badge',
+            render: (r) => UI.badge(this.statusLabel(r.q.status), this.statusKind(r.q.status)),
+            sortValue: (r) => statusIdx(r.q.status) },
+          { key: 'kontrola', label: 'Kontrola', width: '128px',
+            tip: 'Kontrola pred odoslaním: chyba (červená) = ponuka by nemala odísť — záporná marža, sadzba pod minimálnou mzdou, chýba sadzba. Upozornenie (oranžová) = tenká marža, nulová réžia, chýba platnosť. Ukážte myšou na štítok.',
+            render: kontrolaCell,
+            sortValue: (r) => [r.rank, r.rank <= 2 ? (r.q.valid_until || '') : '', r.title], sortLabel: 'Čo horí' },
+        ],
+        sorts: [{ key: 'vytvorena', label: 'Vytvorená', value: (r) => r.q.created_at, dir: -1 }],
+        sort: { key: 'kontrola', dir: 1 },
+        groups: [
+          { key: 'stav', label: 'Stav', value: (r) => r.q.status, labelOf: (k) => this.statusLabel(k), order: ST.map(s => s[0]),
+            tone: (k) => ({ draft: 'gray', sent: 'blue', accepted: 'green', rejected: 'red', expired: 'amber' }[k] || 'gray') },
+          { key: 'odberatel', label: 'Odberateľ', value: 'partner', emptyLabel: 'Bez odberateľa' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať ponuku…', label: 'Hľadať názov, číslo, odberateľa, mesto alebo remeslo',
+            fields: ['title', 'q.quote_number', 'partner', 'city', 'trade', 'q.site_address', 'q.notes'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.q.status, default: this.OPEN_STATUSES,
+            options: ST, sortOptions: false, allLabel: 'Všetky',
+            presets: [
+              { label: 'Otvorené', value: this.OPEN_STATUSES, hint: 'Rozpracované a odoslané — čakajú na nás alebo na odberateľa' },
+              { label: 'Uzavreté', value: ['accepted', 'rejected', 'expired'], hint: 'Prijaté, odmietnuté a prepadnuté' },
+            ] },
+          { key: 'odberatel', type: 'select', label: 'Odberateľ', value: (r) => r.q.partner_id,
+            optionLabel: (v, r) => (r ? r.partner : v), emptyLabel: 'Bez odberateľa', allLabel: 'Všetci odberatelia' },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', value: (r) => r.q.trade_key,
+            optionLabel: (v, r) => (r ? r.trade : v), emptyLabel: 'Nezadané', allLabel: 'Všetky remeslá' },
+          { key: 'po_platnosti', type: 'toggle', label: 'Po platnosti', test: (r) => r.expired,
+            hint: 'Rozpracované a odoslané ponuky, ktorým už uplynul dátum „Platí do". Treba ich označiť ako prepadnuté alebo poslať znova s novou platnosťou.' },
+          { key: 'problem', type: 'toggle', label: 'Len s problémom', more: true, test: (r) => r.problem,
+            hint: 'Otvorené ponuky po platnosti alebo s chybou, pre ktorú by nemali odísť (záporná marža, sadzba pod minimálnou mzdou, chýba sadzba).' },
+          { key: 'typ', type: 'select', label: 'Typ prác', value: (r) => (r.q.work_type === 'workshop' ? 'workshop' : 'construction'),
+            options: [['construction', 'Stavebné'], ['workshop', 'Dielenské']], allLabel: 'Stavebné aj dielenské', more: true },
+          { key: 'mesto', type: 'select', label: 'Mesto', value: 'city', emptyLabel: 'Bez mesta', allLabel: 'Všetky mestá', more: true },
+          { key: 'plati', type: 'range-date', label: 'Platí do', field: 'q.valid_until', more: true },
+          { key: 'obdobie', type: 'range-date', label: 'Termín prác', start: 'q.date_from', end: 'q.date_to', more: true,
+            hint: 'Ponuky, ktorých termín nasadenia sa prekrýva so zvoleným obdobím. Ponuka bez termínu sa neukáže.' },
+          { key: 'marza', type: 'range-number', label: 'Marža €/h', value: 'marza', unit: '€', more: true },
+        ],
+        empty: { ico: 'offers', title: 'Zatiaľ žiadna ponuka',
+          sub: 'Ponuka je prvý krok — z prijatej sa spraví zmluva. Vytvoríte ju tu alebo z dopytu.',
+          cta: `<button class="btn btn-primary" onclick="Quo.form()">${Icon('plus')} Nová ponuka</button>` },
+        export: {
+          name: ['ponuky'],
+          columns: [
+            ['Číslo', r => r.q.quote_number], ['Ponuka', r => r.title], ['Odberateľ', r => r.partner],
+            ['Remeslo', r => r.trade], ['Ľudí', r => r.q.headcount || 1],
+            ['Typ prác', r => (r.q.work_type === 'workshop' ? 'Dielenské' : 'Stavebné')], ['Mesto', r => r.city],
+            ['Sadzba €/h', r => r.q.charge_rate], ['Živnostníkovi €/h', r => r.q.worker_rate], ['Réžia €/h', r => r.q.overhead_per_hour],
+            ['Marža €/h', r => r.marza], ['Marža %', r => r.rev.margin.pct], ['Marža mesačne €', r => r.rev.margin.perMonth / 100],
+            ['Platí do', r => r.q.valid_until], ['Stav', r => this.statusLabel(r.q.status)],
+            ['Kontrola', r => [...r.blockers, ...r.rev.warnings].map(x => x.label).join('; ')],
+          ],
+        },
+      };
+    },
 
     statusKind(s) {
       return { draft: 'gray', sent: 'blue', accepted: 'green',
@@ -137,7 +278,7 @@
 
       const body = `
         <div class="detail-head">
-          ${UI.badge(Enums.label('quote_status', q.status), this.statusKind(q.status))}
+          ${UI.badge(this.statusLabel(q.status), this.statusKind(q.status))}
           ${q.quote_number ? `<span class="mono doc-no">${UI.esc(q.quote_number)}</span>` : ''}
         </div>
 
@@ -221,7 +362,7 @@
       const q = this.items.find(x => x.id === id);
       if (!q) return;
       if (!DanubraQuotes.canGo(q.status, to)) {
-        return UI.toast(`Z „${Enums.label('quote_status', q.status)}" sa nedá prejsť ďalej`, 'err');
+        return UI.toast(`Z „${this.statusLabel(q.status)}" sa nedá prejsť ďalej`, 'err');
       }
       // Ponuku, na ktorej sa prerába alebo je pod minimálnou mzdou, nemá
       // zmysel poslať — a hlavne sa to nemá dať prehliadnuť.

@@ -28,64 +28,157 @@
 
     membersOf(crewId) { return this.members.filter(m => m.crew_id === crewId); },
     workerOf(id) { return Wrk.items.find(w => w.id === id) || null; },
-    statusLabel(s) { return Enums.label('crew_status', s) || s; },
+    // Záloha, kým sa číselník nenačíta (rovnaké názvy ako v migrácii 015).
+    STATUS: [['active', 'Aktívna'], ['paused', 'Pozastavená'], ['disbanded', 'Rozpustená']],
+    statusOptions() { const o = Enums.options('crew_status'); return o && o.length ? o : this.STATUS; },
+    statusLabel(s) {
+      const l = Enums.label('crew_status', s);
+      return (l && l !== s) ? l : ((this.STATUS.find(x => x[0] === s) || [])[1] || l || s);
+    },
     statusKind(s) { return s === 'active' ? 'green' : s === 'paused' ? 'amber' : 'gray'; },
 
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-
-      const all = this.items;
-      const rows = Shell.filterRows(all, {
-        q: this.filters.q,
-        fields: ['name', 'trade_key', 'phone'],
-        equals: { status: this.filters.status },
-      });
-
-      const card = (c) => {
-        const active = DanubraCrews.activeMembers(this.membersOf(c.id));
-        const leader = DanubraCrews.leaderOf(this.membersOf(c.id));
-        const lw = leader && this.workerOf(leader.worker_id);
-        const rev = DanubraCrews.review({
-          crew: c, members: this.membersOf(c.id), workers: Wrk.items,
-        });
-        const problems = rev.reasons.length + rev.warnings.length;
-        return `
-          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Crews.detail('${c.id}')">
-            <div class="card-head">
-              <div class="card-title">${UI.esc(c.name)}</div>
-              ${UI.badge(this.statusLabel(c.status), this.statusKind(c.status))}
-            </div>
-            ${lw ? `<div class="link-row" style="margin-bottom:9px;">
-              ${Danubra.link('worker', lw.id, `${lw.full_name} — predák`, { ico: 'user' })}
-            </div>` : ''}
-            <div class="meta-row">
-              <span>${Icon('workers', 14)} ${active.length} ${DanubraCrews.plural(active.length, 'člen', 'členovia', 'členov')}</span>
-              ${c.trade_key ? `<span>${Icon('wrench', 14)} ${UI.esc(Wrk.professionLabel(c.trade_key))}</span>` : ''}
-              ${problems ? `<span style="color:var(--amber);">${Icon('alert', 14)} ${problems} ${DanubraCrews.plural(problems, 'vec', 'veci', 'vecí')} na pozretie</span>` : ''}
-            </div>
-          </div>`;
-      };
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = this.items.map(c => this.listRow(c, today));
 
       // Hlavná akcia patrí do horného pruhu — rovnako ako na ostatných
       // obrazovkách. Keď je raz tam a raz v hlavičke, hľadá sa zakaždým znova.
       Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Crews.form()">${Icon('plus')} Nová partia</button>`);
+      // Zoznam je spoločný komponent (`DataList`). Dovtedy tu boli karty
+      // s filtrom len podľa stavu — nebolo vidieť, kde partia robí a či majú
+      // všetci doklady.
+      const bad = rows.filter(r => r.problem && r.c.status === 'active').length;
       el.innerHTML = Danubra.header(Danubra.labelOf('crews'),
-        'Chodia spolu, fakturuje každý sám za seba')
-        + Shell.list({
-          rows, total: all.length, render: card, layout: 'cards',
-          emptyIcon: 'workers', emptyTitle: 'Zatiaľ žiadna partia',
-          emptySub: 'Partia je skupina, ktorá chodí na stavby spolu.',
-          filter: {
-            search: { value: this.filters.q, placeholder: 'Hľadať partiu, predáka, remeslo…',
-              oninput: 'Crews.setF("q", this.value)' },
-            selects: [{
-              value: this.filters.status, label: 'Stav',
-              onchange: 'Crews.setF("status", this.value)',
-              options: [['', 'Všetky stavy'], ...Enums.options('crew_status')],
-            }],
-          },
-        });
+        `Chodia spolu, fakturuje každý sám za seba · ${rows.filter(r => r.c.status === 'active').length} aktívnych${
+          bad ? ` · ${bad} na pozretie` : ''}`)
+        + DataList.html(this.listConfig(rows));
+    },
+
+    /** Riadok zoznamu: partia, predák, členovia, kde robia a či majú doklady. */
+    listRow(c, today) {
+      const members = this.membersOf(c.id);
+      const active = DanubraCrews.activeMembers(members);
+      const leader = DanubraCrews.leaderOf(members);
+      const lw = (leader && this.workerOf(leader.worker_id))
+        || (c.leader_worker_id && this.workerOf(c.leader_worker_id)) || null;
+      const rev = DanubraCrews.review({ crew: c, members, workers: Wrk.items });
+      // Doklady: tá istá kontrola ako v detaile partie (stavba).
+      const noDocs = [];
+      for (const m of active) {
+        const w = this.workerOf(m.worker_id);
+        const ready = DanubraDocs.readiness({ docs: w ? Wrk.docsOf(w.id) : [], workType: 'construction',
+          regulated: !!(w && w.regulated_trade) });
+        if (!ready.ok) noDocs.push(w ? w.full_name : '(neznámy)');
+      }
+      // Kde sú nasadení: bežiace nasadenia členov (alebo nasadenia partie).
+      const ids = new Set(active.map(m => m.worker_id));
+      const asg = (Wrk.assignments || []).filter(a => (a.crew_id === c.id || ids.has(a.worker_id))
+        && a.status !== 'cancelled' && a.status !== 'completed'
+        && (!a.date_to || String(a.date_to).slice(0, 10) >= today));
+      const subIds = [...new Set(asg.map(a => a.subcontract_id).filter(Boolean))];
+      const subOf = (id) => (Wrk.subs || []).find(s => s.id === id) || null;
+      const problems = rev.reasons.length + rev.warnings.length;
+      return {
+        id: c.id, c, active, lw, rev, problems, noDocs, subIds,
+        subs: subIds.map(subOf).filter(Boolean),
+        deployed: asg.length,
+        problem: problems > 0 || noDocs.length > 0,
+        name: c.name || '', trade: c.trade_key ? Wrk.professionLabel(c.trade_key) : '',
+        memberNames: active.map(m => (this.workerOf(m.worker_id) || {}).full_name).filter(Boolean),
+      };
+    },
+
+    /** Konfigurácia zoznamu partií pre `DataList`. */
+    listConfig(rows) {
+      const statuses = this.statusOptions();
+      const statusIdx = (k) => { const i = statuses.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const docsCell = (r) => {
+        if (!r.active.length) return '';
+        if (!r.noDocs.length) return `<span class="dl-ok">${Icon('check', 13)} v poriadku</span>`;
+        const why = `Bez dokladov na stavbu: ${r.noDocs.join(', ')}`;
+        return `<button type="button" class="tip-btn dl-flag" data-tip="${UI.esc(why)}" aria-label="${UI.esc(why)}">${Icon('alert', 12)} ${
+          r.noDocs.length} ${DanubraCrews.plural(r.noDocs.length, 'bez dokladov', 'bez dokladov', 'bez dokladov')}</button>`;
+      };
+      const reviewCell = (r) => {
+        if (!r.problems) return `<span class="dl-ok">${Icon('check', 13)} sedí</span>`;
+        const list = [...r.rev.reasons, ...r.rev.warnings].map(x => x.label).filter(Boolean).join(' · ');
+        return `<button type="button" class="tip-btn dl-flag${r.rev.reasons.length ? '' : ' is-amber'}" data-tip="${UI.esc(list)}"
+          aria-label="Na pozretie: ${UI.esc(list)}">${r.problems} ${DanubraCrews.plural(r.problems, 'vec', 'veci', 'vecí')}</button>`;
+      };
+      const sitesCell = (r) => {
+        if (!r.subs.length) return '<span class="dl-note is-mute">nenasadení</span>';
+        const s = r.subs[0];
+        return `<span class="dl-two"><b title="${UI.esc(r.subs.map(x => x.title).join(', '))}">${UI.esc(s.title)}</b><small>${
+          UI.esc([s.site_city, r.subs.length > 1 ? `+${r.subs.length - 1} ${DanubraCrews.plural(r.subs.length - 1, 'ďalšia', 'ďalšie', 'ďalších')}` : ''].filter(Boolean).join(' · '))}</small></span>`;
+      };
+
+      return {
+        id: 'partie', storageKey: 'partie', label: 'Partie',
+        noun: ['partia', 'partie', 'partií'],
+        rows,
+        rowClick: (r) => Crews.detail(r.id),
+        rowClass: (r) => (r.c.status !== 'active' ? 'is-muted' : r.rev.reasons.length ? 'is-hot' : r.problem ? 'is-warn' : ''),
+        rowLabel: (r) => `Partia ${r.name}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť partiu', run: (r) => Crews.detail(r.id) }],
+        columns: [
+          { key: 'nazov', label: 'Partia', width: 'minmax(160px, 1.5fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b>${
+              r.trade || r.c.phone ? `<small>${UI.esc([r.trade, r.c.phone].filter(Boolean).join(' · '))}</small>` : ''}</span>`,
+            sortValue: (r) => r.name, sortLabel: 'Názov' },
+          { key: 'predak', label: 'Predák', width: 'minmax(130px, 1fr)', mobileLabel: 'predák',
+            render: (r) => (r.lw ? Danubra.link('worker', r.lw.id, r.lw.full_name, { ico: 'user' }) : '<span class="dl-note is-amber">bez predáka</span>'),
+            sortValue: (r) => (r.lw ? r.lw.full_name : null), csv: (r) => (r.lw ? r.lw.full_name : '') },
+          { key: 'clenovia', label: 'Členovia', width: '92px', mobileLabel: 'členov',
+            render: (r) => `<span class="dl-num" title="${UI.esc(r.memberNames.join(', '))}"><b${
+              r.c.usual_size && r.active.length < r.c.usual_size ? ' class="is-short"' : ''}>${r.active.length}</b>${r.c.usual_size ? ` / ${r.c.usual_size}` : ''}</span>`,
+            tip: 'Aktívni členovia / obvyklý počet ľudí partie.',
+            sortValue: (r) => r.active.length, sortDir: -1 },
+          { key: 'kde', label: 'Kde sú nasadení', width: 'minmax(150px, 1.4fr)', mobile: 'line', render: sitesCell,
+            sortValue: (r) => (r.subs[0] ? r.subs[0].title : null), csv: (r) => r.subs.map(s => s.title).join(', ') },
+          { key: 'doklady', label: 'Doklady', width: '118px',
+            tip: 'Majú všetci aktívni členovia doklady na stavbu (A1, zmluva, GDPR…)? Ukážte myšou na štítok — povie, kto nie.',
+            render: docsCell, sortValue: (r) => -r.noDocs.length, csv: (r) => (r.noDocs.length ? r.noDocs.join(', ') : 'v poriadku') },
+          { key: 'pozriet', label: 'Na pozretie', width: '104px', hideBelow: 1050,
+            tip: 'Čo na partii nesedí: nemá predáka, predák nie je členom, partia je prázdna, chýbajú fakturačné údaje…',
+            render: reviewCell,
+            // Čo horí hore: aktívne s blokujúcou vecou, potom s upozornením
+            // alebo bez dokladov, potom ostatné; neaktívne na koniec.
+            sortValue: (r) => [r.c.status === 'active' ? 0 : 1, r.rev.reasons.length ? 0 : 1, r.problem ? 0 : 1, -r.problems, r.name],
+            sortLabel: 'Čo treba pozrieť', csv: (r) => [...r.rev.reasons, ...r.rev.warnings].map(x => x.label).join(' · ') },
+          { key: 'stav', label: 'Stav', width: '92px', mobile: 'badge',
+            render: (r) => UI.badge(this.statusLabel(r.c.status), this.statusKind(r.c.status)),
+            sortValue: (r) => statusIdx(r.c.status), csv: (r) => this.statusLabel(r.c.status) },
+        ],
+        sort: { key: 'pozriet', dir: 1 },
+        groups: [
+          { key: 'stav', label: 'Stav', value: (r) => r.c.status, labelOf: (k) => this.statusLabel(k),
+            tone: (k) => this.statusKind(k), order: statuses.map(s => s[0]) },
+          { key: 'remeslo', label: 'Remeslo', value: 'trade', labelOf: (k) => k || 'Bez remesla' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať partiu, predáka, remeslo…', label: 'Hľadať partiu, predáka, člena alebo remeslo',
+            fields: ['name', 'trade', 'c.phone', 'c.trade_key', (r) => (r.lw ? r.lw.full_name : ''), (r) => r.memberNames.join(' '),
+              (r) => r.subs.map(s => s.title).join(' ')] },
+          // Predvolene aktívne — rovnako ako doteraz filter „Stav".
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.c.status, default: ['active'],
+            options: statuses, sortOptions: false, allLabel: 'Všetky' },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', value: (r) => r.c.trade_key,
+            optionLabel: (v) => Wrk.professionLabel(v), emptyLabel: 'Bez remesla', allLabel: 'Všetky remeslá' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (r) => (r.subIds.length ? r.subIds : ''),
+            optionLabel: (v) => ((Wrk.subs || []).find(s => s.id === v) || {}).title || v, emptyLabel: 'Nenasadení', allLabel: 'Všetky zákazky' },
+          { key: 'problem', type: 'toggle', label: 'Len s problémom', test: (r) => r.problem,
+            hint: 'Partie, kde niečo nesedí (prázdna, bez predáka, predák mimo partie, fakturačné údaje) alebo niekto z členov nemá doklady na stavbu.' },
+          { key: 'doklady', type: 'toggle', label: 'Niekto bez dokladov', test: (r) => r.noDocs.length > 0, more: true },
+          { key: 'predak', type: 'toggle', label: 'Bez predáka', test: (r) => !r.lw, more: true },
+          { key: 'volni', type: 'toggle', label: 'Nenasadené', test: (r) => !r.subs.length, more: true,
+            hint: 'Partie, ktorých členovia teraz nemajú bežiace nasadenie.' },
+        ],
+        empty: { ico: 'workers', title: 'Zatiaľ žiadna partia', sub: 'Partia je skupina, ktorá chodí na stavby spolu.',
+          cta: `<button class="btn btn-primary" onclick="Crews.form()">${Icon('plus')} Nová partia</button>` },
+        export: { name: ['partie'] },
+      };
     },
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },

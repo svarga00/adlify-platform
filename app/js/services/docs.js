@@ -418,6 +418,7 @@
     // ── Výber a posielanie viacerých naraz ────────────────────────────────
     async pick(id, on) {
       if (on) this.picked.add(id); else this.picked.delete(id);
+      document.querySelectorAll(`.dl-row[data-dl-row="${CSS.escape(id)}"]`).forEach(r => r.classList.toggle('is-picked', !!on));
       document.querySelectorAll('.arch-bar').forEach(b => { b.outerHTML = this.barHtml(); });
       // Súbor sa stiahne hneď pri zaškrtnutí — poslať sa dá len hneď po
       // kliknutí, takže pri „Poslať" už musí byť pripravený.
@@ -519,34 +520,129 @@
     },
 
     // ── Obrazovka Dokumenty ───────────────────────────────────────────────
-    setF(k, v) { this.filter[k] = v; Danubra.renderRoute(); },
+    /** Starý vstup na filter (druh, hľadanie) — teraz nastaví filter zoznamu. */
+    setF(k, v) {
+      this.filter[k] = v;
+      if (window.DataList && DataList._reg.dokumenty && Danubra.route === 'archive') {
+        return DataList.set('dokumenty', k === 'group' ? 'druh' : 'q', k === 'group' ? (v ? [v] : []) : v);
+      }
+      return Danubra.renderRoute();
+    },
 
     async view(el) {
       el.innerHTML = UI.loading();
       await this.load(true);
       const names = await this.names();
-      const g = A().grouped(this.rows, { names, ...this.filter });
-      const LINK = { worker: 'worker', partner: 'partner', subcontract: 'subcontract' };
-      const spolu = A().latest(this.rows).length;
+      this._viewNames = names;
+      const rows = A().latest(this.rows).map(r => this.listRow(r, names));
+      const spolu = rows.length;
+      // Zoznam je spoločný komponent (`DataList`). Dovtedy tu boli skupiny
+      // podľa ľudí a firiem, pilulky druhu a hľadanie v názve — zoskupenie
+      // podľa toho, komu dokument patrí, zostalo predvolené.
       el.innerHTML = Danubra.header(Danubra.labelOf('archive'),
-        `${spolu} ${Shell.plural(spolu, 'dokument', 'dokumenty', 'dokumentov')} · triedené podľa ľudí a firiem`) + `
-        <div class="filterbar">
-          <div class="pillbar pillbar-xs">
-            <button class="pill${!this.filter.group ? ' active' : ''}" onclick="Docs.setF('group','')">Všetky</button>
-            ${A().GROUPS.map(([k, l]) => `<button class="pill${this.filter.group === k ? ' active' : ''}"
-              onclick="Docs.setF('group','${k}')">${l}</button>`).join('')}
-          </div>
-          <input type="search" placeholder="Hľadať v názvoch…" value="${UI.esc(this.filter.q)}"
-            onchange="Docs.setF('q', this.value)">
-        </div>
-        ${this.barHtml()}
-        ${g.length ? g.map(x => `<div class="card card-pad arch-group">
-          <div class="arch-head">${LINK[x.type] && x.id ? Danubra.link(LINK[x.type], x.id, x.name) : `<b>${UI.esc(x.name)}</b>`}
-            <em>${x.rows.length}</em></div>
-          ${x.rows.map(r => this.rowHtml(r)).join('')}
-        </div>`).join('')
-          : UI.empty('doc', 'Zatiaľ žiadne dokumenty',
-            'Keď pri zmluve, GDPR, objednávke či faktúre kliknete na „Stiahnuť PDF" alebo „Tlačiť", uloží sa sem — k človeku a k firme.')}`;
+        `${spolu} ${Shell.plural(spolu, 'dokument', 'dokumenty', 'dokumentov')} · triedené podľa ľudí a firiem`)
+        + this.barHtml()
+        + DataList.html(this.listConfig(rows));
+    },
+
+    /** Riadok zoznamu Dokumenty: dokument (posledná verzia) a komu patrí. */
+    listRow(r, names = {}) {
+      const o = A().ownerOf(r);
+      const key = `${o.type}:${o.id}`;
+      const FALLBACK = { worker: 'Živnostník', partner: 'Firma', subcontract: 'Zákazka' };
+      return {
+        id: r.id, r, owner: o, ownerKey: key,
+        ownerName: names[key] || FALLBACK[o.type] || 'Bez priradenia',
+        subName: r.subcontract_id && o.type !== 'subcontract' ? (names[`subcontract:${r.subcontract_id}`] || '') : '',
+        partnerName: r.partner_id && o.type === 'worker' ? (names[`partner:${r.partner_id}`] || '') : '',
+        name: String(r.file_name || '').replace(/\.pdf$/, ''),
+        kind: A().label(r.kind), group: A().groupOf(r.kind),
+        date: String(r.created_at || '').slice(0, 10),
+      };
+    },
+
+    /** Konfigurácia zoznamu Dokumenty pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const LINK = { worker: 'worker', partner: 'partner', subcontract: 'subcontract' };
+      const TYPE = [['worker', 'Ľudia'], ['partner', 'Firmy'], ['subcontract', 'Zákazky'], ['ine', 'Bez priradenia']];
+      const PORADIE = { worker: 0, partner: 1, subcontract: 2, ine: 3 };
+      const tone = { worker: 'blue', partner: 'green', subcontract: 'amber', ine: 'gray' };
+      const ownerOrder = [...new Map(rows.map(x => [x.ownerKey, x])).values()]
+        .sort((a, b) => (PORADIE[a.owner.type] - PORADIE[b.owner.type]) || a.ownerName.localeCompare(b.ownerName, 'sk'))
+        .map(x => x.ownerKey);
+      const nameOf = (k) => (rows.find(x => x.ownerKey === k) || {}).ownerName || 'Bez priradenia';
+      const kb = (r) => (r.size_bytes ? `${Math.max(1, Math.round(r.size_bytes / 1024))} kB` : '');
+      const pick = (x) => `<label class="dc-pick" title="Vybrať na poslanie"><input type="checkbox" ${this.picked.has(x.id) ? 'checked' : ''}
+          onchange="Docs.pick('${x.id}', this.checked)" aria-label="Vybrať: ${UI.esc(x.name)}"></label>`;
+
+      return {
+        id: 'dokumenty', storageKey: 'dokumenty', label: 'Dokumenty',
+        noun: ['dokument', 'dokumenty', 'dokumentov'],
+        rows,
+        rowClick: (x) => Docs.openFile(x.id),
+        rowClass: (x) => (this.picked.has(x.id) ? 'is-picked' : ''),
+        rowLabel: (x) => `Dokument ${x.name}`,
+        rowActions: [
+          { ico: 'edit', label: 'Premenovať', run: (x) => Docs.rename(x.id) },
+          { ico: 'x', label: 'Skryť zo zoznamu', run: (x) => Docs.hide(x.id) },
+        ],
+        columns: [
+          { key: 'vyber', label: '', width: '28px', mobile: 'badge', csv: false, render: pick },
+          { key: 'nazov', label: 'Dokument', width: 'minmax(220px, 2.2fr)', mobile: 'title',
+            render: (x) => `<span class="dl-title"><b>${UI.esc(x.name)}</b><small>${UI.esc([x.r.number, kb(x.r),
+              x.r.older && x.r.older.length ? `${x.r.older.length} ${Shell.plural(x.r.older.length, 'staršia verzia', 'staršie verzie', 'starších verzií')}` : '']
+              .filter(Boolean).join(' · '))}</small></span>`,
+            sortValue: (x) => x.name, sortLabel: 'Názov' },
+          { key: 'druh', label: 'Druh', width: '136px',
+            render: (x) => `<span class="dl-tag">${Icon('doc', 14)}${UI.esc(x.kind)}</span>`, sortValue: (x) => x.kind },
+          { key: 'komu', label: 'Pri kom', width: 'minmax(140px, 1.3fr)', mobile: 'line',
+            render: (x) => `<span class="dl-two dc-owner">${LINK[x.owner.type] && x.owner.id
+              ? Danubra.link(LINK[x.owner.type], x.owner.id, x.ownerName) : `<b>${UI.esc(x.ownerName)}</b>`}${
+              x.subName || x.partnerName ? `<small>${UI.esc([x.partnerName, x.subName].filter(Boolean).join(' · '))}</small>` : ''}</span>`,
+            sortValue: (x) => [PORADIE[x.owner.type], x.ownerName], csv: (x) => x.ownerName },
+          { key: 'datum', label: 'Dátum', width: '96px',
+            render: (x) => `<span class="dl-num">${UI.esc(L.fmtDay(x.date))}</span>`, sortValue: (x) => x.r.created_at, sortDir: -1 },
+          { key: 'jazyk', label: 'Jazyk', width: '62px', align: 'center', hideBelow: 980,
+            render: (x) => `<span class="dc-lang">${x.r.lang === 'de' ? 'DE' : 'SK'}</span>`, sortValue: (x) => x.r.lang || 'sk' },
+          { key: 'odoslane', label: 'Odoslané', width: '96px', hideBelow: 1120,
+            render: (x) => (x.r.sent_at ? `<span class="dl-ok">${Icon('check', 13)} ${UI.esc(L.fmtDay(x.r.sent_at, { year: false }))}</span>` : ''),
+            sortValue: (x) => x.r.sent_at || null, sortDir: -1, csv: (x) => (x.r.sent_at ? L.fmtDay(x.r.sent_at) : '') },
+        ],
+        sort: { key: 'datum', dir: -1 },
+        groups: [
+          { key: 'komu', label: 'Komu patrí', value: 'ownerKey', labelOf: nameOf, order: ownerOrder,
+            tone: (k) => tone[String(k).split(':')[0]] || 'gray' },
+          { key: 'druh', label: 'Druh', value: 'group', labelOf: (k) => (A().GROUPS.find(g => g[0] === k) || [k, k])[1],
+            order: A().GROUPS.map(g => g[0]) },
+        ],
+        group: 'komu',
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať v názvoch…', label: 'Hľadať v názve, čísle alebo mene',
+            fields: ['r.file_name', 'r.title', 'r.number', 'ownerName', 'subName', 'partnerName'] },
+          { key: 'druh', type: 'multi', label: 'Druh', value: 'group', options: A().GROUPS, sortOptions: false, allLabel: 'Všetky' },
+          { key: 'kcomu', type: 'select', label: 'K čomu', value: (x) => x.owner.type, options: TYPE, allLabel: 'Ľudia, firmy aj zákazky' },
+          { key: 'komu', type: 'select', label: 'Pri kom', value: 'ownerKey', optionLabel: (k) => nameOf(k), allLabel: 'Všetci' },
+          { key: 'obdobie', type: 'range-date', label: 'Obdobie', field: 'date' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (x) => x.r.subcontract_id, more: true,
+            optionLabel: (v) => (this._viewNames || {})[`subcontract:${v}`] || 'Zákazka', allLabel: 'Všetky zákazky' },
+          { key: 'jazyk', type: 'select', label: 'Jazyk', value: (x) => (x.r.lang === 'de' ? 'de' : 'sk'), more: true,
+            options: [['sk', 'Slovenčina'], ['de', 'Nemčina']], allLabel: 'Oba jazyky' },
+          { key: 'neodoslane', type: 'toggle', label: 'Neodoslané', test: (x) => !x.r.sent_at, more: true,
+            hint: 'Dokumenty, ktoré sa z appky ešte neposlali („Poslať" alebo e-mailom).' },
+        ],
+        empty: { ico: 'doc', title: 'Zatiaľ žiadne dokumenty',
+          sub: 'Keď pri zmluve, GDPR, objednávke či faktúre kliknete na „Stiahnuť PDF" alebo „Tlačiť", uloží sa sem — k človeku a k firme.' },
+        export: {
+          name: ['dokumenty'],
+          columns: [
+            ['Dokument', x => x.name], ['Druh', x => x.kind], ['Číslo', x => x.r.number],
+            ['Pri kom', x => x.ownerName], ['Firma', x => x.partnerName], ['Zákazka', x => x.subName],
+            ['Dátum', x => x.date], ['Jazyk', x => (x.r.lang === 'de' ? 'DE' : 'SK')],
+            ['Odoslané', x => (x.r.sent_at ? String(x.r.sent_at).slice(0, 10) : '')], ['Súbor', x => x.r.file_name],
+          ],
+        },
+      };
     },
   };
 
