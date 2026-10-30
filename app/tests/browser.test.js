@@ -5341,6 +5341,7 @@ console.log('Prehliadač');
         UI.closeModal();
         // Google Mapy (Outscraper, 079): okno hľadania, stĺpce, štítky, filtre, overenie.
         res.osVypnuty = Lead.osStatus && Lead.osStatus.on === false;
+        res.dbg = [typeof window.DanubraOutscraper, JSON.stringify(Lead.osStatus)];
         Lead.osStatus = { on: true, max: 200 };
         Lead._findMode = 'urls';
         Lead.findForm();
@@ -5460,7 +5461,7 @@ console.log('Prehliadač');
       ok(/91/.test(out.skore) && /z Impressum/.test(out.skore) && /Thomas Maier|podľa webov/.test(out.skore), 'v zozname je skóre a e-mail z Impressum', out.skore);
       ok(/konateľ Thomas Maier/.test(out.detail) && /DE811222333/.test(out.detail) && /ako huber-trockenbau\.de/.test(out.detail),
         'karta firmy ukáže konateľa, USt-IdNr a ktorej firme sa podobá', out.detail.slice(0, 300));
-      ok(out.osVypnuty, 'bez kľúča appka vie, že Outscraper nie je zapnutý');
+      ok(out.osVypnuty, 'bez kľúča appka vie, že Outscraper nie je zapnutý', JSON.stringify(out.dbg));
       ok(/Google Mapách cez Outscraper/.test(out.osBox) && /cca 90 záznamov/.test(out.osBox), 'okno hľadania: Outscraper zapnutý a odhad záznamov (30 × 3)', out.osBox);
       ok(out.osPolia.every(Boolean), 'okno hľadania má prah skóre, „aj firmy bez webu" a oblasť');
       ok(/4,6/.test(out.osRiadok) && /38 recenzií/.test(out.osRiadok) && /Funguje/.test(out.osRiadok) && /Overené pred 5 dňami/.test(out.osRiadok)
