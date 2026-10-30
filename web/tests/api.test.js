@@ -50,6 +50,11 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   ok(v1.ok, 'prihláška s menom, telefónom a súhlasom prejde');
   ok(api.validate('apply', { name: 'Ján', phone: '+421 900 111 222' }).errors.includes('consent'), 'bez súhlasu neprejde');
   ok(api.validate('apply', { name: 'Ján', phone: '123', consent: true }).errors.includes('phone'), 'krátky telefón neprejde');
+  const vl = api.validate('apply', { name: 'Ján', phone: '+421 900 111 222', consent: true, languages: ['de', 'xx', 'de', 'ro', '<script>'] });
+  ok(vl.ok && vl.data.languages.join() === 'de,ro', 'jazyky: len známe kódy, bez duplicít', JSON.stringify(vl.data.languages));
+  ok(api.validate('contact', { name: 'Ján', phone: '+421 900 111 222', consent: true, languages: 'pl' }).data.languages.join() === 'pl'
+    && api.validate('apply', { name: 'Ján', phone: '+421 900 111 222', consent: true }).data.languages.length === 0, 'jazyky: jeden reťazec aj nič sa prijme (pole je povinné v prehliadači)');
+  ok(api.validate('apply', { name: 'Ján', phone: '+421 900 111 222', consent: true, lang: 'bg' }).data.lang === 'bg', 'jazyk webu bg/ro/pl sa prijme');
   ok(api.validate('enquiry', { company: 'GU', name: 'Max', email: 'x', consent: true }).errors.includes('email'), 'dopyt bez platného e-mailu neprejde');
   const v2 = api.validate('enquiry', { company: 'GU Ulm', name: 'Max', email: 'max@gu.de', consent: 'on', trades: ['zvarac', 'hack'], trade: 'trockenbau', headcount: '4 Personen', model: 'werkvertrag' });
   ok(v2.ok && v2.data.trades.join() === 'sadrokarton,zvarac' && v2.data.headcount === 4, 'dopyt: remeslá z adresy aj zo zaškrtnutých, neznáme vyhodí, počet ako číslo', JSON.stringify(v2.data.trades));
@@ -59,12 +64,20 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
 
   console.log('Prihláška z punds.sk → Kandidáti');
   const db = fakeDb({ danubra_ads: [{ id: 'ad1', title: 'Zvárači Bremen FB', web_title: 'Zvárač MIG/MAG', trade_key: 'zvarac', web_slug: 'zvarac-bremen', plan_id: 'pl1' }] });
-  const r1 = await api.handle(SITES.sk, 'apply', req({ name: 'Ján Novák', phone: '+421 900 111 222', email: 'jan@x.sk', note: 'Mám certifikát', consent: true, job: 'zvarac-bremen', lang: 'cz', page: '/punds-sk/cz/nabidky/zvarac-bremen' }), { supabase: db });
+  const r1 = await api.handle(SITES.sk, 'apply', req({ name: 'Ján Novák', phone: '+421 900 111 222', email: 'jan@x.sk', note: 'Mám certifikát', consent: true, job: 'zvarac-bremen', lang: 'cz', page: '/punds-sk/cz/nabidky/zvarac-bremen', languages: ['cs', 'de'] }), { supabase: db });
   const c = db.T.danubra_candidates[0];
   ok(r1.status === 200 && JSON.parse(r1.body).ok, 'prihláška sa prijme', r1.body);
   ok(c && c.full_name === 'Ján Novák' && c.ad_id === 'ad1' && c.plan_id === 'pl1' && c.profession === 'zvarac' && c.source === 'web'
     && c.language === 'cs' && /Zvárač MIG\/MAG/.test(c.source_detail) && c.status === 'new' && c.consent_at, 'kandidát je pri inzeráte, s remeslom, jazykom a súhlasom', JSON.stringify(c));
+  ok(Array.isArray(c.languages) && c.languages.join() === 'cs,de' && db.T.danubra_web_submissions[0].payload.languages.join() === 'cs,de', 'jazyky, ktorými hovorí, sú pri kandidátovi aj v zázname odoslania', JSON.stringify(c.languages));
   ok(db.T.danubra_web_submissions[0].candidate_id === c.id && !db.T.danubra_web_submissions[0].payload.website, 'odoslanie je zapísané s odkazom na kandidáta');
+  const dbRo = fakeDb();
+  await api.handle(SITES.sk, 'contact', req({ name: 'Ion Popescu', phone: '+40 700 000 000', consent: true, lang: 'ro', languages: ['ro', 'en'] }), { supabase: dbRo });
+  const cRo = dbRo.T.danubra_candidates[0];
+  ok(cRo && cRo.language === 'ro' && cRo.languages.join() === 'ro,en', 'rumunský kontakt: jazyk webu ro, hovorí rumunsky a anglicky', JSON.stringify(cRo));
+  const dbNo = fakeDb();
+  await api.handle(SITES.sk, 'contact', req({ name: 'A', phone: '+421900000000', consent: true }), { supabase: dbNo });
+  ok(dbNo.T.danubra_candidates[0].languages === null, 'bez zaškrtnutých jazykov je pri kandidátovi null (nie prázdne pole)');
 
   console.log('Ochrana');
   const sp = await api.handle(SITES.sk, 'contact', req({ name: 'Bot', phone: '+421900000000', consent: true, website: 'http://spam' }), { supabase: db });
@@ -145,10 +158,14 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   ok(rNone.skipped === 'bez schránky' && none.sent.length === 0, 'bez zvolenej schránky sa neposiela nič');
 
   const E = require('../emails');
-  for (const l of ['sk', 'cz', 'hu', 'de', 'en']) {
+  for (const l of SITES.sk.langs) {
     const m = E.confirmApply({ lang: l, name: 'Ján Novák', job: { title: 'Zvárač', city: 'Bremen', rate: '29–30 €', start: 'Od 3. 11.', image: 'https://x/y.jpg' }, ref: 'AB12CD', assets: 'https://a/web/public' });
     ok(m.subject && /Ján/.test(m.html) && !/undefined|NaN/.test(m.html + m.text) && /punds-mark-white\.png/.test(m.html) && m.text.length > 80, `potvrdenie prihlášky — ${l}`, m.subject);
   }
+  ok(/germană sau engleză/.test(E.confirmApply({ lang: 'ro', assets: 'x' }).text) && /немски или английски/.test(E.confirmApply({ lang: 'bg', assets: 'x' }).text)
+    && !/nemecky alebo anglicky/.test(E.confirmApply({ lang: 'sk', assets: 'x' }).text), 'potvrdenie po rumunsky a bulharsky pripomína nemčinu alebo angličtinu vedúceho partie');
+  const tmL = E.team({ kind: 'apply', data: { name: 'Ion', phone: '+40', lang: 'ro', languages: ['ro', 'en', 'xx'] } });
+  ok(/Hovorí: rumunčina, angličtina, xx/.test(tmL.text) && /Jazyk webu: ro/.test(tmL.text), 'upozornenie tímu hovorí, ktorými jazykmi uchádzač hovorí');
   const ce = E.confirmEnquiry({ lang: 'de', trades: ['zvarac', 'sadrokarton'], headcount: 2, location: 'Hamburg', start: 'ab KW 46', ref: 'X1', assets: 'https://a/web/public', contact: { phone: '+421 910 523 958', email: 'info@punds.eu' } });
   ok(/Schweißen MIG\/MAG\/TIG, Trockenbau/.test(ce.html) && /2 Personen/.test(ce.html) && /Hamburg/.test(ce.text) && !/undefined/.test(ce.html), 'potvrdenie dopytu po nemecky so súhrnom', ce.subject);
   const tm = E.team({ kind: 'apply', data: { name: 'Ján', phone: '+421', note: 'ahoj', lang: 'sk' }, job: { title: 'Zvárač', city: 'Bremen' }, appUrl: 'https://a/app/' });

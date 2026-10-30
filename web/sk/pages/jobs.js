@@ -93,6 +93,51 @@ const T = {
     show: (s) => `Show ${s}`, apply: 'Apply filter', remove: 'Remove',
     ctaH: 'Didn’t find your trade?', ctaP: 'Send us your details. New projects come in every week.', ctaB: 'Leave your details',
   },
+  ro: {
+    title: 'Locuri de muncă în Germania pentru meseriași | punds',
+    desc: 'Oferte actuale de muncă în Germania pentru electricieni, sudori, montatori gips-carton, zugravi și alte meserii. De cazare și acte ne ocupăm noi.',
+    home: 'Acasă', h1: 'Muncă în Germania', sub: 'Proiecte verificate pentru meseriași. De cazare și acte ne ocupăm noi.',
+    list: 'Listă', map: 'Hartă', views: 'Afișare', filter: 'Filtru', reset: 'Șterge tot',
+    prof: 'Meserie', city: 'Localitate', cityM: 'Oraș', start: 'Start', any: 'Oricând', now: 'Imediat',
+    minRate: 'Tarif minim', noLimit: 'Fără limită', from: (n) => `de la ${n} €`,
+    sort: 'Sortare:', sortNew: 'Cele mai noi', sortRate: 'Tarif maxim', sortStart: 'Cel mai apropiat start',
+    accom: 'Cazare asigurată', detail: 'Detalii',
+    emptyH: 'Pentru această selecție nu avem momentan oferte', emptyP: 'Lăsați-ne datele de contact și vă anunțăm când apare ceva.', emptyBtn: 'Șterge filtrul', emptyC: 'Lasă datele de contact',
+    emptyHm: 'Nu am găsit nimic', emptyPm: 'Încercați să modificați filtrul.',
+    mapHint: 'Dați clic pe un oraș pentru a vedea ofertele de acolo', mapHintM: 'Atingeți un oraș', mapAll: 'Toate ofertele pe hartă', allCities: 'Toate orașele', mapLabel: 'Harta ofertelor',
+    show: (s) => `Afișează ${s}`, apply: 'Aplică filtrul', remove: 'Elimină',
+    ctaH: 'Nu v-ați găsit meseria?', ctaP: 'Trimiteți-ne datele de contact. Proiecte noi apar în fiecare săptămână.', ctaB: 'Lasă datele de contact',
+  },
+  pl: {
+    title: 'Oferty pracy w Niemczech dla fachowców | punds',
+    desc: 'Aktualne oferty pracy w Niemczech dla elektryków, spawaczy, monterów suchej zabudowy, malarzy i innych zawodów. Zakwaterowanie i formalności załatwiamy za Państwa.',
+    home: 'Start', h1: 'Praca w Niemczech', sub: 'Sprawdzone projekty dla fachowców. Zakwaterowanie i formalności załatwiamy za Państwa.',
+    list: 'Lista', map: 'Mapa', views: 'Widok', filter: 'Filtr', reset: 'Wyczyść wszystko',
+    prof: 'Zawód', city: 'Miejsce', cityM: 'Miasto', start: 'Start', any: 'Kiedykolwiek', now: 'Od zaraz',
+    minRate: 'Minimalna stawka', noLimit: 'Bez ograniczeń', from: (n) => `od ${n} €`,
+    sort: 'Sortuj:', sortNew: 'Najnowsze', sortRate: 'Najwyższa stawka', sortStart: 'Najwcześniejszy start',
+    accom: 'Zakwaterowanie zapewnione', detail: 'Szczegóły',
+    emptyH: 'Dla tego wyboru nie mamy obecnie oferty', emptyP: 'Prosimy zostawić kontakt – odezwiemy się, gdy coś się pojawi.', emptyBtn: 'Wyczyść filtr', emptyC: 'Zostaw kontakt',
+    emptyHm: 'Nic nie znaleziono', emptyPm: 'Prosimy zmienić filtr.',
+    mapHint: 'Kliknij miasto, aby zobaczyć jego oferty', mapHintM: 'Dotknij miasta', mapAll: 'Wszystkie oferty na mapie', allCities: 'Wszystkie miasta', mapLabel: 'Mapa ofert',
+    show: (s) => `Pokaż ${s}`, apply: 'Zastosuj filtr', remove: 'Usuń',
+    ctaH: 'Nie znaleźli Państwo swojego zawodu?', ctaP: 'Prosimy przesłać nam kontakt. Nowe projekty pojawiają się co tydzień.', ctaB: 'Zostaw kontakt',
+  },
+  bg: {
+    title: 'Обяви за работа в Германия за строителни специалисти | punds',
+    desc: 'Актуални обяви за работа в Германия за електротехници, заварчици, монтажници на гипсокартон, бояджии и други професии. За квартирата и документите се грижим ние.',
+    home: 'Начало', h1: 'Работа в Германия', sub: 'Проверени проекти за строителни специалисти. За квартирата и документите се грижим ние.',
+    list: 'Списък', map: 'Карта', views: 'Изглед', filter: 'Филтър', reset: 'Изчисти всичко',
+    prof: 'Професия', city: 'Място', cityM: 'Град', start: 'Начало', any: 'По всяко време', now: 'Веднага',
+    minRate: 'Минимална ставка', noLimit: 'Без ограничение', from: (n) => `от ${n} €`,
+    sort: 'Подреди:', sortNew: 'Най-нови', sortRate: 'Най-висока ставка', sortStart: 'Най-ранно начало',
+    accom: 'Осигурена квартира', detail: 'Подробности',
+    emptyH: 'За този избор в момента нямаме обява', emptyP: 'Оставете ни контакт и ще се свържем с Вас, когато се появи нещо.', emptyBtn: 'Изчисти филтъра', emptyC: 'Оставете контакт',
+    emptyHm: 'Нищо не е намерено', emptyPm: 'Опитайте да промените филтъра.',
+    mapHint: 'Кликнете върху град, за да видите обявите от него', mapHintM: 'Докоснете град', mapAll: 'Всички обяви на картата', allCities: 'Всички градове', mapLabel: 'Карта на обявите',
+    show: (s) => `Покажи ${s}`, apply: 'Приложи филтъра', remove: 'Премахни',
+    ctaH: 'Не намерихте професията си?', ctaP: 'Изпратете ни контакт. Всяка седмица се появяват нови проекти.', ctaB: 'Оставете контакт',
+  },
 };
 
 const ICON = {
@@ -143,7 +188,7 @@ function sorted(list, sort) {
 /** Krátky nástup na mobilnú kartu: „Ihneď" / „3. 11." */
 function startShort(j, t, lang) {
   if (j.startNow || !j.startDate) return t.now;
-  return new Date(j.startDate).toLocaleDateString(LOCALE[lang], lang === 'en' ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'numeric' });
+  return new Date(j.startDate).toLocaleDateString(LOCALE[lang] || LOCALE.sk, lang === 'en' ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'numeric' });
 }
 
 module.exports = async function render(ctx) {

@@ -17,9 +17,11 @@
 const crypto = require('crypto');
 const PROF = require('./shared/professions');
 const { COLS } = require('./shared/jobs');
+const { SPOKEN } = require('./shared/sites');
 
 const FORMS = { sk: ['apply', 'contact'], eu: ['enquiry'] };
-const LANG_DB = { sk: 'sk', cz: 'cs', hu: 'hu', de: 'de', en: 'en' };
+// Jazyk webu → danubra_candidates.language (čeština je v appke „cs").
+const LANG_DB = { sk: 'sk', cz: 'cs', hu: 'hu', de: 'de', en: 'en', ro: 'ro', pl: 'pl', bg: 'bg' };
 const ORIGIN_OK = /^https?:\/\/(([a-z0-9-]+\.)*punds\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost(:\d+)?|127\.0\.0\.1(:\d+)?)$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -35,6 +37,13 @@ function validate(form, b = {}) {
     note: str(b.note || b.message, 3000), consent: b.consent === true || b.consent === 'on' || b.consent === 'true',
     lang: LANG_DB[str(b.lang, 5)] ? str(b.lang, 5) : null, page: str(b.page, 300), website: str(b.website, 200),
   };
+  // „Ktorými jazykmi hovoríte?" — len známe kódy (shared/sites.js → SPOKEN), bez duplicít.
+  // Vo formulári je pole povinné (site.js); server ho nevyžaduje, aby prihláška
+  // zo stránky, ktorú CDN ešte drží bez tohto poľa, neskončila chybou.
+  if (form === 'apply' || form === 'contact') {
+    const raw = Array.isArray(b.languages) ? b.languages : (b.languages ? [b.languages] : []);
+    d.languages = [...new Set(raw.map((x) => str(x, 10)).filter((k) => SPOKEN.includes(k)))];
+  }
   if (form === 'apply') {
     d.job = str(b.job, 120);
     if (!d.name) errors.push('name');
@@ -209,6 +218,7 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
     const what = ad ? (ad.web_title || ad.title) : (name === 'apply' ? `ponuka ${d.job || '?'}` : 'kontaktný formulár');
     const row = {
       full_name: d.name, phone: d.phone, email: d.email || null, language: LANG_DB[d.lang] || 'sk',
+      languages: d.languages && d.languages.length ? d.languages : null,     // migrácia 084
       profession: (ad && ad.trade_key) || (prof && prof.app[0]) || null,
       source: 'web', source_detail: `punds.sk · ${what}`.slice(0, 200), status: 'new', type: 'individual',
       notes: [d.topic && `Téma: ${d.topic}`, d.note, d.profession && !prof && `Profesia: ${d.profession}`].filter(Boolean).join('\n') || null,

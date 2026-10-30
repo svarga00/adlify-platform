@@ -42,7 +42,10 @@
     'Prvý kontakt': 'Kedy sme sa mu prvý raz ozvali. V zátvorke je, koľko minút po tom, čo sa ozval on.',
     'Predstava sadzby': 'Koľko si pýta za jednu hodinu práce, bez DPH.',
     'Dostupný od': 'Odkedy je voľný. Nie je to dohodnutý nástup.',
+    'Hovorí': 'Jazyky, ktoré zaškrtol vo formulári na punds.sk. Vedúci partie musí hovoriť po nemecky alebo anglicky — koordinácia na stavbe je po nemecky.',
   };
+  // Jazyky z formulára na webe (danubra_candidates.languages, migrácia 084).
+  const SPOKEN = { de: 'nemčina', en: 'angličtina', sk: 'slovenčina', cs: 'čeština', hu: 'maďarčina', ro: 'rumunčina', pl: 'poľština', bg: 'bulharčina', other: 'iný' };
   const Cand = {
     items: [], ads: [], loaded: false,
     // Predvolene zoznam. Kanban s piatimi stĺpcami, z ktorých sú štyri
@@ -571,6 +574,7 @@
         ['Predstava sadzby', c.expected_rate ? UI.money(c.expected_rate) : null],
         ['Dostupný od', c.available_from ? UI.date(c.available_from) : null],
         ['Nemčina', c.german_level],
+        ['Hovorí', Array.isArray(c.languages) && c.languages.length ? c.languages.map(k => SPOKEN[k] || k).join(', ') : null],
       ].filter(r => r[1] != null && r[1] !== '');
 
       const body = `
@@ -782,8 +786,8 @@
             ${UI.field('available_from', 'Dostupný od', { type: 'date', value: c.available_from,
               tip: 'Odkedy je vôbec voľný (napr. keď mu končí iná práca). Nie je to dohodnutý nástup — ten je v poli „Možný nástup".' })}
             ${UI.field('german_level', 'Nemčina', { value: c.german_level, options: [['', '—'], ['ziadny', 'Žiadna'], ['zaklad', 'Základ'], ['dobry', 'Dobrá']] })}
-            ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['ua', 'UA']],
-              tip: 'V akom jazyku sa s ním dohovoríte a v akom mu posielať správy a dokumenty. SK slovenčina, HU maďarčina, CS čeština, UA ukrajinčina.' })}
+            ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['ua', 'UA'], ['de', 'DE'], ['en', 'EN'], ['ro', 'RO'], ['pl', 'PL'], ['bg', 'BG']],
+              tip: 'V akom jazyku sa s ním dohovoríte a v akom mu posielať správy a dokumenty. SK slovenčina, HU maďarčina, CS čeština, UA ukrajinčina, DE nemčina, EN angličtina, RO rumunčina, PL poľština, BG bulharčina. Pri prihláške z webu je to jazyk, v ktorom si web prezeral.' })}
             ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '', add: 'plan',
               options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])],
               tip: 'Na ktorú konkrétnu potrebu (stavbu) ho naberáme. Ponúkajú sa len spustené nábory. Ak ešte nevieme, nechajte „žiadny konkrétny".' })}

@@ -402,8 +402,8 @@
           <label class="fld"><span>Nahrať fotku</span><input type="file" accept="image/jpeg,image/png,image/webp" onchange="Ads.uploadImage(this)"></label>
         </div>
         <div class="btn-row">
-          <button type="button" class="btn btn-outline btn-sm" id="ad-tr-btn" onclick="Ads.translate()">${Icon('repeat', 14)} Preložiť do CZ, HU, DE, EN</button>
-          ${UI.tip('Appka preloží názov, popis, náplň, požiadavky, ponuku a otázky do češtiny, maďarčiny, nemčiny a angličtiny. Preklady sa ukážu nižšie na kontrolu a uložia sa až tlačidlom Uložiť.')}
+          <button type="button" class="btn btn-outline btn-sm" id="ad-tr-btn" onclick="Ads.translate()">${Icon('repeat', 14)} Preložiť do ${W.LANGS.map(([l]) => l.toUpperCase()).join(', ')}</button>
+          ${UI.tip('Appka preloží názov, popis, náplň, požiadavky, ponuku a otázky do češtiny, maďarčiny, nemčiny, angličtiny, rumunčiny, poľštiny a bulharčiny. Preklady sa ukážu nižšie na kontrolu a uložia sa až tlačidlom Uložiť. Kým preklad nie je, web ukáže slovenský text (po rumunsky, poľsky a bulharsky najprv anglický, ak je).')}
           <span class="card-note" id="ad-tr-st">${tr.length ? `Preložené: ${tr.map(l => l.toUpperCase()).join(', ')}` : 'Bez prekladu — v ostatných jazykoch sa ukáže slovenský text.'}</span>
           ${x.web_published && x.web_slug ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${UI.esc(this.webUrl(x))}">${Icon('chevron', 14)} Otvoriť na webe</a>` : ''}
         </div>

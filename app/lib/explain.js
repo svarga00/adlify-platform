@@ -399,7 +399,7 @@
       title: 'E-maily z webov',
       lead: 'Čo sa pošle, keď niekto vyplní formulár na punds.sk alebo punds.eu.',
       what: [
-        'Uchádzač dostane potvrdenie vo svojom jazyku (SK, CZ, HU, DE, EN) — s ponukou, na ktorú sa prihlásil, a ďalšími krokmi.',
+        'Uchádzač dostane potvrdenie vo svojom jazyku (SK, CZ, HU, DE, EN, RO, PL, BG) — s ponukou, na ktorú sa prihlásil, a ďalšími krokmi.',
         'Nemecká firma dostane potvrdenie dopytu po nemecky alebo anglicky so súhrnom (remeslo, počet, miesto, začiatok).',
         'Vy dostanete upozornenie na zadanú adresu — odpoveďou píšete rovno uchádzačovi.',
       ],
@@ -420,6 +420,7 @@
         'Tím: ľudia na stránkach O nás a Über uns — meno, funkcia v každom jazyku, fotka.',
         'Fotky: výmena fotiek z doterajšieho WordPressu za vlastné.',
         'Texty: každý text každej stránky v každom jazyku; zmeny v slovenčine (punds.sk) alebo nemčine (punds.eu) sa dajú preložiť do ostatných jazykov.',
+        'punds.sk je v 8 jazykoch (SK, CZ, HU, DE, EN, RO, PL, BG). Po rumunsky, poľsky a bulharsky web na úvode, v postupe a pri ponuke pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky — tím hovorí SK, CZ, HU, DE, EN. Uchádzač vo formulári zaškrtne, ktorými jazykmi hovorí; vidno to v detaile kandidáta.',
       ],
       how: [
         'Ponuky práce sa spravujú v Inzerátoch — „Zverejniť na punds.sk".',

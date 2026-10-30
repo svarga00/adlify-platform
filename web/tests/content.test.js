@@ -7,6 +7,7 @@
 const { handle } = require('../server');
 const C = require('../content');
 const { DEMO_ADS, IMG } = require('../shared/jobs');
+const { SITES } = require('../shared/sites');
 
 let passed = 0, failed = 0;
 const ok = (c, name, detail) => { if (c) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? ` — ${String(detail).slice(0, 300)}` : ''}`); } };
@@ -16,8 +17,10 @@ const get = (p, rows, host = 'adlify-app.netlify.app') => handle({ method: 'GET'
 (async () => {
   console.log('Popis textov pre appku');
   const sch = C.schema();
-  ok(sch.sites.sk.home && sch.sites.sk.home.langs.join() === 'sk,cz,hu,de,en' && Object.keys(sch.sites.sk.home.fields.sk).length > 10,
-    'punds.sk: úvodná stránka má texty vo všetkých 5 jazykoch');
+  ok(sch.sites.sk.home && sch.sites.sk.home.langs.join() === SITES.sk.langs.join() && sch.sites.sk.home.langs.join() === 'sk,cz,hu,de,en,ro,pl,bg'
+    && Object.keys(sch.sites.sk.home.fields.sk).length > 10 && Object.keys(sch.sites.sk.home.fields.bg).length === Object.keys(sch.sites.sk.home.fields.sk).length,
+    `punds.sk: úvodná stránka má texty vo všetkých ${SITES.sk.langs.length} jazykoch`);
+  ok(sch.sites.sk.common.fields.ro['langReq.p'] && !sch.sites.sk.common.fields.sk['langReq.p'], 'podmienka o nemčine pre ro/pl/bg sa dá upraviť v appke, slovenčina ju nemá');
   ok(sch.sites.eu['trade:zvarac'] && sch.sites.eu['trade:zvarac'].fields.de && sch.sites.eu.common, 'punds.eu: remeslá aj spoločné texty');
   ok(sch.images.some((i) => i.url === IMG.weld) && sch.defaults.contacts.sk.phone1, 'zoznam fotiek a pôvodné kontakty');
   const r = await get('/punds-sk/api/schema', {});

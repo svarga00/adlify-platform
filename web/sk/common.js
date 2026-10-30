@@ -1,13 +1,21 @@
 // ============================================================================
 // punds.sk — spoločné texty, hlavička a päta
 // ============================================================================
-// Oslovujeme vykaním (Vy) vo všetkých jazykoch, ktoré ho majú.
+// Oslovujeme vykaním (Vy) vo všetkých jazykoch, ktoré ho majú (ro „Dvs.",
+// pl „Państwo", bg „Вие").
+//
+// Ku každému jazyku patrí:
+//   spoken   názvy jazykov pre pole „Ktorými jazykmi hovoríte?" (shared/sites.js → SPOKEN)
+//   langsQ   popis toho poľa
+//   langReq  len ro/pl/bg: podmienka, že vedúci partie hovorí po nemecky alebo
+//            anglicky — tím firmy hovorí SK/CZ/HU/DE/EN, koordinácia na stavbe
+//            je po nemecky. Ukazuje sa na úvode, v postupe a pri ponuke.
 // ============================================================================
 'use strict';
 
 const { esc, each, plural } = require('../shared/h');
 const { logo } = require('../shared/brand');
-const { LANGS } = require('../shared/sites');
+const { LANGS, SPOKEN } = require('../shared/sites');
 const PROF = require('../shared/professions');
 const { icon } = require('../shared/icons');
 
@@ -24,7 +32,9 @@ const T = {
     jobsN: ['ponuka', 'ponuky', 'ponúk'],
     foot: { privacy: 'Ochrana osobných údajov', cookies: 'Cookies', b2b: 'Pre firmy v Nemecku' },
     lang: 'Jazyk',
-    js: { sending: 'Odosielam…', error: 'Niečo sa nepodarilo. Skúste to prosím znova alebo nám zavolajte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez súhlasu so spracovaním údajov to nevieme prijať.', phone: 'Skontrolujte prosím telefónne číslo.', email: 'Skontrolujte prosím e-mail.', copied: 'Skopírované' },
+    langsQ: 'Ktorými jazykmi hovoríte?',
+    spoken: { de: 'Nemčina', en: 'Angličtina', sk: 'Slovenčina', cs: 'Čeština', hu: 'Maďarčina', ro: 'Rumunčina', pl: 'Poľština', bg: 'Bulharčina', other: 'Iný jazyk' },
+    js: { sending: 'Odosielam…', error: 'Niečo sa nepodarilo. Skúste to prosím znova alebo nám zavolajte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez súhlasu so spracovaním údajov to nevieme prijať.', phone: 'Skontrolujte prosím telefónne číslo.', email: 'Skontrolujte prosím e-mail.', copied: 'Skopírované', langs: 'Zaškrtnite prosím aspoň jeden jazyk.' },
   },
   cz: {
     skip: 'Přeskočit na obsah', menu: 'Menu', close: 'Zavřít',
@@ -35,7 +45,9 @@ const T = {
     jobsN: ['nabídka', 'nabídky', 'nabídek'],
     foot: { privacy: 'Ochrana osobních údajů', cookies: 'Cookies', b2b: 'Pro firmy v Německu' },
     lang: 'Jazyk',
-    js: { sending: 'Odesílám…', error: 'Něco se nepovedlo. Zkuste to prosím znovu nebo nám zavolejte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez souhlasu se zpracováním údajů to nemůžeme přijmout.', phone: 'Zkontrolujte prosím telefonní číslo.', email: 'Zkontrolujte prosím e-mail.', copied: 'Zkopírováno' },
+    langsQ: 'Kterými jazyky mluvíte?',
+    spoken: { de: 'Němčina', en: 'Angličtina', sk: 'Slovenština', cs: 'Čeština', hu: 'Maďarština', ro: 'Rumunština', pl: 'Polština', bg: 'Bulharština', other: 'Jiný jazyk' },
+    js: { sending: 'Odesílám…', error: 'Něco se nepovedlo. Zkuste to prosím znovu nebo nám zavolejte.', required: 'Vyplňte prosím toto pole.', consent: 'Bez souhlasu se zpracováním údajů to nemůžeme přijmout.', phone: 'Zkontrolujte prosím telefonní číslo.', email: 'Zkontrolujte prosím e-mail.', copied: 'Zkopírováno', langs: 'Zaškrtněte prosím alespoň jeden jazyk.' },
   },
   hu: {
     skip: 'Ugrás a tartalomra', menu: 'Menü', close: 'Bezárás',
@@ -46,7 +58,9 @@ const T = {
     jobsN: ['állás', 'állás', 'állás'],
     foot: { privacy: 'Adatvédelem', cookies: 'Cookie-k', b2b: 'Németországi cégeknek' },
     lang: 'Nyelv',
-    js: { sending: 'Küldés…', error: 'Valami nem sikerült. Kérjük, próbálja újra, vagy hívjon minket.', required: 'Kérjük, töltse ki ezt a mezőt.', consent: 'Az adatkezelési hozzájárulás nélkül nem tudjuk fogadni.', phone: 'Kérjük, ellenőrizze a telefonszámot.', email: 'Kérjük, ellenőrizze az e-mail-címet.', copied: 'Másolva' },
+    langsQ: 'Milyen nyelveken beszél?',
+    spoken: { de: 'Német', en: 'Angol', sk: 'Szlovák', cs: 'Cseh', hu: 'Magyar', ro: 'Román', pl: 'Lengyel', bg: 'Bolgár', other: 'Egyéb' },
+    js: { sending: 'Küldés…', error: 'Valami nem sikerült. Kérjük, próbálja újra, vagy hívjon minket.', required: 'Kérjük, töltse ki ezt a mezőt.', consent: 'Az adatkezelési hozzájárulás nélkül nem tudjuk fogadni.', phone: 'Kérjük, ellenőrizze a telefonszámot.', email: 'Kérjük, ellenőrizze az e-mail-címet.', copied: 'Másolva', langs: 'Kérjük, jelöljön meg legalább egy nyelvet.' },
   },
   de: {
     skip: 'Zum Inhalt springen', menu: 'Menü', close: 'Schließen',
@@ -57,7 +71,9 @@ const T = {
     jobsN: ['Job', 'Jobs', 'Jobs'],
     foot: { privacy: 'Datenschutz', cookies: 'Cookies', b2b: 'Für Firmen in Deutschland' },
     lang: 'Sprache',
-    js: { sending: 'Wird gesendet…', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder rufen Sie uns an.', required: 'Bitte füllen Sie dieses Feld aus.', consent: 'Ohne Einwilligung in die Datenverarbeitung können wir das nicht annehmen.', phone: 'Bitte prüfen Sie die Telefonnummer.', email: 'Bitte prüfen Sie die E-Mail-Adresse.', copied: 'Kopiert' },
+    langsQ: 'Welche Sprachen sprechen Sie?',
+    spoken: { de: 'Deutsch', en: 'Englisch', sk: 'Slowakisch', cs: 'Tschechisch', hu: 'Ungarisch', ro: 'Rumänisch', pl: 'Polnisch', bg: 'Bulgarisch', other: 'Andere' },
+    js: { sending: 'Wird gesendet…', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder rufen Sie uns an.', required: 'Bitte füllen Sie dieses Feld aus.', consent: 'Ohne Einwilligung in die Datenverarbeitung können wir das nicht annehmen.', phone: 'Bitte prüfen Sie die Telefonnummer.', email: 'Bitte prüfen Sie die E-Mail-Adresse.', copied: 'Kopiert', langs: 'Bitte wählen Sie mindestens eine Sprache.' },
   },
   en: {
     skip: 'Skip to content', menu: 'Menu', close: 'Close',
@@ -68,7 +84,51 @@ const T = {
     jobsN: ['job', 'jobs', 'jobs'],
     foot: { privacy: 'Privacy policy', cookies: 'Cookies', b2b: 'For companies in Germany' },
     lang: 'Language',
-    js: { sending: 'Sending…', error: 'Something went wrong. Please try again or give us a call.', required: 'Please fill in this field.', consent: 'We can’t accept this without your consent to data processing.', phone: 'Please check the phone number.', email: 'Please check the email address.', copied: 'Copied' },
+    langsQ: 'Which languages do you speak?',
+    spoken: { de: 'German', en: 'English', sk: 'Slovak', cs: 'Czech', hu: 'Hungarian', ro: 'Romanian', pl: 'Polish', bg: 'Bulgarian', other: 'Other' },
+    js: { sending: 'Sending…', error: 'Something went wrong. Please try again or give us a call.', required: 'Please fill in this field.', consent: 'We can’t accept this without your consent to data processing.', phone: 'Please check the phone number.', email: 'Please check the email address.', copied: 'Copied', langs: 'Please tick at least one language.' },
+  },
+  ro: {
+    skip: 'Sari la conținut', menu: 'Meniu', close: 'Închide',
+    nav: { jobs: 'Locuri de muncă', professions: 'Meserii', about: 'Despre noi', how: 'Cum funcționează', contact: 'Contact' },
+    cta: 'Mă interesează', call: 'Sunați',
+    mega: { prof: 'După meserie', city: 'După localitate', top: 'Cele mai noi oferte', all: 'Toate ofertele', map: 'Vezi pe hartă', note: 'Proiecte noi apar în fiecare săptămână.' },
+    perH: '/ oră', trade: 'Activitate independentă', now: 'Start imediat', from: 'Din', demo: 'Exemplu',
+    jobsN: ['ofertă', 'oferte', 'de oferte'],
+    foot: { privacy: 'Protecția datelor', cookies: 'Cookies', b2b: 'Pentru firme din Germania' },
+    lang: 'Limba',
+    langsQ: 'Ce limbi vorbiți?',
+    spoken: { de: 'Germană', en: 'Engleză', sk: 'Slovacă', cs: 'Cehă', hu: 'Maghiară', ro: 'Română', pl: 'Poloneză', bg: 'Bulgară', other: 'Altă limbă' },
+    langReq: { h: 'Condiție importantă', p: 'Șeful de echipă trebuie să vorbească germană sau engleză – coordonarea pe șantier se face în germană. Echipa noastră vorbește slovacă, cehă, maghiară, germană și engleză.' },
+    js: { sending: 'Se trimite…', error: 'Ceva nu a funcționat. Vă rugăm să încercați din nou sau să ne sunați.', required: 'Vă rugăm să completați acest câmp.', consent: 'Fără acordul pentru prelucrarea datelor nu putem prelua cererea.', phone: 'Vă rugăm să verificați numărul de telefon.', email: 'Vă rugăm să verificați adresa de e-mail.', copied: 'Copiat', langs: 'Vă rugăm să bifați cel puțin o limbă.' },
+  },
+  pl: {
+    skip: 'Przejdź do treści', menu: 'Menu', close: 'Zamknij',
+    nav: { jobs: 'Oferty', professions: 'Zawody', about: 'O nas', how: 'Jak to działa', contact: 'Kontakt' },
+    cta: 'Chcę się zgłosić', call: 'Zadzwoń',
+    mega: { prof: 'Według zawodu', city: 'Według miejsca', top: 'Najnowsze oferty', all: 'Wszystkie oferty', map: 'Pokaż na mapie', note: 'Nowe projekty pojawiają się co tydzień.' },
+    perH: '/ godz.', trade: 'Własna działalność', now: 'Start od zaraz', from: 'Od', demo: 'Przykład',
+    jobsN: ['oferta', 'oferty', 'ofert'],
+    foot: { privacy: 'Ochrona danych osobowych', cookies: 'Cookies', b2b: 'Dla firm w Niemczech' },
+    lang: 'Język',
+    langsQ: 'Jakimi językami Pan/Pani mówi?',
+    spoken: { de: 'Niemiecki', en: 'Angielski', sk: 'Słowacki', cs: 'Czeski', hu: 'Węgierski', ro: 'Rumuński', pl: 'Polski', bg: 'Bułgarski', other: 'Inny' },
+    langReq: { h: 'Ważny warunek', p: 'Kierownik brygady musi mówić po niemiecku lub po angielsku – koordynacja na budowie odbywa się po niemiecku. Nasz zespół mówi po słowacku, czesku, węgiersku, niemiecku i angielsku.' },
+    js: { sending: 'Wysyłanie…', error: 'Coś poszło nie tak. Prosimy spróbować ponownie lub do nas zadzwonić.', required: 'Prosimy wypełnić to pole.', consent: 'Bez zgody na przetwarzanie danych nie możemy przyjąć zgłoszenia.', phone: 'Prosimy sprawdzić numer telefonu.', email: 'Prosimy sprawdzić adres e-mail.', copied: 'Skopiowano', langs: 'Prosimy zaznaczyć co najmniej jeden język.' },
+  },
+  bg: {
+    skip: 'Към съдържанието', menu: 'Меню', close: 'Затвори',
+    nav: { jobs: 'Обяви', professions: 'Професии', about: 'За нас', how: 'Как работи', contact: 'Контакт' },
+    cta: 'Интересувам се', call: 'Обадете се',
+    mega: { prof: 'По професия', city: 'По място', top: 'Най-нови обяви', all: 'Всички обяви', map: 'Виж на картата', note: 'Всяка седмица се появяват нови проекти.' },
+    perH: '/ час', trade: 'Самонаето лице', now: 'Започване веднага', from: 'От', demo: 'Пример',
+    jobsN: ['обява', 'обяви', 'обяви'],
+    foot: { privacy: 'Лични данни', cookies: 'Бисквитки', b2b: 'За фирми в Германия' },
+    lang: 'Език',
+    langsQ: 'Какви езици говорите?',
+    spoken: { de: 'Немски', en: 'Английски', sk: 'Словашки', cs: 'Чешки', hu: 'Унгарски', ro: 'Румънски', pl: 'Полски', bg: 'Български', other: 'Друг' },
+    langReq: { h: 'Важно условие', p: 'Ръководителят на екипа трябва да говори немски или английски – координацията на обекта е на немски. Нашият екип говори словашки, чешки, унгарски, немски и английски.' },
+    js: { sending: 'Изпращане…', error: 'Нещо се обърка. Моля, опитайте отново или ни се обадете.', required: 'Моля, попълнете това поле.', consent: 'Без съгласие за обработка на данните не можем да приемем заявката.', phone: 'Моля, проверете телефонния номер.', email: 'Моля, проверете имейл адреса.', copied: 'Копирано', langs: 'Моля, отбележете поне един език.' },
   },
 };
 
@@ -78,16 +138,42 @@ function rate(job) {
   const f = (n) => String(n).replace('.', ',');
   return job.rateMax != null && job.rateMax !== job.rateMin ? `${f(job.rateMin)}–${f(job.rateMax)} €` : `${f(job.rateMin)} €`;
 }
-/** Nástup: „Nástup ihneď" alebo dátum v tvare jazyka — „Od 3. 11.", „Kezdés: 11. 3.", „Ab 3.11.", „From 3 Nov". */
+/** Nástup: „Nástup ihneď" alebo dátum v tvare jazyka — „Od 3. 11.", „Kezdés: 11. 3.", „Ab 3.11.", „From 3 Nov", „Din 3.11.". */
 function start(job, t, lang) {
   if (job.startNow || !job.startDate) return t.now;
   const d = new Date(job.startDate);
   const D = d.getDate(), M = d.getMonth() + 1;
-  const l = lang || (t === T.hu ? 'hu' : t === T.de ? 'de' : t === T.en ? 'en' : 'sk');
+  const l = lang || Object.keys(T).find((k) => T[k] === t) || 'sk';
   if (l === 'hu') return `${t.from} ${M}. ${D}.`;
-  if (l === 'de') return `${t.from} ${D}.${M}.`;
+  if (l === 'de' || l === 'ro' || l === 'pl' || l === 'bg') return `${t.from} ${D}.${M}.`;
   if (l === 'en') return `${t.from} ${D} ${d.toLocaleString('en-GB', { month: 'short' })}`;
   return `${t.from} ${D}. ${M}.`;
+}
+
+/**
+ * Podmienka pre ro/pl/bg: vedúci partie hovorí po nemecky alebo anglicky.
+ * V ostatných jazykoch sa nič neukáže (tím sa s nimi dohovorí).
+ * @param {Object} [o]  { wrap: 'hm-req' } = obaliť do <div class="wrap hm-req"> (samostatný pás stránky);
+ *                      bez wrap sa vráti len box (do karty, bočného panela)
+ */
+function langReqBox(ctx, { wrap = null } = {}) {
+  const t = T[ctx.lang];
+  if (!t || !t.langReq) return '';
+  const box = `<div class="req-box" role="note"><span class="req-ico" aria-hidden="true">${icon('alert')}</span><div><strong>${esc(t.langReq.h)}</strong><p>${esc(t.langReq.p)}</p></div></div>`;
+  return wrap == null ? box : `<div class="wrap rv-in${wrap ? ` ${wrap}` : ''}">${box}</div>`;
+}
+
+/**
+ * Pole „Ktorými jazykmi hovoríte?" — zaškrtávacie čipy, aspoň jeden povinný
+ * (kontroluje public/js/site.js podľa data-required-group). Hodnoty sú kódy
+ * zo shared/sites.js → SPOKEN, do appky idú ako danubra_candidates.languages.
+ * @param {string} [prefix]  predpona id, keď je formulárov na stránke viac
+ */
+function spokenField(ctx, prefix = 'sp') {
+  const t = T[ctx.lang];
+  return `<fieldset class="lang-pick" data-required-group><legend>${esc(t.langsQ)} *</legend>
+    <div class="lang-pick-list">${each(SPOKEN, (k) => `<label class="lang-chip"><input type="checkbox" name="languages[]" value="${k}" id="${prefix}-lang-${k}"><span>${esc(t.spoken[k])}</span></label>`)}</div>
+  </fieldset>`;
 }
 
 /** Profesie a mestá so súčtom ponúk — pre mega menu a filter. */
@@ -178,4 +264,4 @@ function footer(ctx) {
 </footer>`;
 }
 
-module.exports = { T, PHONE, PHONE2, MAIL, tel, rate, start, facets, header, footer, langMenu, chev, flag, plural };
+module.exports = { T, PHONE, PHONE2, MAIL, tel, rate, start, facets, header, footer, langMenu, chev, flag, plural, langReqBox, spokenField };

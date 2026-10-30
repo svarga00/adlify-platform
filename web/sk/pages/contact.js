@@ -12,7 +12,7 @@
 const { esc, each } = require('../../shared/h');
 const PROF = require('../../shared/professions');
 const { icon } = require('../../shared/icons');
-const { PHONE, PHONE2, MAIL, tel } = require('../common');
+const { PHONE, PHONE2, MAIL, tel, spokenField } = require('../common');
 
 const ADDR = 'Podzámska 9468/4A, 940 71 Nové Zámky';
 const MAPS = 'https://maps.google.com/?q=Podz%C3%A1mska+9468/4A,+940+71+Nov%C3%A9+Z%C3%A1mky';
@@ -42,6 +42,18 @@ const F = {
     consent: ['I agree to the ', 'processing of my personal data', ''], send: 'Send', sendMsg: 'Send message',
     topic: 'I’m writing about', topics: ['Looking for work', 'Question about a job', 'Documents / self-employment', 'Something else'],
     okH: 'Thank you!', okP: 'We’ve received your message and will get back to you within 24 hours on working days.', okCall: 'In a hurry? Give us a call' },
+  ro: { name: 'Nume și prenume', phone: 'Telefon', email: 'E-mail', prof: 'Meserie', msg: 'Mesaj', req: 'obligatoriu',
+    consent: ['Sunt de acord cu ', 'prelucrarea datelor personale', ''], send: 'Trimite', sendMsg: 'Trimite mesajul',
+    topic: 'Scriu în legătură cu', topics: ['Caut de lucru', 'Întrebare despre o ofertă', 'Documente / activitate independentă', 'Altceva'],
+    okH: 'Vă mulțumim!', okP: 'Am primit mesajul Dvs. Vă contactăm în 24 de ore în zilele lucrătoare.', okCall: 'Dacă vă grăbiți, sunați-ne' },
+  pl: { name: 'Imię i nazwisko', phone: 'Telefon', email: 'E-mail', prof: 'Zawód', msg: 'Wiadomość', req: 'wymagane',
+    consent: ['Wyrażam zgodę na ', 'przetwarzanie danych osobowych', ''], send: 'Wyślij', sendMsg: 'Wyślij wiadomość',
+    topic: 'Piszę w sprawie', topics: ['Szukam pracy', 'Pytanie o ofertę', 'Dokumenty / działalność', 'Inne'],
+    okH: 'Dziękujemy!', okP: 'Otrzymaliśmy wiadomość. Odezwiemy się w ciągu 24 godzin w dni robocze.', okCall: 'Jeśli sprawa jest pilna, prosimy zadzwonić' },
+  bg: { name: 'Име и фамилия', phone: 'Телефон', email: 'Имейл', prof: 'Професия', msg: 'Съобщение', req: 'задължително',
+    consent: ['Съгласен/съгласна съм с ', 'обработката на личните данни', ''], send: 'Изпрати', sendMsg: 'Изпрати съобщението',
+    topic: 'Пиша относно', topics: ['Търся работа', 'Въпрос за обява', 'Документи / регистрация', 'Друго'],
+    okH: 'Благодарим Ви!', okP: 'Получихме съобщението Ви. Ще се свържем с Вас до 24 часа в работни дни.', okCall: 'Ако бързате, обадете ни се' },
 };
 const TOPIC_KEYS = ['work', 'job', 'docs', 'other'];
 
@@ -75,6 +87,7 @@ function contactForm(ctx, o = {}) {
     ${field('prof', `<select id="${id('prof')}" name="profession" class="sp-select"><option value="">${esc(f.prof)}</option>${profOpts}</select>`)}
     ${o.topic ? `<fieldset class="sp-topics"><legend>${esc(f.topic)}</legend><div class="sp-topic-list">${each(f.topics, (t, i) => `<label class="sp-topic"><input type="radio" name="topic" value="${TOPIC_KEYS[i]}"${i === 0 ? ' checked' : ''}><span>${esc(t)}</span></label>`)}</div></fieldset>` : ''}
     ${field('msg', `<textarea id="${id('msg')}" name="message" rows="${o.topic ? 4 : 3}" placeholder="${esc(f.msg)}"></textarea>`)}
+    ${spokenField(ctx, o.topic ? 'ct' : 'cf')}
     <label class="check"><input type="checkbox" name="consent" required><span>${esc(f.consent[0])}<a href="${esc(ctx.url('privacy'))}">${esc(f.consent[1])}</a>${esc(f.consent[2])} *</span></label>
     <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
     <div class="form-msg" role="alert"></div>
@@ -147,6 +160,39 @@ const T = {
     hoursH: 'Opening hours', days: [['Mon – Fri', '8:00 – 16:00'], ['Saturday', 'by phone'], ['Sunday', 'closed']],
     company: 'Company details', ico: 'Company ID (IČO)', dic: 'Tax ID (DIČ)', icdph: 'VAT ID',
     b2bH: 'A company in Germany looking for tradespeople?', b2bP: 'We have a separate website for companies, in German and English.', b2bCta: 'Go to punds.eu',
+  },
+  ro: {
+    title: 'Contact – telefon, WhatsApp, e-mail | punds', desc: 'Sunați, scrieți pe WhatsApp sau trimiteți un mesaj. Birou în Nové Zámky, Lu–Vi 8:00–16:00. Vorbim slovacă, cehă, maghiară, germană și engleză.',
+    home: 'Acasă', crumb: 'Contact',
+    h1: 'Suntem aici pentru Dvs.', lead: 'Cel mai rapid ne găsiți la telefon sau pe WhatsApp. Vorbim slovacă, cehă, maghiară, germană și engleză.',
+    phone: 'Telefon', or: 'sau', wa: 'WhatsApp', waH: 'Scrieți-ne', waP: 'Trimiteți un mesaj oricând', mail: 'E-mail', mailP: 'Răspuns în 24 de ore',
+    fH: 'Scrieți-ne', fSub: 'Completați ce știți. Restul stabilim la telefon.',
+    office: 'Birou Nové Zámky', route: 'Traseu', openMap: 'Deschide în Maps',
+    hoursH: 'Program', days: [['Lu – Vi', '8:00 – 16:00'], ['Sâmbătă', 'la telefon'], ['Duminică', 'închis']],
+    company: 'Date firmă', ico: 'Nr. înreg. (IČO)', dic: 'Cod fiscal (DIČ)', icdph: 'Cod TVA',
+    b2bH: 'Sunteți o firmă din Germania și căutați oameni?', b2bP: 'Pentru firme avem un site separat în germană și engleză.', b2bCta: 'Mergeți la punds.eu',
+  },
+  pl: {
+    title: 'Kontakt – telefon, WhatsApp, e-mail | punds', desc: 'Zadzwoń, napisz na WhatsApp lub wyślij wiadomość. Biuro Nové Zámky, Pn–Pt 8:00–16:00. Mówimy po słowacku, czesku, węgiersku, niemiecku i angielsku.',
+    home: 'Start', crumb: 'Kontakt',
+    h1: 'Jesteśmy do Państwa dyspozycji', lead: 'Najszybciej można nas zastać telefonicznie lub na WhatsApp. Mówimy po słowacku, czesku, węgiersku, niemiecku i angielsku.',
+    phone: 'Telefon', or: 'lub', wa: 'WhatsApp', waH: 'Napisz do nas', waP: 'Wiadomość o dowolnej porze', mail: 'E-mail', mailP: 'Odpowiedź w ciągu 24 godzin',
+    fH: 'Napisz do nas', fSub: 'Prosimy wpisać to, co Państwo wiedzą. Resztę ustalimy telefonicznie.',
+    office: 'Biuro Nové Zámky', route: 'Trasa', openMap: 'Otwórz w mapach',
+    hoursH: 'Godziny otwarcia', days: [['Pn – Pt', '8:00 – 16:00'], ['Sobota', 'telefonicznie'], ['Niedziela', 'zamknięte']],
+    company: 'Dane firmy', ico: 'Nr rej. (IČO)', dic: 'NIP (DIČ)', icdph: 'NIP UE',
+    b2bH: 'Firma z Niemiec szukająca pracowników?', b2bP: 'Dla firm mamy osobną stronę po niemiecku i angielsku.', b2bCta: 'Przejdź na punds.eu',
+  },
+  bg: {
+    title: 'Контакт – телефон, WhatsApp, имейл | punds', desc: 'Обадете се, пишете в WhatsApp или изпратете съобщение. Офис Нове Замки, Пон–Пет 8:00–16:00. Говорим словашки, чешки, унгарски, немски и английски.',
+    home: 'Начало', crumb: 'Контакт',
+    h1: 'Тук сме за Вас', lead: 'Най-бързо ще ни откриете по телефона или в WhatsApp. Говорим словашки, чешки, унгарски, немски и английски.',
+    phone: 'Телефон', or: 'или', wa: 'WhatsApp', waH: 'Пишете ни', waP: 'Изпратете съобщение по всяко време', mail: 'Имейл', mailP: 'Отговор до 24 часа',
+    fH: 'Пишете ни', fSub: 'Попълнете каквото знаете. Останалото ще уточним по телефона.',
+    office: 'Офис Нове Замки', route: 'Маршрут', openMap: 'Отвори в карти',
+    hoursH: 'Работно време', days: [['Пон – Пет', '8:00 – 16:00'], ['Събота', 'по телефона'], ['Неделя', 'затворено']],
+    company: 'Данни за фирмата', ico: 'Рег. номер (IČO)', dic: 'Данъчен номер (DIČ)', icdph: 'ДДС номер',
+    b2bH: 'Фирма от Германия, която търси хора?', b2bP: 'За фирми имаме отделен сайт на немски и английски.', b2bCta: 'Към punds.eu',
   },
 };
 

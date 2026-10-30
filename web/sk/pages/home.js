@@ -7,7 +7,7 @@ const { esc, each } = require('../../shared/h');
 const { mark } = require('../../shared/brand');
 const PROF = require('../../shared/professions');
 const { IMG } = require('../../shared/jobs');
-const { PHONE, PHONE2, MAIL, tel, rate } = require('../common');
+const { PHONE, PHONE2, MAIL, tel, rate, langReqBox } = require('../common');
 const { contactForm, ICO, WA, ADDR } = require('./contact');
 
 const T = {
@@ -76,6 +76,45 @@ const T = {
     proc: [['Get in touch', 'Call, write or reply to a job ad.'], ['Profile check', 'Qualifications, experience, preferences.'], ['Offer and documents', 'Clear terms; we help with A1 and paperwork.'], ['Start', 'Housing, travel and support on site.']],
     conH: 'Get in touch', conSub: 'We reply within 24 hours on working days.', hours: 'Mon–Fri 8:00–16:00', wa: 'Message us on WhatsApp',
   },
+  ro: {
+    title: 'Locuri de muncă în Germania pentru meseriași | punds',
+    desc: 'Muncă bine plătită pe șantiere din Germania pentru meseriași din România. Firme verificate, cazare, plată la fiecare 14 zile și ajutor cu actele.',
+    eyebrow: 'Locuri de muncă în Germania pentru meseriași', h1: 'Muncă bine plătită pe șantiere din Germania.', h1b: 'De cazare și acte ne ocupăm noi.',
+    sub: 'Punem în legătură meseriași cu experiență cu firme germane verificate. Vă ajutăm cu A1, Steuernummer, Freistellung și cazarea.',
+    ctaJobs: 'Vezi ofertele', call: 'Sunați', heroAlt: 'Sudor la lucru pe un șantier din Germania', heroBadge: 'în funcție de meserie și proiect',
+    marq: 'Meserii pentru care căutăm oameni',
+    ben: [['Parteneri verificați', 'Lucrați doar pentru firme verificate.'], ['Cazare', 'Asigurăm locuința lângă proiect.'], ['Plată la fiecare 14 zile', 'Facturare regulată, fără așteptare.'], ['Ajutor cu actele', 'Activitate independentă, A1 și restul – Dvs. vă ocupați doar de lucru.']],
+    jobsH: 'Oferte actuale', jobsAll: 'Toate ofertele', jobsAllS: 'Toate',
+    procH: 'Cum funcționează', procMore: 'Întregul proces',
+    proc: [['Contactați-ne', 'Sunați, scrieți sau răspundeți la o ofertă.'], ['Verificăm profilul', 'Calificare, experiență, preferințe.'], ['Ofertă și documente', 'Condiții concrete; vă ajutăm cu A1 și actele.'], ['Începerea lucrului', 'Cazare, transport și sprijin pe durata proiectului.']],
+    conH: 'Contactați-ne', conSub: 'Răspundem în 24 de ore în zilele lucrătoare.', hours: 'Lu–Vi 8:00–16:00', wa: 'Scrieți pe WhatsApp',
+  },
+  pl: {
+    title: 'Praca w Niemczech dla fachowców | punds',
+    desc: 'Dobrze płatna praca na budowach w Niemczech dla fachowców z Polski. Sprawdzone firmy, zakwaterowanie, wypłata co 14 dni i pomoc w formalnościach.',
+    eyebrow: 'Praca w Niemczech dla fachowców', h1: 'Dobrze płatna praca na budowach w Niemczech.', h1b: 'Zakwaterowanie i formalności załatwiamy my.',
+    sub: 'Łączymy doświadczonych fachowców ze sprawdzonymi niemieckimi firmami. Pomagamy z A1, Steuernummer, Freistellung i zakwaterowaniem.',
+    ctaJobs: 'Zobacz oferty', call: 'Zadzwoń', heroAlt: 'Spawacz podczas pracy na budowie w Niemczech', heroBadge: 'zależnie od zawodu i projektu',
+    marq: 'Zawody, do których szukamy ludzi',
+    ben: [['Sprawdzeni partnerzy', 'Pracują Państwo tylko dla zweryfikowanych firm.'], ['Zakwaterowanie', 'Zapewniamy mieszkanie przy projekcie.'], ['Wypłata co 14 dni', 'Regularne fakturowanie bez czekania.'], ['Pomoc w formalnościach', 'Działalność, A1 i inne – Państwo zajmują się tylko pracą.']],
+    jobsH: 'Aktualne oferty', jobsAll: 'Wszystkie oferty', jobsAllS: 'Wszystkie',
+    procH: 'Jak to działa', procMore: 'Cały proces',
+    proc: [['Kontakt z nami', 'Telefon, wiadomość lub odpowiedź na ofertę.'], ['Weryfikacja profilu', 'Kwalifikacje, doświadczenie, preferencje.'], ['Oferta i dokumenty', 'Konkretne warunki; pomagamy z A1 i formalnościami.'], ['Start', 'Zakwaterowanie, dojazd i wsparcie w trakcie projektu.']],
+    conH: 'Kontakt z nami', conSub: 'Odpowiadamy w ciągu 24 godzin w dni robocze.', hours: 'Pn–Pt 8:00–16:00', wa: 'Wiadomość na WhatsApp',
+  },
+  bg: {
+    title: 'Работа в Германия за строителни специалисти | punds',
+    desc: 'Добре платена работа на строителни обекти в Германия за специалисти от България. Проверени фирми, квартира, плащане на всеки 14 дни и помощ с документите.',
+    eyebrow: 'Работа в Германия за строителни специалисти', h1: 'Добре платена работа на строежи в Германия.', h1b: 'За квартирата и документите се грижим ние.',
+    sub: 'Свързваме опитни майстори с проверени немски фирми. Помагаме с A1, Steuernummer, Freistellung и квартира.',
+    ctaJobs: 'Вижте обявите', call: 'Обадете се', heroAlt: 'Заварчик по време на работа на строеж в Германия', heroBadge: 'според професията и проекта',
+    marq: 'Професии, за които търсим хора',
+    ben: [['Проверени партньори', 'Работите само за проверени фирми.'], ['Квартира', 'Осигуряваме жилище близо до обекта.'], ['Плащане на всеки 14 дни', 'Редовно фактуриране без чакане.'], ['Помощ с документите', 'Регистрация като самонаето лице, A1 и останалото – Вие се занимавате само с работата.']],
+    jobsH: 'Актуални обяви', jobsAll: 'Всички обяви', jobsAllS: 'Всички',
+    procH: 'Как работи', procMore: 'Целият процес',
+    proc: [['Свържете се с нас', 'Обадете се, пишете ни или отговорете на обява.'], ['Проверяваме профила', 'Квалификация, опит, предпочитания.'], ['Оферта и документи', 'Конкретни условия; помагаме с A1 и документите.'], ['Започване', 'Квартира, транспорт и подкрепа по време на проекта.']],
+    conH: 'Свържете се с нас', conSub: 'Отговаряме до 24 часа в работни дни.', hours: 'Пон–Пет 8:00–16:00', wa: 'Пишете ни в WhatsApp',
+  },
 };
 
 const pad = (i) => String(i + 1).padStart(2, '0');
@@ -123,6 +162,7 @@ async function render(ctx) {
 <div class="hm-marq" role="region" aria-label="${esc(t.marq)}">
   <div class="hm-marq-track"><div class="hm-marq-set">${each(profs, marqItem)}</div><div class="hm-marq-set" aria-hidden="true">${each(profs, marqItem)}</div></div>
 </div>
+${langReqBox(ctx, { wrap: 'hm-req' })}
 <section class="wrap hm-ben">
   ${each(t.ben, ([h, p], i) => `<div class="card lift rv hm-ben-c"><span class="hm-n">${pad(i)}</span><h3 class="h3">${esc(h)}</h3><p>${esc(p)}</p></div>`)}
 </section>

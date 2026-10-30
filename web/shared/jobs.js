@@ -4,7 +4,9 @@
 // Na web ide inzerát, ktorý má v appke zaškrtnuté „Zverejniť na punds.sk"
 // (danubra_ads.web_published) a je aktívny. Texty sú po slovensky; preklady
 // do ďalších jazykov sú v `i18n` ({ cz: { title, body, duties… }, … }) — kým
-// preklad nie je, ukáže sa slovenský text.
+// preklad nie je, ukáže sa slovenský text. Pre rumunčinu, poľštinu a
+// bulharčinu sa pred slovenčinou skúsi angličtina (FALLBACK) — vedúci partie
+// má hovoriť po nemecky alebo anglicky, takže anglický text je užitočnejší.
 //
 // Kým nie je zverejnený žiadny inzerát, skúšobná adresa ukazuje ukážkové
 // ponuky (označené „Ukážka"). Na punds.sk/punds.eu sa ukážky nikdy neukážu.
@@ -42,9 +44,14 @@ const today = () => new Date().toISOString().slice(0, 10);
  * Riadok inzerátu (danubra_ads) → ponuka na web v danom jazyku.
  * Polia sú rovnaké pre ukážkové aj skutočné ponuky.
  */
+/** Náhradné jazyky, keď preklad ponuky chýba (po nich slovenský pôvodný text). */
+const FALLBACK = { ro: ['en', 'de'], pl: ['en', 'de'], bg: ['en', 'de'] };
+const has = (v) => v != null && v !== '' && !(Array.isArray(v) && !v.length);
+
 function toJob(ad, lang = 'sk') {
-  const tr = (ad.i18n && ad.i18n[lang]) || {};
-  const pick = (k, fallback) => (tr[k] != null && tr[k] !== '' && !(Array.isArray(tr[k]) && !tr[k].length) ? tr[k] : fallback);
+  const i18n = ad.i18n || {};
+  const chain = [lang, ...(FALLBACK[lang] || [])].map((l) => i18n[l]).filter(Boolean);
+  const pick = (k, fallback) => { const t = chain.find((tr) => has(tr[k])); return t ? t[k] : fallback; };
   const prof = PROF.byKey(ad.web_prof) || PROF.fromApp(ad.trade_key);
   const rateMin = ad.rate_offered != null ? Number(ad.rate_offered) : null;
   const rateMax = ad.rate_max != null ? Number(ad.rate_max) : rateMin;
@@ -119,4 +126,4 @@ function loader(supabase) {
   };
 }
 
-module.exports = { toJob, DEMO_ADS, loader, slugify, imageFor, GEO, IMG, COLS };
+module.exports = { toJob, DEMO_ADS, loader, slugify, imageFor, GEO, IMG, COLS, FALLBACK };
