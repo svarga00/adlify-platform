@@ -5816,6 +5816,178 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+    // ── Marketing: priebeh hľadania, palec, navrhované hľadania (080) ──────
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const ago = (min) => new Date(Date.now() - min * 60e3).toISOString();
+        const RUN = { id: 'r1', kind: 'urls', status: 'running', source: 'outscraper', created_at: ago(3.2), started_at: ago(3.1), heartbeat_at: ago(0.05),
+          params: { urls: ['https://huber.de', 'https://schmidt.de', 'https://weber.de'], region: 'Augsburg', count: 20 },
+          seeds: [{ domain: 'huber.de' }, { domain: 'schmidt.de' }, { domain: 'weber.de' }],
+          progress: 66, stage: 'impressum', stage_label: 'Overujem Impressum 12 z 40',
+          log: [1, 2, 3, 4, 5, 6].map(i => ({ at: ago(1), text: `Udalosť ${i}` })) };
+        const DATA = {
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', city: 'Ulm', website: 'https://gu-ulm.de' }],
+          leads: [
+            { id: 'l1', name: 'Maier Innenausbau GmbH', city: 'Augsburg', website: 'https://maier.de', status: 'interested', source: 'outscraper', score: 90, categories: ['Trockenbauunternehmen'] },
+            { id: 'l2', name: 'Baustoffe Lech KG', city: 'Augsburg', website: 'https://lech.de', status: 'new', source: 'outscraper', score: 40 },
+            { id: 'l3', name: 'Keller Akustik GmbH', city: 'München', website: 'https://keller.de', status: 'new', source: 'outscraper', score: 80, relevance: 1 }],
+          lead_searches: [RUN], subcontracts: [], outreach: [], outreach_events: [], email_optout: [], message_templates: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
+        };
+        const zapis = []; const volania = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.update = async (t, id, patch) => { zapis.push({ t, id, patch }); return { data: null, error: null }; };
+        DB.insert = async (t, row) => { zapis.push({ t, row }); return { data: { id: 'n' + zapis.length, ...row }, error: null }; };
+        DB.client = { auth: { getSession: async () => ({ data: { session: { access_token: 'jwt-9' } } }) } };
+        UI.confirm = async () => true;
+        const pravy = window.fetch;
+        window.fetch = async (u, o) => {
+          const url = String(u); volania.push({ url, auth: o && o.headers && o.headers.Authorization, body: o && o.body });
+          if (url.includes('danubra-leads-suggest')) return new Response(JSON.stringify({ source: 'ai', suggestions: [
+            { title: 'Suchá výstavba okolo Ingolstadtu', region: 'Ingolstadt', note: 'Trockenbau', why: 'Ingolstadt ste ešte neprehľadali.',
+              seeds: ['https://maier.de', 'https://gu-ulm.de', 'https://keller.de'] }] }));
+          if (url.includes('danubra-email-status')) return new Response(JSON.stringify({ outscraper: true, outscraper_max: 200 }));
+          return new Response('{}');
+        };
+        Danubra.user = { id: 'uid-7', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
+        try { localStorage.removeItem('danubra_dl_leads'); } catch (e) { /* nič */ }
+        Danubra.route = 'leads'; Lead.loaded = false; Outreach.loaded = false;
+        await Danubra.renderRoute();
+        const res = {};
+        const pas = () => document.querySelector('#view [data-lp]');
+        const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+        res.pas = txt(pas());
+        res.kroky = [...pas().querySelectorAll('.lp-steps li')].map(li => li.className.replace('is-', ''));
+        res.sirka = pas().querySelector('[data-lp-el="bar"]').style.width;
+        res.log = pas().querySelectorAll('.lp-log > div').length;
+        // Server pokročí → pás sa posunie bez prekreslenia (plynulo).
+        const bar = pas().querySelector('[data-lp-el="bar"]');
+        Object.assign(DATA.lead_searches[0], { progress: 84, stage: 'score', stage_label: 'AI hodnotí podobnosť (dávka 1 z 2)', heartbeat_at: new Date().toISOString() });
+        await new Promise(r => setTimeout(r, 2400));
+        res.posun = [pas().querySelector('[data-lp-el="bar"]') === bar, bar.style.width, txt(pas().querySelector('[data-lp-el="pct"]')), txt(pas().querySelector('[data-lp-el="label"]'))];
+        // Zastaviť (s potvrdením).
+        pas().querySelector('[onclick^="Lead.cancelSearch"]').click();
+        await new Promise(r => setTimeout(r, 50));
+        res.zastavit = zapis.filter(z => z.t === 'lead_searches').map(z => [z.id, z.patch]);
+        res.zastavujem = /Zastavujem/.test(txt(pas()));
+        // Server skončí → súhrn a „Čo AI zistila".
+        Object.assign(DATA.lead_searches[0], { status: 'cancelled', found: 40, added: 3, finished_at: new Date().toISOString(), progress: 86, stage: 'cancelled',
+          stage_label: 'Zastavené – uložené 3 firmy', cancel_requested: true,
+          stats: { dropped: { known: 5, closed: 2 }, insights: ['Najviac relevantných firiem bolo v kategórii Trockenbauunternehmen.', 'Vyradených bolo 7 firiem.'] } });
+        await new Promise(r => setTimeout(r, 2600));
+        res.koniec = txt(document.querySelector('#view .regimebox'));
+        // Prerušené hľadanie (server sa neozval > 3 min).
+        DATA.lead_searches = [{ ...RUN, id: 'r2', status: 'running', cancel_requested: false, finished_at: null, stats: null, progress: 66, stage: 'impressum', heartbeat_at: ago(5) }];
+        Lead.loaded = false; await Danubra.renderRoute();
+        res.prerusene = txt(pas());
+        zapis.length = 0; volania.length = 0;
+        await Lead.rerun('r2');
+        res.znova = [zapis.filter(z => z.t === 'lead_searches').map(z => (z.patch ? z.patch.status : z.row.kind)), volania.filter(v => v.url.includes('from-urls')).length,
+          !!document.querySelector('#ui-modal [data-lp]')];
+        UI.closeModal();
+        // Bez 080 (server priebeh nezapisuje): pás bez percent.
+        DATA.lead_searches = [{ id: 'r3', kind: 'urls', status: 'running', created_at: ago(1), params: { urls: [] } }];
+        Lead.loaded = false; await Danubra.renderRoute();
+        res.bez080 = !!document.querySelector('#view .lp-bar.is-indet') && !document.querySelector('#view [data-lp-el="pct"]');
+        DATA.lead_searches = [];
+        Lead.loaded = false; await Danubra.renderRoute();
+
+        // Palec hore / dole (s dôvodom), zrušenie, filter.
+        zapis.length = 0;
+        const riadok = (n) => [...document.querySelectorAll('#view .dl-row')].find(r => r.textContent.includes(n));
+        riadok('Maier').querySelector('.lr-btn.is-up').click();
+        await new Promise(r => setTimeout(r, 50));
+        res.hore = [zapis.map(z => [z.id, z.patch.relevance, z.patch.relevance_by]), riadok('Maier').querySelector('.lr-btn.is-up').classList.contains('on')];
+        riadok('Baustoffe').querySelector('.lr-btn.is-down').click();
+        await new Promise(r => setTimeout(r, 50));
+        res.dovody = [...document.querySelectorAll('#ui-ask .lr-reason span')].map(x => x.textContent);
+        document.querySelector('#ui-ask input[name=lr-why][value="dodávateľ materiálu"]').click();
+        document.querySelector('#ui-ask [data-ask="ok"]').click();
+        await new Promise(r => setTimeout(r, 50));
+        const dole = zapis.find(z => z.id === 'l2');
+        res.dole = dole ? [dole.patch.relevance, dole.patch.relevance_note, !!dole.patch.relevance_at] : null;
+        riadok('Keller').querySelector('.lr-btn.is-up').click();
+        await new Promise(r => setTimeout(r, 50));
+        const zrus = zapis.find(z => z.id === 'l3');
+        res.zrusene = zrus ? [zrus.patch.relevance, zrus.patch.relevance_at] : null;
+        await Danubra.renderRoute();
+        DataList.set('leads', 'relevancia', 'down');
+        res.filterDole = [...document.querySelectorAll('#dl-leads .dl-row .dl-title b')].map(b => b.textContent.trim());
+        DataList.set('leads', 'relevancia', 'none');
+        res.filterNie = [...document.querySelectorAll('#dl-leads .dl-row .dl-title b')].map(b => b.textContent.trim());
+        DataList.reset('leads');
+        Lead.detail('l2');
+        res.karta = txt(document.getElementById('ui-modal'));
+        res.kartaPalec = !!document.querySelector('#ui-modal .lr-th.is-big .lr-btn.is-down.on');
+        UI.closeModal();
+
+        // Navrhované hľadania, vzorové weby, našepkávanie.
+        Lead._sug = null; Lead._findMode = 'urls';
+        Lead.findForm();
+        for (let i = 0; i < 40 && !document.querySelector('#find-sug-list .ls-card'); i++) await new Promise(r => setTimeout(r, 25));
+        res.navrhy = [...document.querySelectorAll('#find-sug-list .ls-card b')].map(b => b.textContent);
+        res.navrhAuth = (volania.find(v => v.url.includes('danubra-leads-suggest')) || {}).auth;
+        document.querySelector('#find-sug-list .ls-card').click();
+        const f = document.getElementById('find-urls');
+        res.vyplnene = [f.querySelector('[name=urls]').value, f.querySelector('[name=u_region]').value, f.querySelector('[name=u_note]').value];
+        res.nahlad = txt(document.getElementById('find-urls-out'));
+        f.querySelector('[name=urls]').value = '';
+        Lead.urlPreview();
+        Lead.toggleSeedPicker();
+        res.vzory = [...document.querySelectorAll('#find-seedpick label')].map(l => txt(l));
+        const cb = [...document.querySelectorAll('#find-seedpick input')].find(i => i.value.includes('gu-ulm'));
+        cb.click();
+        res.pridane = f.querySelector('[name=urls]').value;
+        cb.click();
+        res.odobrate = f.querySelector('[name=urls]').value;
+        res.oblasti = [f.querySelector('[name=u_region]').getAttribute('list'), [...document.querySelectorAll('#lr-regions option')].map(o => o.value)];
+        res.kategorie = [...document.querySelectorAll('#find-cats .ls-chip')].map(b => b.textContent);
+        f.querySelector('[name=u_note]').value = '';
+        document.querySelector('#find-cats .ls-chip').click();
+        res.poznamka = f.querySelector('[name=u_note]').value;
+        UI.closeModal();
+        window.fetch = pravy;
+        return res;
+      });
+      ok(/Hľadanie beží/.test(out.pas) && /66 %/.test(out.pas) && /Overujem Impressum 12 z 40/.test(out.pas) && /beží 3 min/.test(out.pas) && /Zastaviť/.test(out.pas),
+        'pás „Hľadanie beží": percentá, veta, ako dlho beží, Zastaviť', out.pas.slice(0, 300));
+      ok(JSON.stringify(out.kroky) === JSON.stringify(['done', 'done', 'done', 'done', 'active', 'todo', 'todo', 'todo']), 'kroky: hotové, aktuálny, budúce', JSON.stringify(out.kroky));
+      ok(out.sirka === '66%' && out.log === 4, 'pás má šírku podľa percent a posledné 4 riadky logu', `${out.sirka} ${out.log}`);
+      ok(JSON.stringify(out.posun) === JSON.stringify([true, '84%', '84 %', 'AI hodnotí podobnosť (dávka 1 z 2)']),
+        'po 2 s sa pás posunie (ten istý prvok — plynulý prechod) a veta sa zmení', JSON.stringify(out.posun));
+      ok(JSON.stringify(out.zastavit) === '[["r1",{"cancel_requested":true}]]' && out.zastavujem, 'Zastaviť (po potvrdení) nastaví cancel_requested a pás ukáže „Zastavujem…"', JSON.stringify(out.zastavit));
+      ok(/zastavili/.test(out.koniec) && /uložené 3 firmy/.test(out.koniec) && /Čo AI zistila/.test(out.koniec) && /Ukázať nájdené/.test(out.koniec),
+        'po skončení súhrn, „Čo AI zistila" a Ukázať nájdené', out.koniec);
+      ok(/zrejme prerušilo/.test(out.prerusene) && /Spustiť znova/.test(out.prerusene), 'server sa neozval 5 min → „Hľadanie sa zrejme prerušilo" a Spustiť znova', out.prerusene);
+      ok(JSON.stringify(out.znova) === '[["error","urls"],1,true]', 'Spustiť znova: staré sa označí ako prerušené, založí sa nové, zavolá server a okno ukáže priebeh', JSON.stringify(out.znova));
+      ok(out.bez080, 'bez priebehu zo servera (pred 080) je pás bez percent');
+      ok(JSON.stringify(out.hore) === '[[["l1",1,"uid-7"]],true]', 'palec hore: uloží relevance 1 a kto', JSON.stringify(out.hore));
+      ok(out.dovody.includes('príliš malá') && out.dovody.includes('iný odbor') && out.dovody.includes('dodávateľ materiálu'), 'palec dole ponúkne dôvody', out.dovody.join(', '));
+      ok(JSON.stringify(out.dole) === '[-1,"dodávateľ materiálu",true]', 'palec dole s dôvodom', JSON.stringify(out.dole));
+      ok(JSON.stringify(out.zrusene) === '[null,null]', 'druhý klik na ten istý palec hodnotenie zruší', JSON.stringify(out.zrusene));
+      ok(JSON.stringify(out.filterDole) === '["Baustoffe Lech KG"]' && JSON.stringify(out.filterNie) === '["Keller Akustik GmbH"]',
+        'filter Hodnotenie palcom: nerelevantné / nehodnotené', JSON.stringify([out.filterDole, out.filterNie]));
+      ok(/Vhodná firma\?/.test(out.karta) && /Dôvod: dodávateľ materiálu/.test(out.karta) && out.kartaPalec, 'karta firmy: palec aj dôvod', out.karta.slice(0, 200));
+      ok(JSON.stringify(out.navrhy) === '["Suchá výstavba okolo Ingolstadtu"]' && out.navrhAuth === 'Bearer jwt-9', 'okno hľadania: navrhované hľadania zo servera (s prihlásením)', JSON.stringify(out.navrhy));
+      ok(JSON.stringify(out.vyplnene) === JSON.stringify(['https://maier.de\nhttps://gu-ulm.de\nhttps://keller.de', 'Ingolstadt', 'Trockenbau']) && /3 firmy/.test(out.nahlad),
+        'klik na návrh vyplní weby, oblasť aj poznámku', JSON.stringify(out.vyplnene));
+      ok(out.vzory.some(t => /GU Ulm GmbH/.test(t) && /odberateľ/.test(t)) && out.vzory.some(t => /Maier/.test(t) && /má záujem/.test(t)) && !out.vzory.some(t => /Lech/.test(t)),
+        'vzorové weby: odberatelia a firmy so záujmom (bez palca dole)', out.vzory.join(' | '));
+      ok(out.pridane === 'https://gu-ulm.de' && out.odobrate === '', 'zaškrtnutím sa web pridá do poľa, odškrtnutím vyberie');
+      ok(out.oblasti[0] === 'lr-regions' && out.oblasti[1].includes('Augsburg') && out.oblasti[1].includes('Bayern'), 'našepkávanie oblasti: predošlé hľadania a spolkové krajiny', out.oblasti[1].slice(0, 6).join(', '));
+      ok(out.kategorie[0] === 'Trockenbauunternehmen' && out.poznamka === 'Trockenbauunternehmen', 'kategórie s dobrými výsledkami — klik pridá do poznámky', JSON.stringify([out.kategorie, out.poznamka]));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

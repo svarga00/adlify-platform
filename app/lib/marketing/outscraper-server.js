@@ -55,8 +55,11 @@ function client({ key, fetch: fetchImpl = (...a) => fetch(...a), sleep = (ms) =>
     return O.readResponse(json, res.status);
   }
 
-  /** Počká na hotovú odpoveď (sync hneď, async cez /requests/<id>). */
-  async function settle(first, deadline) {
+  /**
+   * Počká na hotovú odpoveď (sync hneď, async cez /requests/<id>).
+   * `onPoll(n)` sa zavolá pri každom čakaní — priebeh hľadania (080).
+   */
+  async function settle(first, deadline, onPoll) {
     let r = first;
     let polls = 0;
     const id = r.kind === 'pending' ? r.id : r.id || null;
@@ -64,6 +67,7 @@ function client({ key, fetch: fetchImpl = (...a) => fetch(...a), sleep = (ms) =>
       if (now() + pollMs > deadline - 3000) throw new Error('Outscraper hľadá dlhšie, ako funkcia smie bežať. Skúste menší počet firiem.');
       await sleep(pollMs);
       polls++;
+      if (typeof onPoll === 'function') { try { await onPoll(polls); } catch (e) { /* priebeh hľadanie nezastaví */ } }
       r = await call(`/requests/${encodeURIComponent(r.id)}`, {}, deadline);
     }
     if (r.kind === 'error') throw new Error(r.message);
@@ -74,12 +78,12 @@ function client({ key, fetch: fetchImpl = (...a) => fetch(...a), sleep = (ms) =>
    * Firmy z Google Máp.
    * @returns {Promise<{ groups: Array<Object[]>, places: Object[], requestId, async, polls }>}
    */
-  async function mapsSearch(queries, { limit = 20, language = 'de', region = 'DE', async = false, deadline } = {}) {
+  async function mapsSearch(queries, { limit = 20, language = 'de', region = 'DE', async = false, deadline, onPoll } = {}) {
     const qs = (queries || []).filter(Boolean);
     if (!qs.length) return { groups: [], places: [], requestId: null, async: false, polls: 0 };
     const dl = deadline || now() + 10 * 60 * 1000;
     const first = await call('/maps/search-v3', O.mapsParams({ queries: qs, limit, language, region, async }), dl);
-    const r = await settle(first, dl);
+    const r = await settle(first, dl, onPoll);
     return { groups: O.groups(r.data, qs), places: O.flatten(r.data, qs), requestId: r.requestId, async: !!async || r.async, polls: r.polls };
   }
 

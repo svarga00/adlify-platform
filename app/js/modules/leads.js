@@ -19,6 +19,17 @@
 // danubra-email-status). Pri firme hodnotenie, recenzie, stav (funguje /
 // zatvorená), kedy overené; „Overiť znova" a „Overiť zobrazené" volajú
 // danubra-leads-refresh-background. Pravidlá: lib/marketing/outscraper.js.
+//
+// Priebeh hľadania (080): počas hľadania pás „Hľadanie beží" v okne aj na
+// obrazovke Nové firmy — percentá, kroky (hotové / práve / ešte nie), veta,
+// posledné riadky logu, ako dlho beží, „Zastaviť" (cancel_requested). Číta
+// sa každé 2 s; keď sa server 3 min neozve, „Hľadanie sa zrejme prerušilo".
+// Po skončení súhrn a „Čo AI zistila". Model pásu: lib/marketing/progress.js.
+//
+// Učenie (080): palec hore / dole pri firme (v riadku aj na karte), pri palci
+// dole voliteľný dôvod; hľadanie z toho berie príklady. Navrhované hľadania
+// (danubra-leads-suggest, inak pravidlá), vzorové weby z odberateľov a firiem
+// so záujmom, našepkávanie oblasti a kategórií: lib/marketing/learning.js.
 // ============================================================================
 (function () {
   const LL = () => window.DanubraLeads;
@@ -30,6 +41,14 @@
   const OX = () => window.DanubraOutscraper;
   const REFRESH_MAX = 50;
   const EMAIL_FROM = { impressum: 'z Impressum', web: 'z webu firmy', ai: 'neoverený', outscraper_contacts: 'z webu (Outscraper)' };
+  const PG = () => window.DanubraProgress;
+  const LR = () => window.DanubraLearning;
+  const POLL_MS = 2000;
+  const SUG_TTL = 60 * 60 * 1000;
+  const RUNNING = ['pending', 'running'];
+  /** Kategórie z Google Máp, keď ešte nie sú vlastné výsledky. */
+  const CATS_DEFAULT = ['Trockenbauunternehmen', 'Bauunternehmen', 'Innenausbau', 'Fliesenleger', 'Malerbetrieb', 'Metallbau', 'Elektroinstallateur', 'Generalunternehmer'];
+  const sel = (id) => (window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/"/g, ''));
 
   async function token() {
     try { const { data } = await DB.client.auth.getSession(); return (data && data.session && data.session.access_token) || ''; }
@@ -62,7 +81,7 @@
     async load() {
       const [l, p, s, ls] = await Promise.all([
         DB.list('leads', { order: { column: 'created_at', ascending: false }, limit: 3000 }),
-        DB.list('partners', { select: 'id,name,city,country,email,status', limit: 1000 }),
+        DB.list('partners', { select: 'id,name,city,country,email,status,website', limit: 1000 }),
         DB.list('subcontracts', { select: 'id,partner_id,trade,title', limit: 1000 }),
         DB.list('lead_searches', { order: { column: 'created_at', ascending: false }, limit: 50 }),
       ]);
@@ -89,12 +108,14 @@
       // Oslovenie (stĺpec a filtre) — js/modules/outreach.js.
       if (window.Outreach && !Outreach.loaded) await Outreach.ensure();
       const sEmailom = this.rows.filter(r => r.status === 'new' && LL().emailOk(r.email));
-      const bezi = this.searches.find(s => ['pending', 'running'].includes(s.status));
+      const bezi = this.searches.find(s => RUNNING.includes(s.status) && !PG().isStale(s));
+      // Pás „Hľadanie beží" (aj prerušené hľadanie, nech sa dá spustiť znova).
+      const pas = this.searches.find(s => s.kind === 'urls' && RUNNING.includes(s.status));
       const posledne = this.searches[0];
       const n = bezi
         ? (bezi.kind === 'urls' && (bezi.source === 'outscraper' || (bezi.params && bezi.params.outscraper))
           ? { key: 'run', hot: false, title: 'Hľadám podobné firmy na Google Mapách…',
-              what: `${this.phaseText(bezi)} Celé hľadanie trvá 3–10 minút — výsledky sa objavia samy.`,
+              what: `${bezi.stage_label ? 'Priebeh krok po kroku vidíte nižšie.' : this.phaseText(bezi)} Celé hľadanie trvá 3–10 minút — výsledky sa objavia samy.`,
               why: 'Okno môžete zavrieť aj odísť z obrazovky, hľadá sa na serveri (Outscraper prehľadá Google Mapy, appka stiahne Impressum, AI ohodnotí podobnosť).' }
           : bezi.kind === 'urls'
           ? { key: 'run', hot: false, title: 'Hľadám firmy podobné zadaným webom…',
@@ -114,9 +135,10 @@
           this.rows.filter(r => r.status === 'interested').length} má záujem · ${this.rows.filter(r => r.status === 'won').length} sú odberatelia`)
         + Shell.now(n, { help: 'screen.leads', action: n.key === 'mail' ? { label: 'Pripraviť e-mail', ico: 'mail', onclick: "Danubra.go('campaigns');setTimeout(()=>Camp.form(),350)" }
           : n.key === 'find' ? { label: 'Hľadať podobné firmy', ico: 'search', onclick: 'Lead.findForm()' } : null })
-        + this.searchNote(posledne)
+        + (pas ? this.progressHtml(pas) : this.searchNote(posledne))
         + DataList.html(this.listConfig(this.rows));
-      if (bezi) this.poll();
+      if (pas) this.watch(pas.id);
+      else if (bezi) this.poll();
     },
 
     /** Čo hľadanie s Outscraperom práve robí (z `stats.phase`). */
@@ -133,9 +155,14 @@
       const st = s.stats || {};
       const odkial = s.source === 'outscraper' ? ' (Google Mapy cez Outscraper)' : s.kind === 'urls' && s.source === 'ai' ? ` (${st.note || 'bez Outscraperu'})` : '';
       if (s.status === 'error') return `<div class="warnbox">${Icon('alert', 14)} ${co}${UI.esc(odkial)} zlyhalo: ${UI.esc(s.error || '')}</div>`;
-      if (s.status !== 'done' || !s.finished_at || Date.now() - Date.parse(s.finished_at) >= 3600e3) return '';
+      if (!['done', 'cancelled'].includes(s.status) || !s.finished_at || Date.now() - Date.parse(s.finished_at) >= 3600e3) return '';
       const ukaz = s.kind === 'urls' && s.added
         ? ` <button type="button" class="btn btn-ghost btn-sm" onclick="Lead.showSearch('${s.id}')">Ukázať nájdené</button>` : '';
+      if (s.status === 'cancelled') {
+        const n = Number(s.added) || 0;
+        return `<div class="regimebox">${Icon('stop', 14)} ${co} ste zastavili — ${PG().plural(n, 'uložená', 'uložené', 'uložených')} ${n} ${Shell.plural(n, 'firma', 'firmy', 'firiem')}.${
+          UI.tip('Uložili sa len firmy, ktoré AI stihla ohodnotiť a mali skóre nad prahom. Hľadanie môžete spustiť znova s rovnakými webmi.')}${ukaz}${this.insightsHtml(s)}</div>`;
+      }
       const vyr = OX().dropSummary(st);
       const spolu = vyr.reduce((a, [, n]) => a + n, 0);
       const detail = st.dropped ? ` Vyradené ${spolu}${vyr.length ? ` (${vyr.map(([l, n]) => `${UI.esc(l)} ${n}`).join(', ')})` : ''}.` : '';
@@ -146,7 +173,177 @@
         ? 'Našlo = koľko firiem vrátili Google Mapy (za toľko záznamov účtuje Outscraper). Vyradené: natrvalo zatvorené, bez webu, mimo Nemecka, duplicity, firmy, ktoré už máte, odhlásené, zadané firmy, nízke skóre (pod prahom z okna hľadania) a nad zvolený počet. Uložené = nové firmy v zozname.'
         : 'Nájdené = koľko firiem vrátila AI. Nové = koľko sa uložilo; ostatné ste už mali (meno, mesto alebo doména webu sa zhodujú), boli to zadané firmy alebo sa odhlásili z e-mailov.';
       return `<div class="regimebox">${Icon('check', 14)} ${co}${UI.esc(odkial)} našlo ${s.found || 0} firiem, uložených ${s.added || 0}.${detail}${spotreba}${
-        s.kind === 'urls' ? UI.tip(tip) : ''}${ukaz}</div>`;
+        s.kind === 'urls' ? UI.tip(tip) : ''}${ukaz}${this.insightsHtml(s)}</div>`;
+    },
+
+    /** „Čo AI zistila" — 2–3 vety zo stats hľadania (stats.insights). */
+    insightsHtml(s) {
+      const list = Array.isArray(s && s.stats && s.stats.insights) ? s.stats.insights.filter(Boolean).slice(0, 3) : [];
+      if (!list.length) return '';
+      return `<div class="lp-ins"><b>${Icon('spark', 14)} Čo AI zistila</b><ul>${list.map(t => `<li>${UI.esc(t)}</li>`).join('')}</ul></div>`;
+    },
+
+    // ── Priebeh hľadania (080) ────────────────────────────────────────────
+    /** Pás „Hľadanie beží" — v okne aj na obrazovke Nové firmy. */
+    progressHtml(s, { modal = false } = {}) {
+      if (!s) return '';
+      return `<section class="lp card${modal ? ' is-modal' : ''}" data-lp="${UI.esc(s.id)}" aria-live="polite" aria-label="Priebeh hľadania">${
+        this.progressInner(s, PG().model(s, Date.now()))}</section>`;
+    },
+
+    /** Režim pásu: beží / prerušené / skončené — pri zmene sa pás prekreslí celý. */
+    progressMode(m) { return m.finished ? `end-${m.status}` : m.stale ? 'stale' : `run-${m.pct == null ? 'x' : 'p'}`; },
+
+    progressInner(s, m) {
+      if (m.finished) return this.finishedHtml(s, m);
+      const id = UI.esc(s.id);
+      const co = UI.esc(SD().searchLabel(s));
+      if (m.stale) {
+        return `<div class="lp-head" data-lp-mode="stale"><div class="lp-title is-warn">${Icon('alert', 16)}<span>Hľadanie sa zrejme prerušilo</span> <small>${co}</small></div></div>
+          <p class="lp-text">Server sa neozval viac ako 3 minúty${m.label ? ` (naposledy: ${UI.esc(m.label)})` : ''}. Firmy, ktoré už uložil, sú v zozname.
+            Hľadanie môžete spustiť znova s rovnakými webmi a nastaveniami.</p>
+          <div class="lp-acts"><button type="button" class="btn btn-primary btn-sm" onclick="Lead.rerun('${id}')">${Icon('repeat', 14)} Spustiť znova</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="Lead.abandon('${id}')">Ukončiť</button>${
+            UI.tip('Funkcia na serveri smie bežať najviac 15 minút; keď ju Netlify zastaví alebo spadne spojenie, hľadanie ostane „beží". Spustiť znova = to isté hľadanie odznova (firmy, ktoré už máte, sa neuložia druhýkrát). Ukončiť = len označí hľadanie ako prerušené.')}</div>`;
+      }
+      const bar = m.pct == null
+        ? '<div class="lp-bar is-indet" role="progressbar" aria-label="Priebeh hľadania"><i></i></div>'
+        : `<div class="lp-bar" role="progressbar" aria-label="Priebeh hľadania" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${m.pct}" data-lp-el="barbox"><i data-lp-el="bar" style="width:${m.pct}%"></i></div>`;
+      const label = m.label || (m.hasProgress ? '' : this.phaseText(s));
+      return `<div class="lp-head" data-lp-mode="${this.progressMode(m)}">
+          <div class="lp-title"><span class="lp-spin" aria-hidden="true"></span><span>Hľadanie beží</span> <small>${co}</small></div>
+          <div class="lp-meta"><span data-lp-el="elapsed">${UI.esc(m.elapsed)}</span><span data-lp-el="cancel">${this.cancelBtnHtml(s, m)}</span></div>
+        </div>
+        ${bar}
+        <div class="lp-now">${m.pct == null ? '' : `<b data-lp-el="pct">${UI.pct(m.pct)}</b>`}<span data-lp-el="label">${UI.esc(label)}</span></div>
+        <ol class="lp-steps" data-lp-el="steps">${this.stepsHtml(m)}</ol>
+        <div class="lp-log" data-lp-el="log"${m.log.length ? '' : ' hidden'}>${this.logHtml(m)}</div>`;
+    },
+
+    stepsHtml(m) {
+      return m.stages.map(x => {
+        const ico = x.state === 'done' ? Icon('check', 14) : x.state === 'active' ? '<span class="lp-spin" aria-hidden="true"></span>'
+          : x.state === 'stopped' ? Icon('stop', 14) : x.state === 'error' ? Icon('alert', 14) : '<span class="lp-dot" aria-hidden="true"></span>';
+        const sr = { done: 'hotové', active: 'práve beží', todo: 'ešte nie', stopped: 'zastavené', error: 'chyba' }[x.state];
+        return `<li class="is-${x.state}">${ico}<span>${UI.esc(x.label)}</span><span class="sr-only"> — ${sr}</span></li>`;
+      }).join('');
+    },
+
+    logHtml(m) {
+      const hm = (v) => { const d = new Date(v); return isNaN(d) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`; };
+      return m.log.map(x => `<div><time>${hm(x.at)}</time><span title="${UI.esc(x.text)}">${UI.esc(x.text)}</span></div>`).join('');
+    },
+
+    cancelBtnHtml(s, m) {
+      if (m.cancelRequested) return `<span class="lp-stopping">${Icon('stop', 13)} Zastavujem…</span>`;
+      return `<button type="button" class="btn btn-ghost btn-sm" onclick="Lead.cancelSearch('${UI.esc(s.id)}')">${Icon('stop', 14)} Zastaviť</button>`;
+    },
+
+    /** Po skončení: súhrn, „Čo AI zistila", Ukázať nájdené. */
+    finishedHtml(s, m) {
+      const x = m.summary || { found: 0, saved: 0, dropped: 0 };
+      const id = UI.esc(s.id);
+      const head = s.status === 'done' ? ['is-ok', 'check', 'Hľadanie skončilo'] : s.status === 'cancelled' ? ['is-warn', 'stop', 'Hľadanie ste zastavili'] : ['is-err', 'alert', 'Hľadanie zlyhalo'];
+      const nums = s.status === 'error' ? `<p class="lp-text">${UI.esc(s.error || 'Neznáma chyba.')}</p>`
+        : `<div class="lp-sum"><span><b>${x.found}</b> ${Shell.plural(x.found, 'nájdená', 'nájdené', 'nájdených')}</span><span><b>${x.dropped}</b> ${Shell.plural(x.dropped, 'vyradená', 'vyradené', 'vyradených')}</span><span><b>${x.saved}</b> ${Shell.plural(x.saved, 'uložená', 'uložené', 'uložených')}</span></div>`;
+      return `<div class="lp-head" data-lp-mode="${this.progressMode(m)}"><div class="lp-title ${head[0]}">${Icon(head[1], 16)}<span>${head[2]}</span> <small>${UI.esc(SD().searchLabel(s))}</small></div>
+          <div class="lp-meta"><span>${UI.esc(m.elapsed)}</span></div></div>
+        <div class="lp-bar ${s.status === 'done' ? 'is-done' : 'is-stopped'}" aria-hidden="true"><i style="width:${m.pct == null ? 100 : m.pct}%"></i></div>
+        ${nums}${this.insightsHtml(s)}
+        <div class="lp-acts">${x.saved ? `<button type="button" class="btn btn-primary btn-sm" onclick="Lead.showFound('${id}')">${Icon('search', 14)} Ukázať nájdené</button>` : ''}${
+          s.status !== 'error' && x.saved ? `<span class="lp-hint">${Icon('thumbs-up', 13)} Ohodnoťte nájdené firmy palcom — ďalšie hľadanie sa podľa toho spresní.</span>` : ''}</div>`;
+    },
+
+    /** Prekreslí pás: v rovnakom režime len časti (pás sa plynulo posunie), inak celý. */
+    paintProgress(el, s) {
+      if (!el || !s) return;
+      const m = PG().model(s, Date.now());
+      const head = el.querySelector('[data-lp-mode]');
+      if (!head || head.getAttribute('data-lp-mode') !== this.progressMode(m) || m.finished || m.stale) {
+        el.innerHTML = this.progressInner(s, m);
+        return;
+      }
+      const q = (k) => el.querySelector(`[data-lp-el="${k}"]`);
+      if (q('bar') && m.pct != null) { q('bar').style.width = `${m.pct}%`; q('barbox').setAttribute('aria-valuenow', String(m.pct)); }
+      if (q('pct') && m.pct != null) q('pct').textContent = UI.pct(m.pct);
+      if (q('label')) q('label').textContent = m.label || (m.hasProgress ? '' : this.phaseText(s));
+      if (q('elapsed')) q('elapsed').textContent = m.elapsed;
+      if (q('steps')) q('steps').innerHTML = this.stepsHtml(m);
+      if (q('log')) { q('log').innerHTML = this.logHtml(m); q('log').hidden = !m.log.length; }
+      if (q('cancel')) q('cancel').innerHTML = this.cancelBtnHtml(s, m);
+    },
+
+    /** Sleduje hľadanie každé 2 s, kým je pás na obrazovke alebo v okne. */
+    watch(id) {
+      if (!id) return;
+      if (this._watchId === id && this._pp) return;
+      clearTimeout(this._pp);
+      this._watchId = id;
+      const els = () => [...document.querySelectorAll(`[data-lp="${sel(id)}"]`)];
+      const tick = async () => {
+        this._pp = null;
+        if (this._watchId !== id) return;
+        if (!els().length) { this._watchId = null; return; }   // pás nie je vidieť — pri návrate sa sledovanie obnoví
+        let s = null;
+        try { const { data } = await DB.list('lead_searches', { filters: { id }, limit: 1 }); s = (data || [])[0] || null; } catch (e) { s = null; }
+        if (s) {
+          const i = this.searches.findIndex(x => x.id === id);
+          if (i >= 0) this.searches[i] = { ...this.searches[i], ...s }; else this.searches.unshift(s);
+          s = this.searches.find(x => x.id === id);
+        } else s = this.searches.find(x => x.id === id);
+        els().forEach(el => this.paintProgress(el, s));
+        if (s && !RUNNING.includes(s.status)) {
+          this._watchId = null;
+          // Nájdené firmy do zoznamu; okno so súhrnom ostane otvorené.
+          this.loaded = false;
+          if (Danubra.route === 'leads') Danubra.renderRoute();
+          return;
+        }
+        this._pp = setTimeout(tick, POLL_MS);
+      };
+      this._pp = setTimeout(tick, POLL_MS);
+    },
+
+    /** „Zastaviť" — s potvrdením; server skončí pri najbližšom kroku. */
+    async cancelSearch(id) {
+      const s = this.searches.find(x => x.id === id);
+      if (!s) return;
+      if (!await UI.confirm('Zastaviť hľadanie?', { hint: 'Hľadanie skončí pri najbližšom kroku (do pár sekúnd). Firmy, ktoré AI už ohodnotila, sa uložia, ostatné nie. Spustiť ho môžete znova.',
+        ok: 'Zastaviť', cancel: 'Nechať bežať' })) return;
+      const { error } = await DB.update('lead_searches', id, { cancel_requested: true });
+      if (error) {
+        return UI.toast(/cancel_requested|column|schema/i.test(error.message || '') ? 'Zastavenie ešte nie je zapnuté — v databáze chýba migrácia 080'
+          : `Chyba: ${error.message}`, 'err');
+      }
+      s.cancel_requested = true;
+      document.querySelectorAll(`[data-lp="${sel(id)}"]`).forEach(el => this.paintProgress(el, s));
+      UI.toast('Zastavujem — uloží sa, čo je hotové', 'ok');
+    },
+
+    /** Prerušené hľadanie: označiť ako prerušené (a voliteľne spustiť znova). */
+    async abandon(id, { quiet = false } = {}) {
+      const s = this.searches.find(x => x.id === id);
+      if (!s) return null;
+      const patch = { status: 'error', error: 'Hľadanie sa prerušilo (server sa neozval).', finished_at: new Date().toISOString() };
+      const { error } = await DB.update('lead_searches', id, patch);
+      if (error) { UI.toast(`Chyba: ${error.message}`, 'err'); return null; }
+      Object.assign(s, patch);
+      if (!quiet) Danubra.renderRoute();
+      return s;
+    },
+    async rerun(id) {
+      const s = await this.abandon(id, { quiet: true });
+      if (!s) return;
+      const p = { ...(s.params || {}) };
+      if (!Array.isArray(p.urls) || !p.urls.length) p.urls = (Array.isArray(s.seeds) ? s.seeds : []).map(x => x && x.url).filter(Boolean);
+      await this.startSearch(p);
+    },
+
+    /** „Ukázať nájdené" z okna aj z pásu. */
+    showFound(id) {
+      UI.closeModal();
+      if (Danubra.route !== 'leads') { Danubra.go('leads'); setTimeout(() => this.showSearch(id), 400); return; }
+      this.showSearch(id);
     },
 
     /** Zoznam vyfiltrovaný na jedno hľadanie (odkaz z hlásenia „hotovo"). */
@@ -217,6 +414,10 @@
           { key: 'skore', label: 'Skóre', width: '64px', align: 'right', mobileLabel: 'skóre',
             tip: 'Ako veľmi sa firma podobá na zadané firmy, 0–100 (odhad AI). Len pri hľadaní podľa webov firiem.',
             render: scoreCell, sortValue: (r) => (r.score == null ? null : Number(r.score)), sortDir: -1 },
+          { key: 'vhodna', label: 'Vhodná?', width: '76px', align: 'center', mobileLabel: 'vhodná?',
+            tip: 'Palec hore = takéto firmy chceme, palec dole = nechceme (s krátkym dôvodom). AI sa z toho učí: pri ďalšom hľadaní hľadá podobné ako firmy s palcom hore a vynecháva podobné ako s palcom dole. Druhý klik na ten istý palec hodnotenie zruší.',
+            render: (r) => this.rateHtml(r), sortValue: (r) => (Number(r.relevance) ? Number(r.relevance) : null), sortDir: -1,
+            csv: (r) => (Number(r.relevance) === 1 ? 'relevantná' : Number(r.relevance) === -1 ? 'nerelevantná' : '') },
           { key: 'email', label: 'E-mail', width: 'minmax(150px, 1.3fr)', mobileLabel: 'e-mail',
             tip: 'z Impressum = appka ho našla na stránke Impressum firmy. z webu firmy = je uverejnený na ich webe. Neoverený = našla ho AI, ale web firmy sa nedal stiahnuť — pred oslovením si ho overte.',
             render: mailCell, sortValue: (r) => r.email || null, csv: (r) => r.email || '' },
@@ -228,7 +429,7 @@
             tip: 'Funguje / Dočasne zatvorená / Zatvorená = stav na Google Mapách. Pod tým, kedy appka firmu naposledy overila. Web nefunguje = úvodná stránka neodpovedala. E-mail neoverený = doména e-mailu nemá poštový server (MX), e-mail by sa asi nedoručil. Overuje sa raz týždenne samo, alebo tlačidlom „Overiť znova".',
             render: checkCell, sortValue: (r) => r.verified_at || null, sortDir: -1,
             csv: (r) => [((OX().stateOf(r) || [])[1] || ''), OX().verifiedLabel(r.verified_at) || ''].filter(Boolean).join(', ') },
-          { key: 'konatel', label: 'Konateľ', width: 'minmax(110px, 1fr)', hideBelow: 1100, mobileLabel: 'konateľ',
+          { key: 'konatel', label: 'Konateľ', width: 'minmax(110px, 1fr)', hideBelow: 1250, mobileLabel: 'konateľ',
             render: (r) => (r.contact_person ? UI.esc(r.contact_person) : ''), sortValue: (r) => r.contact_person || null },
           { key: 'web', label: 'Web', width: '130px', hideBelow: 1200,
             render: (r) => (r.website ? `<a href="${UI.esc(/^https?:/i.test(r.website) ? r.website : `https://${r.website}`)}" target="_blank" rel="noopener">${UI.esc(host(r.website) || r.website)}</a>` : ''),
@@ -265,6 +466,10 @@
             options: Object.entries(SOURCE).map(([k, l]) => [k, l]) },
           { key: 'skore', type: 'range-number', label: 'Skóre od', value: 'score', more: true,
             hint: 'Napr. od 70 — len firmy, ktoré sa na zadané firmy naozaj podobajú.' },
+          { key: 'relevancia', type: 'select', label: 'Hodnotenie palcom', more: true, allLabel: 'Všetky', sortOptions: false,
+            value: (r) => (Number(r.relevance) === 1 ? 'up' : Number(r.relevance) === -1 ? 'down' : 'none'),
+            options: [['up', 'Relevantné'], ['down', 'Nerelevantné'], ['none', 'Nehodnotené']],
+            hint: 'Relevantné = palec hore, Nerelevantné = palec dole, Nehodnotené = ešte bez palca. Ohodnotené firmy AI berie ako príklady pri ďalšom hľadaní.' },
           // Oslovené, Otvoril, Klikol, Odpovedal, Nedoručené, Čaká na pripomenutie (js/modules/outreach.js).
           ...(window.Outreach ? Outreach.filters() : []),
         ],
@@ -283,6 +488,8 @@
             ['Stav na Mapách', r => ((OX().stateOf(r) || [])[1] || '')], ['Overené', r => (r.verified_at ? String(r.verified_at).slice(0, 10) : '')],
             ['Web funguje', r => (r.web_ok == null ? '' : r.web_ok ? 'áno' : 'nie')], ['E-mail má MX', r => (r.email_mx_ok == null ? '' : r.email_mx_ok ? 'áno' : 'nie')],
             ['Kategórie (Mapy)', r => (Array.isArray(r.categories) ? r.categories.join(', ') : '')],
+            ['Hodnotenie palcom', r => (Number(r.relevance) === 1 ? 'relevantná' : Number(r.relevance) === -1 ? 'nerelevantná' : '')],
+            ['Dôvod (palec dole)', r => r.relevance_note || ''],
           ],
         },
       };
@@ -359,6 +566,8 @@
             'Odkiaľ sa firma vzala. Google Mapy = našiel ju Outscraper na Google Mapách podľa webov firiem, ktoré ste zadali; kontakty appka vytiahla z jej Impressum. Podľa webov = AI ju našla podľa webov firiem, ktoré ste zadali, a kontakty appka vytiahla z jej Impressum. Mapa = OpenStreetMap, verejná mapa (zadarmo, e-mail býva zriedka). AI = umelá inteligencia ju našla na internete podľa Vašich odberateľov, e-mail vzala z Impressum na webe firmy. Ručne = pridali ste ju Vy. „ako …" = firma sa podobá na tohto Vášho odberateľa.')}
         </div>
         ${r.notes ? `<div class="notebox" style="white-space:pre-wrap;font-size:12.5px;">${UI.esc(r.notes)}</div>` : ''}
+        <div class="lr-card"><span>Vhodná firma?</span>${this.rateHtml(r, { big: true })}${UI.tip('Palec hore = takéto firmy chceme, palec dole = nechceme (s krátkym dôvodom). AI sa z toho učí: pri ďalšom hľadaní hľadá podobné ako dobré a vynecháva podobné ako zlé. Druhý klik na ten istý palec hodnotenie zruší.')}
+          <small class="lr-why" data-lr-why="${UI.esc(r.id)}"${Number(r.relevance) === -1 && r.relevance_note ? '' : ' hidden'}>${Number(r.relevance) === -1 && r.relevance_note ? `Dôvod: ${UI.esc(r.relevance_note)}` : ''}</small></div>
         <div class="js-acts" style="margin-top:6px;">
           <select class="verif-sel" onchange="Lead.setStatus('${r.id}', this.value)">
             ${LL().STATUS.filter(s => s[0] !== 'won').map(([k, l]) => `<option value="${k}" ${r.status === k ? 'selected' : ''}>${l}</option>`).join('')}
@@ -483,6 +692,7 @@
           <button type="button" class="pill${mode === 'urls' ? ' active' : ''}" data-fmode="urls" onclick="Lead.findMode('urls')">Podľa webov firiem</button>
           <button type="button" class="pill${mode === 'partners' ? ' active' : ''}" data-fmode="partners" onclick="Lead.findMode('partners')">Podľa našich odberateľov</button>
         </div>
+        ${(() => { const b = this.searches.find(x => x.kind === 'urls' && RUNNING.includes(x.status)); return b ? `<div data-fpane="urls"${mode === 'urls' ? '' : ' hidden'}>${this.progressHtml(b, { modal: true })}</div>` : ''; })()}
         ${this.urlsFormHtml(mode !== 'urls')}
         ${this.partners.length ? '' : `<div class="regimebox" data-fpane="partners"${mode === 'partners' ? '' : ' hidden'}>Na hľadanie podľa odberateľov treba mať aspoň jedného odberateľa. Použite hľadanie podľa webov firiem.</div>`}
         <form id="find-form" data-fpane="partners" onsubmit="event.preventDefault()"${mode === 'partners' && this.partners.length ? '' : ' hidden'}>
@@ -511,7 +721,11 @@
           </div>
         </form>`, { wide: true });
       this.urlPreview();
+      this.bindHints();
+      this.loadSuggestions(false);
       this.loadStatus().then(() => this.urlEstimate());
+      const b = this.searches.find(x => x.kind === 'urls' && RUNNING.includes(x.status));
+      if (b) this.watch(b.id);
     },
 
     /** Prepne okno hľadania: podľa webov firiem / podľa našich odberateľov. */
@@ -525,9 +739,17 @@
     urlsFormHtml(hidden) {
       const SDx = SD();
       return `<form id="find-urls" data-fpane="urls" onsubmit="event.preventDefault();Lead.searchUrls()"${hidden ? ' hidden' : ''}>
+        <div class="ls-sug">
+          <div class="form-section ls-sug-h">Navrhované hľadania${UI.tip('AI sa pozrie na Vašich odberateľov, firmy s palcom hore, firmy, ktoré odpísali alebo majú záujem, a na predošlé hľadania (čo vyšlo, kde ste už hľadali) — a navrhne, kde a podľa ktorých webov hľadať ďalej. Klik na návrh vyplní formulár; pred hľadaním ho môžete upraviť.')}
+            <button type="button" class="btn btn-ghost btn-sm" onclick="Lead.loadSuggestions(true)">${Icon('repeat', 13)} Navrhnúť znova</button></div>
+          <div id="find-sug-list" class="ls-cards" aria-live="polite">${this.sugCardsHtml()}</div>
+        </div>
         <div class="fld-full">${UI.field('urls', `Weby firiem (${SDx.MIN_SEEDS} až ${SDx.MAX_SEEDS}, jedna na riadok)`, { type: 'textarea', rows: 6,
           placeholder: 'https://www.firma-trockenbau.de\nwww.iny-ausbau.de\nelektro-firma.de', value: this._urlsDraft || '',
           tip: 'Weby nemeckých firiem, aké chcete nájsť — napríklad Vašich najlepších odberateľov alebo firmy, ktoré poznáte. AI z ich webov zistí, čo robia, a nájde podobné. Stačí doména (firma.de), https:// sa doplní samo. Rovnaká firma zadaná dvakrát sa zoberie raz.' })}</div>
+        <div class="ls-pick-row"><button type="button" class="btn btn-ghost btn-sm" onclick="Lead.toggleSeedPicker()">${Icon('clients', 14)} Navrhnúť vzorové weby</button>${
+          UI.tip('Ponuka webov Vašich odberateľov a firiem, ktoré odpísali, majú záujem alebo majú palec hore. Zaškrtnutím web pridáte do poľa, odškrtnutím ho z poľa vyberiete.')}</div>
+        <div id="find-seedpick" class="ls-pick" hidden></div>
         <div id="find-urls-out" class="card-note" aria-live="polite"></div>
         <div class="form-grid">
           ${UI.field('u_region', 'Región / oblasť (nepovinné)', { placeholder: 'napr. München, 86150 Augsburg, Bayern, okolie Stuttgartu',
@@ -540,6 +762,7 @@
             tip: 'Predvolene sa firmy bez webu vyraďujú: nedá sa stiahnuť ich Impressum (e-mail, konateľ) a AI má o nich málo údajov. Zaškrtnite, ak chcete aj takéto — budú najmä s telefónom.' })}
           <div class="fld-full">${UI.field('u_note', 'Poznámka (nepovinné)', { placeholder: 'napr. len firmy so suchou výstavbou, nad 20 zamestnancov',
             tip: 'Vlastnými slovami, aké firmy chcete. AI to zoberie do úvahy. Môžete písať po slovensky.' })}</div>
+          <div class="fld-full ls-chips" id="find-cats"></div>
         </div>
         <div id="find-urls-os" aria-live="polite">${this.osBoxHtml()}</div>
         <p class="card-note">Pri každej nájdenej firme appka stiahne jej Impressum a vezme z neho e-mail, telefón, adresu, USt-IdNr a konateľa.
@@ -591,6 +814,190 @@
       return r;
     },
 
+    // ── Navrhované hľadania a našepkávanie (080) ──────────────────────────
+    /** Karty „Navrhované hľadania" (z pamäte, alebo čakanie). */
+    sugCardsHtml() {
+      const x = this._sug;
+      if (!x) return `<div class="ls-wait"><span class="lp-spin" aria-hidden="true"></span> AI pripravuje návrhy z Vašich výsledkov…</div>`;
+      const list = Array.isArray(x.suggestions) ? x.suggestions : [];
+      if (!list.length) {
+        return `<div class="ls-empty">${UI.esc(x.reason || 'Zatiaľ nie je z čoho navrhovať. Keď budete mať odberateľov s webom alebo firmy so záujmom či palcom hore, appka navrhne ďalšie hľadania.')}</div>`;
+      }
+      const src = x.source === 'ai' ? 'Navrhla AI z Vašich odberateľov, hodnotení a predošlých hľadaní.'
+        : `Návrhy podľa pravidiel (najúspešnejšie kategórie a mestá, kde ste ešte nehľadali)${x.ai_error ? ` — ${x.ai_error}` : ''}.`;
+      return list.map((g, i) => `<button type="button" class="ls-card" data-sug="${i}" onclick="Lead.useSuggestion(${i})">
+          <b>${UI.esc(g.title)}</b>
+          ${g.region ? `<span class="ls-meta">${Icon('pin', 12)}<span>${UI.esc(g.region)}</span></span>` : ''}
+          ${g.why ? `<span class="ls-why">${UI.esc(g.why)}</span>` : ''}
+          <span class="ls-seeds">${(g.seeds || []).map(u => `<i>${UI.esc(SD().hostOf(u) || u)}</i>`).join('')}</span>
+        </button>`).join('') + `<div class="ls-src">${Icon(x.source === 'ai' ? 'spark' : 'info', 12)} ${UI.esc(src)}</div>`;
+    },
+
+    /** Návrhy zo servera (1 h v pamäti); bez servera pravidlá priamo v appke. */
+    async loadSuggestions(force) {
+      const paint = () => { const box = document.getElementById('find-sug-list'); if (box) box.innerHTML = this.sugCardsHtml(); };
+      if (!force && this._sug && Date.now() - this._sug.at < SUG_TTL) return paint();
+      if (force) { this._sug = null; paint(); }
+      let r = null;
+      try {
+        const t = await token();
+        const x = await fetch('/.netlify/functions/danubra-leads-suggest', { method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ force: !!force }) });
+        r = x.ok ? await x.json() : null;
+      } catch (e) { r = null; }
+      if (!r || !Array.isArray(r.suggestions)) r = { suggestions: this.localSuggestions(), source: 'rules', ai_error: 'server návrhy neposlal' };
+      this._sug = { ...r, at: Date.now() };
+      paint();
+    },
+    localSuggestions() {
+      const ctx = LR().suggestContext({ partners: this.partners, leads: this.rows, outreach: (window.Outreach && Outreach.rows) || [], searches: this.searches });
+      return LR().ruleSuggestions(ctx);
+    },
+
+    /** Klik na návrh vyplní formulár (weby, oblasť, poznámka). */
+    useSuggestion(i) {
+      const g = this._sug && (this._sug.suggestions || [])[i];
+      const f = document.getElementById('find-urls');
+      if (!g || !f) return;
+      const ta = f.querySelector('[name=urls]');
+      if (ta) { ta.value = (g.seeds || []).join('\n'); this._urlsDraft = ta.value; }
+      const reg = f.querySelector('[name=u_region]');
+      if (reg) reg.value = g.region || '';
+      const note = f.querySelector('[name=u_note]');
+      if (note && g.note) note.value = g.note;
+      document.querySelectorAll('#find-sug-list .ls-card').forEach(c => c.classList.toggle('on', c.dataset.sug === String(i)));
+      this.urlPreview();
+      this.refreshSeedPicker();
+      UI.toast('Návrh je vo formulári — skontrolujte ho a kliknite Hľadať', 'ok');
+    },
+
+    /** „Navrhnúť vzorové weby": odberatelia a firmy so záujmom — zaškrtnutím do poľa. */
+    toggleSeedPicker() {
+      const el = document.getElementById('find-seedpick');
+      if (!el) return;
+      el.hidden = !el.hidden;
+      if (!el.hidden) this.refreshSeedPicker();
+    },
+    refreshSeedPicker() {
+      const el = document.getElementById('find-seedpick');
+      const ta = document.querySelector('#find-urls [name=urls]');
+      if (!el || el.hidden || !ta) return;
+      const opts = LR().seedOptions({ partners: this.partners, leads: this.rows, outreach: (window.Outreach && Outreach.rows) || [] });
+      if (!opts.length) {
+        el.innerHTML = '<div class="ls-empty">Zatiaľ nemáte odberateľov ani firmy so záujmom, ktoré majú zapísaný web.</div>';
+        return;
+      }
+      const have = new Set(SD().parseSeeds(ta.value).seeds.map(x => SD().baseDomain(x.url)));
+      el.innerHTML = opts.map(o => `<label><input type="checkbox" value="${UI.esc(o.url)}" ${have.has(o.domain) ? 'checked' : ''} onchange="Lead.seedPick(this)">
+        <span><b>${UI.esc(o.name || o.domain)}</b> <em>${UI.esc([o.domain, o.city, o.why].filter(Boolean).join(' · '))}</em></span></label>`).join('');
+    },
+    seedPick(cb) {
+      const ta = document.querySelector('#find-urls [name=urls]');
+      if (!ta || !cb) return;
+      const dom = SD().baseDomain(cb.value);
+      const lines = ta.value.split(/\n+/).map(x => x.trim()).filter(Boolean).filter(x => SD().baseDomain(x) !== dom);
+      if (cb.checked) lines.push(cb.value);
+      ta.value = lines.join('\n');
+      this._urlsDraft = ta.value;
+      this.urlPreview();
+    },
+
+    /** Našepkávanie: oblasť (datalist) a kategórie z Google Máp (čipy + datalist). */
+    bindHints() {
+      const f = document.getElementById('find-urls');
+      if (!f || !LR()) return;
+      const reg = f.querySelector('[name=u_region]');
+      if (reg) {
+        let dl = document.getElementById('lr-regions');
+        if (!dl) { dl = document.createElement('datalist'); dl.id = 'lr-regions'; f.appendChild(dl); }
+        dl.innerHTML = LR().regionHints({ searches: this.searches, leads: this.rows, partners: this.partners })
+          .map(r => `<option value="${UI.esc(r.value)}" label="${UI.esc(r.from)}"></option>`).join('');
+        reg.setAttribute('list', 'lr-regions');
+        reg.setAttribute('autocomplete', 'off');
+      }
+      const own = LR().categoryHints({ leads: this.rows });
+      const cats = own.length ? own.map(c => c.value) : CATS_DEFAULT;
+      const note = f.querySelector('[name=u_note]');
+      if (note) {
+        let dl = document.getElementById('lr-cats');
+        if (!dl) { dl = document.createElement('datalist'); dl.id = 'lr-cats'; f.appendChild(dl); }
+        dl.innerHTML = cats.map(c => `<option value="${UI.esc(c)}"></option>`).join('');
+        note.setAttribute('list', 'lr-cats');
+        note.setAttribute('autocomplete', 'off');
+      }
+      const box = document.getElementById('find-cats');
+      if (box) {
+        box.innerHTML = `<span>${own.length ? 'Kategórie, ktoré mali dobré výsledky:' : 'Časté kategórie na Google Mapách:'}</span>${
+          cats.slice(0, 8).map(c => `<button type="button" class="ls-chip" onclick="Lead.addNote(this.textContent)">${UI.esc(c)}</button>`).join('')}${
+          UI.tip(own.length ? 'Kategórie z Google Máp pri firmách s palcom hore, so záujmom alebo s vysokým skóre. Klik pridá kategóriu do poznámky — AI podľa nej zostaví dotazy.'
+            : 'Keď budete firmy hodnotiť palcom, tu budú kategórie, ktoré u Vás fungujú. Klik pridá kategóriu do poznámky.')}`;
+      }
+    },
+    addNote(text) {
+      const note = document.querySelector('#find-urls [name=u_note]');
+      const t = String(text || '').trim();
+      if (!note || !t) return;
+      const cur = note.value.trim();
+      if (cur.toLowerCase().includes(t.toLowerCase())) return;
+      note.value = cur ? `${cur}, ${t}` : t;
+      note.focus();
+    },
+
+    // ── Hodnotenie palcom (080) — AI sa učí ───────────────────────────────
+    rateHtml(r, { big = false } = {}) {
+      const v = Number(r.relevance) || 0;
+      const dole = v === -1 && r.relevance_note ? `Nerelevantná: ${r.relevance_note}` : 'Nerelevantná — takéto firmy nechceme';
+      return `<span class="lr-th${big ? ' is-big' : ''}" role="group" aria-label="Hodnotenie firmy" data-lr="${UI.esc(r.id)}">
+        <button type="button" class="lr-btn is-up${v === 1 ? ' on' : ''}" aria-pressed="${v === 1}" title="Relevantná — takéto firmy chceme"
+          aria-label="Relevantná" onclick="Lead.rate('${UI.esc(r.id)}', 1)">${Icon('thumbs-up', big ? 16 : 14)}</button>
+        <button type="button" class="lr-btn is-down${v === -1 ? ' on' : ''}" aria-pressed="${v === -1}" title="${UI.esc(dole)}"
+          aria-label="Nerelevantná" onclick="Lead.rate('${UI.esc(r.id)}', -1)">${Icon('thumbs-down', big ? 16 : 14)}</button></span>`;
+    },
+
+    /** Palec hore / dole; druhý klik na ten istý palec hodnotenie zruší. */
+    async rate(id, v) {
+      const r = this.rows.find(x => x.id === id);
+      if (!r) return;
+      const value = (Number(r.relevance) || 0) === v ? null : v;
+      let note = null;
+      if (value === -1) {
+        note = await this.askReason(r);
+        if (note === null) return;
+      }
+      const now = value == null ? null : new Date().toISOString();
+      const patch = { relevance: value, relevance_note: value === -1 ? (note || null) : null, relevance_at: now,
+        relevance_by: value == null ? null : ((Danubra.user && Danubra.user.id) || null) };
+      const { error } = await DB.update('leads', id, patch);
+      if (error) {
+        return UI.toast(/relevance|column|schema/i.test(error.message || '') ? 'Hodnotenie sa neuložilo — v databáze chýba migrácia 080' : `Chyba: ${error.message}`, 'err');
+      }
+      Object.assign(r, patch);
+      document.querySelectorAll(`[data-lr="${sel(id)}"]`).forEach(el => { el.outerHTML = this.rateHtml(r, { big: el.classList.contains('is-big') }); });
+      const why = document.querySelector(`[data-lr-why="${sel(id)}"]`);
+      if (why) { why.textContent = value === -1 && patch.relevance_note ? `Dôvod: ${patch.relevance_note}` : ''; why.hidden = !(value === -1 && patch.relevance_note); }
+      UI.toast(value === 1 ? 'Relevantná — ďalšie hľadanie bude hľadať podobné' : value === -1 ? 'Nerelevantná — AI bude takéto firmy vynechávať'
+        : 'Hodnotenie zrušené', 'ok');
+    },
+
+    /** Krátky dôvod pri palci dole (nepovinný). null = zrušené. */
+    askReason(r) {
+      return UI._sheet({
+        title: 'Nerelevantná firma',
+        question: `Prečo ${r.name} nie je vhodná? Dôvod je nepovinný.`,
+        hint: 'Pri ďalšom hľadaní AI takéto firmy vynechá a dá im nižšie skóre. Dôvod jej pomôže pochopiť prečo.',
+        field: `<div class="lr-reasons" role="radiogroup" aria-label="Dôvod">${LR().REASONS.map(([, l]) => `<label class="lr-reason">
+            <input type="radio" name="lr-why" value="${UI.esc(l)}"><span>${UI.esc(l)}</span></label>`).join('')}</div>
+          <input id="ui-ask-input" type="text" maxlength="120" placeholder="Iný dôvod vlastnými slovami (nepovinné)">`,
+        okLabel: 'Uložiť', cancel: 'Zrušiť',
+        read: () => {
+          const t = String((document.getElementById('ui-ask-input') || {}).value || '').trim();
+          const c = document.querySelector('#ui-ask input[name=lr-why]:checked');
+          return (t || (c ? c.value : '')).slice(0, 120);
+        },
+        empty: null,
+      });
+    },
+
     async searchUrls() {
       const f = document.getElementById('find-urls');
       if (!f) return;
@@ -602,6 +1009,15 @@
         min_score: OX().minScore(d.u_min), without_web: d.u_noweb === true,
         // Len na zobrazenie počas behu — o zdroji rozhoduje server (kľúč v env).
         outscraper: !!(this.osStatus && this.osStatus.on) };
+      this._urlsDraft = '';
+      return this.startSearch(params);
+    },
+
+    /**
+     * Založí hľadanie, zavolá server a ukáže priebeh v okne. Okno sa dá
+     * zavrieť — priebeh ostane v páse na obrazovke Nové firmy.
+     */
+    async startSearch(params) {
       const { data, error } = await DB.insert('lead_searches', { kind: 'urls', params });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       const t = await token();
@@ -610,11 +1026,15 @@
         body: JSON.stringify({ search_id: data.id, ...params }) })
         .then(x => { if (!x.ok && x.status !== 202) UI.toast(`Server hľadanie odmietol (${x.status}) — skúste to znova`, 'err'); })
         .catch(() => UI.toast('Server na hľadanie neodpovedá — skúste to znova', 'err'));
-      this._urlsDraft = '';
-      UI.closeModal();
       UI.toast(params.outscraper ? 'Hľadám podobné firmy na Google Mapách — potrvá to 3–10 minút' : 'Hľadám podobné firmy — potrvá to 3–10 minút', 'ok');
-      this.searches.unshift({ status: 'pending', kind: 'urls', ...data });
-      Danubra.renderRoute();
+      const s = { status: 'pending', kind: 'urls', params, created_at: new Date().toISOString(), ...data };
+      this.searches.unshift(s);
+      UI.modal('Hľadanie podobných firiem', `${this.progressHtml(s, { modal: true })}
+        <p class="card-note">Okno môžete zavrieť — hľadá sa na serveri a priebeh uvidíte aj v Marketingu → Nové firmy.</p>
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť — hľadá sa ďalej</button></div>`, { wide: true });
+      if (Danubra.route === 'leads') Danubra.renderRoute();
+      this.watch(s.id);
+      return s;
     },
 
     findParams() {
