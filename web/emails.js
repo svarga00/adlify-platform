@@ -41,7 +41,21 @@ const L = {
     sub: 'We will get back to you within 24 hours on working days to go through the terms and start date. No CV needed.',
     next: 'What happens next', steps: [['We call you', 'We check your experience and certificates.'], ['We send an offer', 'Exact terms, accommodation, rotation.'], ['Start', 'We help with paperwork and travel.']],
     wa: 'Message us on WhatsApp', q: (p) => `Questions? Call <b style="color:${INK}">${p}</b> or reply to this email.`, perH: '/ hr', web: 'punds.sk' },
+  ro: { subj: 'Am primit cererea Dvs.', ref: 'Cerere', thanks: (n) => `Vă mulțumim${n ? `, ${n}` : ''}. Am primit cererea Dvs.`,
+    sub: 'Vă contactăm în 24 de ore în zilele lucrătoare, ca să discutăm condițiile și data începerii. Nu este nevoie de CV. Vă rugăm să rețineți: șeful de echipă trebuie să vorbească germană sau engleză.',
+    next: 'Ce urmează', steps: [['Vă sunăm', 'Verificăm experiența și certificatele.'], ['Vă trimitem oferta', 'Condiții exacte, cazare, rotație.'], ['Începerea lucrului', 'Vă ajutăm cu documentele și călătoria.']],
+    wa: 'Scrieți-ne pe WhatsApp', q: (p) => `Aveți întrebări? Sunați la <b style="color:${INK}">${p}</b> sau răspundeți la acest e-mail.`, perH: '/ oră', web: 'punds.sk' },
+  pl: { subj: 'Otrzymaliśmy Państwa zgłoszenie', ref: 'Zgłoszenie', thanks: (n) => `Dziękujemy${n ? `, ${n}` : ''}. Otrzymaliśmy Państwa zgłoszenie.`,
+    sub: 'Odezwiemy się w ciągu 24 godzin w dni robocze, aby omówić warunki i termin rozpoczęcia. CV nie jest potrzebne. Prosimy pamiętać: kierownik brygady musi mówić po niemiecku lub po angielsku.',
+    next: 'Co dalej', steps: [['Zadzwonimy', 'Sprawdzimy doświadczenie i certyfikaty.'], ['Wyślemy ofertę', 'Dokładne warunki, zakwaterowanie, rotacja.'], ['Start', 'Pomożemy z dokumentami i dojazdem.']],
+    wa: 'Napisz do nas na WhatsApp', q: (p) => `Pytania? Prosimy zadzwonić pod <b style="color:${INK}">${p}</b> lub odpowiedzieć na ten e-mail.`, perH: '/ godz.', web: 'punds.sk' },
+  bg: { subj: 'Получихме Вашата заявка', ref: 'Заявка', thanks: (n) => `Благодарим Ви${n ? `, ${n}` : ''}. Получихме Вашата заявка.`,
+    sub: 'Ще се свържем с Вас до 24 часа в работни дни, за да обсъдим условията и датата на започване. Не е нужна автобиография. Моля, имайте предвид: ръководителят на екипа трябва да говори немски или английски.',
+    next: 'Какво следва', steps: [['Ще Ви се обадим', 'Ще проверим опита и сертификатите.'], ['Ще изпратим оферта', 'Точни условия, квартира, ротация.'], ['Започване', 'Ще помогнем с документите и пътуването.']],
+    wa: 'Пишете ни в WhatsApp', q: (p) => `Имате въпрос? Обадете се на <b style="color:${INK}">${p}</b> или отговорете на този имейл.`, perH: '/ час', web: 'punds.sk' },
 };
+/** Jazyky, ktoré uchádzač zaškrtol vo formulári — po slovensky pre upozornenie tímu. */
+const SPOKEN_SK = { de: 'nemčina', en: 'angličtina', sk: 'slovenčina', cs: 'čeština', hu: 'maďarčina', ro: 'rumunčina', pl: 'poľština', bg: 'bulharčina', other: 'iný' };
 const LE = {
   de: { subj: 'Ihre Anfrage bei punds', ref: 'Anfrage', h: 'Vielen Dank für Ihre Anfrage.', sub: 'Wir melden uns innerhalb eines Werktages mit passenden Profilen und Konditionen.',
     f: { trade: 'Gewerk', n: 'Anzahl', loc: 'Einsatzort', start: 'Start' }, persons: (n) => `${n} ${n === 1 ? 'Person' : 'Personen'}`,
@@ -142,9 +156,11 @@ function team({ kind, data = {}, job = null, appUrl = '' } = {}) {
       data.note ? `\n${data.note}` : '', appUrl ? `\nV appke: ${appUrl}#/opportunities` : '']
     : [`Nová ${kind === 'apply' ? 'prihláška' : 'správa'} z punds.sk: ${data.name}`, `Telefón: ${data.phone}${data.email ? ` · ${data.email}` : ''}`,
       job ? `Ponuka: ${job.title}${job.city ? ` · ${job.city}` : ''}` : (data.profession ? `Profesia: ${data.profession}` : ''),
-      data.lang ? `Jazyk: ${data.lang}` : '', data.note ? `\n${data.note}` : '', appUrl ? `\nV appke: ${appUrl}#/candidates` : ''];
+      data.lang ? `Jazyk webu: ${data.lang}` : '',
+      Array.isArray(data.languages) && data.languages.length ? `Hovorí: ${data.languages.map((k) => SPOKEN_SK[k] || k).join(', ')}` : '',
+      data.note ? `\n${data.note}` : '', appUrl ? `\nV appke: ${appUrl}#/candidates` : ''];
   const text = lines.filter(Boolean).join('\n');
   return { subject: lines[0], text, html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(text)}</div>` };
 }
 
-module.exports = { confirmApply, confirmEnquiry, team, L, LE };
+module.exports = { confirmApply, confirmEnquiry, team, L, LE, SPOKEN_SK };

@@ -2,11 +2,13 @@
 // punds web — preklad ponuky do ďalších jazykov webu (Claude)
 // ============================================================================
 // Inzerát sa píše po slovensky. Pred zverejnením na punds.sk sa jedným
-// tlačidlom preloží do češtiny, maďarčiny, nemčiny a angličtiny — výsledok
-// sa uloží k inzerátu (danubra_ads.i18n) a dá sa ešte ručne opraviť.
+// tlačidlom preloží do češtiny, maďarčiny, nemčiny, angličtiny, rumunčiny,
+// poľštiny a bulharčiny — výsledok sa uloží k inzerátu (danubra_ads.i18n)
+// a dá sa ešte ručne opraviť. Kým preklad nie je, web ukáže slovenský text
+// (pri ro/pl/bg najprv anglický — web/shared/jobs.js → FALLBACK).
 //
 //   POST { ad: { web_title, web_body, duration, duties[], requirements[],
-//                benefits[], faq[{q,a}] }, langs: ['cz','hu','de','en'] }
+//                benefits[], faq[{q,a}] }, langs: ['cz','hu','de','en','ro','pl','bg'] }
 //   → { i18n: { cz: {title, body, duration, duties, requirements, benefits, faq}, … } }
 //
 // Len pre prihláseného používateľa appky.
@@ -24,7 +26,11 @@ const supabase = createClient(
 // Supabase je spoločný s Adlify).
 const guard = require('../../app/lib/server-guard.js')(supabase);
 const MODEL = process.env.CLAUDE_TRANSLATE_MODEL || 'claude-sonnet-5-5';
-const NAMES = { cz: 'čeština', hu: 'maďarčina', de: 'nemčina', en: 'angličtina' };
+// Jazyky webu punds.sk okrem slovenčiny (poradie = poradie v appke). Pri
+// zmene upraviť aj app/lib/recruiting/web-ad.js → LANGS a web/shared/sites.js.
+const NAMES = { cz: 'čeština', hu: 'maďarčina', de: 'nemčina', en: 'angličtina', ro: 'rumunčina', pl: 'poľština', bg: 'bulharčina (cyrilika)' };
+// Ako sa v jednotlivých jazykoch vyká — pre prompt.
+const FORMAL = 'cz „Vy", hu „Ön", de „Sie", ro „dumneavoastră / Dvs.", pl „Pan/Pani / Państwo", bg „Вие"; v angličtine neutrálne';
 const H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const out = (code, body) => ({ statusCode: code, headers: H, body: JSON.stringify(body) });
 
@@ -62,15 +68,7 @@ exports.handler = async (event) => {
     title: ad.web_title, body: ad.web_body || '', duration: ad.duration || '',
     duties: ad.duties || [], requirements: ad.requirements || [], benefits: ad.benefits || [], faq: ad.faq || [],
   };
-  const prompt = `Prelož ponuku práce z webu punds.sk (nábor slovenských, českých a maďarských remeselníkov `
-    + `— živnostníkov — na stavby v Nemecku a Rakúsku) do jazykov: ${langs.map((l) => `${l} = ${NAMES[l]}`).join(', ')}.\n\n`
-    + `Pravidlá:\n`
-    + `- Prirodzený jazyk, ako by to napísal rodený hovoriaci personalista. Nie doslovný preklad.\n`
-    + `- Oslovenie vykaním (cz „Vy", hu „Ön", de „Sie"); v angličtine neutrálne.\n`
-    + `- Nemecké odborné výrazy (A1, Steuernummer, Freistellung, WDVS, Trockenbau, MIG/MAG, ISO 9606-1) ponechaj.\n`
-    + `- Čísla, sumy, mestá a skratky nemeň. Zachovaj počet a poradie položiek v zoznamoch.\n`
-    + `- Nič nepridávaj ani nevynechávaj.\n\n`
-    + `PÔVODNÝ TEXT (slovensky, JSON):\n${JSON.stringify(src, null, 1)}`;
+  const prompt = adPrompt(src, langs);
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -97,12 +95,27 @@ exports.handler = async (event) => {
   }
 };
 
-const LANG_NAMES = { sk: 'slovenčina', cz: 'čeština', hu: 'maďarčina', de: 'nemčina', en: 'angličtina' };
+/** Zadanie prekladu ponuky — rodená kvalita, vykanie, zachované formátovanie. */
+function adPrompt(src, langs) {
+  return `Prelož ponuku práce z webu punds.sk (nábor remeselníkov — živnostníkov — zo Slovenska, Česka, Maďarska, `
+    + `Rumunska, Poľska a Bulharska na stavby v Nemecku a Rakúsku) do jazykov: ${langs.map((l) => `${l} = ${NAMES[l]}`).join(', ')}.\n\n`
+    + `Pravidlá:\n`
+    + `- Kvalita rodeného hovoriaceho: prirodzený, správny jazyk, ako by ponuku napísal personalista v danej krajine pre stavebných remeselníkov. Nie doslovný preklad.\n`
+    + `- Správna diakritika a pravopis (ro: ă â î ș ț, nie ş ţ; pl: ą ć ę ł ń ó ś ź ż; bg: cyrilika).\n`
+    + `- Oslovenie vykaním (${FORMAL}). Register formálny, ale priateľský.\n`
+    + `- Nemecké odborné výrazy (A1, Steuernummer, Freistellung, WDVS, Trockenbau, MIG/MAG, ISO 9606-1) ponechaj.\n`
+    + `- Čísla, sumy, mestá a skratky nemeň. Zachovaj formátovanie: odseky a riadky v popise (prázdny riadok = nový odsek), `
+    + `počet a poradie položiek v zoznamoch, dvojicu otázka–odpoveď pri každej otázke.\n`
+    + `- Nič nepridávaj ani nevynechávaj.\n\n`
+    + `PÔVODNÝ TEXT (slovensky, JSON):\n${JSON.stringify(src, null, 1)}`;
+}
+
+const LANG_NAMES = { sk: 'slovenčina', ...NAMES };
 
 /** Preklad zmenených textov stránky webu do ďalších jazykov. */
 async function translateTexts(b) {
   const from = LANG_NAMES[b.from] ? b.from : 'sk';
-  const langs = (b.langs || []).filter((l) => LANG_NAMES[l] && l !== from).slice(0, 5);
+  const langs = (b.langs || []).filter((l) => LANG_NAMES[l] && l !== from).slice(0, 8);
   const entries = Object.entries(b.texts).filter(([k, v]) => k && typeof v === 'string' && v.trim()).slice(0, 120);
   if (!langs.length || !entries.length) return out(400, { error: 'Nie je čo prekladať.' });
   const arr = { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, text: { type: 'string' } }, required: ['path', 'text'] } };
@@ -110,8 +123,8 @@ async function translateTexts(b) {
     input_schema: { type: 'object', properties: Object.fromEntries(langs.map((l) => [l, arr])), required: langs } };
   const prompt = `Prelož texty webovej stránky punds (nábor remeselníkov na stavby v Nemecku / ponuka remeselníkov nemeckým firmám) `
     + `z jazyka ${LANG_NAMES[from]} do: ${langs.map((l) => `${l} = ${LANG_NAMES[l]}`).join(', ')}.\n\n`
-    + `Pravidlá:\n- Prirodzený jazyk webu, nie doslovný preklad. Vykanie (cz „Vy", hu „Ön", de „Sie"), v angličtine neutrálne.\n`
-    + `- HTML značky (<b>, <a …>, <br>) a zástupné znaky ako {PHONE} a {MAIL} ponechaj presne tak.\n`
+    + `Pravidlá:\n- Kvalita rodeného hovoriaceho, prirodzený jazyk webu, nie doslovný preklad. Správna diakritika (ro: ș ț, pl: ą ę ł ś ż…, bg: cyrilika). Vykanie (${FORMAL}).\n`
+    + `- HTML značky (<b>, <a …>, <br>), nové riadky a zástupné znaky ako {PHONE} a {MAIL} ponechaj presne tak.\n`
     + `- Nemecké odborné výrazy (A1, Steuernummer, Freistellung, WDVS, AÜG, Werkvertrag) a čísla nemeň.\n`
     + `- Vráť každú položku s rovnakou „path".\n\nTEXTY (JSON):\n${JSON.stringify(entries.map(([path, text]) => ({ path, text })))}`;
   try {
@@ -135,3 +148,7 @@ async function translateTexts(b) {
     return out(500, { error: String(e.message || e).slice(0, 200) });
   }
 }
+
+exports.NAMES = NAMES;
+exports.LANG_NAMES = LANG_NAMES;
+exports.adPrompt = adPrompt;

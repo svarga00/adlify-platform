@@ -17,7 +17,9 @@
   // Remeslo v appke → profesia na webe (keď ju človek nevyberie sám).
   const FROM_TRADE = { elektrikar: 'elektrikar', zvarac: 'zvarac', zamocnik: 'zamocnik', trockenbau: 'sadrokarton', maliar: 'maliar',
     omietkar: 'zateplovac', montaznik: 'okna', pomocnik: 'pomocnik' };
-  const LANGS = [['cz', 'Čeština'], ['hu', 'Maďarčina'], ['de', 'Nemčina'], ['en', 'Angličtina']];
+  // Jazyky webu okrem slovenčiny — rovnaké ako web/shared/sites.js → SITES.sk.langs
+  // a netlify/functions/punds-translate.js → NAMES.
+  const LANGS = [['cz', 'Čeština'], ['hu', 'Maďarčina'], ['de', 'Nemčina'], ['en', 'Angličtina'], ['ro', 'Rumunčina'], ['pl', 'Poľština'], ['bg', 'Bulharčina']];
 
   const lines = (t) => String(t || '').split('\n').map((s) => s.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
   /** „Otázka? | Odpoveď" na riadok → [{ q, a }] */

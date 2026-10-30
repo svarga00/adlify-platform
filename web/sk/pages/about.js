@@ -18,9 +18,9 @@ const DRY = 'https://punds.eu/wp-content/uploads/2026/06/magnific_professional-p
 /** Tím — doplní klient: { name, role: {sk,…}, langs: 'SK · DE', photo }. */
 const TEAM = [];
 const TEAM_DEMO = [
-  { role: { sk: 'Konateľ', cz: 'Jednatel', hu: 'Ügyvezető', de: 'Geschäftsführer', en: 'Managing director' }, langs: 'SK · DE' },
-  { role: { sk: 'Koordinátor projektov', cz: 'Koordinátor projektů', hu: 'Projektkoordinátor', de: 'Projektkoordinator', en: 'Project coordinator' }, langs: 'SK · CZ · DE' },
-  { role: { sk: 'Administratíva a fakturácia', cz: 'Administrativa a fakturace', hu: 'Adminisztráció és számlázás', de: 'Verwaltung und Abrechnung', en: 'Admin and invoicing' }, langs: 'SK · HU' },
+  { role: { sk: 'Konateľ', cz: 'Jednatel', hu: 'Ügyvezető', de: 'Geschäftsführer', en: 'Managing director', ro: 'Administrator', pl: 'Prezes', bg: 'Управител' }, langs: 'SK · DE' },
+  { role: { sk: 'Koordinátor projektov', cz: 'Koordinátor projektů', hu: 'Projektkoordinátor', de: 'Projektkoordinator', en: 'Project coordinator', ro: 'Coordonator de proiecte', pl: 'Koordynator projektów', bg: 'Координатор на проекти' }, langs: 'SK · CZ · DE' },
+  { role: { sk: 'Administratíva a fakturácia', cz: 'Administrativa a fakturace', hu: 'Adminisztráció és számlázás', de: 'Verwaltung und Abrechnung', en: 'Admin and invoicing', ro: 'Administrație și facturare', pl: 'Administracja i fakturowanie', bg: 'Администрация и фактуриране' }, langs: 'SK · HU' },
 ];
 
 const T = {
@@ -104,6 +104,54 @@ const T = {
     teamH: 'The people you’ll talk to', teamNote: 'Photos and names coming soon', photo: 'Photo', speaks: 'Speaks', name: 'First Last',
     coK: 'Company details', seat: 'Registered office', ico: 'Company ID (IČO)', phone: 'Phone', mail: 'Email', open: 'Open', hours: 'Mon–Fri 8:00–16:00', openMap: 'Open in Maps',
   },
+  ro: {
+    title: 'Despre noi – Partner und Service s. r. o. | punds', desc: 'Suntem o firmă slovacă din Nové Zámky. Ajutăm meseriașii să găsească muncă în condiții corecte în Germania și Austria – cu cazare, acte și facturare.',
+    home: 'Acasă', crumb: 'Despre noi',
+    h1: 'Aducem împreună meseriași buni și', h1b: 'șantiere bune.',
+    lead: 'Suntem o firmă slovacă din Nové Zámky. Ajutăm meseriașii din Slovacia, Cehia, Ungaria, România, Polonia și Bulgaria să găsească muncă în condiții corecte în Germania și Austria, iar firmelor germane le găsim oameni de încredere. De cazare, acte și facturare ne ocupăm noi, Dvs. vă puteți dedica muncii.',
+    ctaJobs: 'Vezi ofertele', ctaCon: 'Contactați-ne', badgeP: 'comunicăm în germană și engleză', imgAlt: ['Meseriaș la montaj pe șantier', 'Sudor la lucru'],
+    whoK: 'Cine suntem', whoH: 'Partener, nu agenție.',
+    who: ['Pentru noi, meseriașii nu sunt un rând într-un tabel. Îi cunoaștem pe fiecare personal, știm ce pot și unde se vor descurca bine. Firmelor din Germania le trimitem doar oameni pentru care putem garanta.', 'Vă ajutăm cu tot ce ține de muncă: activitate independentă, A1, Freistellung, cod fiscal german, cazare și facturare regulată. Pe șantier vă ocupați doar de șantier.'],
+    misK: 'Misiunea noastră', mis: 'Ca fiecare meseriaș să se simtă la noi ca un partener și fiecare firmă să știe că se poate baza pe noi.',
+    valH: 'Ce contează pentru noi',
+    val: [['Condiții corecte', 'Tarif clar dinainte, fără costuri ascunse. Plată la fiecare 14 zile.'], ['Seriozitate', 'Lucrăm doar cu firme verificate și ne ținem de cuvânt.'], ['Comunicare', 'Echipa noastră vorbește slovacă, cehă, maghiară, germană și engleză. Cu șeful de echipă comunicăm în germană sau engleză.'], ['Colaborare pe termen lung', 'După încheierea proiectului vă oferim cu plăcere următorul.']],
+    forK: 'Pentru meseriași', forH: 'Muncă în Germania fără griji', forL: ['Proiecte verificate cu tarif clar', 'Cazare lângă șantier', 'Ajutor cu activitatea independentă și documentele'],
+    b2bK: 'Pentru firme din Germania', b2bH: 'Oameni de încredere pentru șantierul Dvs.', b2bL: ['Persoane individuale și echipe întregi', 'Documente complete înainte de începere', 'Un singur contact pentru întregul proiect'],
+    teamH: 'Oamenii cu care veți vorbi', teamNote: 'Fotografiile și numele urmează', photo: 'Foto', speaks: 'Vorbește', name: 'Nume Prenume',
+    coK: 'Date firmă', seat: 'Sediu', ico: 'Nr. înreg. (IČO)', phone: 'Telefon', mail: 'E-mail', open: 'Program', hours: 'Lu–Vi 8:00–16:00', openMap: 'Deschide în Maps',
+  },
+  pl: {
+    title: 'O nas – Partner und Service s. r. o. | punds', desc: 'Jesteśmy słowacką firmą z Nových Zámków. Pomagamy fachowcom znaleźć uczciwą pracę w Niemczech i Austrii – z zakwaterowaniem, formalnościami i fakturowaniem.',
+    home: 'Start', crumb: 'O nas',
+    h1: 'Łączymy dobrych fachowców z dobrymi', h1b: 'budowami.',
+    lead: 'Jesteśmy słowacką firmą z Nových Zámków. Fachowcom ze Słowacji, Czech, Węgier, Rumunii, Polski i Bułgarii pomagamy znaleźć uczciwą pracę w Niemczech i Austrii, a niemieckim firmom szukamy solidnych ludzi. Zakwaterowanie, formalności i fakturowanie załatwiamy my – Państwo mogą zająć się swoją pracą.',
+    ctaJobs: 'Zobacz oferty', ctaCon: 'Kontakt z nami', badgeP: 'porozumiewamy się po niemiecku i angielsku', imgAlt: ['Fachowiec podczas montażu na budowie', 'Spawacz podczas pracy'],
+    whoK: 'Kim jesteśmy', whoH: 'Partner, nie agencja.',
+    who: ['Fachowcy nie są dla nas wierszem w tabeli. Każdego znamy osobiście, wiemy, co potrafi i gdzie będzie mu dobrze. Do firm w Niemczech wysyłamy tylko ludzi, za których możemy ręczyć.', 'Pomagamy ze wszystkim wokół pracy: działalność, A1, Freistellung, niemiecki numer podatkowy, zakwaterowanie i regularne fakturowanie. Na budowie zajmują się Państwo tylko budową.'],
+    misK: 'Nasza misja', mis: 'Aby każdy fachowiec czuł się u nas partnerem, a każda firma wiedziała, że może na nas polegać.',
+    valH: 'Na czym nam zależy',
+    val: [['Uczciwe warunki', 'Jasna stawka z góry, bez ukrytych opłat. Wypłata co 14 dni.'], ['Solidność', 'Pracujemy tylko ze sprawdzonymi firmami i dotrzymujemy słowa.'], ['Komunikacja', 'Nasz zespół mówi po słowacku, czesku, węgiersku, niemiecku i angielsku. Z kierownikiem brygady porozumiewamy się po niemiecku lub angielsku.'], ['Długofalowa współpraca', 'Po zakończeniu projektu chętnie zaproponujemy kolejny.']],
+    forK: 'Dla fachowców', forH: 'Praca w Niemczech bez zmartwień', forL: ['Sprawdzone projekty z jasną stawką', 'Zakwaterowanie przy budowie', 'Pomoc z działalnością i dokumentami'],
+    b2bK: 'Dla firm w Niemczech', b2bH: 'Solidni ludzie na Państwa budowę', b2bL: ['Pojedyncze osoby i całe brygady', 'Kompletne dokumenty przed startem', 'Jeden kontakt do całego projektu'],
+    teamH: 'Ludzie, z którymi będą Państwo rozmawiać', teamNote: 'Zdjęcia i nazwiska uzupełnimy', photo: 'Zdjęcie', speaks: 'Mówi', name: 'Imię Nazwisko',
+    coK: 'Dane firmy', seat: 'Siedziba', ico: 'Nr rej. (IČO)', phone: 'Telefon', mail: 'E-mail', open: 'Otwarte', hours: 'Pn–Pt 8:00–16:00', openMap: 'Otwórz w mapach',
+  },
+  bg: {
+    title: 'За нас – Partner und Service s. r. o. | punds', desc: 'Ние сме словашка фирма от Нове Замки. Помагаме на строителни специалисти да намерят честна работа в Германия и Австрия – с квартира, документи и фактуриране.',
+    home: 'Начало', crumb: 'За нас',
+    h1: 'Свързваме добри майстори с добри', h1b: 'строежи.',
+    lead: 'Ние сме словашка фирма от Нове Замки. Помагаме на специалисти от Словакия, Чехия, Унгария, Румъния, Полша и България да намерят честна работа в Германия и Австрия, а за немските фирми търсим надеждни хора. За квартирата, документите и фактурирането се грижим ние – Вие можете да се посветите на работата си.',
+    ctaJobs: 'Вижте обявите', ctaCon: 'Свържете се с нас', badgeP: 'общуваме на немски и английски', imgAlt: ['Майстор при монтаж на строеж', 'Заварчик по време на работа'],
+    whoK: 'Кои сме ние', whoH: 'Партньор, не агенция.',
+    who: ['За нас майсторите не са ред в таблица. Познаваме всеки лично, знаем какво умее и къде ще се справи добре. На фирмите в Германия изпращаме само хора, за които можем да гарантираме.', 'Помагаме с всичко около работата: регистрация като самонаето лице, A1, Freistellung, немски данъчен номер, квартира и редовно фактуриране. Така на обекта се занимавате само с обекта.'],
+    misK: 'Нашата мисия', mis: 'Всеки майстор при нас да се чувства като партньор и всяка фирма да знае, че може да разчита на нас.',
+    valH: 'Какво е важно за нас',
+    val: [['Честни условия', 'Ясна ставка предварително, без скрити такси. Плащане на всеки 14 дни.'], ['Надеждност', 'Работим само с проверени фирми и спазваме обещаното.'], ['Комуникация', 'Нашият екип говори словашки, чешки, унгарски, немски и английски. С ръководителя на екипа общуваме на немски или английски.'], ['Дългосрочно сътрудничество', 'След края на проекта с удоволствие ще Ви предложим следващ.']],
+    forK: 'За майстори', forH: 'Работа в Германия без грижи', forL: ['Проверени проекти с ясна ставка', 'Квартира близо до обекта', 'Помощ с регистрацията и документите'],
+    b2bK: 'За фирми в Германия', b2bH: 'Надеждни хора за Вашия обект', b2bL: ['Отделни работници и цели екипи', 'Пълни документи преди започване', 'Един контакт за целия проект'],
+    teamH: 'Хората, с които ще говорите', teamNote: 'Снимките и имената ще бъдат добавени', photo: 'Снимка', speaks: 'Говори', name: 'Име Фамилия',
+    coK: 'Данни за фирмата', seat: 'Седалище', ico: 'Рег. номер (IČO)', phone: 'Телефон', mail: 'Имейл', open: 'Работно време', hours: 'Пон–Пет 8:00–16:00', openMap: 'Отвори в карти',
+  },
 };
 
 const pad = (i) => String(i + 1).padStart(2, '0');
@@ -129,7 +177,7 @@ async function render(ctx) {
   <div class="ab-hero-img rv-in d1">
     <img class="ab-img1" src="${DRY}" alt="${esc(t.imgAlt[0])}" width="960" height="680">
     <img class="ab-img2" src="${IMG.weld}" alt="${esc(t.imgAlt[1])}" width="960" height="680" loading="lazy">
-    <div class="ab-badge floaty">${mark({ w: 34 })}<span><strong>SK · CZ · HU · DE</strong><span>${esc(t.badgeP)}</span></span></div>
+    <div class="ab-badge floaty">${mark({ w: 34 })}<span><strong>SK · CZ · HU · DE · EN</strong><span>${esc(t.badgeP)}</span></span></div>
   </div>
 </section>
 <section class="wrap ab-who">

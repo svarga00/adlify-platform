@@ -24,7 +24,9 @@
   };
   const TRADE = { zvarac: 'Schweißen', zamocnik: 'Metallbau', sadrokarton: 'Trockenbau', maliar: 'Maler', zateplovac: 'WDVS',
     okna: 'Fenster & Türen', nabytok: 'Möbelmontage', pomocnik: 'Bauhelfer' };
-  const LANG = { sk: 'Slovensky', cz: 'Česky', hu: 'Maďarsky', de: 'Nemecky', en: 'Anglicky' };
+  // Jazyky webov (punds.sk má všetky, punds.eu de+en) — poradie ako web/shared/sites.js.
+  const LANG = { sk: 'Slovensky', cz: 'Česky', hu: 'Maďarsky', de: 'Nemecky', en: 'Anglicky', ro: 'Rumunsky', pl: 'Poľsky', bg: 'Bulharsky' };
+  const SITE_LANGS = { sk: ['sk', 'cz', 'hu', 'de', 'en', 'ro', 'pl', 'bg'], eu: ['de', 'en'] };
   const SRC = { sk: 'sk', eu: 'de' };                   // jazyk, z ktorého sa prekladá
   const webUrl = (site, lang) => `${location.origin}/punds-${site}/${lang || SRC[site]}/`;
   const val = (rows, key, def) => (rows[key] != null ? rows[key] : def);
@@ -94,8 +96,8 @@
         ${mailErr ? `<div class="warnbox">${Icon('alert', 14)} ${mailErr}× sa nepodarilo poslať automatický e-mail — skontrolujte schránku v Nastavenia → Schránky.</div>` : ''}
         <div class="cards" style="margin-top:12px;">
           ${['sk', 'eu'].map((s) => `<div class="card card-pad"><div class="card-head"><div class="card-title">${s === 'sk' ? 'punds.sk — remeselníci' : 'punds.eu — firmy v Nemecku'}${Help.btn('screen.website', { size: 13 })}</div><span style="display:inline-flex;align-items:center;flex:none;">${UI.badge('skúšobná adresa', 'amber')}${UI.tip('Web zatiaľ beží len na skúšobnej adrese tejto appky. Na doménach punds.sk a punds.eu je stále starý web, kým sa domény neprepnú — dovtedy ho zákazníci nevidia.')}</span></div>
-            <p class="card-note" style="margin:0 0 10px;">${s === 'sk' ? 'Jazyky SK, CZ, HU, DE, EN. Ponuky sú z Inzerátov.' : 'Jazyky DE, EN. Dopyty idú do Dopytov.'}</p>
-            <div class="js-acts">${(s === 'sk' ? ['sk', 'cz', 'hu', 'de', 'en'] : ['de', 'en']).map((l) => `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${webUrl(s, l)}">${l.toUpperCase()}</a>`).join('')}${UI.tip('Otvorí web v danom jazyku v novom okne — presne tak, ako ho vidia návštevníci.')}</div></div>`).join('')}
+            <p class="card-note" style="margin:0 0 10px;">${s === 'sk' ? `Jazyky ${SITE_LANGS.sk.map((l) => l.toUpperCase()).join(', ')}. Ponuky sú z Inzerátov. Po rumunsky, poľsky a bulharsky web pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky.` : 'Jazyky DE, EN. Dopyty idú do Dopytov.'}</p>
+            <div class="js-acts">${SITE_LANGS[s].map((l) => `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${webUrl(s, l)}">${l.toUpperCase()}</a>`).join('')}${UI.tip('Otvorí web v danom jazyku v novom okne — presne tak, ako ho vidia návštevníci.')}</div></div>`).join('')}
           <div class="card card-pad"><div class="card-head"><div class="card-title">Automatické e-maily${Help.btn('card.mailboxes.web', { size: 13 })}</div>${!(this.cfg.mailbox_sk || this.cfg.mailbox_eu) ? UI.badge('vypnuté', 'gray') : this.cfg.confirm ? UI.badge('zapnuté', 'green') : UI.badge('len upozornenie Vám', 'amber')}</div>
             <p class="card-note" style="margin:0 0 10px;">Potvrdenie uchádzačovi a firme a upozornenie Vám.</p>
             <button class="btn btn-outline btn-sm" onclick="Danubra.go('mailboxes')">${Icon('settings', 14)} Nastaviť</button></div>
@@ -161,7 +163,7 @@
         </div>
         <div class="form-section">Funkcia${UI.tip('Názov funkcie v každom jazyku webu. Stačí napísať slovensky a kliknúť Preložiť zo slovenčiny. Kde jazyk ostane prázdny, web ukáže slovenský text.')}</div>
         <div class="form-grid">${Object.entries(LANG).map(([l, n]) => UI.field(`role_${l}`, n, { value: (m.role && m.role[l]) || '' })).join('')}</div>
-        <div class="btn-row"><button type="button" class="btn btn-outline btn-sm" id="web-m-tr" onclick="Web.translateRole()">${Icon('repeat', 14)} Preložiť zo slovenčiny</button>${UI.tip('Preloží umelá inteligencia (Claude) do CZ, HU, DE a EN a prepíše tieto polia. Preklad skontrolujte — uloží sa až tlačidlom Uložiť.')}</div>
+        <div class="btn-row"><button type="button" class="btn btn-outline btn-sm" id="web-m-tr" onclick="Web.translateRole()">${Icon('repeat', 14)} Preložiť zo slovenčiny</button>${UI.tip(`Preloží umelá inteligencia (Claude) do ${SITE_LANGS.sk.filter((l) => l !== 'sk').map((l) => l.toUpperCase()).join(', ')} a prepíše tieto polia. Preklad skontrolujte — uloží sa až tlačidlom Uložiť.`)}</div>
         <div class="form-section">Kde sa ukáže${UI.tip('Zaškrtnite web, na ktorom má človek byť. Keď nezaškrtnete ani jeden, ukáže sa na oboch.')}</div>
         <div class="form-grid">
           ${UI.field('site_sk', 'punds.sk (O nás)', { type: 'checkbox', value: (m.sites || []).includes('sk') })}
@@ -190,7 +192,7 @@
       const f = document.getElementById('web-m');
       const sk = f.querySelector('[name=role_sk]').value.trim();
       if (!sk) return UI.toast('Najprv napíšte funkciu po slovensky', 'err');
-      const r = await this.translate({ role: sk }, 'sk', ['cz', 'hu', 'de', 'en'], document.getElementById('web-m-tr'));
+      const r = await this.translate({ role: sk }, 'sk', SITE_LANGS.sk.filter((l) => l !== 'sk'), document.getElementById('web-m-tr'));
       if (r) for (const [l, x] of Object.entries(r)) if (x.role) f.querySelector(`[name=role_${l}]`).value = x.role;
     },
 

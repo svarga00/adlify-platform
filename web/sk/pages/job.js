@@ -9,7 +9,7 @@
 'use strict';
 
 const { esc, each, cls, num, plural, LOCALE } = require('../../shared/h');
-const { T: C, rate, PHONE, tel } = require('../common');
+const { T: C, rate, PHONE, tel, langReqBox, spokenField } = require('../common');
 const { icon } = require('../../shared/icons');
 
 const WA = '421910523858';
@@ -170,6 +170,99 @@ const T = {
       ['Do I need to speak German?', 'German is an advantage (better terms), but it isn’t required for many positions. It depends on the project.'],
     ],
   },
+  ro: {
+    home: 'Acasă', active: 'Ofertă activă', seek: (n) => `căutăm ${n} ${n === 1 ? 'persoană' : 'persoane'}`,
+    perHour: 'pe oră', startOn: 'Start:', back: 'Înapoi la oferte',
+    country: { DE: 'Germania', AT: 'Austria', CH: 'Elveția', NL: 'Țările de Jos', BE: 'Belgia', LU: 'Luxemburg', SK: 'Slovacia', CZ: 'Cehia' },
+    tagAccom: 'Ajutor cu cazarea', tagInvoice: 'Facturare la fiecare 14 zile', tagPartners: 'Parteneri verificați în Germania', tagRot: 'Rotație',
+    about: 'Despre post', duties: 'Sarcini',
+    descFb: (j) => `Căutăm meseriași cu experiență pentru postul ${j.title}, pe un proiect în ${j.city}. Lucrați pentru o firmă germană verificată, pe bază de activitate independentă, cu facturare la fiecare 14 zile.`,
+    fHours: 'Program', hoursV: (n) => `${n}+ ore / săptămână`, hoursS: (n) => `${n}+ ore / săpt.`, fRot: 'Rotație', fAccom: 'Cazare', accYes: 'Asigurată', accNo: 'Nu', fCountry: 'Țara', fRate: 'Tarif', fStart: 'Start',
+    req: 'Cerințe', reqSub: 'Ce așteptăm de la Dvs.', offer: 'Ce oferim', offerSub: 'Avantajele colaborării',
+    calc: 'Calculator de venit', calcSub: 'Venit brut orientativ pentru acest post.', hoursW: 'Ore lucrate pe săptămână', weeks: 'Număr de săptămâni', invoiced: 'Suma facturată', hUnit: 'ore',
+    disclaimer: 'Calculul este doar orientativ (suma brută facturată, înainte de contribuții și costuri). Condițiile exacte vi le confirmăm noi.', calcCta: 'Calculați venitul orientativ',
+    loc: 'Locație', route: 'Calculează traseul', faq: 'Întrebări frecvente',
+    share: 'Distribuie oferta', shareSub: 'Trimiteți oferta unui cunoscut care caută de lucru.', copy: 'Copiază linkul',
+    applyH: 'Mă interesează postul', applySub: 'Vă contactăm în 24 de ore. Nu este nevoie de CV.', now: 'Imediat',
+    name: 'Nume și prenume', namePh: 'Ion Popescu', phone: 'Telefon', phonePh: '+40 …', email: 'E-mail', emailPh: 'ion@email.ro',
+    note: 'Observații (opțional)', notePh: 'De ex. experiență, când puteți începe…', consent: ['Sunt de acord cu ', 'prelucrarea datelor personale', ''],
+    send: 'Trimite cererea', sendM: 'Trimite', waM: 'Prefer WhatsApp', noCv: 'fără CV',
+    waText: (j, u) => `Bună ziua, mă interesează oferta ${j.title} – ${j.city}. ${u}`,
+    ok: 'Vă mulțumim!', okP: ['Am primit cererea Dvs. pentru postul ', '. Vă contactăm în 24 de ore.'], nextH: 'Ce urmează',
+    steps: ['Vă sunăm și verificăm experiența.', 'Vă trimitem condițiile concrete.', 'Ne ocupăm de acte, cazare și începerea lucrului.'], backM: 'Înapoi la ofertă',
+    other: 'Vedeți și celelalte posturi', otherSub: 'Avem în permanență locuri libere și în alte meserii.',
+    otherCta: 'Căutați de lucru în altă meserie?', otherCtaP: 'Completați formularul fără obligații și vă contactăm cât mai curând.', otherCtaB: 'Completează formularul',
+    faqList: [
+      ['Am nevoie de PFA / activitate independentă?', 'Da, colaborarea se desfășoară pe bază de activitate independentă. Dacă nu o aveți încă, vă sfătuim și vă ajutăm cu înregistrarea.'],
+      ['Ce este A1 și cine îl obține?', 'A1 este certificatul care arată în ce țară plătiți contribuțiile sociale când lucrați în străinătate. Îl obținem complet pentru Dvs.'],
+      ['Ajutați cu Freistellung și codul fiscal?', 'Da. Ne ocupăm de Freistellungsbescheinigung, codul fiscal german (Steuernummer), activarea Elster și restul formalităților.'],
+      ['Când și cum sunt plătit?', 'Se facturează la fiecare 14 zile, iar plățile vin la timp. Condițiile concrete le stabilim la începerea lucrului.'],
+      ['Cine se ocupă de cazare?', 'Vă ajutăm să găsiți cazare în apropierea proiectului. Detaliile vi le confirmăm la oferta concretă.'],
+      ['Trebuie să vorbesc germană?', 'Șeful de echipă trebuie să vorbească germană sau engleză – coordonarea pe șantier se face în germană. Pentru ceilalți membri ai echipei germana este un avantaj, dar nu este obligatorie.'],
+    ],
+  },
+  pl: {
+    home: 'Start', active: 'Aktualna oferta', seek: (n) => `szukamy ${n} ${plural('pl', n, ['osoby', 'osób', 'osób'])}`,
+    perHour: 'za godzinę', startOn: 'Start:', back: 'Wróć do ofert',
+    country: { DE: 'Niemcy', AT: 'Austria', CH: 'Szwajcaria', NL: 'Holandia', BE: 'Belgia', LU: 'Luksemburg', SK: 'Słowacja', CZ: 'Czechy' },
+    tagAccom: 'Pomoc w zakwaterowaniu', tagInvoice: 'Fakturowanie co 14 dni', tagPartners: 'Sprawdzeni partnerzy w Niemczech', tagRot: 'Rotacja',
+    about: 'O stanowisku', duties: 'Zakres pracy',
+    descFb: (j) => `Szukamy doświadczonych fachowców na stanowisko ${j.title} do projektu w mieście ${j.city}. Praca dla sprawdzonej niemieckiej firmy w ramach własnej działalności, fakturowanie co 14 dni.`,
+    fHours: 'Wymiar godzin', hoursV: (n) => `${n}+ godz. / tydzień`, hoursS: (n) => `${n}+ godz. / tyg.`, fRot: 'Rotacja', fAccom: 'Zakwaterowanie', accYes: 'Zapewnione', accNo: 'Nie', fCountry: 'Kraj', fRate: 'Stawka', fStart: 'Start',
+    req: 'Wymagania', reqSub: 'Czego oczekujemy', offer: 'Co oferujemy', offerSub: 'Korzyści ze współpracy',
+    calc: 'Kalkulator zarobków', calcSub: 'Orientacyjny zarobek brutto na tym stanowisku.', hoursW: 'Przepracowane godziny tygodniowo', weeks: 'Liczba tygodni', invoiced: 'Kwota na fakturze', hUnit: 'godzin',
+    disclaimer: 'Obliczenie jest tylko orientacyjne (kwota brutto na fakturze, przed składkami i kosztami). Dokładne warunki potwierdzimy.', calcCta: 'Oblicz orientacyjny zarobek',
+    loc: 'Lokalizacja', route: 'Wyznacz trasę', faq: 'Częste pytania',
+    share: 'Udostępnij ofertę', shareSub: 'Prosimy przesłać ofertę znajomemu, który szuka pracy.', copy: 'Kopiuj link',
+    applyH: 'Chcę się zgłosić', applySub: 'Odezwiemy się w ciągu 24 godzin. CV nie jest potrzebne.', now: 'Od zaraz',
+    name: 'Imię i nazwisko', namePh: 'Jan Kowalski', phone: 'Telefon', phonePh: '+48 …', email: 'E-mail', emailPh: 'jan@email.pl',
+    note: 'Uwagi (opcjonalnie)', notePh: 'Np. doświadczenie, możliwy termin rozpoczęcia…', consent: ['Wyrażam zgodę na ', 'przetwarzanie danych osobowych', ''],
+    send: 'Wyślij zgłoszenie', sendM: 'Wyślij', waM: 'Wolę przez WhatsApp', noCv: 'bez CV',
+    waText: (j, u) => `Dzień dobry, interesuje mnie oferta ${j.title} – ${j.city}. ${u}`,
+    ok: 'Dziękujemy!', okP: ['Otrzymaliśmy zgłoszenie na stanowisko ', '. Odezwiemy się w ciągu 24 godzin.'], nextH: 'Co dalej',
+    steps: ['Zadzwonimy i omówimy doświadczenie.', 'Wyślemy konkretne warunki.', 'Załatwimy formalności, zakwaterowanie i start.'], backM: 'Wróć do oferty',
+    other: 'Zobacz też pozostałe stanowiska', otherSub: 'Na bieżąco mamy wolne miejsca także w innych zawodach.',
+    otherCta: 'Szukają Państwo pracy w innym zawodzie?', otherCtaP: 'Prosimy wypełnić niezobowiązujący formularz – odezwiemy się jak najszybciej.', otherCtaB: 'Wypełnij formularz',
+    faqList: [
+      ['Czy potrzebuję własnej działalności?', 'Tak, współpraca odbywa się w ramach własnej działalności gospodarczej. Jeśli jeszcze jej Państwo nie mają, doradzimy i pomożemy ją założyć.'],
+      ['Co to jest A1 i kto to załatwia?', 'A1 to zaświadczenie, w którym kraju odprowadzają Państwo składki społeczne podczas pracy za granicą. Załatwiamy je w całości za Państwa.'],
+      ['Pomagacie z Freistellung i numerem podatkowym?', 'Tak. Zapewniamy Freistellungsbescheinigung, niemiecki numer podatkowy (Steuernummer), aktywację Elster i pozostałe formalności.'],
+      ['Kiedy i jak otrzymam wypłatę?', 'Fakturuje się co 14 dni, a płatności przychodzą na czas. Konkretne warunki ustalamy przy starcie.'],
+      ['Kto zajmuje się zakwaterowaniem?', 'Pomagamy znaleźć zakwaterowanie w pobliżu projektu. Szczegóły potwierdzamy przy konkretnej ofercie.'],
+      ['Czy muszę znać niemiecki?', 'Kierownik brygady musi mówić po niemiecku lub po angielsku – koordynacja na budowie odbywa się po niemiecku. Dla pozostałych członków brygady niemiecki jest zaletą, ale nie jest wymagany.'],
+    ],
+  },
+  bg: {
+    home: 'Начало', active: 'Активна обява', seek: (n) => `търсим ${n} ${n === 1 ? 'човек' : 'човека'}`,
+    perHour: 'на час', startOn: 'Начало:', back: 'Назад към обявите',
+    country: { DE: 'Германия', AT: 'Австрия', CH: 'Швейцария', NL: 'Нидерландия', BE: 'Белгия', LU: 'Люксембург', SK: 'Словакия', CZ: 'Чехия' },
+    tagAccom: 'Помощ с квартира', tagInvoice: 'Фактуриране на всеки 14 дни', tagPartners: 'Проверени партньори в Германия', tagRot: 'Ротация',
+    about: 'За позицията', duties: 'Задължения',
+    descFb: (j) => `Търсим опитни майстори за позиция ${j.title} по проект в град ${j.city}. Работи се за проверена немска фирма като самонаето лице, с фактуриране на всеки 14 дни.`,
+    fHours: 'Работни часове', hoursV: (n) => `${n}+ ч / седмица`, hoursS: (n) => `${n}+ ч / седм.`, fRot: 'Ротация', fAccom: 'Квартира', accYes: 'Осигурена', accNo: 'Не', fCountry: 'Държава', fRate: 'Ставка', fStart: 'Начало',
+    req: 'Изисквания', reqSub: 'Какво очакваме от Вас', offer: 'Какво предлагаме', offerSub: 'Предимства на сътрудничеството',
+    calc: 'Калкулатор на доходите', calcSub: 'Ориентировъчен брутен доход на тази позиция.', hoursW: 'Отработени часове седмично', weeks: 'Брой седмици', invoiced: 'Фактурирана сума', hUnit: 'часа',
+    disclaimer: 'Изчислението е само ориентировъчно (брутна фактурирана сума преди осигуровки и разходи). Точните условия ще Ви потвърдим.', calcCta: 'Изчислете ориентировъчния доход',
+    loc: 'Местоположение', route: 'Изчисли маршрут', faq: 'Често задавани въпроси',
+    share: 'Споделете обявата', shareSub: 'Изпратете обявата на познат, който търси работа.', copy: 'Копирай линка',
+    applyH: 'Интересувам се от позицията', applySub: 'Ще се свържем с Вас до 24 часа. Не е нужна автобиография.', now: 'Веднага',
+    name: 'Име и фамилия', namePh: 'Иван Иванов', phone: 'Телефон', phonePh: '+359 …', email: 'Имейл', emailPh: 'ivan@email.bg',
+    note: 'Бележка (по желание)', notePh: 'Напр. опит, кога можете да започнете…', consent: ['Съгласен/съгласна съм с ', 'обработката на личните данни', ''],
+    send: 'Изпрати заявката', sendM: 'Изпрати', waM: 'По-добре през WhatsApp', noCv: 'без автобиография',
+    waText: (j, u) => `Добър ден, интересувам се от обявата ${j.title} – ${j.city}. ${u}`,
+    ok: 'Благодарим Ви!', okP: ['Получихме заявката Ви за позиция ', '. Ще се свържем с Вас до 24 часа.'], nextH: 'Какво следва',
+    steps: ['Ще Ви се обадим и ще уточним опита Ви.', 'Ще Ви изпратим конкретните условия.', 'Ще уредим документите, квартирата и започването.'], backM: 'Назад към обявата',
+    other: 'Вижте и другите позиции', otherSub: 'Постоянно имаме свободни места и в други професии.',
+    otherCta: 'Търсите работа в друга професия?', otherCtaP: 'Попълнете необвързващия формуляр и ще се свържем с Вас възможно най-скоро.', otherCtaB: 'Попълни формуляра',
+    faqList: [
+      ['Трябва ли да съм самонаето лице?', 'Да, сътрудничеството е на базата на самостоятелна дейност. Ако още нямате регистрация, ще Ви посъветваме и ще Ви помогнем да я направите.'],
+      ['Какво е A1 и кой го урежда?', 'A1 е удостоверение за това в коя държава плащате социалните си осигуровки, когато работите в чужбина. Уреждаме го изцяло за Вас.'],
+      ['Помагате ли с Freistellung и данъчния номер?', 'Да. Осигуряваме Freistellungsbescheinigung, немски данъчен номер (Steuernummer), активиране на Elster и останалата администрация.'],
+      ['Кога и как ще получа парите си?', 'Фактурира се на всеки 14 дни и плащанията идват навреме. Конкретните условия уговаряме при започването.'],
+      ['Кой урежда квартирата?', 'Помагаме с осигуряването на квартира близо до обекта. Подробностите Ви потвърждаваме при конкретната оферта.'],
+      ['Трябва ли да знам немски?', 'Ръководителят на екипа трябва да говори немски или английски – координацията на обекта е на немски. За останалите членове на екипа немският е предимство, но не е задължителен.'],
+    ],
+  },
 };
 
 const PIN = icon('pin', 'ico-city');
@@ -179,11 +272,13 @@ const paras = (s) => String(s || '').split(/\n\s*\n/).map((p) => p.trim()).filte
 const itemText = (x) => (x && typeof x === 'object' ? { h: x.title || x.t || x.q || '', p: x.text || x.d || x.a || '' } : { h: String(x || ''), p: '' });
 const nb = (s) => String(s).replace(/ /g, '\u00a0');
 
-/** Dátum nástupu: sk „3. 11. 2099", de „03.11.2099"… */
+/** Dátum nástupu: sk „3. 11. 2099", de/ro „03.11.2099", pl/bg „3.11.2099"… */
 function fullDate(d, lang) {
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return '';
-  const o = lang === 'de' ? { day: '2-digit', month: '2-digit', year: 'numeric' } : lang === 'en' ? { day: 'numeric', month: 'short', year: 'numeric' } : {};
+  const o = lang === 'de' || lang === 'ro' ? { day: '2-digit', month: '2-digit', year: 'numeric' }
+    : lang === 'en' ? { day: 'numeric', month: 'short', year: 'numeric' }
+      : lang === 'pl' || lang === 'bg' ? { day: 'numeric', month: 'numeric', year: 'numeric' } : {};
   return dt.toLocaleDateString(LOCALE[lang], o);
 }
 /** Krátky dátum: sk „3. 11.", hu „11. 03.", de „3.11.", en „3 Nov". */
@@ -281,6 +376,7 @@ module.exports = async function render(ctx) {
       <div class="jd-desc">${paras(desc)}</div>
       ${job.duties.length ? `<div class="jd-duties"><span class="jd-eyebrow">${esc(t.duties)}</span>${each(job.duties, (d) => `<div class="jd-duty"><span aria-hidden="true"></span>${esc(itemText(d).h)}</div>`)}</div>` : ''}
     </section>
+    ${langReqBox(ctx)}
     ${facts.length ? `<div class="jd-facts jd-facts-${facts.length}">${each(facts, ([k, v]) => `<div class="jd-fact rv"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`)}</div>` : ''}
     ${job.requirements.length || job.benefits.length ? `<div class="${cls('jd-two', !(job.requirements.length && job.benefits.length) && 'one')}">
       ${job.requirements.length ? `<section class="jd-card rv"><div class="jd-hgroup"><h2 class="jd-h2">${esc(t.req)}</h2><span>${esc(t.reqSub)}</span></div>
@@ -326,6 +422,7 @@ module.exports = async function render(ctx) {
         ${field('phone', t.phone, 'tel', t.phonePh, true)}
         ${field('email', t.email, 'email', t.emailPh, true)}
         <label class="jd-field"><span>${esc(t.note)}</span><textarea name="note" rows="2" placeholder="${esc(t.notePh)}"></textarea></label>
+        ${spokenField(ctx, 'jd')}
         ${consent}${hidden}
         <div class="form-msg" role="alert"></div>
         <button type="submit" class="btn btn-primary btn-block">${esc(t.send)} →</button>
@@ -356,6 +453,7 @@ ${others.length ? `<section class="wrap jd-others">
       <div class="jd-mform-h"><strong id="as-title">${esc(c.cta)}</strong><span>${esc(job.title)} · ${esc(job.city)} · ${esc(t.noCv)}</span></div>
       <input type="text" name="name" placeholder="${esc(t.name)} *" aria-label="${esc(t.name)}" autocomplete="name" required>
       <input type="tel" name="phone" placeholder="${esc(t.phone)} *" aria-label="${esc(t.phone)}" autocomplete="tel" inputmode="tel" required>
+      ${spokenField(ctx, 'jm')}
       ${consent}${hidden}
       <div class="form-msg" role="alert"></div>
       <button type="submit" class="btn btn-primary btn-block">${esc(t.sendM)} →</button>

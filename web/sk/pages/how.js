@@ -6,7 +6,7 @@
 const { esc, each } = require('../../shared/h');
 const { mark } = require('../../shared/brand');
 const { icon } = require('../../shared/icons');
-const { PHONE, tel } = require('../common');
+const { PHONE, tel, langReqBox } = require('../common');
 
 const T = {
   sk: {
@@ -124,6 +124,75 @@ const T = {
     ],
     endH: 'Ready? The first step takes 5 minutes.', ctaJobs: 'See jobs', call: 'Call us',
   },
+  ro: {
+    title: 'Cum funcționează – de la primul apel la prima plată | punds', desc: 'Șase pași simpli de la primul apel telefonic la prima plată. Vedeți de ce aveți nevoie, de ce ne ocupăm noi și răspunsuri la întrebările frecvente.',
+    home: 'Acasă', crumb: 'Cum funcționează', h1: 'De la primul apel la prima plată', lead: 'Procesul este simplu și știți mereu ce urmează. De majoritatea lucrurilor legate de muncă ne ocupăm noi.',
+    steps: [
+      ['Ne contactați', 'Sunați, scrieți pe WhatsApp sau completați formularul scurt de la ofertă. Nu aveți nevoie de CV.', '5 minute'],
+      ['Un apel scurt', 'Discutăm experiența, certificatele, când puteți începe și ce așteptați de la muncă.', 'în 24 de ore'],
+      ['Ofertă concretă', 'Vă trimitem condițiile exacte: locul, tariful, orele, rotația și cazarea. Decideți în liniște.', '1–3 zile'],
+      ['Documente', 'Vă ajutăm cu înregistrarea activității independente și pregătim tot ce este necesar pentru munca în Germania.', '1–2 săptămâni'],
+      ['Începerea proiectului', 'Primiți adresa cazării și contactul coordonatorului. Pe durata proiectului suntem mereu disponibili.', 'conform ofertei'],
+      ['Facturare și plată', 'La fiecare 14 zile facturați orele lucrate conform fișei de pontaj. Plățile vin la timp.', 'la fiecare 14 zile'],
+    ],
+    needK: 'Pregătiți', needH: 'De ce aveți nevoie', need: ['Carte de identitate sau pașaport', 'Înregistrare ca PFA / activitate independentă (sau vă ajutăm să o obțineți)', 'Certificate și atestate pentru meseria Dvs.', 'Cont bancar pentru facturare', 'Șeful de echipă vorbește germană sau engleză'],
+    weK: 'Ne ocupăm noi', weH: 'De ce ne ocupăm noi', we: ['Cazare în apropierea proiectului', 'Documentele necesare pentru munca în Germania', 'Comunicarea cu firma germană', 'Facturare regulată la fiecare 14 zile'],
+    faqH: 'Întrebări frecvente', faqP: 'Nu ați găsit răspunsul? Sunați la',
+    faq: [
+      ['Am nevoie de PFA / activitate independentă?', 'Da, colaborarea se desfășoară pe bază de activitate independentă. Dacă nu o aveți încă, vă sfătuim și vă ajutăm cu înregistrarea.'],
+      ['Cât costă ajutorul Dvs.?', 'Toate condițiile, inclusiv eventualele taxe, vi le spunem dinainte, înainte să decideți. Fără costuri ascunse.'],
+      ['Când și cum sunt plătit?', 'Se facturează la fiecare 14 zile conform fișei de pontaj, iar plățile vin la timp. Condițiile concrete le stabilim la ofertă.'],
+      ['Trebuie să vorbesc germană?', 'Șeful de echipă trebuie să vorbească germană sau engleză – coordonarea pe șantier se face în germană, iar echipa noastră vorbește slovacă, cehă, maghiară, germană și engleză. Pentru ceilalți membri ai echipei germana este un avantaj, dar nu este obligatorie.'],
+      ['Pot veni la lucru cu un coleg?', 'Da, ocupăm cu plăcere un proiect și cu o echipă întreagă. Scrieți-ne câți sunteți și ce meserii aveți.'],
+    ],
+    endH: 'Sunteți gata? Primul pas durează 5 minute.', ctaJobs: 'Vezi ofertele', call: 'Sunați',
+  },
+  pl: {
+    title: 'Jak to działa – od telefonu do wypłaty | punds', desc: 'Sześć prostych kroków od pierwszego telefonu do pierwszej wypłaty. Zobacz, co będzie potrzebne, co załatwiamy za Państwa i odpowiedzi na częste pytania.',
+    home: 'Start', crumb: 'Jak to działa', h1: 'Od pierwszego telefonu do pierwszej wypłaty', lead: 'Cały proces jest prosty i zawsze wiadomo, co będzie dalej. Większość spraw związanych z pracą załatwiamy za Państwa.',
+    steps: [
+      ['Kontakt z nami', 'Telefon, wiadomość na WhatsApp lub krótki formularz przy ofercie. CV nie jest potrzebne.', '5 minut'],
+      ['Krótka rozmowa telefoniczna', 'Omawiamy doświadczenie, certyfikaty, możliwy termin rozpoczęcia i oczekiwania wobec pracy.', 'do 24 godzin'],
+      ['Konkretna oferta', 'Wysyłamy dokładne warunki: miejsce, stawkę, godziny, rotację i zakwaterowanie. Decyzja na spokojnie.', '1–3 dni'],
+      ['Dokumenty', 'Pomagamy z działalnością gospodarczą i przygotowujemy wszystko, co potrzebne do pracy w Niemczech.', '1–2 tygodnie'],
+      ['Start na projekcie', 'Otrzymują Państwo adres zakwaterowania i kontakt do koordynatora. W trakcie projektu jesteśmy stale do dyspozycji.', 'według oferty'],
+      ['Fakturowanie i wypłata', 'Co 14 dni wystawiają Państwo fakturę za przepracowane godziny według karty pracy. Płatności przychodzą na czas.', 'co 14 dni'],
+    ],
+    needK: 'Do przygotowania', needH: 'Co będzie potrzebne', need: ['Dowód osobisty lub paszport', 'Zarejestrowana działalność gospodarcza (lub pomożemy ją założyć)', 'Certyfikaty i uprawnienia do zawodu', 'Konto bankowe do fakturowania', 'Kierownik brygady mówi po niemiecku lub po angielsku'],
+    weK: 'Załatwiamy za Państwa', weH: 'O co zadbamy my', we: ['Zakwaterowanie w pobliżu projektu', 'Dokumenty potrzebne do pracy w Niemczech', 'Komunikacja z niemiecką firmą', 'Regularne fakturowanie co 14 dni'],
+    faqH: 'Częste pytania', faqP: 'Brak odpowiedzi? Prosimy zadzwonić pod',
+    faq: [
+      ['Czy potrzebuję własnej działalności?', 'Tak, współpraca odbywa się w ramach własnej działalności gospodarczej. Jeśli jeszcze jej Państwo nie mają, doradzimy i pomożemy ją założyć.'],
+      ['Ile kosztuje Państwa pomoc?', 'Wszystkie warunki, w tym ewentualne opłaty, podajemy z góry – zanim Państwo podejmą decyzję. Bez ukrytych opłat.'],
+      ['Kiedy i jak otrzymam wypłatę?', 'Fakturuje się co 14 dni według karty pracy, a płatności przychodzą na czas. Konkretne warunki ustalamy przy ofercie.'],
+      ['Czy muszę znać niemiecki?', 'Kierownik brygady musi mówić po niemiecku lub po angielsku – koordynacja na budowie odbywa się po niemiecku, a nasz zespół mówi po słowacku, czesku, węgiersku, niemiecku i angielsku. Dla pozostałych członków brygady niemiecki jest zaletą, ale nie jest wymagany.'],
+      ['Czy mogę pracować razem z kolegą?', 'Tak, chętnie obsadzimy projekt całą brygadą. Prosimy napisać, ile Państwa jest i jakie macie zawody.'],
+    ],
+    endH: 'Gotowi? Pierwszy krok zajmuje 5 minut.', ctaJobs: 'Zobacz oferty', call: 'Zadzwoń',
+  },
+  bg: {
+    title: 'Как работи – от обаждането до заплащането | punds', desc: 'Шест прости стъпки от първото обаждане до първото плащане. Вижте какво ще Ви е нужно, какво уреждаме ние и отговори на често задавани въпроси.',
+    home: 'Начало', crumb: 'Как работи', h1: 'От първото обаждане до първото плащане', lead: 'Процесът е прост и винаги знаете какво следва. За повечето неща около работата се грижим ние.',
+    steps: [
+      ['Свързвате се с нас', 'Обадете се, пишете в WhatsApp или попълнете краткия формуляр при обявата. Не е нужна автобиография.', '5 минути'],
+      ['Кратък телефонен разговор', 'Обсъждаме опита Ви, сертификатите, кога можете да започнете и какво очаквате от работата.', 'до 24 часа'],
+      ['Конкретна оферта', 'Изпращаме Ви точните условия: място, ставка, часове, ротация и квартира. Решавате спокойно.', '1–3 дни'],
+      ['Документи', 'Помагаме с регистрацията като самонаето лице и подготвяме всичко необходимо за работа в Германия.', '1–2 седмици'],
+      ['Започване на проекта', 'Получавате адреса на квартирата и контакт на координатора. По време на проекта сме винаги на разположение.', 'според офертата'],
+      ['Фактуриране и плащане', 'На всеки 14 дни фактурирате отработените часове по отчета. Плащанията идват навреме.', 'на всеки 14 дни'],
+    ],
+    needK: 'Подготовка', needH: 'Какво ще Ви е нужно', need: ['Лична карта или паспорт', 'Регистрация като самонаето лице (или ще Ви помогнем да я направите)', 'Сертификати и удостоверения за професията', 'Банкова сметка за фактуриране', 'Ръководителят на екипа говори немски или английски'],
+    weK: 'Уреждаме ние', weH: 'За какво се грижим ние', we: ['Квартира близо до обекта', 'Документите, необходими за работа в Германия', 'Комуникацията с немската фирма', 'Редовно фактуриране на всеки 14 дни'],
+    faqH: 'Често задавани въпроси', faqP: 'Не намерихте отговор? Обадете се на',
+    faq: [
+      ['Трябва ли да съм самонаето лице?', 'Да, сътрудничеството е на базата на самостоятелна дейност. Ако още нямате регистрация, ще Ви посъветваме и ще Ви помогнем да я направите.'],
+      ['Колко струва Вашата помощ?', 'Всички условия, включително евентуални такси, Ви казваме предварително – преди да решите. Без скрити такси.'],
+      ['Кога и как ще получа парите си?', 'Фактурира се на всеки 14 дни по отчета за отработените часове и плащанията идват навреме. Конкретните условия уговаряме при офертата.'],
+      ['Трябва ли да знам немски?', 'Ръководителят на екипа трябва да говори немски или английски – координацията на обекта е на немски, а нашият екип говори словашки, чешки, унгарски, немски и английски. За останалите членове на екипа немският е предимство, но не е задължителен.'],
+      ['Мога ли да работя с колега?', 'Да, с удоволствие ще заемем проект и с цял екип. Пишете ни колко сте и какви професии имате.'],
+    ],
+    endH: 'Готови ли сте? Първата стъпка отнема 5 минути.', ctaJobs: 'Вижте обявите', call: 'Обадете се',
+  },
 };
 
 const pad = (i) => String(i + 1).padStart(2, '0');
@@ -137,6 +206,7 @@ async function render(ctx) {
   <nav class="crumbs" aria-label="breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span class="cur" aria-current="page">${esc(t.crumb)}</span></nav>
   <div class="sp-head-in rv-in"><h1 class="sp-h1">${esc(t.h1)}</h1><p class="lead sp-lead">${esc(t.lead)}</p></div>
 </div>
+${langReqBox(ctx, { wrap: 'hw-req' })}
 <section class="wrap hw-steps">
   <ol>${each(t.steps, ([h, p, d], i) => `<li class="hw-step rv${i === 0 ? ' on' : ''}"><span class="hw-n" aria-hidden="true">${pad(i)}</span><div class="hw-txt"><h2>${esc(h)}</h2><p>${esc(p)}</p></div><span class="hw-time">${clock}${esc(d)}</span></li>`)}</ol>
 </section>

@@ -127,6 +127,14 @@
         bad = bad || el;
       }
     });
+    // Skupina zaškrtávacích polí, z ktorej treba aspoň jedno (jazyky).
+    $$('[data-required-group]', f).forEach(function (g) {
+      if ($$('input[type=checkbox]', g).some(function (c) { return c.checked; })) return;
+      g.classList.add('field-err');
+      var m = document.createElement('div'); m.className = 'err-msg'; m.textContent = T.langs || T.required;
+      g.insertAdjacentElement('afterend', m);
+      bad = bad || $$('input[type=checkbox]', g)[0] || g;
+    });
     if (bad) bad.focus();
     return !bad;
   }

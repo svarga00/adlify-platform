@@ -1,8 +1,14 @@
 // ============================================================================
 // punds web — dva weby, ich jazyky a adresy stránok
 // ============================================================================
-//   punds.sk  remeselníci zo SK/CZ/HU hľadajú prácu  · sk (predvolený), cz, hu, de, en
-//   punds.eu  nemecké firmy hľadajú ľudí               · de (predvolený), en
+//   punds.sk  remeselníci hľadajú prácu  · sk (predvolený), cz, hu, de, en, ro, pl, bg
+//   punds.eu  nemecké firmy hľadajú ľudí  · de (predvolený), en
+//
+// Rumunčina, poľština a bulharčina (ro, pl, bg) pribudli neskôr: tím firmy
+// nimi nehovorí, preto web v týchto jazykoch pri ponukách pripomína, že vedúci
+// partie musí hovoriť po nemecky alebo anglicky (sk/common.js → T.<lang>.langReq).
+// Bulharské slová v adrese sú v latinke (rabota, profesii…), nech sa odkaz dá
+// prečítať a nadiktovať aj bez cyriliky.
 //
 // Každý jazyk má vlastnú predponu (punds.sk/sk/…, /cz/…) a vlastné slová
 // v adrese — „/sk/ponuky", „/de/jobs". Na skúšobnej adrese beží web pod
@@ -13,17 +19,17 @@
 const SITES = {
   sk: {
     key: 'sk', prefix: '/punds-sk', hosts: ['punds.sk', 'www.punds.sk'], domain: 'punds.sk',
-    langs: ['sk', 'cz', 'hu', 'de', 'en'], defaultLang: 'sk',
+    langs: ['sk', 'cz', 'hu', 'de', 'en', 'ro', 'pl', 'bg'], defaultLang: 'sk',
     routes: {
-      home: { sk: '', cz: '', hu: '', de: '', en: '' },
-      jobs: { sk: 'ponuky', cz: 'nabidky', hu: 'allasok', de: 'jobs', en: 'jobs' },
-      job: { sk: 'ponuky/:slug', cz: 'nabidky/:slug', hu: 'allasok/:slug', de: 'jobs/:slug', en: 'jobs/:slug' },
-      professions: { sk: 'profesie', cz: 'profese', hu: 'szakmak', de: 'berufe', en: 'trades' },
-      about: { sk: 'o-nas', cz: 'o-nas', hu: 'rolunk', de: 'ueber-uns', en: 'about' },
-      how: { sk: 'ako-to-funguje', cz: 'jak-to-funguje', hu: 'hogyan-mukodik', de: 'ablauf', en: 'how-it-works' },
-      contact: { sk: 'kontakt', cz: 'kontakt', hu: 'kapcsolat', de: 'kontakt', en: 'contact' },
-      privacy: { sk: 'ochrana-osobnych-udajov', cz: 'ochrana-osobnich-udaju', hu: 'adatvedelem', de: 'datenschutz', en: 'privacy' },
-      cookies: { sk: 'cookies', cz: 'cookies', hu: 'cookies', de: 'cookies', en: 'cookies' },
+      home: { sk: '', cz: '', hu: '', de: '', en: '', ro: '', pl: '', bg: '' },
+      jobs: { sk: 'ponuky', cz: 'nabidky', hu: 'allasok', de: 'jobs', en: 'jobs', ro: 'locuri-de-munca', pl: 'oferty', bg: 'rabota' },
+      job: { sk: 'ponuky/:slug', cz: 'nabidky/:slug', hu: 'allasok/:slug', de: 'jobs/:slug', en: 'jobs/:slug', ro: 'locuri-de-munca/:slug', pl: 'oferty/:slug', bg: 'rabota/:slug' },
+      professions: { sk: 'profesie', cz: 'profese', hu: 'szakmak', de: 'berufe', en: 'trades', ro: 'meserii', pl: 'zawody', bg: 'profesii' },
+      about: { sk: 'o-nas', cz: 'o-nas', hu: 'rolunk', de: 'ueber-uns', en: 'about', ro: 'despre-noi', pl: 'o-nas', bg: 'za-nas' },
+      how: { sk: 'ako-to-funguje', cz: 'jak-to-funguje', hu: 'hogyan-mukodik', de: 'ablauf', en: 'how-it-works', ro: 'cum-functioneaza', pl: 'jak-to-dziala', bg: 'kak-raboti' },
+      contact: { sk: 'kontakt', cz: 'kontakt', hu: 'kapcsolat', de: 'kontakt', en: 'contact', ro: 'contact', pl: 'kontakt', bg: 'kontakt' },
+      privacy: { sk: 'ochrana-osobnych-udajov', cz: 'ochrana-osobnich-udaju', hu: 'adatvedelem', de: 'datenschutz', en: 'privacy', ro: 'protectia-datelor', pl: 'ochrona-danych', bg: 'lichni-danni' },
+      cookies: { sk: 'cookies', cz: 'cookies', hu: 'cookies', de: 'cookies', en: 'cookies', ro: 'cookies', pl: 'cookies', bg: 'cookies' },
     },
   },
   eu: {
@@ -47,7 +53,17 @@ const LANGS = {
   hu: { name: 'Magyar', label: 'HU', flag: 'hu', html: 'hu' },
   de: { name: 'Deutsch', label: 'DE', flag: 'de', html: 'de' },
   en: { name: 'English', label: 'EN', flag: 'gb', html: 'en' },
+  ro: { name: 'Română', label: 'RO', flag: 'ro', html: 'ro' },
+  pl: { name: 'Polski', label: 'PL', flag: 'pl', html: 'pl' },
+  bg: { name: 'Български', label: 'BG', flag: 'bg', html: 'bg' },
 };
+
+/**
+ * Jazyky, ktoré uchádzač môže zaškrtnúť vo formulári („Ktorými jazykmi
+ * hovoríte?"). Kódy sú tie, čo používa appka pri kandidátoch (cs = čeština),
+ * ukladajú sa do danubra_candidates.languages. Názvy sú v sk/common.js → T.<lang>.spoken.
+ */
+const SPOKEN = ['de', 'en', 'sk', 'cs', 'hu', 'ro', 'pl', 'bg', 'other'];
 
 /**
  * Z adresy (bez predpony webu) zistí jazyk, stránku a parameter.
@@ -87,4 +103,4 @@ function siteFor({ host = '', path: p = '/' } = {}) {
   return null;
 }
 
-module.exports = { SITES, LANGS, match, path, siteFor };
+module.exports = { SITES, LANGS, SPOKEN, match, path, siteFor };

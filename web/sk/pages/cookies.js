@@ -71,6 +71,42 @@ const T = {
       ['Changes', `If we ever want to use analytics cookies, for example, we will ask for your consent first and update this page. How we process personal data is explained in our ${L('privacy', 'privacy policy')}.`],
     ],
   }),
+  ro: (L) => ({
+    title: 'Cookies | punds', desc: 'Site-ul punds.sk nu folosește cookie-uri de analiză, publicitate sau urmărire. Stocăm doar ce este tehnic necesar pentru funcționarea paginii.',
+    home: 'Acasă', crumb: 'Cookies', h1: 'Cookies', updated: 'Ultima actualizare: octombrie 2026', read: 'Lectură de 2 minute', toc: 'Cuprins', ask: 'Întrebări:', back: 'Protecția datelor',
+    s: [
+      ['Ce sunt cookie-urile', 'Cookie-urile sunt fișiere mici pe care un site le poate salva în browserul Dvs. – de exemplu pentru a reține setările sau pentru a măsura traficul.'],
+      ['Ce folosim', 'Acest site nu folosește cookie-uri de analiză, publicitate sau urmărire și nu transmite nimănui informații despre ce vizualizați pe el. Poate folosi doar stocarea strict necesară din punct de vedere tehnic, fără de care pagina nu ar funcționa (de exemplu pentru livrarea sigură a paginii de către furnizorul nostru de hosting).'],
+      ['De aceea nu avem banner de cookie-uri', 'Pentru stocarea strict necesară nu este nevoie de consimțământ. Pentru că nu folosim nimic altceva, nu vă afișăm un banner de consimțământ pentru cookie-uri.'],
+      ['Hărți și WhatsApp', 'Nu integrăm harta sau WhatsApp în pagină. Sunt doar linkuri – pagina Google Maps sau WhatsApp se deschide abia când dați clic pe ele, iar acolo se aplică regulile operatorilor respectivi.'],
+      ['Cum ștergeți cookie-urile', 'Cookie-urile salvate le puteți șterge sau bloca oricând în setările browserului Dvs.'],
+      ['Modificări', `Dacă în viitor am dori să folosim, de exemplu, cookie-uri de analiză, vă vom cere mai întâi consimțământul și vom actualiza această pagină. Cum prelucrăm datele personale găsiți la ${L('privacy', 'Protecția datelor')}.`],
+    ],
+  }),
+  pl: (L) => ({
+    title: 'Cookies | punds', desc: 'Strona punds.sk nie używa plików cookie analitycznych, reklamowych ani śledzących. Zapisujemy tylko to, co jest technicznie niezbędne do działania strony.',
+    home: 'Start', crumb: 'Cookies', h1: 'Cookies', updated: 'Ostatnia aktualizacja: październik 2026', read: '2 minuty czytania', toc: 'Spis treści', ask: 'Pytania:', back: 'Ochrona danych osobowych',
+    s: [
+      ['Czym są pliki cookie', 'Pliki cookie to małe pliki, które strona może zapisać w Państwa przeglądarce – np. aby zapamiętać ustawienia lub mierzyć odwiedziny.'],
+      ['Czego używamy', 'Ta strona nie używa plików cookie analitycznych, reklamowych ani śledzących i nikomu nie przekazuje informacji o tym, co Państwo na niej przeglądają. Może korzystać wyłącznie z technicznie niezbędnego zapisu, bez którego strona by nie działała (np. przy bezpiecznym dostarczaniu strony przez naszego dostawcę hostingu).'],
+      ['Dlatego nie mamy baneru cookie', 'Technicznie niezbędny zapis nie wymaga zgody. Ponieważ nie używamy nic innego, nie wyświetlamy baneru ze zgodą na pliki cookie.'],
+      ['Mapy i WhatsApp', 'Nie osadzamy na stronie mapy ani WhatsApp. To tylko linki – strona Google Maps lub WhatsApp otwiera się dopiero po kliknięciu i obowiązują tam zasady ich operatorów.'],
+      ['Jak usunąć pliki cookie', 'Zapisane pliki cookie można w każdej chwili usunąć lub zablokować w ustawieniach przeglądarki.'],
+      ['Zmiany', `Gdybyśmy w przyszłości chcieli używać np. analitycznych plików cookie, najpierw poprosimy o zgodę i zaktualizujemy tę stronę. Jak przetwarzamy dane osobowe, opisujemy na stronie ${L('privacy', 'Ochrona danych osobowych')}.`],
+    ],
+  }),
+  bg: (L) => ({
+    title: 'Бисквитки | punds', desc: 'Сайтът punds.sk не използва аналитични, рекламни или проследяващи бисквитки. Съхраняваме само това, което е технически необходимо за работата на страницата.',
+    home: 'Начало', crumb: 'Бисквитки', h1: 'Бисквитки', updated: 'Последна актуализация: октомври 2026', read: '2 минути четене', toc: 'Съдържание', ask: 'Въпроси:', back: 'Лични данни',
+    s: [
+      ['Какво са бисквитките', 'Бисквитките са малки файлове, които сайтът може да запази в браузъра Ви – например за да запомни настройки или да измерва посещаемостта.'],
+      ['Какво използваме', 'Този сайт не използва аналитични, рекламни или проследяващи бисквитки и не изпраща на никого информация за това, какво разглеждате на него. Може да използва само технически необходимо съхранение, без което страницата не би работила (например при сигурното доставяне на страницата от нашия хостинг доставчик).'],
+      ['Затова нямаме лента за бисквитки', 'За технически необходимото съхранение не е нужно съгласие. Тъй като не използваме нищо друго, не Ви показваме лента за съгласие с бисквитки.'],
+      ['Карти и WhatsApp', 'Не вграждаме карта или WhatsApp в страницата. Това са само връзки – страницата на Google Maps или WhatsApp се отваря едва когато кликнете върху тях, и там важат правилата на техните оператори.'],
+      ['Как да изтриете бисквитките', 'Запазените бисквитки можете по всяко време да изтриете или блокирате в настройките на браузъра си.'],
+      ['Промени', `Ако в бъдеще решим да използваме например аналитични бисквитки, първо ще поискаме Вашето съгласие и ще актуализираме тази страница. Как обработваме личните данни, ще намерите на страницата ${L('privacy', 'Лични данни')}.`],
+    ],
+  }),
 };
 
 async function render(ctx) {

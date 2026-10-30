@@ -4,7 +4,7 @@ Dva weby jednej značky **punds** (Partner und Service s. r. o.):
 
 | web | pre koho | jazyky | cieľ |
 |---|---|---|---|
-| punds.sk | remeselníci zo SK/CZ/HU | sk (predvolený), cz, hu, de, en | prihláška na ponuku |
+| punds.sk | remeselníci zo SK/CZ/HU (a RO/PL/BG) | sk (predvolený), cz, hu, de, en, ro, pl, bg | prihláška na ponuku |
 | punds.eu | nemecké firmy | de (predvolený), en | dopyt (Anfrage) |
 
 Návrh: `design_handoff_punds_web` (README + `designs/*.dc.html`). Farby, písma a komponenty sú v `public/css/base.css`.
@@ -64,8 +64,15 @@ Pomocníky: `shared/h.js` (`esc`, `each`, `cls`, `num`, `plural`), `shared/brand
 
 - **Všetko z dát cez `esc()`.**
 - **Texty stránky sú v súbore stránky:** `const T = { sk: {…}, cz: {…}, … }` pre všetky jazyky webu.
-  - Oslovujeme **vykaním** (sk/cz „Vy", hu „Ön", de „Sie").
+  - Oslovujeme **vykaním** (sk/cz „Vy", hu „Ön", de „Sie", ro „Dvs.", pl „Państwo", bg „Вие").
   - Tykanie z návrhu sa prepíše.
+  - Každý jazyk musí mať každý kľúč slovenského slovníka — kontroluje `web/tests/web.test.js` („Slovníky").
+- **Rumunčina, poľština, bulharčina (ro/pl/bg):** tím firmy nimi nehovorí. Na úvode, v postupe a pri ponuke je box
+  (`sk/common.js → langReqBox`), že vedúci partie musí hovoriť po nemecky alebo anglicky. Preklady vznikli bez rodeného
+  hovoriaceho — pred spustením ich má prejsť native speaker. Ponuka bez prekladu ukáže anglický, potom slovenský text
+  (`shared/jobs.js → FALLBACK`).
+- **Formulár prihlášky a kontaktu** má vo všetkých jazykoch povinné pole „Ktorými jazykmi hovoríte?" (`spokenField`,
+  kódy `shared/sites.js → SPOKEN`) → `danubra_candidates.languages` (migrácia 084).
 - **Žiadne štatistiky** (počty firiem, ľudí).
   - Administratívu (A1, Steuernummer, Freistellung) len spomenúť, nepropagovať ako hlavný produkt.
   - Arbeitnehmerüberlassung len s poznámkou, že vyžaduje licenciu AÜG (overí sa s klientom).
@@ -81,7 +88,7 @@ Pomocníky: `shared/h.js` (`esc`, `each`, `cls`, `num`, `plural`), `shared/brand
   - poďakovanie v `<template data-ok>…</template>`;
   - odoslanie a kontrolu polí robí `public/js/site.js`.
 - **Polia API:**
-  - `apply`: `name, phone, email, note, consent, job` (slug ponuky);
-  - `contact`: `name, phone, profession, message, consent`;
+  - `apply`: `name, phone, email, note, consent, job` (slug ponuky), `languages[]`;
+  - `contact`: `name, phone, profession, message, consent, languages[]`;
   - `enquiry`: `company, name, email, phone, trades[], headcount, location, start, model (werkvertrag|aueg|open), message, consent, trade`.
 - **Fotky** sú zatiaľ z punds.eu (WordPress). Pred prepnutím domény ich treba stiahnuť k nám.
