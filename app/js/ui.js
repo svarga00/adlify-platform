@@ -15,13 +15,31 @@ window.UI = {
     return /^(https?:\/\/|mailto:|tel:)/i.test(s) ? this.esc(s) : '';
   },
 
-  toast(msg, kind = '') {
+  /**
+   * Krátka správa dole. `o.action` + `o.run` pridá tlačidlo (napríklad
+   * „Vrátiť" po odškrtnutí úlohy) a správa vtedy vydrží dlhšie.
+   */
+  toast(msg, kind = '', o = {}) {
     const el = document.getElementById('toast');
+    if (!el) return;
     el.textContent = msg;
     el.className = 'toast' + (kind ? ` toast-${kind}` : '');
+    const act = o && o.action && typeof o.run === 'function';
+    if (act) {
+      el.classList.add('toast-has-act');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'toast-act';
+      b.textContent = o.action;
+      b.addEventListener('click', () => {
+        el.hidden = true; clearTimeout(this._toastT);
+        o.run();
+      });
+      el.appendChild(b);
+    }
     el.hidden = false;
     clearTimeout(this._toastT);
-    this._toastT = setTimeout(() => { el.hidden = true; }, 2800);
+    this._toastT = setTimeout(() => { el.hidden = true; }, act ? 6000 : 2800);
   },
 
   money(n, currency = 'EUR') {
