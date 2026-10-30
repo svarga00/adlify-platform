@@ -94,6 +94,22 @@
           example: 'Napíšte hore „Kováčik" a vo výsledkoch je Ján Kováčik — kliknutím sa otvorí jeho karta.',
         },
         {
+          title: 'Filtre v zoznamoch',
+          what: 'Nad zoznamom zákaziek (Zákazky → Všetky zákazky) je lišta filtrov: hľadanie, stav, odberateľ, typ prác '
+            + 'a prepínač „Len s problémom". Ostatné zoznamy ju dostávajú postupne a ovládajú sa rovnako.',
+          how: [
+            'Kliknite na filter v lište (napríklad „Stav") a vyberte hodnotu. Číslo pri každej možnosti hovorí, koľko záznamov pribudne.',
+            '„Ďalšie filtre" otvoria panel s ostatnými filtrami (mesto, krok, obdobie). Na telefóne sú všetky filtre pod tlačidlom „Filtre".',
+            'Pod lištou je čip za každý zapnutý filter. Krížik na čipe zruší ten jeden filter, „Zrušiť filtre" zrušia všetky naraz.',
+            'Vpravo v lište je počet „X z Y" — koľko záznamov vidíte z koľkých. „Export" uloží do CSV presne to, čo je vidieť.',
+            'Kliknutím na nadpis stĺpca zoradíte zoznam, druhým kliknutím obrátite poradie. Zoskupiť podľa stavu sa dá v ponuke „Zoradené".',
+          ],
+          open: open('subcontracts', 'Otvoriť Zákazky'),
+          tip: 'Appka si filtre a zoradenie pamätá v tomto prehliadači. Keď Vám v zozname niečo chýba, pozrite sa najprv na čipy — '
+            + 'zákazky sa predvolene otvárajú s filtrom „Stav: Otvorené", takže ukončené tam nie sú. „Predvolené filtre" ho vrátia.',
+          example: 'Zapnite „Len s problémom" a uvidíte len zákazky, kde niečo horí — napríklad ľudí na stavbe bez platného dokladu.',
+        },
+        {
           title: 'Tlačidlo „Papiere"',
           what: 'Je hore na každej obrazovke. Vyberiete papier, potom človeka alebo firmu — údaje sa doplnia samy z ich karty.',
           how: [

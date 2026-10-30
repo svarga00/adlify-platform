@@ -23,7 +23,7 @@
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [], invoices: [],
     periods: [], crews: [], stays: [], occupancy: [], overrides: [],
     assignmentChecks: [], extensions: [],
-    loaded: false, filters: { status: '', work_type: '' },
+    loaded: false,
     _cur: null,
 
     // Zákazka je obrazovka, nie okno — je na nej mapa, ubytovania, ľudia,
@@ -222,92 +222,192 @@
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
-      let rows = this.items;
-      if (this.filters.status) rows = rows.filter(x => x.status === this.filters.status);
-      if (this.filters.work_type) rows = rows.filter(x => x.work_type === this.filters.work_type);
 
       const active = this.items.filter(x => x.status === 'active');
       const deployed = this.assignments.filter(a => a.status === 'active').length;
+      const today = Danubra._dayISO();
+      const rows = this.items.map(sc => this.listRow(sc, today));
 
+      // Zoznam je spoločný komponent (`DataList`): lišta filtrov, čipy toho,
+      // čo je zapnuté, a riadky po stĺpcoch. Dovtedy tu boli pilulky stavov,
+      // jeden výber a karty v troch stĺpcoch — filtrovať sa dalo len podľa
+      // stavu a druhu práce a nebolo vidieť, ktorá zákazka horí.
       el.innerHTML = Danubra.header(Danubra.labelOf('subcontracts'),
         `${this.items.length} celkom · ${active.length} prebieha · ${deployed} ľudí nasadených`) +
-        this.nowListHtml(active) + `
-        <!-- Jeden riadok filtrov, nie dva. Dva pruhy pilulok nad sebou vyzerali
-             ako záložky obrazovky a človek klikal do filtra, keď chcel prepnúť
-             obrazovku. Stav sú pilulky (klikajú sa najčastejšie), druh práce je
-             výber — používa sa raz za čas. -->
-        <div class="filterbar">
-          <div class="pillbar pillbar-xs">
-            <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Sub.setF('status','')">Všetky</button>
-            ${STATUS.map(s => {
-              const n = this.items.filter(x => x.status === s[0]).length;
-              return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Sub.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
-            }).join('')}
-          </div>
-          <select onchange="Sub.setF('work_type',this.value)">
-            <option value="">Dielňa aj stavba</option>
-            ${WORK_TYPE.map(t => `<option value="${t[0]}" ${this.filters.work_type === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}
-          </select>
-          <span class="fb-count">${rows.length} ${Shell.plural(rows.length, 'zákazka', 'zákazky', 'zákaziek')}</span>
-        </div>
-        ${rows.length === 0
-          ? UI.empty('site', 'Žiadne zákazky', 'Začnite dielenskou zákazkou — má najnižšiu reguláciu.',
-              `<button class="btn btn-primary" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>`)
-          : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
+        this.nowListHtml(active) +
+        DataList.html(this.listConfig(rows));
     },
 
-    card(sc) {
-      const p = this.partnerOf(sc.partner_id);
-      const asg = this.asgOf(sc.id).filter(a => a.status !== 'cancelled');
-      const chk = this.check(sc);
-      return `
-        <div class="acc-card card" role="button" tabindex="0" onclick="Sub.detail('${sc.id}')">
-          <div class="acc-card-head">
-            <div style="min-width:0;">
-              <div class="acc-name">${UI.esc(sc.title)}</div>
-              <div class="acc-loc">${sc.contract_number ? UI.esc(sc.contract_number) : ''}${
-                sc.site_city ? `${sc.contract_number ? ' · ' : ''}${UI.esc(sc.site_city)}` : ''}</div>
-            </div>
-            ${this.badge(sc.status)}
-          </div>
-          ${p ? `<div class="link-row" style="margin-bottom:9px;">
-            ${Danubra.link('partner', p.id, p.name)}
-            ${sc.contract_id ? Danubra.link('contract', sc.contract_id, 'Zmluva o dielo') : ''}
-          </div>` : ''}
-          <div class="acc-meta">
-            ${this.typeLabel(sc.work_type)
-              ? `<span>${Icon(sc.work_type === 'construction' ? 'site' : 'wrench', 14)} ${this.typeLabel(sc.work_type)}</span>`
-              : ''}
-            <span>${Icon('user', 14)} ${asg.length} ${
-              Shell.plural(asg.length, 'človek', 'ľudia', 'ľudí')}</span>
-            ${sc.charge_rate ? `<span>${Icon('euro', 14)} ${UI.money(sc.charge_rate)}/h</span>` : ''}
-            ${sc.date_from || sc.date_to ? `<span>${Icon('calendar', 14)} ${UI.dateRange(sc.date_from, sc.date_to)}</span>` : ''}
-            <!-- Fakt, nie poplach. Poplach je blok pod tým („čo teraz") a v karte
-                 má kričať jedna vec, nie dve o tom istom. -->
-            ${!chk.ok ? `<span>${Icon('alert', 14)} ${this.chybaText(chk.blockers.length)}</span>`
-              : chk.warnings.length ? `<span>${Icon('alert', 14)} ${
-                chk.warnings.length} ${Shell.plural(chk.warnings.length, 'upozornenie', 'upozornenia', 'upozornení')}</span>` : ''}
-          </div>
-          ${this.cardNow(sc)}
-        </div>`;
-    },
+    /** Stavy, s ktorými sa ešte pracuje — predvolený filter zoznamu. */
+    OPEN_STATUSES: ['draft', 'negotiation', 'won', 'active'],
 
     /**
-     * V karte zoznamu: v ktorom kroku zákazka stojí a čo treba spraviť.
-     *
-     * Predtým tu bol len počet blokátorov. Zákazka, ktorá mesiac beží
-     * a nikto ju nevyfakturoval, vyzerala v zozname úplne v poriadku.
+     * Riadok zoznamu: zákazka a to, čo sa o nej počíta raz za vykreslenie
+     * (krok, podmienky, ľudia). Výpočty sú tie isté ako v detaile zákazky
+     * (`jobSteps`, `DanubraJob.next`, `check`) — zoznam len ukazuje ich výsledok.
      */
-    cardNow(sc) {
-      const n = DanubraJob.next(this.jobSteps(sc), sc);
-      if (!n.key) return '';
-      return `<div class="card-now${n.state === 'bad' ? ' card-now-hot' : ''}">
-        <b>${n.n}/7 · ${UI.esc(n.title)}</b>
-        <span>${UI.esc(n.text)}</span>
-      </div>`;
+    listRow(sc, today) {
+      const p = this.partnerOf(sc.partner_id);
+      const chk = this.check(sc);
+      const job = this.jobSteps(sc);
+      const nx = DanubraJob.next(job, sc);
+      const lud = job.find(s => s.key === 'ludia') || {};
+      const closed = ['completed', 'lost', 'cancelled'].includes(sc.status);
+      const running = ['won', 'active'].includes(sc.status);
+      const left = sc.date_to ? DanubraDataList.daysBetween(today, String(sc.date_to).slice(0, 10)) : null;
+      const toStart = sc.date_from ? DanubraDataList.daysBetween(today, String(sc.date_from).slice(0, 10)) : null;
+      const late = sc.status === 'active' && left != null && left < 0;
+      const hot = nx.state === 'bad';
+      return {
+        id: sc.id, sc, chk, nx, closed, late, hot,
+        // „Horí": ľudia na stavbe bez papierov alebo faktúra po splatnosti
+        // (krok v stave „bad"), získaná/bežiaca zákazka, ktorá nespĺňa
+        // podmienky vyslania, alebo bežiaca zákazka po svojom termíne.
+        problem: hot || (running && !chk.ok) || late,
+        title: sc.title || sc.contract_number || 'Zákazka',
+        partner: p ? p.name : '', partnerId: p ? p.id : null,
+        city: sc.site_city || '',
+        people: Number(lud.count) || 0, need: lud.need || null,
+        left, toStart,
+        step: nx.key ? nx.n : null,
+        missing: nx.key ? String(nx.text || '').split(' — ')[0].replace(/\.$/, '') : '',
+      };
     },
 
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+    /** Konfigurácia zoznamu zákaziek pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const statusIdx = (k) => { const i = STATUS.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const shortType = { construction: 'Stavba', workshop: 'Dielňa' };
+      const rate = (n) => `${Number(n).toLocaleString('sk-SK', { maximumFractionDigits: 2 })} €/h`;
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+
+      const when = (r) => {
+        if (r.closed) return '';
+        if (r.late) return `<span class="dl-note is-red">termín uplynul pred ${dni(-r.left)}</span>`;
+        if (r.left === 0) return '<span class="dl-note is-amber">končí dnes</span>';
+        if (r.left != null && r.left > 0 && r.left <= 30) {
+          return `<span class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">končí o ${dni(r.left)}</span>`;
+        }
+        if (r.toStart != null && r.toStart > 0 && r.toStart <= 30) return `<span class="dl-note is-mute">začína o ${dni(r.toStart)}</span>`;
+        return '';
+      };
+      const stepCell = (r) => {
+        if (r.nx.closed) return '<span class="dl-note is-mute">Zákazka je uzavretá</span>';
+        if (r.nx.done) return `<span class="dl-ok">${Icon('check', 13)} Všetko hotové</span>`;
+        if (!r.nx.key) return '<span class="dl-note is-mute">Beží, nič netreba</span>';
+        return `<span class="dl-two sc-step" title="${UI.esc(r.nx.text || '')}">
+          <b>${r.nx.n}/7 · ${UI.esc(r.nx.title)}</b>
+          <span class="dl-note ${r.hot ? 'is-red' : 'is-amber'}">${UI.esc(r.missing)}</span></span>`;
+      };
+      const condCell = (r) => {
+        if (r.closed) return '';
+        const c = r.chk;
+        if (!c.ok) {
+          const why = c.blockers.map(b => b.label).filter(Boolean).join(' · ');
+          return `<button type="button" class="tip-btn dl-flag" data-tip="${UI.esc(why || 'Podmienky vyslania nie sú splnené.')}"
+            aria-label="${UI.esc(this.chybaText(c.blockers.length))}: ${UI.esc(why)}">${Icon('alert', 12)} nespĺňa ${c.blockers.length}</button>`;
+        }
+        if (c.warnings.length) {
+          const why = c.warnings.map(w => w.label).filter(Boolean).join(' · ');
+          return `<button type="button" class="tip-btn dl-flag is-amber" data-tip="${UI.esc(why)}"
+            aria-label="Upozornenia: ${UI.esc(why)}">${c.warnings.length} ${Shell.plural(c.warnings.length, 'upozornenie', 'upozornenia', 'upozornení')}</button>`;
+        }
+        return `<span class="dl-ok">${Icon('check', 13)} spĺňa</span>`;
+      };
+
+      return {
+        id: 'zakazky', storageKey: 'zakazky', label: 'Zákazky',
+        noun: ['zákazka', 'zákazky', 'zákaziek'],
+        rows,
+        rowClick: (r) => Sub.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.problem ? 'is-warn' : r.closed ? 'is-muted' : ''),
+        rowLabel: (r) => `Zákazka ${r.title}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť zákazku', run: (r) => Sub.detail(r.id) }],
+        columns: [
+          { key: 'zakazka', label: 'Zákazka', width: 'minmax(170px, 1.7fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.title)}</b>${
+              r.sc.contract_number || r.city ? `<small>${[r.sc.contract_number, r.city].filter(Boolean).map(UI.esc).join(' · ')}</small>` : ''}</span>`,
+            sortValue: (r) => r.title, sortLabel: 'Názov' },
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(124px, 1fr)',
+            render: (r) => (r.partnerId ? Danubra.link('partner', r.partnerId, r.partner) : ''),
+            sortValue: (r) => r.partner },
+          { key: 'stav', label: 'Stav', width: '88px', mobile: 'badge',
+            render: (r) => this.badge(r.sc.status), sortValue: (r) => statusIdx(r.sc.status) },
+          { key: 'typ', label: 'Typ prác', width: '84px', hideBelow: 1000,
+            render: (r) => (shortType[r.sc.work_type]
+              ? `<span class="dl-tag" title="${UI.esc(this.typeLabel(r.sc.work_type))}">${Icon(r.sc.work_type === 'construction' ? 'site' : 'wrench', 14)}${shortType[r.sc.work_type]}</span>` : ''),
+            sortValue: (r) => this.typeLabel(r.sc.work_type) },
+          // Ľudia a sadzba v jednom stĺpci: dva krátke čísla vedľa seba by
+          // zobrali miesto názvu zákazky a vete, čo chýba.
+          { key: 'ludia', label: 'Ľudia', width: '76px', mobileLabel: 'Ľudia',
+            tip: 'Hore nasadení / koľko treba (z dopytu), dole sadzba pre odberateľa za hodinu.',
+            render: (r) => `<span class="dl-two"><span class="dl-num" title="Nasadených ${r.people}${
+              r.need ? ` z ${r.need} potrebných` : ''}"><b${r.need && r.people < r.need ? ' class="is-short"' : ''}>${
+              r.people}</b>${r.need ? ` / ${r.need}` : ''}</span>${
+              Number(r.sc.charge_rate) ? `<small class="dl-num">${rate(r.sc.charge_rate)}</small>` : ''}</span>`,
+            sortValue: (r) => r.people, sortDir: -1, sortLabel: 'Počet ľudí' },
+          { key: 'obdobie', label: 'Obdobie', width: '150px',
+            render: (r) => {
+              const t = L.rangeText(r.sc.date_from, r.sc.date_to);
+              return t ? `<span class="dl-two is-wrap"><b>${t}</b>${when(r)}</span>` : '';
+            },
+            sortValue: (r) => r.sc.date_from, sortLabel: 'Začiatok' },
+          { key: 'krok', label: 'Krok · čo chýba', width: 'minmax(160px, 1.5fr)', mobile: 'line',
+            tip: 'Krok zo siedmich, ktorý je na rade, a čo v ňom chýba. Červené horí: ľudia sú na stavbe bez papierov alebo je faktúra po splatnosti.',
+            render: stepCell,
+            // Čo horí hore, potom čo má problém, potom podľa kroku; uzavreté na koniec.
+            sortValue: (r) => [r.closed ? 1 : 0, r.hot ? 0 : 1, r.problem ? 0 : 1, r.step || 8, r.title],
+            sortLabel: 'Čo horí (krok)' },
+          { key: 'podmienky', label: 'Podmienky', width: '98px',
+            tip: 'Podmienky vyslania: A1, hlásenie Zoll, SOKA-BAU, USt-IdNr odberateľa. Ukážte myšou na štítok — povie, čo chýba.',
+            render: condCell, sortValue: (r) => (r.closed ? null : r.chk.ok ? 0 : r.chk.blockers.length), sortDir: -1 },
+        ],
+        sorts: [
+          { key: 'koniec', label: 'Koniec', value: (r) => r.sc.date_to },
+          { key: 'sadzba', label: 'Sadzba', value: (r) => Number(r.sc.charge_rate) || null, dir: -1 },
+        ],
+        sort: { key: 'krok', dir: 1 },
+        groups: [{ key: 'stav', label: 'Stav', value: (r) => r.sc.status, labelOf: (k) => this.statusLabel(k),
+          tone: (k) => ({ draft: 'gray', negotiation: 'amber', won: 'blue', active: 'green', completed: 'gray', lost: 'red', cancelled: 'red' }[k] || 'gray'),
+          order: STATUS.map(s => s[0]) }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať zákazku…', label: 'Hľadať názov, číslo, mesto alebo odberateľa',
+            fields: ['title', 'sc.contract_number', 'city', 'partner', 'sc.site_name', 'sc.trade'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.sc.status, default: this.OPEN_STATUSES,
+            options: STATUS.map(s => [s[0], s[1]]), sortOptions: false, allLabel: 'Všetky',
+            presets: [
+              { label: 'Otvorené', value: this.OPEN_STATUSES, hint: 'Príprava, Rokovanie, Získaná a Prebieha — bez ukončených, prehratých a zrušených' },
+              { label: 'Bežiace', value: ['won', 'active'], hint: 'Získaná a Prebieha' },
+            ] },
+          { key: 'odberatel', type: 'select', label: 'Odberateľ', value: (r) => r.partnerId,
+            optionLabel: (v, r) => (r ? r.partner : v), emptyLabel: 'Bez odberateľa', allLabel: 'Všetci odberatelia' },
+          { key: 'typ', type: 'select', label: 'Typ prác', value: (r) => r.sc.work_type,
+            options: [['construction', 'Stavba'], ['workshop', 'Dielňa']], emptyLabel: 'Nezadané', allLabel: 'Stavba aj dielňa' },
+          { key: 'problem', type: 'toggle', label: 'Len s problémom', test: (r) => r.problem,
+            hint: 'Zákazky, kde niečo horí: ľudia na stavbe bez papierov, faktúra po splatnosti, získaná alebo bežiaca zákazka, ktorá nespĺňa podmienky vyslania, alebo bežiaca zákazka po termíne.' },
+          { key: 'mesto', type: 'select', label: 'Mesto', value: 'city', allLabel: 'Všetky mestá', more: true },
+          { key: 'krok', type: 'multi', label: 'Krok', more: true, value: (r) => (r.step ? String(r.step) : ''),
+            options: DanubraJob.STEPS.map(s => [String(s.n), `${s.n}. ${s.title}`]), sortOptions: false,
+            emptyLabel: 'Bez otvoreného kroku' },
+          { key: 'obdobie', type: 'range-date', label: 'Obdobie', more: true, start: 'sc.date_from', end: 'sc.date_to',
+            hint: 'Zákazky, ktoré v zvolenom období bežia aspoň jeden deň. Zákazka bez dátumov sa neukáže.' },
+        ],
+        empty: { ico: 'site', title: 'Žiadne zákazky', sub: 'Začnite dielenskou zákazkou — má najnižšiu reguláciu.',
+          cta: `<button class="btn btn-primary" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>` },
+        export: {
+          name: ['zakazky'],
+          columns: [
+            ['Zákazka', r => r.title], ['Číslo', r => r.sc.contract_number], ['Odberateľ', r => r.partner],
+            ['Stav', r => this.statusLabel(r.sc.status)], ['Typ prác', r => this.typeLabel(r.sc.work_type)],
+            ['Mesto', r => r.city], ['Nasadení', r => r.people], ['Potrebných', r => r.need],
+            ['Sadzba €/h', r => r.sc.charge_rate], ['Od', r => r.sc.date_from], ['Do', r => r.sc.date_to],
+            ['Krok', r => (r.step ? `${r.step}/7 ${r.nx.title}` : '')], ['Čo chýba', r => r.nx.text || ''],
+            ['Podmienky', r => (r.closed ? '' : r.chk.ok ? 'spĺňa' : this.chybaText(r.chk.blockers.length))],
+          ],
+        },
+      };
+    },
 
     // ── Detail so compliance panelom ──────────────────────────────────────
     /**

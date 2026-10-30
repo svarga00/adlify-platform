@@ -3175,10 +3175,11 @@ console.log('Prehliadač');
         Sub.loaded = false; Sub.openId = null;
         await Danubra.views.subcontracts.call(Danubra, view);
 
+        // Zoznam je `DataList`: riadok zákazky má stĺpec „Krok · čo chýba".
         const zoznam = {
-          riadok: [...view.querySelectorAll('.card-now')]
+          riadok: [...view.querySelectorAll('.dl-row .dl-col-krok')]
             .map(e => e.textContent.replace(/\s+/g, ' ').trim()),
-          hot: !!view.querySelector('.card-now-hot'),
+          hot: !!view.querySelector('.dl-row.is-hot'),
         };
 
         Sub.openId = 'sc1';
@@ -3226,7 +3227,173 @@ console.log('Prehliadač');
       ok(/4\/7 · Papiere ľudí/.test(out.zoznam.riadok[0] || ''),
         'chýbajúce papiere majú prednosť pred hodinami', out.zoznam.riadok[0]);
       ok(out.zoznam.hot,
-        'a keď sú ľudia na stavbe bez papierov, riadok je červený');
+        'a keď sú ľudia na stavbe bez papierov, riadok je označený ako horiaci (is-hot)');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Zoznam s filtrami (DataList) na Zákazkách ─────────────────────────
+    // „Chýbajú mi všade filtre." Zoznam zákaziek je spoločný komponent:
+    // predvolene otvorené zákazky, prepínač „Len s problémom", hľadanie bez
+    // straty kurzora, zoradenie v hlavičke, čipy, zapamätanie a na telefóne
+    // karta bez pretekania do boku.
+    {
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const setup = async () => page.evaluate(async () => {
+        const DATA = {
+          subcontracts: [
+            { id: 's1', title: 'Wohnpark Feuerbach', status: 'active', partner_id: 'p1', site_city: 'Stuttgart',
+              contract_number: 'ZAK-1', work_type: 'construction', charge_rate: 34, date_from: '2026-09-01' },
+            { id: 's2', title: 'Hala Pasing', status: 'won', partner_id: 'p2', site_city: 'München',
+              contract_number: 'ZAK-2', work_type: 'workshop', charge_rate: 33 },
+            { id: 's3', title: 'Bürogebäude Augsburg', status: 'completed', partner_id: 'p2', site_city: 'Augsburg',
+              contract_number: 'ZAK-3', work_type: 'construction' },
+            { id: 's4', title: 'Sanácia Ulm', status: 'draft', partner_id: 'p1', site_city: 'Ulm', contract_number: 'ZAK-4' },
+            { id: 's5', title: 'Lagerhalle Ingolstadt', status: 'lost', partner_id: 'p2', site_city: 'Ingolstadt' },
+          ],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH' }, { id: 'p2', name: 'Bau Pasing GmbH' }],
+          assignments: [{ id: 'a1', subcontract_id: 's1', worker_id: 'w1', status: 'active', date_from: '2026-09-01' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', legal_form: 'szco' }],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        Danubra.route = 'subcontracts';
+        Sub.loaded = false; Sub.openId = null;
+        window.__otvorene = [];
+        Sub.detail = (id) => { window.__otvorene.push(id); };
+        await Danubra.views.subcontracts.call(Danubra, document.getElementById('view'));
+      });
+      const stav = () => page.evaluate(() => {
+        const v = document.getElementById('view');
+        const t = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+        return {
+          nazvy: [...v.querySelectorAll('.dl-row .dl-col-zakazka b')].map(t),
+          pocet: t(v.querySelector('.dl-count')),
+          cipy: [...v.querySelectorAll('.dl-chip')].map(t),
+          sort: [...v.querySelectorAll('.dl-th[aria-sort]')].map(e => `${t(e)}=${e.getAttribute('aria-sort')}`),
+          sekcie: [...v.querySelectorAll('.dl-sec')].map(t),
+          fokus: document.activeElement && document.activeElement.getAttribute('data-dl-a'),
+          ulozene: (() => { try { return JSON.parse(localStorage.getItem('danubra_dl_zakazky') || 'null'); } catch { return null; } })(),
+        };
+      });
+
+      await page.evaluate(() => { try { localStorage.removeItem('danubra_dl_zakazky'); } catch {} });
+      await setup();
+      const s0 = await stav();
+      ok(s0.nazvy.length === 3 && !s0.nazvy.includes('Bürogebäude Augsburg') && !s0.nazvy.includes('Lagerhalle Ingolstadt'),
+        'zákazky: predvolene len otvorené (bez ukončených a prehratých)', s0.nazvy.join(', '));
+      ok(/^3 z 5 zákaziek$/.test(s0.pocet), 'pri zozname je „X z Y"', s0.pocet);
+      ok(s0.cipy.some(c => /Stav: Otvorené/.test(c)), 'predvolený filter je vidieť ako čip', s0.cipy.join(' | '));
+      ok(s0.nazvy[0] === 'Wohnpark Feuerbach', 'navrchu je zákazka, ktorá horí (ľudia bez papierov)', s0.nazvy.join(', '));
+      ok(s0.sort.some(x => /Krok/.test(x) && /=ascending$/.test(x)), 'hlavička hovorí, podľa čoho je zoradené (aria-sort)', s0.sort.join(' | '));
+
+      // Prepínač „Len s problémom".
+      await page.click('.dl-tog[data-k="problem"]');
+      const s1 = await stav();
+      ok(s1.nazvy.length >= 1 && s1.nazvy.every(n => n !== 'Sanácia Ulm') && s1.nazvy.includes('Wohnpark Feuerbach'),
+        '„Len s problémom" nechá len zákazky, kde niečo horí', s1.nazvy.join(', '));
+      ok(s1.cipy.some(c => /Len s problémom/.test(c)), 'zapnutý prepínač má čip', s1.cipy.join(' | '));
+      ok(s1.ulozene && s1.ulozene.f && s1.ulozene.f.problem === true, 'filter sa zapamätá v prehliadači',
+        JSON.stringify(s1.ulozene));
+
+      // Hľadanie: píše sa bez straty kurzora, zoznam sa prekreslí sám.
+      await page.click('.dl-chip button[data-k="problem"]');
+      await page.click('.dl-search input');
+      await page.keyboard.type('pasing', { delay: 30 });
+      await page.waitForTimeout(400);
+      const s2 = await stav();
+      ok(s2.nazvy.length === 1 && s2.nazvy[0] === 'Hala Pasing', 'hľadanie nájde zákazku', s2.nazvy.join(', '));
+      ok(s2.fokus === 'q', 'pri písaní sa nestratí kurzor z poľa hľadania', String(s2.fokus));
+      ok(s2.cipy.some(c => /Hľadanie: „pasing"/.test(c)), 'hľadanie je vidieť ako čip', s2.cipy.join(' | '));
+      await page.keyboard.type(' ulm', { delay: 20 });
+      await page.waitForTimeout(400);
+      const s2b = await page.evaluate(() => document.querySelector('.dl-empty') ? document.querySelector('.dl-empty').textContent.replace(/\s+/g, ' ') : '');
+      ok(/Filtrom nič nezodpovedá/.test(s2b) && /Zrušiť filtre/.test(s2b), 'prázdny výsledok filtra sa netvári ako prázdna databáza', s2b.trim().slice(0, 120));
+
+      // Zrušiť filtre → všetko.
+      await page.click('.dl-sub [data-dl-a="clear"]');
+      const s3 = await stav();
+      ok(s3.nazvy.length === 5 && /^5 zákaziek$/.test(s3.pocet), '„Zrušiť filtre" ukáže všetky zákazky', `${s3.pocet}: ${s3.nazvy.join(', ')}`);
+      ok(await page.evaluate(() => document.querySelector('.dl-search input').value === ''), 'a vyprázdni aj hľadanie');
+
+      // Zoradenie klikom na hlavičku.
+      await page.click('.dl-th.dl-col-zakazka .dl-sort');
+      const s4 = await stav();
+      ok(s4.nazvy.join('|') === [...s4.nazvy].sort((a, b) => a.localeCompare(b, 'sk')).join('|'), 'klik na „Zákazka" zoradí podľa názvu', s4.nazvy.join(', '));
+      ok(s4.sort.some(x => /Zákazka=ascending/.test(x)), 'a hlavička to povie', s4.sort.join(' | '));
+      await page.click('.dl-th.dl-col-zakazka .dl-sort');
+      const s5 = await stav();
+      ok(s5.nazvy[0] === 'Wohnpark Feuerbach' && s5.sort.some(x => /Zákazka=descending/.test(x)), 'druhý klik obráti poradie', s5.nazvy.join(', '));
+
+      // Filter Stav v rozbaľovacom okne a zoskupenie podľa stavu.
+      await page.click('details.dl-dd[data-dl-dd="stav"] > summary');
+      await page.click('details.dl-dd[data-dl-dd="stav"] input[data-v="completed"]');
+      const s6 = await page.evaluate(() => ({
+        open: !!document.querySelector('details.dl-dd[data-dl-dd="stav"][open]'),
+        n: document.querySelectorAll('.dl-row').length,
+      }));
+      ok(s6.n === 1 && s6.open, 'zaškrtnutie stavu filtruje a okno zostane otvorené', JSON.stringify(s6));
+      await page.click('details.dl-dd[data-dl-dd="stav"] [data-dl-a="clr"]').catch(() => {});
+      await page.evaluate(() => { DataList.set('zakazky', 'stav', []); });
+      await page.click('details.dl-view > summary');
+      await page.click('details.dl-view [data-dl-a="group"][data-v="stav"]');
+      const s7 = await stav();
+      ok(s7.sekcie.length >= 4 && /Prebieha 1/.test(s7.sekcie.join('|')), 'zoskupenie podľa stavu: sekcie s počtom', s7.sekcie.join(' | '));
+
+      // Klik na riadok otvorí zákazku; klik na odberateľa nie.
+      await page.click('.dl-row[data-dl-row="s2"] .dl-col-zakazka');
+      await page.click('.dl-row[data-dl-row="s2"] .dl-acts .dl-act');
+      const otv = await page.evaluate(() => window.__otvorene.slice());
+      ok(JSON.stringify(otv) === '["s2","s2"]', 'klik na riadok aj na šípku otvorí detail zákazky', JSON.stringify(otv));
+      const kurzor = await page.evaluate(() => getComputedStyle(document.querySelector('.dl-row.is-click')).cursor);
+      ok(kurzor === 'pointer', 'riadok má pod myšou ruku', kurzor);
+
+      // Znovu otvorená obrazovka (nové načítanie): filtre a zoradenie sa vrátia, hľadanie nie.
+      await page.evaluate(() => { DataList.set('zakazky', 'problem', true); delete DataList._reg.zakazky; });
+      await setup();
+      const s8 = await stav();
+      ok(s8.cipy.some(c => /Len s problémom/.test(c)) && s8.sekcie.length > 0, 'po návrate sú filtre aj zoskupenie zapamätané',
+        `${s8.cipy.join(' | ')} / ${s8.sekcie.length}`);
+
+      // Telefón: karta, nič nepreteká do boku, filtre sú v paneli.
+      await page.evaluate(() => { localStorage.removeItem('danubra_dl_zakazky'); delete DataList._reg.zakazky; });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await setup();
+      await page.waitForTimeout(200);
+      const m = await page.evaluate(() => {
+        const row = document.querySelector('.dl-row');
+        const head = document.querySelector('.dl-head');
+        const r = document.querySelector('.dl').getBoundingClientRect();
+        const prec = [...document.querySelectorAll('.dl, .dl *')].filter(e => {
+          const b = e.getBoundingClientRect();
+          return b.width && b.right > window.innerWidth + 1 && !e.closest('.dl-pop, details:not([open])');
+        }).map(e => e.className).slice(0, 5);
+        return {
+          flex: getComputedStyle(row).display, head: getComputedStyle(head).display,
+          scroll: document.documentElement.scrollWidth, sirka: Math.round(r.width), prec,
+          dd: getComputedStyle(document.querySelector('.dl-filters .dl-dd')).display,
+          btn: getComputedStyle(document.querySelector('.dl-more-btn')).display,
+        };
+      });
+      ok(m.flex === 'flex' && m.head === 'none', 'na telefóne je riadok karta a hlavička stĺpcov skrytá', JSON.stringify(m));
+      ok(m.scroll <= 390 && !m.prec.length, 'na telefóne nič nepreteká do boku', `${m.scroll} ${m.prec.join(', ')}`);
+      ok(m.dd === 'none' && m.btn !== 'none', 'filtre sú na telefóne pod tlačidlom „Filtre"', JSON.stringify(m));
+      await page.click('.dl-more-btn');
+      const p = await page.evaluate(() => [...document.querySelectorAll('.dl-panel .dl-pf')]
+        .filter(e => getComputedStyle(e).display !== 'none').map(e => e.querySelector('.dl-pf-l').textContent.trim()));
+      ok(p.length === 7 && p.includes('Stav') && p.includes('Obdobie'), 'panel „Filtre" má na telefóne všetky filtre', p.join(', '));
 
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
