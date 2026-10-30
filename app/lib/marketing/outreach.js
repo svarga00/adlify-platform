@@ -547,6 +547,11 @@
       blocks.push({ code: 'optout', text: 'Firma sa odhlásila z e-mailov — znova ju už neoslovíme.' });
     }
     if (lead.status === 'rejected') blocks.push({ code: 'rejected', text: 'Firma nemá záujem — e-mail jej už nepošleme.' });
+    // 079: overenie na Google Mapách zistilo, že firma natrvalo zatvorila.
+    if (lead.closed_at) blocks.push({ code: 'closed', text: 'Firma je podľa Google Máp natrvalo zatvorená — e-mail jej nepošleme. Ak to nesedí, kliknite pri firme „Overiť znova".' });
+    if (lead.email_mx_ok === false && lower(lead.email) === e) {
+      warns.push({ code: 'mx', text: 'Doména e-mailu nemá poštový server (MX) — e-mail sa pravdepodobne nedoručí. Overte adresu na webe firmy.' });
+    }
     if (dnes >= limit) blocks.push({ code: 'limit', text: `Dnes už odišlo ${dnes} z ${limit} e-mailov (denný limit). Ďalšie pošlite zajtra.` });
     if (Number(step) <= 1 && sent.length) blocks.push({ code: 'dup', text: 'Firme už prvý e-mail odišiel. Použite „Pripomenúť sa".' });
     if (Number(step) > 1 && !last) blocks.push({ code: 'no_prev', text: 'Firme ešte neodišiel prvý e-mail.' });

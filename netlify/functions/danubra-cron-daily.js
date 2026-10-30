@@ -10,6 +10,8 @@
 //   - ponuky po valid_until → expired
 //   - záznamy z formulárov webov po lehote → anonymizované osobné údaje
 //   - oslovené firmy bez odpovede po termíne → úloha „Pripomenúť sa firme X"
+//   - v pondelok: overenie najdlhšie neoverených nových firiem na Google
+//     Mapách (danubra-leads-refresh-background, 079) — len s OUTSCRAPER_API_KEY
 //
 // Idempotentné — opakované spustenie v ten istý deň nesmie duplikovať záznamy
 // (upozornenia sa píšu s dennou značkou a pred zápisom sa kontrolujú).
@@ -19,6 +21,9 @@
 const { createClient } = require('@supabase/supabase-js');
 // Komu sa pripomenúť po e-maile oslovenia — pravidlá s testami (078).
 const Outreach = require('../../app/lib/marketing/outreach.js');
+// Týždenné overenie firiem (079): kedy a podpísaný kľúč pre funkciu na pozadí.
+const Outscraper = require('../../app/lib/marketing/outscraper.js');
+const Secret = require('../../app/lib/mail/secret.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -375,6 +380,24 @@ exports.handler = async (event) => {
           s.webLogAnonymized = 'chýba migrácia 073';
         } else s.errors.push(`web log: ${error.message}`);
       } else s.webLogAnonymized = data || 0;
+    }
+
+    // ── 9. Aktuálnosť nových firiem (raz týždenne) ──────────────────────
+    // V pondelok sa spustí funkcia na pozadí, ktorá overí najdlhšie
+    // neoverené firmy na Google Mapách (funguje / zatvorená, telefón, web,
+    // hodnotenie), či web odpovedá a či má e-mail poštový server. Cron
+    // smie bežať len pár sekúnd, preto ju len spustí s podpísaným kľúčom.
+    if (process.env.OUTSCRAPER_API_KEY && Outscraper.isRefreshDay(today)
+        && Outscraper.weeklyLimit(process.env.OUTSCRAPER_REFRESH_WEEKLY) > 0) {
+      const site = process.env.URL || 'https://adlify-app.netlify.app';
+      try {
+        await fetch(`${site}/.netlify/functions/danubra-leads-refresh-background`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-danubra-cron': Secret.cronToken(new Date(), undefined, 'leads-refresh') },
+          body: '{}',
+        });
+        s.leadsRefresh = 'spustené';
+      } catch (e) { s.errors.push(`leads refresh: ${e.message}`); }
     }
 
     // ── Úlohy z pravidiel ───────────────────────────────────────────────

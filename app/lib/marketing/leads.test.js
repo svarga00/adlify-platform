@@ -50,6 +50,8 @@ console.log('\nE-MAILY');
     { name: 'D', email: 'a@a.de' }, { name: 'E', email: 'e@e.de', status: 'rejected' }], [{ email: 'c@c.de' }]);
   eq(r.ok.map(x => x.email), ['a@a.de'], 'len platný, neodhlásený, raz');
   eq(r.skip.map(x => x.why), ['bez e-mailu', 'odhlásil sa', 'rovnaký e-mail dvakrát', 'nechce'], 'a povie prečo nie');
+  eq(L.recipients([{ name: 'Z', email: 'info@z.de', closed_at: '2026-11-02T06:00:00Z' }]).skip.map(x => x.why), ['firma je zatvorená'],
+    'natrvalo zatvorenej firme (Google Mapy) kampaň nejde');
   const t = L.fill('Guten Tag {firma} in {mesto} — {nasa_firma} {nezname}', { name: 'Huber', city: 'Ulm' }, { name: 'P&S' });
   eq(t, 'Guten Tag Huber in Ulm — P&S {nezname}', 'doplní údaje, neznáme nechá');
   const f = L.footer({ name: 'Partner und Service s. r. o.', address: 'Nové Zámky', company_id: '57553921', email: 'info@punds.eu' }, 'https://x/abmelden');

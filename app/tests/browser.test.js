@@ -5339,6 +5339,42 @@ console.log('Prehliadač');
         Lead.detail('l5');
         res.detail = (document.querySelector('.modal') || document.body).textContent.replace(/\s+/g, ' ');
         UI.closeModal();
+        // Google Mapy (Outscraper, 079): okno hľadania, stĺpce, štítky, filtre, overenie.
+        await Lead.loadStatus();
+        res.osVypnuty = Lead.osStatus && Lead.osStatus.on === false;
+        Lead.osStatus = { on: true, max: 200 };
+        Lead._findMode = 'urls';
+        Lead.findForm();
+        await new Promise(r => setTimeout(r, 20));
+        document.querySelector('#find-urls [name=u_count]').value = '30';
+        Lead.urlEstimate();
+        res.osBox = document.getElementById('find-urls-os').textContent.replace(/\s+/g, ' ');
+        res.osPolia = ['u_min', 'u_noweb', 'u_region'].map(n => !!document.querySelector(`#find-urls [name=${n}]`));
+        UI.closeModal();
+        ['leads'].forEach(k => { try { localStorage.removeItem('danubra_dl_' + k); } catch (e) { /* nič */ } });
+        Lead.rows.push({ id: 'l6', name: 'Keller Akustik GmbH', city: 'München', email: 'info@keller.de', status: 'new', source: 'outscraper',
+          score: 77, rating: 4.6, reviews_count: 38, business_status: 'OPERATIONAL', verified_at: new Date(Date.now() - 5 * 864e5).toISOString(),
+          email_mx_ok: false, web_ok: true, website: 'https://keller.de', categories: ['Akustikbau'],
+          data_source: { maps_url: 'https://www.google.com/maps/place/Keller' } },
+          { id: 'l7', name: 'Zavretá Bau GmbH', city: 'Ulm', email: 'info@zavreta.de', status: 'new', source: 'outscraper',
+            business_status: 'CLOSED_PERMANENTLY', closed_at: '2026-10-01T00:00:00Z', verified_at: new Date().toISOString() });
+        await Danubra.renderRoute();
+        const riadok = (n) => [...document.querySelectorAll('#view .dl-row')].map(r => r.textContent.replace(/\s+/g, ' ')).find(t => t.includes(n)) || '';
+        res.osRiadok = riadok('Keller Akustik');
+        res.osZavreta = riadok('Zavretá Bau');
+        res.osStlpce = [...document.querySelectorAll('#dl-leads .dl-th')].map(x => x.textContent.trim()).filter(Boolean);
+        DataList.set('leads', 'funguje', true);
+        res.osFunguje = [...document.querySelectorAll('#dl-leads .dl-row .dl-title b')].map(b => b.textContent.trim());
+        DataList.reset('leads');
+        Lead.detail('l6');
+        res.osDetail = (document.querySelector('.modal') || document.body).textContent.replace(/\s+/g, ' ');
+        UI.closeModal();
+        volania.length = 0;
+        await Lead.refresh(['l6']);
+        clearTimeout(Lead._refreshPoll);
+        const ov = volania.find(v => v.url.includes('danubra-leads-refresh-background'));
+        res.osOverenie = ov ? ov.auth : null;
+        Lead.rows = Lead.rows.filter(r => !['l6', 'l7'].includes(r.id));
         Lead._findMode = 'partners';
         Lead.findForm();
         const sp = window.setTimeout;
@@ -5425,6 +5461,16 @@ console.log('Prehliadač');
       ok(/91/.test(out.skore) && /z Impressum/.test(out.skore) && /Thomas Maier|podľa webov/.test(out.skore), 'v zozname je skóre a e-mail z Impressum', out.skore);
       ok(/konateľ Thomas Maier/.test(out.detail) && /DE811222333/.test(out.detail) && /ako huber-trockenbau\.de/.test(out.detail),
         'karta firmy ukáže konateľa, USt-IdNr a ktorej firme sa podobá', out.detail.slice(0, 300));
+      ok(out.osVypnuty, 'bez kľúča appka vie, že Outscraper nie je zapnutý');
+      ok(/Google Mapách cez Outscraper/.test(out.osBox) && /cca 90 záznamov/.test(out.osBox), 'okno hľadania: Outscraper zapnutý a odhad záznamov (30 × 3)', out.osBox);
+      ok(out.osPolia.every(Boolean), 'okno hľadania má prah skóre, „aj firmy bez webu" a oblasť');
+      ok(/4,6/.test(out.osRiadok) && /38 recenzií/.test(out.osRiadok) && /Funguje/.test(out.osRiadok) && /Overené pred 5 dňami/.test(out.osRiadok)
+        && /E-mail neoverený/.test(out.osRiadok), 'v zozname: hodnotenie, recenzie, stav, kedy overené, e-mail bez MX', out.osRiadok);
+      ok(/Zatvorená/.test(out.osZavreta), 'zatvorená firma má štítok Zatvorená', out.osZavreta);
+      ok(out.osStlpce.includes('Hodnotenie') && out.osStlpce.includes('Overenie'), 'stĺpce Hodnotenie a Overenie', out.osStlpce.join(', '));
+      ok(out.osFunguje.includes('Keller Akustik GmbH') && !out.osFunguje.includes('Zavretá Bau GmbH'), 'filter „Len fungujúce" skryje zatvorenú', out.osFunguje.join(', '));
+      ok(/Google Mapy/.test(out.osDetail) && /Overiť znova/.test(out.osDetail) && /Akustikbau/.test(out.osDetail), 'karta firmy: Mapy, kategórie, Overiť znova', out.osDetail.slice(0, 300));
+      ok(out.osOverenie === 'Bearer jwt-123', '„Overiť znova" zavolá server s prihlásením', String(out.osOverenie));
       ok(JSON.stringify(out.najdene) === '["Müller Bau GmbH"]', 'mapa nájde firmy pri meste odberateľa, už uloženú nie', JSON.stringify(out.najdene));
       ok(JSON.stringify(out.ulozene) === '[["Müller Bau GmbH","osm","info@mueller-bau.de"]]', 'vybraná firma sa uloží aj s e-mailom', JSON.stringify(out.ulozene));
       ok(out.smtp, 'E-maily ukážu, z akej adresy sa posiela');

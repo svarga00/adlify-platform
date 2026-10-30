@@ -28,6 +28,8 @@ Poradie je záväzné, každý súbor stavia na predchádzajúcom:
 | 10 | `app/database/migrations/010_candidate_process.sql` | náborový proces kandidáta v šiestich krokoch |
 | 11 | `app/database/migrations/011_trade_depth.sql` | hlbšie odborné otázky a čo povedať o práci |
 | 12 | `app/database/migrations/012_call_chips.sql` | zaškrtávacie polia do hovoru namiesto známkovania |
+| … | … | … |
+| 79 | `app/database/migrations/079_outscraper.sql` | nové firmy z Google Máp (Outscraper): hodnotenie, stav, overenie, zatvorené firmy |
 
 > **Stav k 12. 8. 2026:** migrácie 001–010 sú už na projekte
 > `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
@@ -116,6 +118,40 @@ zapíše. Hodí sa na skúšanie.
 | `OPENAI_API_KEY` | prepis nahrávok cez Whisper |
 | `ANTHROPIC_API_KEY` | vytiahnutie dohôd z prepisu |
 | `CLAUDE_MODEL` | voliteľné, predvolene `claude-haiku-4-5-20251001` |
+
+### Nové firmy z Google Máp (Outscraper)
+
+Hľadanie „Podľa webov firiem" berie firmy z Google Máp cez
+[Outscraper](https://outscraper.com), keď je nastavený kľúč. Bez neho hľadá
+AI na webe ako predtým (v appke je pri hľadaní „bez Outscraperu (chýba kľúč)").
+Kľúč je len v Netlify, appka ho nikdy nevidí — pýta sa len, či je zapnutý.
+
+| Premenná | Načo |
+|---|---|
+| `OUTSCRAPER_API_KEY` | kľúč API z app.outscraper.com → Profile / API. Bez neho sa Outscraper nepoužije. |
+| `OUTSCRAPER_MAX_RECORDS` | voliteľné, predvolene `200` (10 až 5000): najviac záznamov z Máp na jedno hľadanie. Hľadá sa počet × 3, najviac tento strop. |
+| `OUTSCRAPER_REFRESH_WEEKLY` | voliteľné, predvolene `50` (0 = vypnuté, najviac 500): koľko najdlhšie neoverených firiem sa v pondelok overí na Mapách. |
+| `OUTSCRAPER_API_URL` | voliteľné, len ak Outscraper zmení adresu: `https://api.app.outscraper.cloud` alebo `https://api.outscraper.net` (iné domény sa ignorujú) |
+
+Potrebná je migrácia `079_outscraper.sql` (nové stĺpce pri firmách a pri
+hľadaní). Bez nej sa firmy z Máp uložia ako „podľa webov" a údaje z Máp
+ostanú len v profile firmy.
+
+Náklady: Outscraper účtuje za každý vrátený záznam. Podľa cenníka na
+outscraper.com (stav 10/2026, overte si aktuálny) je prvých 500 záznamov
+z Google Máp mesačne zadarmo, potom asi 3 USD za 1 000 záznamov (nad 100 000
+asi 1 USD). Hľadanie 20 firiem = najviac 60 záznamov, týždenné overenie
+50 firiem = 50 záznamov (pri hľadaní podľa mena až 3 na firmu). Kontakty
+(`/emails-and-contacts`) sa dopytujú len pre vybrané firmy bez e-mailu
+v Impressum a účtujú sa zvlášť.
+
+Ako vyskúšať naostro: nastaviť kľúč, spustiť migráciu 079, nasadiť, v appke
+Marketing → Nové firmy → „Hľadať podobné firmy" → „Podľa webov firiem",
+3 weby, oblasť napr. „Augsburg", 10 firiem. Rámik v okne musí hlásiť
+„Hľadá sa na Google Mapách cez Outscraper". Po skončení appka napíše počty
+(našlo / vyradené a prečo / uložené / záznamy Outscraperu). Pri firme potom
+„Overiť znova" a o chvíľu stĺpec „Overenie" ukáže „Overené dnes". Spotrebu
+porovnajte v app.outscraper.com → Usage.
 
 ---
 
