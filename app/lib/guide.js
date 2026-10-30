@@ -958,6 +958,48 @@
           example: 'Zadáte weby dvoch firiem na suchú výstavbu z Bavorska, oblasť „München, Augsburg", 20 firiem a prah 60 — Outscraper prehľadá najviac cca 60 záznamov a v zozname pribudnú podobné firmy so skóre aspoň 60.',
         },
         {
+          title: 'Priebeh hľadania a zastavenie',
+          what: 'Kým hľadanie beží, appka ukazuje pás s percentami, krokmi a tým, čo práve robí — v okne hľadania aj na obrazovke Nové firmy. Hľadanie sa dá kedykoľvek zastaviť.',
+          how: [
+            'Po kliknutí „Hľadať" sa otvorí okno s pásom „Hľadanie beží": percentá, kroky (hotové majú fajku, aktuálny sa točí, budúce sú sivé), veta, čo sa práve deje, posledné udalosti a ako dlho hľadanie beží.',
+            'Okno môžete zavrieť tlačidlom „Zavrieť — hľadá sa ďalej". Ten istý pás zostane hore na obrazovke Marketing → Nové firmy a obnovuje sa každé 2 sekundy.',
+            '„Zastaviť" sa opýta, či naozaj. Hľadanie skončí pri najbližšom kroku: firmy, ktoré AI už ohodnotila, sa uložia, ostatné nie. Pás potom napíše „Zastavené – uložených X firiem".',
+            'Keď sa server dlhšie ako 3 minúty neozve, pás napíše „Hľadanie sa zrejme prerušilo". Kliknite „Spustiť znova" — rovnaké hľadanie sa spustí odznova.',
+            'Po skončení vidíte, koľko firiem sa našlo, vyradilo a uložilo, a krátke „Čo AI zistila". „Ukázať nájdené" vyfiltruje zoznam na toto hľadanie.',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'Zastavenie počas dotazu na Google Mapy počká, kým Outscraper dotaz dokončí (záznamy sú už zaplatené). Volanie AI sa preruší hneď.',
+          example: 'Pás ukazuje 46 % a „Google Mapy: Outscraper ešte hľadá". Zavriete okno, robíte niečo iné a o pár minút je na obrazovke Nové firmy „Hľadanie skončilo — 18 uložených".',
+        },
+        {
+          title: 'Hodnotenie palcom — AI sa učí',
+          what: 'Pri každej firme je palec hore (takéto firmy chceme) a palec dole (nechceme). Ďalšie hľadanie berie ohodnotené firmy ako príklady a hľadá podobné tým dobrým.',
+          how: [
+            'V zozname Nové firmy je stĺpec „Vhodná?" s dvoma palcami. Rovnaké palce sú aj na karte firmy („Vhodná firma?").',
+            'Pri palci dole sa appka opýta na dôvod: príliš malá, iný odbor, dodávateľ materiálu, agentúra alebo vlastnými slovami. Dôvod je nepovinný, ale AI pomôže.',
+            'Druhý klik na ten istý palec hodnotenie zruší.',
+            'AI sa učí aj sama: firmy, ktoré odpísali, majú záujem alebo sú odberateľmi, berie ako dobré; „Nemá záujem" a odhlásené ako zlé.',
+            'V Ďalších filtroch je „Hodnotenie palcom": relevantné, nerelevantné, nehodnotené.',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'Pri hľadaní sa použije najviac 20 dobrých a 20 zlých príkladov, najnovšie ohodnotené prvé. Koľko ich AI použila, vidíte po hľadaní v „Čo AI zistila".',
+          example: 'Dáte palec dole trom predajniam stavebnín s dôvodom „dodávateľ materiálu". Pri ďalšom hľadaní ich AI dá do „nebrať" a podobné firmy dostanú nízke skóre.',
+        },
+        {
+          title: 'Navrhované hľadania',
+          what: 'V okne „Podľa webov firiem" appka navrhne, kde a podľa ktorých webov hľadať ďalej — z Vašich odberateľov, firiem s palcom hore alebo odpoveďou a z toho, kde ste už hľadali.',
+          how: [
+            'Kliknite „Hľadať podobné firmy". Hore v okne sú karty „Navrhované hľadania": názov, oblasť, prečo a vzorové weby.',
+            'Klik na kartu vyplní weby, oblasť aj poznámku. Pred hľadaním ich môžete upraviť.',
+            '„Navrhnúť vzorové weby" ukáže weby Vašich odberateľov a firiem so záujmom — zaškrtnutím web pridáte do poľa.',
+            'Pri poli „Región / oblasť" appka našepkáva predošlé oblasti, mestá úspešných firiem a spolkové krajiny. Pod poznámkou sú kategórie z Google Máp, ktoré u Vás fungujú — klik ich pridá do poznámky.',
+            '„Navrhnúť znova" návrhy prepočíta (inak platia hodinu).',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'Bez kľúča k AI alebo keď AI neodpovie do pár sekúnd, návrhy sú podľa pravidiel: najúspešnejšie kategórie × mestá, kde ste ešte nehľadali. Vzorové weby sú vždy len z Vašich firiem.',
+          example: 'Návrh „Suchá výstavba okolo Ingolstadtu" vyplní tri weby firiem, s ktorými to funguje, a oblasť Ingolstadt — stačí kliknúť „Hľadať".',
+        },
+        {
           title: 'Aktuálnosť firiem (Google Mapy)',
           what: 'Firmy sa menia: zatvoria, zmenia telefón alebo web. Appka raz týždenne overí najdlhšie neoverené firmy na Google Mapách, ich web a e-mail, aby ste neoslovovali firmu, ktorá už neexistuje.',
           how: [

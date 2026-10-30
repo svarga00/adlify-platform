@@ -82,8 +82,12 @@ const LEADS = tool('report_leads', { leads: [
 const USER = { id: 'u1' };
 function mkDb(search) {
   const db = {
-    search: { ...search }, updates: [], inserted: [],
+    search: { ...search }, updates: [], inserted: [], prog: [], cancelReads: 0, ex: null,
     async getSearch(id) { return id === db.search.id ? { ...db.search } : null; },
+    // Priebeh (080): zápisy, „Zastaviť", príklady na učenie.
+    async progress(id, patch) { db.prog.push(patch); },
+    async isCancelled() { db.cancelReads++; return !!db.search.cancel_requested; },
+    async examples() { return db.ex || { leads: [], partners: [], outreach: [] }; },
     async updateSearch(id, patch) { db.updates.push(patch); Object.assign(db.search, patch); },
     async known() {
       return {
@@ -273,6 +277,38 @@ console.log('Nové firmy podľa webov — serverová funkcia');
     eq([fin2.source, fin2.stats && fin2.stats.note, fin2.stats && fin2.stats.saved], ['ai', 'bez Outscraperu (chýba kľúč)', 4],
       'bez OUTSCRAPER_API_KEY: zdroj ai, „bez Outscraperu (chýba kľúč)", počty');
     ok(db.updates.some(u => u.seeds && u.source === 'ai' && u.stats.note), 'poznámka je v hľadaní už počas behu');
+    // Priebeh pri AI s web search.
+    const kroky = db.prog.map(x => x.stage).filter((x, i, a) => i === 0 || a[i - 1] !== x);
+    eq(kroky, ['read_seeds', 'web', 'filter', 'impressum', 'save', 'done'], 'AI: priebeh má kroky AI (web namiesto Máp)');
+    eq(db.prog[db.prog.length - 1].stage_label, 'Hotovo – uložené 4 firmy', 'AI: koniec s počtom');
+    ok(db.prog[0].log[0].text === 'Začínam: 3 zadané firmy, AI na webe', 'AI: prvý riadok logu', JSON.stringify(db.prog[0].log));
+  }
+  // Zastaviť ešte pred prvým volaním modelu: nič sa neplatí, stav cancelled.
+  {
+    const dbx = mkDb({ ...SEARCH, cancel_requested: true });
+    const { d: dx, calls: cx } = deps({ db: dbx });
+    const r = parse(await F.handle(ev({ search_id: 's1' }), dx));
+    eq([r.status, dbx.search.status, cx.length, dbx.inserted.length], ['cancelled', 'cancelled', 0, 0], 'Zastaviť hneď na začiatku: model sa nevolá, nič sa neuloží');
+  }
+  // Zastaviť počas volania modelu: volanie sa preruší (AbortSignal), nie je to chyba.
+  {
+    const dby = mkDb(SEARCH);
+    let ty = 1000;
+    const { d: dy } = deps({ db: dby, now: () => (ty += 10) });
+    let n = 0;
+    dy.setInterval = (fn) => { dy._beat = fn; return 1; };
+    dy.clearInterval = () => {};
+    dy.callModel = async (b, o) => {
+      n++;
+      if (n === 1) return PROFILES;
+      dby.search.cancel_requested = true;
+      ty += 10000;
+      dy._beat();                                    // heartbeat zistí „Zastaviť" a preruší volanie
+      await new Promise((res, rej) => { if (o.signal.aborted) rej(new Error('aborted')); o.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))); });
+      return LEADS;
+    };
+    const r = parse(await F.handle(ev({ search_id: 's1' }), dy));
+    eq([r.status, dby.search.status, dby.search.error], ['cancelled', 'cancelled', null], 'Zastaviť počas hľadania AI: volanie sa preruší, stav cancelled (nie chyba)');
   }
 
   // ── S kľúčom: Google Mapy cez Outscraper ──────────────────────────────────
@@ -308,7 +344,7 @@ console.log('Nové firmy podľa webov — serverová funkcia');
       queries: ['Trockenbau, Augsburg', 'Bauunternehmen, Augsburg', 'Innenausbau, Augsburg'], avoid: ['Baumarkt'] });
     const SCORE_BY = { 'Maier Innenausbau GmbH': 90, 'Keller Akustik GmbH': 75, 'Baumarkt Süd': 10, 'Pauza Bau GmbH': 60 };
 
-    const runMaps = async ({ mode, count = 10, min = 50 }) => {
+    const runMaps = async ({ mode, count = 10, min = 50, ex = null, hook = null }) => {
       process.env.OUTSCRAPER_API_KEY = 'test-kluc-123';
       process.env.OUTSCRAPER_MAX_RECORDS = '200';
       const os = { maps: [], requests: [], contacts: [], keys: [] };
@@ -319,6 +355,7 @@ console.log('Nové firmy podľa webov — serverová funkcia');
         os.keys.push(o.headers['X-API-KEY']);
         if (url.pathname === '/maps/search-v3') {
           os.maps.push(url);
+          if (hook) hook('maps', db);
           return mode === 'async' ? mkRes(202, { id: 'req-test-async', status: 'Pending' })
             : mkRes(200, { id: 'req-test-sync', status: 'Success', data: PLACES });
         }
@@ -335,10 +372,12 @@ console.log('Nové firmy podľa webov — serverová funkcia');
       };
       const models = [];
       const db = mkDb({ ...SEARCH, params: { urls: SEARCH.params.urls, region: 'Augsburg', count, min_score: min } });
+      db.ex = ex;
       const { d } = deps({ db, fetchPage: fp2 });
       d.callModel = async (b) => {
         models.push(b);
         const name = b.tools[b.tools.length - 1].name;
+        if (hook) hook(name, db);
         if (name === 'report_profiles') return PROFILES;
         if (name === 'report_maps_queries') return QUERIES_R;
         const firms = JSON.parse(b.messages[0].content.match(/<firmy>\n([\s\S]*?)\n<\/firmy>/)[1]);
@@ -395,12 +434,75 @@ console.log('Nové firmy podľa webov — serverová funkcia');
       [8, 8, 1, 3, 2, 1, 3], 'počty: vrátené (= odhad spotreby), dočasne zatvorené, uložené, kontakty, bez MX, dotazy');
     eq(fs2.stats.avoid, ['Baumarkt'], 'čo AI odporúča nebrať, sa zapíše');
 
+    // ── Priebeh (080) ──────────────────────────────────────────────────────
+    {
+      const pr = dbs.prog;
+      ok(pr.length > 5 && pr[0].started_at && pr[0].progress === 0, 'priebeh: prvý zápis má started_at a 0 %', JSON.stringify(pr[0]));
+      ok(pr.every(x => x.heartbeat_at), 'každý zápis má heartbeat_at');
+      const kroky = pr.map(x => x.stage).filter((x, i, a) => i === 0 || a[i - 1] !== x);
+      eq(kroky, ['read_seeds', 'plan', 'maps', 'filter', 'impressum', 'score', 'contacts', 'save', 'done'], 'kroky idú v poradí, žiadny sa nevynechá');
+      ok(pr.every((x, i) => i === 0 || x.progress >= pr[i - 1].progress), 'percentá nikdy neklesnú', pr.map(x => x.progress).join(','));
+      const fin = pr[pr.length - 1];
+      eq([fin.progress, fin.stage, fin.stage_label], [100, 'done', 'Hotovo – uložené 3 firmy'], 'koniec: 100 % a koľko sa uložilo');
+      const texty = fin.log.map(x => x.text);
+      ok(texty.includes('Dotaz 1 z 3 – Trockenbau, Augsburg: 4 firmy') && texty.includes('Dotaz 2 z 3 – Bauunternehmen, Augsburg: 4 firmy'),
+        'log: koľko firiem vrátil každý dotaz', texty.join(' | '));
+      ok(texty.some(t => /^Vyradené: 1 zatvorená, 1 už máme, 1 bez webu, 1 duplicita – ostáva 4 firmy$/.test(t)), 'log: čo sa vyradilo a prečo', texty.join(' | '));
+      ok(texty.includes('AI hodnotí podobnosť (dávka 1 z 1)') && texty.some(t => /^Impressum sa našlo pri 2 z 4 webov, e-mail pri 1$/.test(t)), 'log: Impressum a skóre po dávkach', texty.join(' | '));
+      ok(fin.log.length <= 50 && fin.log.every(x => x.at && x.text), 'log má najviac 50 udalostí, každá s časom');
+      ok(pr.length < 40, `zápisy sú obmedzené (${pr.length} zápisov)`);
+      ok(dbs.cancelReads > 0, 'hľadanie sa pýta, či ho niekto nezastavil');
+      const st = fs2.stats;
+      eq(st.learning, { positive: 0, negative: 0 }, 'bez hodnotení: 0 príkladov');
+      ok(Array.isArray(st.insights) && st.insights.length >= 2 && /Vyradených bolo/.test(st.insights.join(' ')), '„Čo AI zistila" je v stats.insights', JSON.stringify(st.insights));
+    }
+
     // Asynchrónne (a prah 70).
     const { res: ra, db: dba, os: osa } = await runMaps({ mode: 'async', min: 70 });
     eq([ra.status, osa.requests.length, osa.requests[0]], ['done', 2, '/requests/req-test-async'], 'asynchrónne: čaká sa cez /requests/<id>');
     eq(dba.inserted.map(x => x.name), ['Maier Innenausbau GmbH', 'Keller Akustik GmbH'], 'prah 70 nechá len dve');
     const fa = dba.updates[dba.updates.length - 1];
     eq([fa.stats.async, fa.stats.polls, fa.stats.dropped.low_score], [true, 2, 2], 'v hľadaní: async, počet čakaní, nízke skóre');
+
+    // Učenie: príklady z hodnotení idú do plánovania dotazov aj do skóre.
+    {
+      const ex = { leads: [
+        { id: 'g1', name: 'Dobrá Bau GmbH', website: 'https://dobra-bau.de', city: 'Augsburg', categories: ['Trockenbauunternehmen'], relevance: 1, relevance_at: '2026-10-20T08:00:00Z' },
+        { id: 'z1', name: 'Baustoff Zlý KG', website: 'https://zly.de', categories: ['Baustoffhandel'], relevance: -1, relevance_note: 'dodávateľ materiálu', relevance_at: '2026-10-21T08:00:00Z' },
+        { id: 'o1', name: 'Odpísala GmbH', website: 'https://odpisala.de', status: 'contacted' }],
+        partners: [{ name: 'GU Ulm GmbH', city: 'Ulm', website: 'https://gu-ulm.de' }], outreach: [{ lead_id: 'o1', replied_at: '2026-10-22T08:00:00Z' }] };
+      const { db: dbe, models: me } = await runMaps({ mode: 'sync', ex });
+      const q = me[1].messages[0].content, sc = me[2].messages[0].content;
+      ok(/DOBRÉ \(\+\)/.test(q) && q.includes('Dobrá Bau GmbH') && q.includes('Odpísala GmbH') && q.includes('GU Ulm GmbH') && q.includes('palec dole: dodávateľ materiálu'),
+        'plánovanie dotazov dostane dobré aj zlé príklady (palec, odpoveď, odberateľ)');
+      ok(/vyššie skóre/.test(sc) && sc.includes('Baustoff Zlý KG'), 'aj skóre: „podobné ako dobré +, ako zlé −"');
+      ok(!/DOBRÉ/.test(me[0].messages[0].content), 'profil zadaných firiem príklady nepotrebuje');
+      const fe = dbe.updates[dbe.updates.length - 1];
+      eq(fe.stats.learning, { positive: 3, negative: 1 }, 'v stats je, koľko príkladov sa použilo');
+      ok(/použila 3 dobré príklady a 1 zlý/.test(fe.stats.insights.join(' ')), '„Čo AI zistila" to povie', fe.stats.insights.join(' '));
+      ok(dbe.prog.some(x => x.log.some(l => /Príklady z Vašich hodnotení: 3 dobré, 1 zlý/.test(l.text))), 'aj v logu priebehu');
+    }
+
+    // Zastaviť: po Google Mapách — nič sa neohodnotí ani neuloží, stav „cancelled".
+    {
+      const { res: rc, db: dbc, models: mc } = await runMaps({ mode: 'sync', hook: (name, db) => { if (name === 'maps') db.search.cancel_requested = true; } });
+      eq([rc.status, dbc.search.status, dbc.search.found, dbc.search.added], ['cancelled', 'cancelled', 8, 0], 'Zastaviť po Mapách: stav cancelled, našlo 8, uložené 0');
+      ok(!mc.some(b => b.tools.some(t => t.name === 'report_scores')), 'AI už nehodnotí (nič sa neplatí navyše)');
+      eq(dbc.inserted.length, 0, 'nič sa neuloží');
+      ok(!fetched.some(u => /maier-innenausbau\.de\/impressum/.test(u)), 'Impressum sa už nesťahuje');
+      const lp = dbc.prog[dbc.prog.length - 1];
+      eq([lp.stage, lp.stage_label], ['cancelled', 'Zastavené – uložených 0 firiem'], 'priebeh: „Zastavené – uložených 0 firiem"');
+      ok(lp.progress < 60 && !!dbc.search.finished_at && dbc.search.stats.cancelled === true, 'percentá ostanú, kde sa zastavilo; čas konca; stats.cancelled');
+    }
+    // Zastaviť počas skóre: ohodnotené firmy sa uložia, kontakty z Outscraperu sa už nedopytujú.
+    {
+      fetched.length = 0;
+      const { res: rc2, db: dbc2, os: osc2 } = await runMaps({ mode: 'sync', hook: (name, db) => { if (name === 'report_scores') db.search.cancel_requested = true; } });
+      eq([rc2.status, rc2.added, dbc2.search.status], ['cancelled', 3, 'cancelled'], 'Zastaviť počas skóre: ohodnotené firmy nad prahom sa uložia');
+      eq(dbc2.inserted.map(x => x.name), ['Maier Innenausbau GmbH', 'Keller Akustik GmbH', 'Pauza Bau GmbH'], 'tie isté firmy ako bez zastavenia');
+      eq(osc2.contacts.length, 0, 'kontakty z Outscraperu (platené) sa už nedopytujú');
+      eq(dbc2.prog[dbc2.prog.length - 1].stage_label, 'Zastavené – uložené 3 firmy', '„Zastavené – uložené 3 firmy"');
+    }
 
     // Chyba Outscraperu (bez kreditu).
     {
@@ -428,6 +530,25 @@ console.log('Nové firmy podľa webov — serverová funkcia');
     eq(calls.slice(0, 2), [['update', 'source,stats,status'], ['update', 'status']], 'bez 079 sa stav hľadania zapíše aj tak (bez source a stats)');
     const r2 = await sdb.insertLead({ name: 'X', source: 'outscraper', google_place_id: 'p', profile: {} });
     eq([r2.error, calls[3]], [null, ['insert', 'urls']], 'a firma z Máp sa uloží ako „podľa webov"');
+  }
+  // ── Databáza bez migrácie 080 ─────────────────────────────────────────────
+  {
+    const calls = [];
+    const fake = { from: () => ({
+      update: (patch) => ({ eq: async () => { calls.push(Object.keys(patch).sort().join(',') + (patch.status ? `=${patch.status}` : ''));
+        if ('progress' in patch || 'heartbeat_at' in patch) return { error: { code: '42703', message: 'column "progress" does not exist' } };
+        if (patch.status === 'cancelled') return { error: { code: '23514', message: 'violates check constraint "danubra_lead_searches_status_check"' } };
+        return { error: null }; } }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: { code: '42703', message: 'column cancel_requested does not exist' } }) }) }),
+    }) };
+    const sdb = F.supabaseDb(() => fake);
+    await sdb.progress('s1', { progress: 5, heartbeat_at: 'x' });
+    await sdb.progress('s1', { progress: 9, heartbeat_at: 'y' });
+    eq(calls.length, 1, 'bez 080: priebeh sa po prvej chybe už nezapisuje (hľadanie beží ďalej)');
+    eq(await sdb.isCancelled('s1'), false, 'a „Zastaviť" sa nečíta');
+    calls.length = 0;
+    await sdb.updateSearch('s1', { status: 'cancelled', added: 0 });
+    eq(calls, ['added,status=cancelled', 'added,error,status=error'], 'stav „cancelled" bez 080 → chyba „Hľadanie ste zastavili."');
   }
 
   // ── Sťahovanie: SSRF a presmerovania ──────────────────────────────────────
