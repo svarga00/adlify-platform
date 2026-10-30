@@ -115,7 +115,18 @@
 
     /** Kto som ja. Meno si človek vyberie raz, drží sa v prehliadači. */
     _meKey: 'danubra_task_me',
-    me() { try { return localStorage.getItem(this._meKey) || ''; } catch { return ''; } },
+    me() {
+      let v = '';
+      try { v = localStorage.getItem(this._meKey) || ''; } catch {}
+      // Kým si človek nevyberie, je to prihlásený člen — nech nemusí hľadať sám seba.
+      return v || (Danubra.me && Danubra.me.full_name) || '';
+    },
+
+    /** Čo ukázať pri „Čoho sa týka". Interné číslo (uuid) nikomu nič nepovie. */
+    entityText(t) {
+      const s = String(t && t.entity_label || '').trim();
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s) ? '' : s;
+    },
     setMe(v) {
       try { v ? localStorage.setItem(this._meKey, v) : localStorage.removeItem(this._meKey); } catch {}
       Danubra.renderRoute();
@@ -487,7 +498,7 @@
                 : 'bez termínu'}</em>
               ${t.priority === 'high' ? '<em class="t-high">vysoká</em>' : ''}
               ${t.source === 'cron' ? '<em class="t-auto">automat</em>' : ''}
-              ${ent && t.entity_label ? `<em>${UI.esc(ent[0])}: ${UI.esc(t.entity_label)}</em>` : ''}
+              ${ent && this.entityText(t) ? `<em>${UI.esc(ent[0])}: ${UI.esc(this.entityText(t))}</em>` : ''}
             </span>
           </span>
           ${this.who(t.assigned_name)}
@@ -529,8 +540,8 @@
         ${ent ? `<div class="form-section">Čoho sa to týka</div>
           ${Danubra.canOpen(t.entity_type, t.entity_id)
             ? `<span class="link-row">${Danubra.link(t.entity_type, t.entity_id,
-                t.entity_label || ent[0])}</span>`
-            : `<p class="card-note">${UI.esc(ent[0])}: ${UI.esc(t.entity_label || '—')}
+                this.entityText(t) || ent[0])}</span>`
+            : `<p class="card-note">${UI.esc(ent[0])}: ${UI.esc(this.entityText(t) || '—')}
                — táto obrazovka je vypnutá, takže sa tam odtiaľto nedá prejsť.</p>`}` : ''}
 
         ${rule ? `<div class="form-section">Odkiaľ sa vzala</div>
