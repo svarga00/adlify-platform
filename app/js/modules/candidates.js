@@ -300,7 +300,7 @@
           { key: 'prisiel', label: 'Prišiel', width: '132px', mobileLabel: 'prišiel',
             tip: 'Kedy sa ozval a ako rýchlo sme sa mu ozvali my. Cieľ je do desiatich minút.',
             render: ageCell, sortValue: (r) => r.t, sortDir: -1, sortLabel: 'Kedy prišiel' },
-          { key: 'hodnotenie', label: 'Hodnotenie', width: '96px',
+          { key: 'hodnotenie', label: 'Hodnotenie', width: '108px',
             tip: 'Skóre z telefonátu (od 80 % zelené) a počet varovaní z náborového procesu.',
             render: scoreCell, sortValue: (r) => (r.c.screening_score != null ? Number(r.c.screening_score) : null), sortDir: -1 },
           { key: 'nabor', label: 'Nábor', width: 'minmax(110px, .9fr)', hideBelow: 1080,
