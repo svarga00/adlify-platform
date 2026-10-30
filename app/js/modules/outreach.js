@@ -13,6 +13,11 @@
 //   zoznam firiem    stĺpec „Oslovenie" a filtre (DataList v leads.js)
 //   Oslovovanie      obrazovka v Marketingu: dnes na rade, čísla za 7/30 dní,
 //                    šablóny a nastavenia (sledovanie, denný limit…)
+//   Firmy a kontakty (081) kategória firmy, posledný kontakt, ďalší krok;
+//                    detail s rýchlymi akciami a záznamom hovoru
+//                    (components/lead-contacts.js), export do CSV
+//   e-mail v dizajne punds a prezentácia PDF (remeslo a región firmy):
+//                    náhľad a stiahnutie v okne Osloviť, príloha pri odoslaní
 //
 // Pravidlá sú v lib/marketing/outreach.js (testy). Posiela, sleduje a páruje
 // odpovede server (danubra-outreach-send, danubra-track, synchronizácia
@@ -46,7 +51,7 @@
   }
 
   const Outreach = {
-    rows: [], events: [], optouts: [], templates: [], boxes: [], loaded: false, missing: false,
+    rows: [], events: [], optouts: [], templates: [], boxes: [], contacts: [], loaded: false, missing: false, contactsMissing: false,
     tab: 'today', _sum: new Map(), _p: null,
 
     // ── Dáta ──────────────────────────────────────────────────────────────
@@ -64,11 +69,25 @@
       this.events = (e && e.data) || [];
       this.optouts = (x && x.data) || [];
       this.templates = ((t && t.data) || []).filter(r => r.channel === 'outreach');
+      this.contacts = await this.loadContacts();
       this._sum = new Map();
       const by = new Map();
       for (const r of this.rows) { if (!by.has(r.lead_id)) by.set(r.lead_id, []); by.get(r.lead_id).push(r); }
       for (const [id, list] of by) this._sum.set(id, OO().summary(list));
       this.loaded = true;
+    },
+    /**
+     * Kontakty s firmami (081). Kým migrácia nie je, tabuľka nie je — nehlási
+     * sa to ako „časť údajov sa nenačítala", zoznam firiem funguje ďalej.
+     */
+    async loadContacts() {
+      try {
+        const r = await DB.list('lead_contacts', { select: 'id,lead_id,kind,direction,outcome,contact_name,our_member_name,summary,happened_at,next_step_at,next_step_text,corrects_id,archived_at',
+          order: { column: 'happened_at', ascending: false }, limit: 20000 });
+        this.contactsMissing = !!(r && r.error);
+        if (r && r.error && Array.isArray(DB.failures)) DB.failures = DB.failures.filter(f => !/lead_contacts/.test(f.table));
+        return ((r && r.data) || []).filter(c => !c.archived_at);
+      } catch (e) { this.contactsMissing = true; return []; }
     },
     /** Načíta raz; chyba nezhodí obrazovku firiem. */
     async ensure(force) {
@@ -243,7 +262,7 @@
         return UI.toast(Danubra.isAdmin() ? 'Najprv pridajte schránku (Nastavenia → Schránky)' : 'Nemáte pridelenú schránku — požiadajte administrátora', 'err');
       }
       const cfg = this.cfg();
-      this._c = { leadId, step: Number(step) || 1, lang: 'de', source: 'template' };
+      this._c = { leadId, step: Number(step) || 1, lang: 'de', source: 'template', view: 'text' };
       const tpl = this.tplOptions();
       UI.modal(this._c.step > 1 ? `Pripomenúť sa — ${lead.name}` : `Osloviť — ${lead.name}`, `
         <form id="oc-form" onsubmit="event.preventDefault();Outreach.send()" oninput="Outreach.preview()">
@@ -268,8 +287,18 @@
             <span id="oc-src" class="card-note" style="margin:0;"></span>
           </div>
           <div id="oc-check"></div>
-          <div class="form-section">Náhľad${UI.tip('Takto e-mail uvidí firma (text). Odkaz na odhlásenie je tu skrátený (…), skutočný má každý e-mail vlastný.')}</div>
+          <div class="btn-row" style="align-items:center;">
+            ${UI.field('attach_presentation', 'Priložiť prezentáciu (PDF)', { type: 'checkbox', value: this._c.step <= 1 && this.pres().attach_default,
+              tip: 'Krátka prezentácia punds po nemecky (4 strany, ~15 kB) pre remeslo a región tejto firmy. K prvému e-mailu áno, k pripomenutiu radšej nie — to má byť krátke.' })}
+            <button type="button" class="btn btn-ghost btn-sm" id="oc-pdf" onclick="Outreach.downloadPresentation('${leadId}')">${Icon('download', 14)} Stiahnuť prezentáciu</button>
+          </div>
+          <div class="form-section">Náhľad${UI.tip('Text = čo uvidí program bez obrázkov. E-mail = ako ho uvidí firma v Outlooku či Gmaili: nadpis a body podľa remesla a regiónu, Váš text, tlačidlo, podpis a pätička s odhlásením. Odkaz na odhlásenie je tu ukážkový, skutočný má každý e-mail vlastný.')}
+            <span class="btn-row" style="display:inline-flex;margin:0 0 0 8px;gap:4px;">
+              <button type="button" class="btn btn-ghost btn-sm" id="oc-v-text" onclick="Outreach.previewMode('text')">Text</button>
+              <button type="button" class="btn btn-outline btn-sm" id="oc-v-html" onclick="Outreach.previewMode('html')">${Icon('eye', 14)} Náhľad e-mailu</button>
+            </span></div>
           <pre id="oc-preview" class="cf-preview"></pre>
+          <iframe id="oc-html" title="Náhľad e-mailu" sandbox="" style="display:none;width:100%;height:560px;border:1px solid var(--border);border-radius:var(--radius);background:#E9EAEC;"></iframe>
           <p class="card-note">Sledovanie: otvorenia ${cfg.track_opens ? 'zapnuté' : 'vypnuté'}, kliky ${cfg.track_clicks ? 'zapnuté' : 'vypnuté'}
             · dnes odišlo ${this.sentToday()} z ${cfg.daily_limit}${UI.tip(`${TRACK_TIP} Sledovanie a denný limit sa nastavujú v Marketing → Oslovovanie → Nastavenia.`)}</p>
           <div class="regimebox">Posiela sa jednotlivo, jednej firme. ${UI.esc(LEGAL.split(':')[0])}.${UI.tip(LEGAL)}</div>
@@ -367,6 +396,70 @@
       }
       const go = document.getElementById('oc-go');
       if (go) go.disabled = !!blocks.length || !String(d.subject || '').trim() || String(d.body || '').trim().length < 20;
+      if (this._c.view === 'html') this.htmlPreview();
+    },
+
+    /** Nastavenia prezentácie a e-mailu (marketing.presentation) cez pitch.js. */
+    pres() { return window.DanubraPitch ? DanubraPitch.texts(Danubra.cfg('marketing')) : { attach_default: true }; },
+    searchOf(lead) {
+      const list = (window.Lead && Lead.searches) || [];
+      return (lead && lead.seed_search_id && list.find(s => s.id === lead.seed_search_id)) || null;
+    },
+
+    previewMode(v) {
+      if (!this._c) return;
+      this._c.view = v === 'html' ? 'html' : 'text';
+      const pre = document.getElementById('oc-preview'), fr = document.getElementById('oc-html');
+      if (pre) pre.style.display = this._c.view === 'html' ? 'none' : '';
+      if (fr) fr.style.display = this._c.view === 'html' ? '' : 'none';
+      const bt = document.getElementById('oc-v-text'), bh = document.getElementById('oc-v-html');
+      if (bt) bt.className = `btn ${this._c.view === 'text' ? 'btn-outline' : 'btn-ghost'} btn-sm`;
+      if (bh) bh.className = `btn ${this._c.view === 'html' ? 'btn-outline' : 'btn-ghost'} btn-sm`;
+      if (this._c.view === 'html') this.htmlPreview();
+    },
+
+    /**
+     * E-mail v dizajne punds priamo v prehliadači — tie isté knižnice ako
+     * server (pitch.js, outreach-email.js), takže náhľad = to, čo odíde.
+     */
+    htmlPreview() {
+      const f = document.getElementById('oc-form'), fr = document.getElementById('oc-html');
+      if (!f || !fr || !this._c || !window.DanubraOutreachEmail || !window.DanubraPitch) return;
+      const d = UI.formData(f);
+      const lead = this.lead(this._c.leadId) || {};
+      const box = this.boxes.find(x => x.id === d.mailbox_id) || {};
+      const pitch = DanubraPitch.pitch({ lead, search: this.searchOf(lead), marketing: Danubra.cfg('marketing'), lang: this._c.lang });
+      const sig = MM() ? MM().sigOf(box) : '';
+      const assets = `${location.origin}/web/public`;
+      const E = DanubraOutreachEmail;
+      const parts = E.splitSignature(`${String(d.body || '').replace(/\s+$/, '')}${sig ? `\n\n-- \n${sig}` : ''}`);
+      const r = E.build({ lang: this._c.lang, subject: d.subject, body: parts.text, pitch, supplier: Danubra.supplier(),
+        signature: E.signatureOf(box, MM(), parts.signature, assets), replyTo: box.email || '', step: this._c.step, assets,
+        unsubscribeUrl: `${location.origin}/.netlify/functions/danubra-unsubscribe?t=…`,
+        attachment: d.attach_presentation ? { name: pitch.fileName, pages: 4 } : null });
+      fr.srcdoc = r.html;
+    },
+
+    /** Prezentácia PDF pre firmu zo servera (tá istá, čo pôjde v prílohe). */
+    async downloadPresentation(leadId) {
+      const b = document.getElementById('oc-pdf');
+      if (b) { b.disabled = true; b.textContent = 'Pripravujem PDF…'; }
+      try {
+        const f = document.getElementById('oc-form');
+        const r = await call('danubra-outreach-preview', { lead_id: leadId, kind: 'pdf', mailbox_id: f ? UI.formData(f).mailbox_id : null });
+        const bin = atob(r.pdf_base64 || '');
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = r.file_name || 'punds.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch (e) {
+        UI.toast(e.message, 'err');
+      } finally {
+        if (b && document.body.contains(b)) { b.disabled = false; b.innerHTML = `${Icon('download', 14)} Stiahnuť prezentáciu`; }
+      }
     },
 
     async send() {
@@ -381,10 +474,11 @@
         const r = await call('danubra-outreach-send', {
           lead_id: this._c.leadId, mailbox_id: d.mailbox_id, step: this._c.step, lang: this._c.lang, to: d.to,
           subject: d.subject, body: `${String(d.body || '').replace(/\s+$/, '')}${sig ? `\n\n-- \n${sig}` : ''}`,
-          template_key: this._c.template_key || null,
+          template_key: this._c.template_key || null, attach_presentation: !!d.attach_presentation,
         });
         UI.closeModal();
-        UI.toast(r.next_followup_at ? `E-mail odišiel. Pripomenúť sa ${OO().relDays(r.next_followup_at)}, ak firma neodpíše.` : 'E-mail odišiel', 'ok');
+        UI.toast(`${r.next_followup_at ? `E-mail odišiel. Pripomenúť sa ${OO().relDays(r.next_followup_at)}, ak firma neodpíše.` : 'E-mail odišiel.'}${
+          r.attachment ? ' S prezentáciou v prílohe.' : r.attachment_error ? ' Prezentácia sa nepripojila.' : ''}`, 'ok');
         const lead = this.lead(this._c.leadId);
         if (lead && lead.status === 'new') lead.status = 'contacted';
         if (lead) lead.last_contact_at = r.sent_at;
@@ -411,7 +505,14 @@
       const due = OO().followupsDue(this.rows, leads, new Date(), cfg);
       const fresh = OO().freshLeads(leads, this.rows, this.optouts);
       const dnes = this.sentToday();
-      const n = due.length
+      const dnesD = window.DanubraFollowup ? DanubraFollowup.today() : new Date().toISOString().slice(0, 10);
+      const kroky = leads.filter(l => !l.archived_at && l.next_step_at && String(l.next_step_at).slice(0, 10) <= dnesD)
+        .sort((a, b) => String(a.next_step_at).localeCompare(String(b.next_step_at)));
+      const n = kroky.length
+        ? { key: 'steps', hot: true, title: 'Ďalšie kroky s firmami',
+            what: `${kroky.length} ${Shell.plural(kroky.length, 'firma má', 'firmy majú', 'firiem má')} na dnes alebo skôr dohodnutý ďalší krok.`,
+            why: 'Firma povedala, kedy sa máme ozvať — keď to zmeškáme, ľudí si zoberie od niekoho iného.' }
+        : due.length
         ? { key: 'due', hot: true, title: 'Pripomenúť sa firmám',
             what: `${due.length} ${Shell.plural(due.length, 'firma neodpísala', 'firmy neodpísali', 'firiem neodpísalo')} a prišiel termín pripomenutia.`,
             why: 'Krátka správa v tom istom vlákne po pár dňoch často prinesie odpoveď — prvý e-mail sa ľahko stratí.' }
@@ -423,17 +524,19 @@
               why: 'Nové firmy nájdete v Marketing → Nové firmy cez „Hľadať podobné firmy".' };
       const prvy = due[0] ? due[0].lead : fresh[0];
       el.innerHTML = Danubra.header(Danubra.labelOf('outreach'), `dnes odišlo ${dnes} z ${cfg.daily_limit} · ${this.rows.filter(r => r.status === 'sent' || r.status === 'bounced').length} e-mailov spolu`)
-        + Shell.now(n, { help: 'screen.outreach', action: prvy
+        + Shell.now(n, { help: 'screen.outreach', action: kroky.length
+          ? { label: 'Otvoriť firmu', ico: 'phone', onclick: `Outreach.detail('${kroky[0].id}')` } : prvy
           ? { label: due[0] ? 'Pripomenúť sa' : 'Osloviť', ico: 'mail', onclick: `Outreach.compose('${prvy.id}', ${due[0] ? (Number(due[0].outreach.step) || 1) + 1 : 1})` } : null })
         + (this.missing ? `<div class="warnbox">${Icon('alert', 14)} Oslovovanie ešte nie je pripravené v databáze — treba spustiť migráciu 078.</div>` : '')
         + this.statsHtml()
         + Shell.tabs([
           ['today', 'Dnes na rade', 'clock', due.length + Math.min(fresh.length, 99)],
           ['sent', 'Odoslané', 'mail', this.rows.length],
+          ['firms', 'Firmy a kontakty', 'phone', this.firmRows(leads).length],
           ['templates', 'Šablóny', 'note', this.templates.length],
           ['settings', 'Nastavenia', 'settings', null],
         ], this.tab, k => `Outreach.setTab('${k}')`)
-        + (this.tab === 'sent' ? this.sentHtml(leads) : this.tab === 'templates' ? this.templatesHtml()
+        + (this.tab === 'sent' ? this.sentHtml(leads) : this.tab === 'firms' ? this.firmsHtml(leads) : this.tab === 'templates' ? this.templatesHtml()
           : this.tab === 'settings' ? this.settingsHtml() : this.todayHtml(due, fresh, dnes, cfg));
     },
 
@@ -455,14 +558,23 @@
     },
 
     todayHtml(due, fresh, dnes, cfg) {
-      const riadok = (l, extra, step) => `<div class="list-row" role="button" tabindex="0" onclick="Lead.detail('${l.id}')">
+      const riadok = (l, extra, step) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">
         <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(l.name)}</strong>
           <span style="color:var(--ink-mute);"> · ${UI.esc([l.city, l.trade].filter(Boolean).join(' · ') || '—')}</span>
           <span style="color:var(--ink-mute);display:block;font-size:12px;">${extra}</span></span>
         <button class="btn ${step > 1 ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="event.stopPropagation();Outreach.compose('${l.id}', ${step})">${Icon('mail', 14)} ${step > 1 ? 'Pripomenúť sa' : 'Osloviť'}</button>
       </div>`;
       const zostava = Math.max(0, cfg.daily_limit - dnes);
-      return `${zostava ? '' : `<div class="warnbox">${Icon('alert', 14)} Dnešný limit ${cfg.daily_limit} e-mailov je vyčerpaný. Ďalšie firmy oslovte zajtra.${UI.tip('Denný limit chráni Vašu schránku pred spamovými filtrami a firmy pred hromadným rozosielaním. Mení ho administrátor v záložke Nastavenia.')}</div>`}
+      const dnesD = window.DanubraFollowup ? DanubraFollowup.today() : new Date().toISOString().slice(0, 10);
+      const kroky = ((window.Lead && Lead.rows) || []).filter(l => !l.archived_at && l.next_step_at && String(l.next_step_at).slice(0, 10) <= dnesD)
+        .sort((a, b) => String(a.next_step_at).localeCompare(String(b.next_step_at)));
+      const krokRiadok = (l) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">
+        <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(l.name)}</strong>
+          <span style="color:var(--ink-mute);"> · ${UI.esc([l.city, l.contact_person].filter(Boolean).join(' · ') || '—')}</span>
+          <span style="color:var(--amber);display:block;font-size:12px;font-weight:600;">${UI.esc(UI.date(l.next_step_at))}${l.next_step_text ? ` — ${UI.esc(l.next_step_text)}` : ''}</span></span>
+        <span class="btn btn-outline btn-sm" aria-hidden="true">${Icon('phone', 14)} Kontakt</span></div>`;
+      return `${kroky.length ? `<div class="form-section">Ďalšie kroky na dnes (${kroky.length})${UI.tip('Firmy, s ktorými je na dnes alebo skôr dohodnutý ďalší krok (z kontaktu). Úloha k nim je aj v Úlohách. Otvorte firmu, zavolajte a zapíšte, ako to dopadlo.')}</div>
+        ${kroky.slice(0, 30).map(krokRiadok).join('')}` : ''}${zostava ? '' : `<div class="warnbox">${Icon('alert', 14)} Dnešný limit ${cfg.daily_limit} e-mailov je vyčerpaný. Ďalšie firmy oslovte zajtra.${UI.tip('Denný limit chráni Vašu schránku pred spamovými filtrami a firmy pred hromadným rozosielaním. Mení ho administrátor v záložke Nastavenia.')}</div>`}
         <div class="form-section">Pripomenúť sa (${due.length})${UI.tip('Firmy, ktorým odišiel e-mail, neodpísali, neodhlásili sa a nadišiel termín pripomenutia. K nim vzniká aj úloha v Úlohách.')}</div>
         ${due.length ? due.map(({ outreach: o, lead: l }) => riadok(l, `${o.step > 1 ? `${o.step}. e-mail` : 'prvý e-mail'} ${UI.date(o.sent_at)} · „${UI.esc(o.subject || '')}"`,
           (Number(o.step) || 1) + 1)).join('') : '<div class="js-empty">Nikomu netreba pripomenúť.</div>'}
@@ -581,6 +693,115 @@
       };
     },
 
+    // ── Firmy a kontakty (081) ────────────────────────────────────────────
+    /** Firmy, s ktorými sa už niečo dialo: kategória, kontakt alebo e-mail. */
+    firmRows(leads) {
+      const CC = window.DanubraContacts;
+      if (!CC) return [];
+      const s = new Set([...(this.contacts || []).map(c => c.lead_id), ...this.rows.map(r => r.lead_id)]);
+      return (leads || []).filter(l => l && !l.archived_at && (l.status !== 'new' || s.has(l.id) || l.next_step_at))
+        .map(l => {
+          const sum = CC.leadSummary(l, this.contacts);
+          return { id: l.id, l, name: l.name || '', stage: l.status || 'new', last: sum.last, lastAt: (sum.last && sum.last.happened_at) || l.last_contact_at || null,
+            next: sum.next, count: sum.count, o: this.sum(l.id) };
+        });
+    },
+
+    firmsHtml(leads) {
+      const rows = this.firmRows(leads);
+      return `${this.contactsMissing ? `<div class="notebox">${Icon('alert', 14)} Záznamy kontaktov ešte nie sú pripravené v databáze (migrácia 081) — kategórie a e-maily vidno, hovory sa zatiaľ nedajú zapísať.</div>` : ''}
+        <div class="btn-row">
+          <button type="button" class="btn btn-outline btn-sm" onclick="Outreach.exportFirms()">${Icon('download', 14)} Firmy s kontaktmi (CSV)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="Outreach.exportContacts()">${Icon('download', 14)} Všetky kontakty (CSV)</button>${UI.tip(
+            'CSV pre Excel (bodkočiarka, diakritika). Firmy: kategória, posledný kontakt (s kým, kto od nás, o čom), ďalší krok a čo sa stalo s e-mailmi. Kontakty: každý zapísaný hovor, e-mail, stretnutie a oprava.')}
+        </div>
+        ${DataList.html(this.firmsConfig(rows))}`;
+    },
+
+    async exportFirms() {
+      if (!window.LeadContacts) return;
+      const leads = this.firmRows((window.Lead && Lead.rows) || []).map(r => r.l);
+      if (!leads.length) return UI.toast('Nie je čo exportovať', 'err');
+      await LeadContacts.exportLeads(leads, { searches: (window.Lead && Lead.searches) || [] });
+    },
+    async exportContacts() {
+      if (!window.LeadContacts) return;
+      await LeadContacts.exportContacts((window.Lead && Lead.rows) || []);
+    },
+
+    /** Konfigurácia zoznamu firiem s kontaktmi pre `DataList`. */
+    firmsConfig(rows) {
+      const CC = window.DanubraContacts;
+      const today = window.DanubraFollowup ? DanubraFollowup.today() : new Date().toISOString().slice(0, 10);
+      const due = (r) => !!(r.next && String(r.next.date).slice(0, 10) <= today);
+      return {
+        id: 'firmy-kontakty', storageKey: 'oslovovanie-firmy', label: 'Firmy a kontakty',
+        noun: ['firma', 'firmy', 'firiem'],
+        rows,
+        rowClick: (r) => this.detail(r.id),
+        rowClass: (r) => (due(r) ? 'is-hot' : ['rejected', 'unsubscribed'].includes(r.stage) ? 'is-muted' : ''),
+        rowLabel: (r) => `Firma ${r.name}`,
+        rowActions: [
+          { ico: 'phone', label: 'Kontakt a záznam hovoru', run: (r) => this.detail(r.id) },
+          { ico: 'mail', label: 'Osloviť / pripomenúť sa e-mailom', show: (r) => !!this.nextStep(r.l) && !this.missing, run: (r) => this.compose(r.id, this.nextStep(r.l)) },
+        ],
+        columns: [
+          { key: 'firma', label: 'Firma', width: 'minmax(170px, 1.4fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([r.l.city, r.l.contact_person].filter(Boolean).join(' · '))}</small></span>`,
+            sortValue: (r) => r.name, csv: (r) => r.name },
+          { key: 'kategoria', label: 'Kategória', width: '130px', mobile: 'badge',
+            render: (r) => { const st = CC.stageOf(r.stage); return UI.badge(st[1], st[2]); },
+            sortValue: (r) => CC.STAGE_KEYS.indexOf(r.stage), csv: (r) => CC.stageOf(r.stage)[1] },
+          { key: 'posledny', label: 'Posledný kontakt', width: 'minmax(170px, 1.4fr)', mobile: 'line',
+            render: (r) => (r.last ? `<span class="dl-two is-wrap"><b>${UI.esc(CC.kindOf(r.last.kind)[1])}${CC.outcomeOf(r.last.outcome) ? ` · ${UI.esc(CC.outcomeOf(r.last.outcome)[1])}` : ''}</b><small>${UI.esc([CC.relTime(r.last.happened_at), r.last.contact_name && `s ${r.last.contact_name}`, r.last.our_member_name].filter(Boolean).join(' · '))}</small></span>`
+              : r.lastAt ? `<span class="dl-note is-mute">${UI.esc(UI.date(r.lastAt))}</span>` : '<span class="dl-note is-mute">bez kontaktu</span>'),
+            sortValue: (r) => r.lastAt || null, sortDir: -1, csv: (r) => r.lastAt || '' },
+          { key: 'krok', label: 'Ďalší krok', width: 'minmax(160px, 1.2fr)', mobileLabel: 'ďalší krok',
+            render: (r) => (r.next ? `<span class="dl-two is-wrap"><b class="${due(r) ? 'dl-note is-red' : 'dl-note is-amber'}">${UI.esc(UI.date(r.next.date))}</b><small>${UI.esc(r.next.text || '')}</small></span>` : ''),
+            sortValue: (r) => (r.next ? r.next.date : null), csv: (r) => (r.next ? `${r.next.date} ${r.next.text || ''}`.trim() : '') },
+          { key: 'oslovenie', label: 'E-maily', width: '120px', mobileLabel: 'e-maily', render: (r) => this.cell(r.l),
+            sortValue: (r) => r.o.lastAt || null, csv: (r) => OO().STATES[r.o.state][0] },
+        ],
+        sort: { key: 'krok', dir: 1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať firmu, mesto, osobu…', label: 'Hľadať firmu', fields: ['name', 'l.city', 'l.contact_person', 'last.summary', 'next.text'] },
+          { key: 'kategoria', type: 'multi', label: 'Kategória', value: 'stage', options: CC.STAGES.map(s => [s[0], s[1]]), sortOptions: false, allLabel: 'Všetky' },
+          { key: 'nadnes', type: 'toggle', label: 'Ďalší krok dnes alebo skôr', test: (r) => due(r),
+            hint: 'Firmy, s ktorými je dohodnutý ďalší krok na dnes alebo už mal byť.' },
+          { key: 'bezkroku', type: 'toggle', label: 'Bez ďalšieho kroku', test: (r) => !r.next && !['rejected', 'unsubscribed', 'won'].includes(r.stage), more: true,
+            hint: 'Firmy v procese, pri ktorých nie je dohodnutý ďalší krok — tie sa najľahšie stratia.' },
+          { key: 'kto', type: 'select', label: 'Kto od nás', value: (r) => (r.last && r.last.our_member_name) || '', allLabel: 'Všetci', emptyLabel: 'Nezistené', more: true },
+        ],
+        empty: { ico: 'phone', title: 'Zatiaľ žiadne kontakty', sub: 'Firmu otvorte a kliknite, ako dopadol hovor — alebo jej pošlite e-mail cez Osloviť.' },
+        export: {
+          name: ['firmy-kontakty'],
+          columns: [['Firma', r => r.name], ['Mesto', r => r.l.city], ['Kategória', r => CC.stageOf(r.stage)[1]], ['Kontaktná osoba', r => r.l.contact_person],
+            ['Telefón', r => r.l.phone], ['E-mail', r => r.l.email], ['Posledný kontakt', r => r.lastAt || ''],
+            ['Výsledok', r => (r.last && CC.outcomeOf(r.last.outcome) ? CC.outcomeOf(r.last.outcome)[1] : '')], ['Kto od nás', r => (r.last && r.last.our_member_name) || ''],
+            ['O čom', r => (r.last && r.last.summary) || ''], ['Ďalší krok (dátum)', r => (r.next ? r.next.date : '')], ['Ďalší krok', r => (r.next ? r.next.text : '')],
+            ['E-maily', r => OO().STATES[r.o.state][0]]],
+        },
+      };
+    },
+
+    /** Detail firmy v Oslovovaní: rýchle akcie, záznam hovoru, ďalší krok, os (components/lead-contacts.js). */
+    async detail(leadId) {
+      if (window.Lead && !Lead.loaded) await Lead.load();
+      await this.ensure();
+      const l = this.lead(leadId);
+      if (!l) return UI.toast('Firma sa nenašla', 'err');
+      const meta = [[l.postal_code, l.city].filter(Boolean).join(' '), l.region, l.trade, l.contact_person].filter(Boolean).join(' · ');
+      UI.modal(l.name, `<div style="font-size:12.5px;color:var(--ink-sub);margin:-4px 0 10px;">${UI.esc(meta || '—')}</div>
+        <div id="oc-lc"></div>
+        <div class="modal-actions">${this.button(l)}<button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
+      const el = document.getElementById('oc-lc');
+      if (el && window.LeadContacts) {
+        await LeadContacts.mount(el, l, { onChange: () => {
+          this.contacts = []; this.loadContacts().then(c => { this.contacts = c; if (Danubra.route === 'outreach' && this.tab === 'firms') DataList.refresh('firmy-kontakty', this.firmRows((window.Lead && Lead.rows) || [])); });
+        } });
+      }
+    },
+
     // ── Šablóny ───────────────────────────────────────────────────────────
     templatesHtml() {
       const admin = Danubra.isAdmin();
@@ -694,6 +915,19 @@
               placeholder: 'napr. Aktuell verfügbar: Trockenbauer, Maurer und Schweißer, Einsatz ab 2 Wochen.',
               tip: 'Doplní sa namiesto {portfolio} a AI z neho vychádza pri návrhu. Píšte len to, čo naozaj vieme dodať.' })}</div>
           </div>
+          <div class="form-section">E-mail a prezentácia${UI.tip('E-mail oslovenia má dizajn punds: nadpis a tri body podľa remesla a regiónu firmy, Váš text, tlačidlo a podpis. K prvému e-mailu sa prikladá krátka prezentácia PDF. Texty o nás sú z webu punds.eu; ceny a referencie sa ukážu len vtedy, keď ich tu vyplníte — appka si ich nikdy nevymýšľa.')}</div>
+          <div class="form-grid">
+            ${UI.field('p_attach_default', 'K prvému e-mailu prikladať prezentáciu (PDF)', { type: 'checkbox', value: this.pres().attach_default })}
+            ${UI.field('p_cta_url', 'Odkaz na tlačidle v e-maile', { value: this.pres().cta_url, placeholder: 'https://punds.eu',
+              tip: 'Kam vedie tlačidlo v e-maile. Len https://. Klik sa zapíše ako „Klikol".' })}
+            ${UI.field('p_contact_name', 'Kontakt v prezentácii — meno', { value: (Danubra.cfg('marketing').presentation || {}).contact_name || '',
+              placeholder: 'prázdne = meno z vizitky schránky', tip: 'Kto je na poslednej strane prezentácie. Keď je prázdne, berie sa vizitka schránky, z ktorej e-mail odchádza.' })}
+            ${UI.field('p_contact_phone', 'Kontakt v prezentácii — telefón', { value: (Danubra.cfg('marketing').presentation || {}).contact_phone || '', placeholder: '+421 …' })}
+            <div class="fld-full">${UI.field('p_prices', 'Ceny v prezentácii (po nemecky)', { type: 'textarea', rows: 2, value: (Danubra.cfg('marketing').presentation || {}).prices || '',
+              placeholder: window.DanubraPitch ? DanubraPitch.TEXT.prices : '', tip: 'Prázdne = „Konditionen nennen wir Ihnen im Angebot…". Uveďte len ceny, za ktorými si stojíte.' })}</div>
+            <div class="fld-full">${UI.field('p_references', 'Referencie v prezentácii (po nemecky)', { type: 'textarea', rows: 2, value: (Danubra.cfg('marketing').presentation || {}).references || '',
+              placeholder: 'napr. Wohnpark Feuerbach (Trockenbau, 2026)', tip: 'Prázdne = sekcia sa v prezentácii neukáže. Mená odberateľov len s ich súhlasom.' })}</div>
+          </div>
           ${admin ? `<div style="display:flex;justify-content:flex-end;margin-top:12px;"><button type="submit" class="btn btn-primary btn-sm">${Icon('check')} Uložiť</button></div>` : ''}
         </form>
         <div class="regimebox" style="margin-top:12px;">${UI.esc(LEGAL)}</div>
@@ -709,7 +943,12 @@
         followup_days: d.followup_days, max_steps: d.max_steps, portfolio: d.portfolio || '' } });
       const row = Danubra.cfgRow || {};
       if (!row.id) return UI.toast('Nastavenia firmy sa nenačítali — otvorte najprv Nastavenia', 'err');
-      const { error } = await DB.update('settings', row.id, { marketing: { ...Danubra.cfg('marketing'), outreach } });
+      const old = Danubra.cfg('marketing').presentation || {};
+      const url = String(d.p_cta_url || '').trim();
+      const presentation = { ...old, attach_default: !!d.p_attach_default, cta_url: /^https:\/\//i.test(url) ? url : '',
+        contact_name: String(d.p_contact_name || '').trim(), contact_phone: String(d.p_contact_phone || '').trim(),
+        prices: String(d.p_prices || '').trim(), references: String(d.p_references || '').trim() };
+      const { error } = await DB.update('settings', row.id, { marketing: { ...Danubra.cfg('marketing'), outreach, presentation } });
       if (error) return UI.toast('Neuložené: ' + error.message, 'err');
       // Overiť, že sa to naozaj uložilo (zápis smie len administrátor — 030).
       const fresh = await Danubra.loadCfg(true);

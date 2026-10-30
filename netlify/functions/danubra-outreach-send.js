@@ -1,10 +1,17 @@
 // ============================================================================
 // DANUBRA — osloviť jednu firmu e-mailom (a sledovať, čo sa s ním stalo)
 // ============================================================================
-//   POST { lead_id, mailbox_id, subject, body, step, lang, to, template_key }
+//   POST { lead_id, mailbox_id, subject, body, step, lang, to, template_key, attach_presentation }
 //     body  text z okna „Osloviť" (alebo HTML z editora — očistí sa)
 //     step  1 = prvý e-mail, 2+ = pripomenutie v tom istom vlákne (Re:,
 //           In-Reply-To na predchádzajúci e-mail)
+//     attach_presentation  priložiť prezentáciu PDF (remeslo a región firmy);
+//           bez hodnoty: k prvému e-mailu áno, k pripomenutiu nie (081)
+//
+// E-mail má dizajn punds (app/lib/marketing/outreach-email.js): nadpis
+// a tri body podľa remesla a regiónu firmy a hľadania, z ktorého prišla,
+// výzva, podpis schránky, pätička s Impressum a odhlásením. Text píše
+// človek alebo AI; rozloženie skladá appka (outreach-pack.js).
 //
 // Jednotlivo, nie hromadne: jedna požiadavka = jeden e-mail jednej firme.
 // Pred odoslaním sa overí (app/lib/marketing/outreach.js → canSend):
@@ -28,8 +35,8 @@
 //      alebo service-role kľúč)
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
-const M = require('../../app/lib/mail/mail.js');
 const O = require('../../app/lib/marketing/outreach.js');
+const Pack = require('../../app/lib/marketing/outreach-pack.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -65,8 +72,8 @@ exports.handler = async (event) => {
   if (!lead) return out(404, { error: 'Firma sa nenašla.' });
   const email = lower(b.to || lead.email);
 
-  const [cfgQ, histQ, optQ, dnesQ] = await Promise.all([
-    supabase.from('danubra_settings').select('supplier,marketing').order('created_at').limit(1),
+  const [ctx, histQ, optQ, dnesQ] = await Promise.all([
+    Pack.context(supabase, lead),
     supabase.from('danubra_outreach').select('*').eq('lead_id', lead.id).is('archived_at', null),
     email ? supabase.from('danubra_email_optout').select('email').eq('email', email).limit(1) : { data: [] },
     supabase.from('danubra_outreach').select('id', { count: 'exact', head: true })
@@ -75,9 +82,8 @@ exports.handler = async (event) => {
   if (histQ.error || dnesQ.error) {
     return out(503, { error: 'Oslovovanie ešte nie je pripravené v databáze (migrácia 078).' });
   }
-  const row0 = (cfgQ.data && cfgQ.data[0]) || {};
-  const supplier = row0.supplier || {};
-  const cfg = O.settings(row0.marketing);
+  const supplier = ctx.supplier;
+  const cfg = O.settings(ctx.marketing);
   const chyba = O.impressumMissing(supplier);
   if (chyba.length) {
     return out(400, { error: `V e-maile musí byť Impressum. V Nastaveniach → Fakturačné údaje doplňte: ${chyba.join(', ')}.` });
@@ -102,10 +108,20 @@ exports.handler = async (event) => {
   }).select('id').single();
   if (e1 || !draft) return out(500, { error: 'Oslovenie sa nepodarilo zapísať.' });
 
-  // Text → HTML s podpisom schránky (vizitka), ako v Správach. HTML z editora sa očistí.
-  const html0 = O.looksHtml(bodyIn) ? O.sanitizeHtml(bodyIn) : M.bodyHtml(bodyIn, mb, `${site}/web/public`);
-  const text0 = O.looksHtml(bodyIn) ? M.htmlToText(html0) : bodyIn;
-  const c = O.compose({ html: html0, text: text0, supplier, lang, site, token, secret, cfg: { ...cfg, ...tracking } });
+  // Prezentácia PDF (remeslo a región firmy). Keď sa nepodarí, e-mail ide bez nej.
+  const assets = `${site}/web/public`;
+  const pitch = Pack.pitchFor({ lead, search: ctx.search, marketing: ctx.marketing, lang });
+  let pdf = null, pdfError = null;
+  if (Pack.wantsAttachment(b.attach_presentation, step, ctx.marketing)) {
+    try {
+      pdf = Pack.presentation({ lead, search: ctx.search, marketing: ctx.marketing, supplier, pitch,
+        contact: Pack.contactOf(mb, { full_name: (g.user.user_metadata && g.user.user_metadata.full_name) || '' }) });
+    } catch (e) { pdfError = String((e && e.message) || e).slice(0, 200); }
+  }
+  // Celý e-mail v dizajne punds: text z okna, nadpis a body podľa remesla, podpis schránky, Impressum a odhlásenie.
+  const mail = Pack.email({ lead, search: ctx.search, marketing: ctx.marketing, supplier, mb, body: bodyIn, subject, lang, step, pitch,
+    unsubscribeUrl: O.unsubscribeUrl(site, token), assets, attachment: pdf ? { name: pdf.fileName, pages: pdf.pages } : null });
+  const c = O.compose({ html: mail.html, text: mail.text, supplier, lang, site, token, secret, cfg: { ...cfg, ...tracking }, framed: true });
 
   let r;
   try {
@@ -113,6 +129,8 @@ exports.handler = async (event) => {
       user: g.user, to: [{ address: email, name: lead.name || '' }], subject, text: c.text, html: c.html,
       copy: { html: c.copyHtml, text: c.text }, store: { html_body: c.copyHtml, text_body: c.text },
       inReplyTo, references,
+      attachments: pdf ? [{ filename: pdf.fileName, content: pdf.buffer, contentType: 'application/pdf' }] : [],
+      attachmentsMeta: pdf ? [{ name: pdf.fileName, size: pdf.size, type: 'application/pdf' }] : [],
       headers: {
         'List-Unsubscribe': `<${c.unsubscribe}>, <mailto:${mb.email}?subject=${encodeURIComponent(lang === 'en' ? 'Unsubscribe' : 'Abmelden')}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -130,6 +148,8 @@ exports.handler = async (event) => {
     status: 'sent', sent_at: r.sentAt, message_id: r.messageId, mail_message_id: r.id,
     body_html: c.copyHtml, body_text: c.text, next_followup_at: next, error: null,
   }).eq('id', draft.id);
+  // Čo išlo v prílohe — zvlášť, aby e-mail ostal zapísaný ako odoslaný aj bez migrácie 081.
+  if (pdf) await supabase.from('danubra_outreach').update({ attachments: [pdf.meta] }).eq('id', draft.id);
   // Pripomína sa len posledný e-mail — predchádzajúce termíny a úloha k nim končia.
   if (prev) {
     await supabase.from('danubra_outreach').update({ next_followup_at: null }).eq('lead_id', lead.id).neq('id', draft.id);
@@ -139,5 +159,6 @@ exports.handler = async (event) => {
   return out(200, {
     ok: true, id: draft.id, message_id: r.messageId, mail_message_id: r.id, sent_at: r.sentAt,
     next_followup_at: next, tracking: c.tracked, warns: check.warns,
+    attachment: pdf ? pdf.meta : null, attachment_error: pdfError, trade: pitch.trade.key,
   });
 };
