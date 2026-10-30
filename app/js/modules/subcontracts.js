@@ -434,6 +434,8 @@
 
         <div class="js-list">${job.map(stepHtml).join('')}</div>
 
+        ${window.Tsk && Tsk.slot ? Tsk.slot('subcontract', sc.id, sc.title || sc.contract_number) : ''}
+
         <details class="more-block js-docs"><summary>${Icon('doc', 14)} Dokumenty zákazky</summary>
           ${window.Docs ? Docs.slot('subcontract', sc.id, { empty: 'Zatiaľ žiadne. Infolisty, objednávky a faktúry tejto zákazky sa sem uložia, keď z nich spravíte PDF.' }) : ''}
         </details>

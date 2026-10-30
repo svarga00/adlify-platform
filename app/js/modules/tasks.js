@@ -422,6 +422,22 @@
       return `<span class="tk-av" style="--av:${AV_COLORS[h % AV_COLORS.length]}" aria-hidden="true">${UI.esc(ini)}</span>`;
     },
 
+    /**
+     * Pod relatívnym termínom: dátum a nenápadný odpočet („zostáva 2 d 4 h"),
+     * pod tým tenký pruh, koľko času od založenia už ubehlo. Nebliká nič.
+     */
+    dueSmall(t, rel, open) {
+      if (!t.due_date) return '';
+      const cd = open ? T().countdown(t) : null;
+      const date = rel.days != null && Math.abs(rel.days) <= 60 ? this.shortDate(t.due_date) : '';
+      const txt = cd && cd.tone !== 'late' ? cd.text : '';
+      const bar = cd && cd.pct != null
+        ? `<i class="tk-bar${cd.tone === 'late' ? ' is-late' : cd.pct >= 0.75 ? ' is-near' : ''}" aria-hidden="true">
+            <i style="width:${Math.round(cd.pct * 100)}%"></i></i>` : '';
+      return `${date ? `<small>${UI.esc(date)}</small>` : ''}${
+        txt || bar ? `<span class="tk-cd">${bar}${UI.esc(txt)}</span>` : ''}`;
+    },
+
     shortDate(d) {
       const [y, m, dd] = String(d || '').slice(0, 10).split('-');
       return dd ? `${Number(dd)}. ${Number(m)}.${y !== this.today().slice(0, 4) ? ` ${y}` : ''}` : '';
@@ -446,8 +462,7 @@
 
       const dueCell = done
         ? `<b>hotové</b><small>${t.done_at ? this.shortDate(t.done_at) : ''}</small>`
-        : `<b>${UI.esc(rel.text)}</b><small>${t.due_date && rel.days != null && Math.abs(rel.days) <= 60
-            ? this.shortDate(t.due_date) : ''}</small>`;
+        : `<b>${UI.esc(rel.text)}</b>${this.dueSmall(t, rel, open)}`;
 
       const st = t.status === 'in_progress'
         ? `<button class="tk-st is-prog" onclick="event.stopPropagation();Tsk.setStatus('${id}','open')"
@@ -901,83 +916,319 @@
     },
 
 
-    /** Kto úlohu rieši — výber z používateľov appky (do detailu aj formulára). */
-    whoSelect(t, attrs) {
+    /**
+     * Kto úlohu rieši — výber z používateľov appky ako krúžky s iniciálami
+     * (do detailu aj formulára). Voľne sa meno písať nedá; meno mimo appky
+     * sa len ukáže, aby bolo vidieť, čo tam bolo.
+     */
+    whoPicker(t, name, onchange) {
       const o = t ? this.owner(t) : { kind: 'none' };
       const list = this.members();
       const inList = o.member && list.some(m => m.id === o.member.id);
-      return `<select ${attrs}>
-        <option value=""${o.kind === 'none' ? ' selected' : ''}>— nikto —</option>
-        ${o.kind === 'outside' ? `<option value="__keep" selected>${UI.esc(o.name)} (mimo appky)</option>` : ''}
-        ${o.kind === 'member' && !inList ? `<option value="__keep" selected>${UI.esc(o.name)} (neaktívny)</option>` : ''}
-        ${list.map(m => `<option value="${UI.esc(m.id)}"${o.member && o.member.id === m.id ? ' selected' : ''}>${
-          UI.esc(T().memberName(m))}</option>`).join('')}
-      </select>`;
+      const me = this.meMember();
+      const opt = (value, on, av, label, extra = '') => `<label class="tk-pick-i${on ? ' on' : ''}${extra}">
+          <input type="radio" name="${name}" value="${UI.esc(value)}"${on ? ' checked' : ''}${onchange ? ` onchange="${onchange}"` : ''}>
+          ${av}<span>${label}</span></label>`;
+      return `<div class="tk-pick" role="radiogroup" aria-label="Kto to rieši">
+        ${o.kind === 'outside' ? opt('__keep', true, this.avatar(o), `${UI.esc(o.name)} <em>mimo appky</em>`, ' is-out') : ''}
+        ${o.kind === 'member' && !inList ? opt('__keep', true, this.avatar(o), `${UI.esc(o.name)} <em>neaktívny</em>`, ' is-out') : ''}
+        ${list.map(m => opt(m.id, !!(o.member && o.member.id === m.id), this.avatar({ kind: 'member', name: T().memberName(m) }),
+          `${UI.esc(T().memberName(m))}${me && me.id === m.id ? ' <em>ja</em>' : ''}`)).join('')}
+        ${opt('', o.kind === 'none', this.avatar(null), 'Nikto')}
+      </div>
+      ${list.length ? '' : '<p class="td-muted">V appke zatiaľ nie sú používatelia (Nastavenia → Používatelia).</p>'}`;
     },
 
     /**
-     * Detail úlohy. Na jednom mieste: čo to je, koho sa to týka, kto to má
-     * a čo sa s tým dá spraviť — bez otvárania formulára.
+     * Detail úlohy. Na jednom mieste: termín s odpočtom, kto ju rieši, čoho
+     * sa týka (s odkazom a pár údajmi o zázname), popis, odkiaľ sa vzala
+     * a história s poznámkami. Všetko sa dá spraviť priamo tu.
      */
     detail(id) {
       const t = this.find(id);
       if (!t) return UI.toast('Nenájdené', 'err');
       this._detailId = id;
-      const ent = t.entity_type ? ENTITY[t.entity_type] : null;
-      const late = this.isLate(t);
-      const rule = t.rule_id ? this.rules.find(r => r.id === t.rule_id) : null;
+      this._bindMenus();
+      const today = this.today();
+      const done = t.status === 'done', canc = t.status === 'cancelled', open = !done && !canc;
+      const rel = T().relDue(t.due_date, today);
+      const cd = open ? T().countdown(t) : null;
+      const late = open && rel.tone === 'late';
       const o = this.owner(t), me = this.meMember();
-      const rel = T().relDue(t.due_date, this.today());
+      const tid = UI.esc(t.id);
+      const ent = t.entity_type ? ENTITY[t.entity_type] : null;
+      const entLabel = this.entityText(t) || (ent && ent[0]) || '';
+      const rule = t.rule_id ? this.rules.find(r => r.id === t.rule_id) : null;
+      const hi = t.priority === 'high' || t.priority === 'urgent';
+      const longDate = (d) => {
+        try {
+          return new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString('sk-SK',
+            { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        } catch { return UI.date(d); }
+      };
+      const box = (cls, ico, title, body, extra = '') => `<section class="td-box ${cls}">
+          <h4>${Icon(ico, 14)} ${title}${extra}</h4>${body}</section>`;
 
-      const fact = (k, v) => (v ? `<div class="dt-fact"><span>${k}</span><b>${v}</b></div>` : '');
+      const head = `<div class="td-head">
+          ${this.badge(t.status)}
+          ${hi ? UI.badge(`${PRIO_LABEL[t.priority]} priorita`, 'red') : ''}
+          ${late ? UI.badge('po termíne', 'red') : ''}
+          ${this.isAuto(t) ? `<span class="tk-auto">${Icon('zap', 11)} automat</span>` : ''}
+          ${cd ? `<span class="td-cd td-cd-${cd.tone || 'far'}">${Icon('clock', 12)} ${UI.esc(cd.text)}</span>` : ''}
+        </div>`;
+
+      const due = box('td-due', 'calendar', 'Termín', `
+          <div class="td-big tk-due-${late ? 'late' : open ? rel.tone || 'far' : 'none'}">${
+            done ? 'hotové' : UI.esc(rel.text)}</div>
+          <div class="td-sub">${t.due_date ? UI.esc(longDate(t.due_date)) : 'Termín nie je zadaný'}${
+            done && t.done_at ? ` · hotové ${UI.esc(UI.date(t.done_at))}` : ''}</div>
+          ${cd && cd.pct != null ? `<i class="tk-bar td-bar${cd.tone === 'late' ? ' is-late' : cd.pct >= 0.75 ? ' is-near' : ''}">
+            <i style="width:${Math.round(cd.pct * 100)}%"></i></i>` : ''}
+          ${open ? `<div class="td-snz">
+            <span>Odložiť:</span>
+            ${[['1d', '+1 deň'], ['3d', '+3 dni'], ['monday', 'pondelok']].map(([k, l]) =>
+              `<button class="td-pill" onclick="Tsk.snooze('${tid}','${k}')"
+                title="Na ${UI.esc(UI.date(T().snoozeDate(t, k, today)))}">${l}</button>`).join('')}
+            <button class="td-pill" onclick="Tsk.snooze('${tid}','pick')">${Icon('calendar', 12)} dátum…</button>
+          </div>` : ''}`);
+
+      const who = box('td-who', 'user', 'Rieši', `
+          <div class="td-person">
+            ${this.avatar(o)}
+            <div><b>${UI.esc(o.name || 'Nikto')}</b>
+              <span>${o.kind === 'outside' ? 'meno mimo appky — prehoďte na používateľa'
+                : o.kind === 'none' ? 'úloha zatiaľ nemá riešiteľa'
+                  : UI.esc(o.member.email || (o.member.active === false ? 'neaktívny používateľ' : 'používateľ appky'))}</span></div>
+          </div>
+          ${me && !this.isMine(t) ? `<button class="btn btn-outline btn-sm td-take" onclick="Tsk.assign('${tid}','${UI.esc(me.id)}')">
+            ${Icon('user', 13)} Beriem si to</button>` : ''}
+          <details class="td-change"${o.kind === 'outside' ? ' open' : ''}><summary>${Icon('workers', 13)} Zmeniť riešiteľa</summary>
+            ${this.whoPicker(t, `td-who-${tid}`, `if(this.value!=='__keep')Tsk.assign('${tid}',this.value)`)}
+          </details>`);
+
+      const rec = entLabel ? box('td-rec', (Danubra.entities[t.entity_type] || {}).ico || 'note', 'Čoho sa týka', `
+          <div class="td-recard">
+            <div class="td-rec-top">
+              ${Danubra.link(t.entity_type, t.entity_id, entLabel)}
+              ${ent ? `<span class="td-kind">${UI.esc(ent[0])}</span>` : ''}
+            </div>
+            <dl class="td-facts" id="td-facts"></dl>
+            ${t.entity_type && !Danubra.canOpen(t.entity_type, t.entity_id) && ent
+              ? '<p class="td-muted">Na tento záznam sa odtiaľto nedá prekliknúť (obrazovka je vypnutá alebo záznam nemá odkaz).</p>' : ''}
+          </div>`) : '';
+
+      const src = box('td-src', this.isAuto(t) ? 'zap' : 'edit', 'Odkiaľ je', this.isAuto(t)
+        ? `<p class="td-p">Založila ju appka sama${rule ? ` podľa pravidla <b>„${UI.esc(rule.title || rule.key)}"</b>` : ' podľa pravidla'}.</p>
+           ${rule ? `<p class="td-muted">${UI.esc(this._ruleText(rule))}</p>` : ''}
+           <button class="tk-link" onclick="Tsk.rulesView()">${Icon('rules', 12)} Pravidlá</button>`
+        : `<p class="td-p">Založená ručne${t.created_at ? ` ${UI.esc(UI.date(t.created_at))}` : ''}.</p>`);
+
+      const desc = t.description
+        ? box('td-desc', 'note', 'Popis', `<p class="td-p">${UI.esc(t.description)}</p>`) : '';
+
+      const hist = box('td-hist', 'clock', 'História a poznámky', `
+          <form class="td-note" onsubmit="event.preventDefault();Tsk.addNote('${tid}', this)">
+            <input name="note" placeholder="Pridať poznámku k úlohe…" maxlength="1000" autocomplete="off"
+              aria-label="Poznámka k úlohe">
+            <button class="btn btn-outline btn-sm" type="submit">${Icon('plus', 13)} Pridať</button>
+          </form>
+          <ol class="td-tl" id="td-tl">${this._histHtml(t, null)}</ol>`,
+        UI.tip('Poznámky sa len pridávajú — nedajú sa prepísať ani zmazať, aby bolo vidieť, čo sa s úlohou dialo. Zmeny stavu, riešiteľa a termínu sa sem zapisujú samy.'));
 
       UI.modal(t.title, `
-        <div class="detail-head">
-          ${this.badge(t.status)}
-          ${t.priority === 'high' || t.priority === 'urgent' ? UI.badge(`${PRIO_LABEL[t.priority].toLowerCase()} priorita`, 'red') : ''}
-          ${late ? UI.badge('po termíne', 'red') : ''}
-          ${this.isAuto(t) ? UI.badge('z pravidla', 'blue') + UI.tip('Túto úlohu nezaložil človek, ale appka sama podľa pravidla (nižšie je napísané ktorého). Keď je vec vybavená, označte ju Hotovo.') : ''}
-        </div>
-
-        ${t.description ? `<p class="t-desc">${UI.esc(t.description)}</p>` : ''}
-
-        <div class="kv">
-          ${fact('Termín', t.due_date ? `${UI.date(t.due_date)} · ${UI.esc(rel.text)}` : 'bez termínu')}
-          ${fact('Má na starosti', UI.esc(o.name ? `${o.name}${o.kind === 'outside' ? ' (mimo appky)' : ''}` : 'nikto'))}
-          ${fact('Založené', t.created_at ? UI.date(t.created_at) : '')}
-          ${fact('Hotové', t.done_at ? UI.date(t.done_at) : '')}
-        </div>
-
-        ${ent || this.entityText(t) ? `<div class="form-section">Čoho sa to týka</div>
-          ${t.entity_type && Danubra.canOpen(t.entity_type, t.entity_id)
-            ? `<span class="link-row">${Danubra.link(t.entity_type, t.entity_id,
-                this.entityText(t) || ent[0])}</span>`
-            : `<p class="card-note">${UI.esc(ent ? ent[0] + ': ' : '')}${UI.esc(this.entityText(t) || '—')}
-               ${ent ? '— táto obrazovka je vypnutá, takže sa tam odtiaľto nedá prejsť.' : ''}</p>`}` : ''}
-
-        ${rule ? `<div class="form-section">Odkiaľ sa vzala</div>
-          <p class="card-note">${UI.esc(this._ruleText(rule))}</p>` : ''}
-
-        <div class="form-section">Kto to má na starosti</div>
-        <div class="t-assign">
-          ${this.whoSelect(t, `onchange="if(this.value!=='__keep')Tsk.assign('${UI.esc(t.id)}', this.value)" aria-label="Kto to má na starosti"`)}
-          ${me && !this.isMine(t)
-            ? `<button class="btn btn-outline btn-sm" onclick="Tsk.assign('${UI.esc(t.id)}','${UI.esc(me.id)}')">
-                 ${Icon('user', 13)} Beriem si to</button>` : ''}
-        </div>
-        ${o.kind === 'outside' ? `<p class="card-note">„${UI.esc(o.name)}" nie je medzi používateľmi appky
-          (Nastavenia → Používatelia). Vyberte, komu úlohu prehodiť.</p>` : ''}
-
-        <div class="modal-actions">
+        ${head}
+        <div class="td-grid">${due}${who}${rec}${src}</div>
+        ${desc}
+        ${hist}
+        <div class="modal-actions td-actions">
+          <button class="btn btn-danger" onclick="Tsk.del('${tid}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-          <span style="align-self:center;display:inline-flex;">${UI.tip('Odložiť o týždeň: termín úlohy sa posunie o 7 dní dopredu (od dnes, alebo od pôvodného termínu, ak je ešte pred nami). Úloha sa nezmaže, len sa v zozname presunie podľa nového termínu. Kratšie odloženie (+1 deň, +3 dni, budúci pondelok) je v zozname pod ikonou hodín.')}</span>
-          <button class="btn btn-outline" onclick="Tsk.snooze('${UI.esc(t.id)}')">
-            ${Icon('clock', 14)} Odložiť o týždeň</button>
-          <button class="btn btn-outline" onclick="Tsk.form('${UI.esc(t.id)}')">
-            ${Icon('edit', 14)} Upraviť</button>
-          <button class="btn btn-primary" onclick="UI.closeModal();Tsk.done('${UI.esc(t.id)}')">
-            ${Icon('check', 14)} ${t.status === 'done' ? 'Vrátiť medzi otvorené' : 'Hotovo'}</button>
+          <button class="btn btn-outline" onclick="Tsk.form('${tid}')">${Icon('edit', 14)} Upraviť</button>
+          ${open ? `<button class="btn btn-outline" onclick="Tsk.snooze('${tid}')"
+              title="Posunie termín o 7 dní. Kratšie odloženie je vyššie pri termíne.">${Icon('clock', 14)} Odložiť o týždeň</button>` : ''}
+          ${t.status === 'open' ? `<button class="btn btn-outline" onclick="Tsk.setStatus('${tid}','in_progress')">
+              ${Icon('repeat', 14)} Rozpracovať</button>` : ''}
+          ${t.status === 'in_progress' ? `<button class="btn btn-outline" onclick="Tsk.setStatus('${tid}','open')">
+              ${Icon('undo', 14)} Späť na otvorenú</button>` : ''}
+          <button class="btn btn-primary" onclick="UI.closeModal();Tsk.done('${tid}')">
+            ${Icon('check', 14)} ${done ? 'Vrátiť medzi otvorené' : canc ? 'Označiť ako hotovú' : 'Hotovo'}</button>
         </div>`, { wide: true });
+
+      this._detailExtras(t);
+    },
+
+    /**
+     * Čo sa o zázname, ktorého sa úloha týka, oplatí vidieť bez preklikávania.
+     * Číta sa jedným malým dotazom; keď sa nepodarí, karta ostane len s odkazom.
+     */
+    FACTS: {
+      worker: ['workers', 'id,full_name,phone,status,profession', (r) => [
+        ['Telefón', r.phone], ['Stav', { candidate: 'Kandidát', screening: 'V preverovaní', ready: 'Pripravený',
+          deployed: 'Vyslaný', inactive: 'Neaktívny', blacklist: 'Nespolupracovať' }[r.status] || r.status]]],
+      candidate: ['candidates', 'id,full_name,phone,status', (r) => [['Telefón', r.phone]]],
+      partner: ['partners', 'id,name,city,ust_idnr', (r) => [['Mesto', r.city], ['DIČ', r.ust_idnr]]],
+      subcontract: ['subcontracts', 'id,title,contract_number,site_city,partner_id,status', (r, x) => [
+        ['Miesto', r.site_city], ['Odberateľ', x.partner], ['Číslo', r.contract_number]]],
+      invoice: ['invoices', 'id,invoice_number,total,currency,status,due_date', (r) => [
+        ['Suma', r.total != null ? UI.money(r.total, r.currency || 'EUR') : null],
+        ['Stav', window.DanubraInvoice ? DanubraInvoice.statusLabel(r.status) : r.status],
+        ['Splatná', r.due_date ? UI.date(r.due_date) : null]]],
+    },
+
+    async _detailExtras(t) {
+      const same = () => this._detailId === t.id && document.getElementById('ui-modal');
+      // Údaje o zázname.
+      const f = this.FACTS[t.entity_type];
+      if (f && t.entity_id) {
+        try {
+          const { data } = await DB.list(f[0], { select: f[1], filters: { id: t.entity_id }, limit: 1 });
+          const r = (data || []).find(x => x.id === t.entity_id);
+          const extra = {};
+          if (r && r.partner_id) {
+            const p = await DB.list('partners', { select: 'id,name', filters: { id: r.partner_id }, limit: 1 });
+            extra.partner = ((p.data || []).find(x => x.id === r.partner_id) || {}).name;
+          }
+          const box = same() && document.getElementById('td-facts');
+          if (r && box) {
+            box.innerHTML = f[2](r, extra).filter(([, v]) => v)
+              .map(([k, v]) => `<div><dt>${UI.esc(k)}</dt><dd>${UI.esc(v)}</dd></div>`).join('');
+          }
+        } catch { /* karta ostane len s odkazom */ }
+      }
+      // História: poznámky a zmeny zapísané pri úlohe.
+      try {
+        const { data } = await DB.list('activities', {
+          select: 'id,type,body,created_at,created_by', filters: { entity_type: 'task', entity_id: t.id },
+          order: { column: 'created_at', ascending: false }, limit: 60,
+        });
+        const tl = same() && document.getElementById('td-tl');
+        if (tl) tl.innerHTML = this._histHtml(t, (data || []).filter(a => a.entity_type == null || a.entity_type === 'task'));
+      } catch { /* ostane základná história */ }
+    },
+
+    /** Časová os úlohy: založenie, zmeny, poznámky, dokončenie — najnovšie hore. */
+    _histHtml(t, acts) {
+      const who = (uid) => {
+        const m = uid && this.allMembers().find(x => x.user_id === uid);
+        return m ? T().memberName(m) : '';
+      };
+      const ev = [];
+      if (t.created_at) {
+        ev.push({ at: t.created_at, ico: this.isAuto(t) ? 'zap' : 'plus', cls: '',
+          text: this.isAuto(t) ? 'Založila ju appka podľa pravidla' : `Založená${who(t.created_by) ? ` — ${who(t.created_by)}` : ''}` });
+      }
+      for (const a of (acts || [])) {
+        const note = a.type === 'note';
+        ev.push({ at: a.created_at, ico: note ? 'note' : 'repeat', cls: note ? 'is-note' : '',
+          text: a.body || '', by: who(a.created_by) });
+      }
+      if (t.done_at && !(acts || []).some(a => /hotov/i.test(a.body || ''))) {
+        ev.push({ at: t.done_at, ico: 'check', cls: 'is-done', text: 'Označená ako hotová' });
+      }
+      if (acts && !acts.length && t.updated_at && t.created_at
+        && String(t.updated_at).slice(0, 16) !== String(t.created_at).slice(0, 16)) {
+        ev.push({ at: t.updated_at, ico: 'edit', cls: '', text: 'Naposledy zmenená' });
+      }
+      ev.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      if (!ev.length) return '<li class="td-muted">Zatiaľ bez záznamov.</li>';
+      const when = (d) => {
+        try {
+          return new Date(d).toLocaleString('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch { return UI.date(d); }
+      };
+      return ev.map(e => `<li class="${e.cls}">
+          <span class="td-tl-ico">${Icon(e.ico, 12)}</span>
+          <div><p>${UI.esc(e.text)}</p><time>${UI.esc(when(e.at))}${e.by ? ` · ${UI.esc(e.by)}` : ''}</time></div>
+        </li>`).join('');
+    },
+
+    /** Poznámka k úlohe. Len pribúda — neprepisuje sa ani nemaže. */
+    async addNote(id, form) {
+      const inp = form && form.elements.note;
+      const body = inp ? inp.value.trim() : '';
+      if (!body) return UI.toast('Napíšte poznámku', 'err');
+      const { error } = await DB.insert('activities', {
+        entity_type: 'task', entity_id: id, type: 'note', body, source: 'manual',
+        created_by: (Danubra.user && Danubra.user.id) || null,
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      inp.value = '';
+      UI.toast('Poznámka pridaná', 'ok');
+      const t = this.find(id);
+      if (t) this._detailExtras(t);
+    },
+
+    /**
+     * Zmena sa zapíše aj do histórie úlohy (danubra_activities, entity_type
+     * 'task'). Keď sa zápis nepodarí, úloha sa tým nezastaví — je to záznam,
+     * nie podmienka.
+     */
+    _log(id, body) {
+      try {
+        Promise.resolve(DB.insert('activities', {
+          entity_type: 'task', entity_id: id, type: 'change', body, source: 'app',
+          created_by: (Danubra.user && Danubra.user.id) || null,
+        })).catch(() => {});
+      } catch { /* nič */ }
+    },
+
+    // ── Úlohy pri zázname ─────────────────────────────────────────────────
+    // Na karte človeka, zákazky, odberateľa a kandidáta je malý blok
+    // „Úlohy": otvorené úlohy k tomu záznamu a „Pridať úlohu" s predvyplneným
+    // záznamom. Vkladá sa ako prázdny `slot` a doplní ho `fill` (rovnako ako
+    // Dokumenty a E-maily) — karta sa tak nezdrží načítaním úloh.
+
+    slot(type, id, label) {
+      if (!type || !id) return '';
+      if (Danubra.routeAvailable && !Danubra.routeAvailable('tasks')) return '';
+      return `<div class="tsk-slot card card-pad" data-type="${UI.esc(type)}" data-id="${UI.esc(id)}"
+        data-label="${UI.esc(label || '')}"><div class="js-empty">Načítavam úlohy…</div></div>`;
+    },
+
+    async fill(root) {
+      const slots = [...(root || document).querySelectorAll('.tsk-slot')];
+      if (!slots.length) return;
+      if (!this.loaded) { try { await this.load(); } catch { return; } }
+      for (const s of slots) s.innerHTML = this.miniList(s.dataset.type, s.dataset.id, s.dataset.label);
+    },
+
+    /** Otvorené úlohy k jednému záznamu — krátky zoznam na karte. */
+    miniList(type, id, label) {
+      const today = this.today();
+      const list = T().sortTasks(this.items.filter(t => t.entity_type === type && t.entity_id === id
+        && t.status !== 'done' && t.status !== 'cancelled'), 'due');
+      const doneN = this.items.filter(t => t.entity_type === type && t.entity_id === id && t.status === 'done').length;
+      const shown = list.slice(0, 5);
+      const add = `<button class="btn btn-outline btn-sm" data-label="${UI.esc(label || '')}"
+          onclick="Tsk.formFor('${UI.esc(type)}','${UI.esc(id)}',this.dataset.label)">${Icon('plus', 13)} Pridať úlohu</button>`;
+      return `<div class="card-head"><div class="card-title">${Icon('tasks', 15)} Úlohy
+          ${list.length ? `<span class="tk-sec-n">${list.length}</span>` : ''}</div>
+          <div class="card-acts">${add}</div></div>
+        ${shown.length ? `<div class="tsk-mini">${shown.map((t) => {
+          const rel = T().relDue(t.due_date, today);
+          const late = rel.tone === 'late';
+          const o = this.owner(t);
+          return `<div class="tsk-mini-row${late ? ' is-late' : ''}" role="button" tabindex="0"
+              onclick="Tsk.detail('${UI.esc(t.id)}')">
+              <button class="tk-check" onclick="event.stopPropagation();Tsk.done('${UI.esc(t.id)}')"
+                title="Hotovo" aria-label="Označiť ako hotovú">${Icon('check', 12)}</button>
+              <span class="tsk-mini-t"><b>${UI.esc(t.title)}</b>
+                <small class="tk-due-${late ? 'late' : rel.tone || 'far'}">${UI.esc(rel.text)}${
+                  t.status === 'in_progress' ? ' · rozpracovaná' : ''}${
+                  t.priority === 'high' || t.priority === 'urgent' ? ' · vysoká' : ''}</small></span>
+              ${this.avatar(o)}
+            </div>`;
+        }).join('')}</div>`
+          : '<div class="js-empty">Žiadne otvorené úlohy.</div>'}
+        ${list.length > shown.length || doneN ? `<p class="td-muted" style="margin:8px 0 0;">${
+          list.length > shown.length ? `a ďalšie ${list.length - shown.length} · ` : ''}${
+          doneN ? `${doneN} ${T().plural(doneN, 'hotová', 'hotové', 'hotových')} · ` : ''}<button class="tk-link"
+            onclick="UI.closeModal();Danubra.go('tasks')">Všetky úlohy</button></p>` : ''}`;
+    },
+
+    /** „Pridať úlohu" z karty záznamu — formulár s predvyplneným záznamom. */
+    formFor(type, id, label) {
+      return this.form('', { entity_type: type, entity_id: id, entity_label: label || '' });
     },
 
     _ruleText(rule) {
@@ -1012,17 +1263,21 @@
       const before = this._before(t, ['assigned_name', 'assigned_to']);
       const inDetail = !!document.getElementById('ui-modal') && this._detailId === id;
       if (!await this._patch(id, T().assignPatch(m))) return;
+      this._log(id, m ? `Riešiteľ: ${T().memberName(m)}` : 'Riešiteľ odobratý — nepriradené');
       UI.toast(m ? `Má na starosti ${T().memberName(m)}` : 'Úloha je bez riešiteľa', 'ok',
         { action: 'Vrátiť', run: this._undo(id, before) });
       if (inDetail) this.detail(id);
     },
 
-    /** Otvorená ↔ Rozpracovaná priamo v riadku. */
+    /** Otvorená a Rozpracovaná priamo v riadku. */
     async setStatus(id, status) {
       const t = this.find(id);
       if (!t) return;
       const before = this._before(t, ['status']);
+      const inDetail = !!document.getElementById('ui-modal') && this._detailId === id;
       if (!await this._patch(id, { status })) return;
+      this._log(id, status === 'in_progress' ? 'Stav: Rozpracovaná' : 'Stav: Otvorená');
+      if (inDetail) this.detail(id);
       UI.toast(status === 'in_progress' ? 'Označené ako rozpracované' : 'Vrátené na otvorené', 'ok',
         { action: 'Vrátiť', run: this._undo(id, before) });
     },
@@ -1048,6 +1303,7 @@
       const before = this._before(t, ['due_date']);
       if (document.getElementById('ui-modal') && this._detailId === id) UI.closeModal();
       if (!await this._patch(id, { due_date: due })) return;
+      this._log(id, `Odložená na ${UI.date(due)}${before.due_date ? ` (pôvodne ${UI.date(before.due_date)})` : ''}`);
       UI.toast(`Odložené na ${UI.date(due)}`, 'ok', { action: 'Vrátiť', run: this._undo(id, before) });
     },
 
@@ -1071,6 +1327,7 @@
         return UI.toast('Chyba: ' + error.message, 'err');
       }
       Object.assign(t, patch);
+      this._log(id, toDone ? 'Označená ako hotová' : 'Vrátená medzi otvorené');
       const quiet = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
       setTimeout(() => Danubra.renderRoute(), row && toDone && !quiet ? 420 : 0);
       UI.toast(toDone ? `Hotovo: ${t.title}` : 'Vrátené medzi otvorené', 'ok',
@@ -1105,8 +1362,19 @@
       const me = this.meMember();
       // Nová úloha je predvolene moja — rovnako ako pri rýchlom zapísaní.
       const who = id ? t : (me ? T().assignPatch(me) : {});
+      const ent = t.entity_type ? ENTITY[t.entity_type] : null;
+      const entLabel = this.entityText(t) || (ent && ent[0]) || '';
+      // Záznam, ku ktorému úloha patrí. Pri novej úlohe z karty záznamu sa
+      // posiela so sebou; pri úprave sa nemení.
+      const entBox = entLabel ? `<div class="tk-form-ent">${Icon('note', 13)} Týka sa:
+          ${Danubra.link(t.entity_type, t.entity_id, entLabel)}${ent ? ` <span class="td-kind">${UI.esc(ent[0])}</span>` : ''}
+          ${!id ? `<input type="hidden" name="entity_type" value="${UI.esc(t.entity_type || '')}">
+            <input type="hidden" name="entity_id" value="${UI.esc(t.entity_id || '')}">
+            <input type="hidden" name="entity_label" value="${UI.esc(t.entity_label || '')}">` : ''}
+        </div>` : '';
       const body = `
         <form id="tsk-form" onsubmit="event.preventDefault();Tsk.save('${UI.esc(id || '')}')">
+          ${entBox}
           <div class="form-grid">
             <div class="fld-full">${UI.field('title', 'Čo treba spraviť', { value: t.title, required: true })}</div>
           </div>
@@ -1117,9 +1385,9 @@
               tip: 'Vysoká sa v zozname označí červeným štítkom „Vysoká" a v sekcii je navrchu.' })}
             ${UI.field('status', 'Stav', { value: t.status || 'open', options: STATUS.map(s => [s[0], s[1]]),
               tip: 'Otvorená = ešte sa na nej nezačalo. Rozpracovaná = niekto na nej robí. Hotová = vybavené. Zrušená = netreba ju robiť.' })}
-            <label class="fld"><span>Rieši${UI.tip('Kto má úlohu na starosti. Ponúkajú sa používatelia appky (Nastavenia → Používatelia). Meno, ktoré medzi nimi nie je, je označené „mimo appky" — vyberte, komu úlohu prehodiť.')}</span>
-              ${this.whoSelect(who, 'name="who"')}</label>
           </div>
+          <div class="fld"><span>Rieši${UI.tip('Kto má úlohu na starosti. Ponúkajú sa používatelia appky (Nastavenia → Používatelia), predvolene Vy. Meno, ktoré medzi nimi nie je, je označené „mimo appky" — vyberte, komu úlohu prehodiť.')}</span>
+            ${this.whoPicker(who, 'who')}</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
@@ -1131,9 +1399,10 @@
     async save(id) {
       const d = UI.formData(document.getElementById('tsk-form'));
       if (!d.title) return UI.toast('Napíšte, čo treba spraviť', 'err');
-      const who = d.who;
+      const who = d.who == null ? '__keep' : d.who;
       delete d.who;
       const payload = { ...d };
+      for (const k of ['entity_type', 'entity_id', 'entity_label']) if (payload[k] === '') payload[k] = null;
       if (who !== '__keep') {
         const m = who ? this.allMembers().find(x => String(x.id) === String(who)) : null;
         Object.assign(payload, T().assignPatch(m));
@@ -1142,6 +1411,7 @@
       if (payload.status === 'done') payload.done_at = new Date().toISOString();
       const res = id ? await DB.update('tasks', id, payload) : await DB.insert('tasks', payload);
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
+      if (id) this._log(id, 'Upravená vo formulári');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
       await this.load(); Danubra.renderRoute();
     },

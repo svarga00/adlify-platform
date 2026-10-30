@@ -209,6 +209,20 @@ ok(tourSel.size === (G.TOUR || []).length, 'kroky sprievodcu sa neopakujú');
     'kapitola admina vedie na Archív (Nastavenia → Archív)');
 }
 
+// Úlohy: návod opisuje tlačidlá a polia, ktoré na obrazovke naozaj sú.
+{
+  const TASKS = read('js/modules/tasks.js');
+  const step = (G.CHAPTERS || []).flatMap(c => c.steps || []).find(s => s.open && s.open.route === 'tasks');
+  ok(step, 'návod má krok o Úlohách');
+  const text = step ? [step.what, ...(step.how || []), step.tip].join(' ') : '';
+  for (const label of ['Moje', 'Všetky', 'Nepriradené', 'Napíšte úlohu a stlačte Enter…', 'Viac…',
+    'Vrátiť', 'Pridať úlohu']) {
+    ok(text.includes(label), `návod k Úlohám spomína „${label}"`);
+    ok(TASKS.includes(label), `„${label}" je naozaj na obrazovke Úlohy`);
+  }
+  ok(!/Ja som/.test(text), 'návod už nespomína výber „Ja som"');
+}
+
 // ── Slovníček ───────────────────────────────────────────────────────────────
 ok(Array.isArray(G.GLOSSARY) && G.GLOSSARY.length >= 12 && G.GLOSSARY.length <= 22,
   'slovníček má 12 až 22 pojmov');

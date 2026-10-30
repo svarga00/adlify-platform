@@ -422,6 +422,8 @@
         ${c.notes ? `<div class="notebox">${UI.esc(c.notes)}</div>` : ''}
         ${c.converted_worker_id ? `<div class="regimebox">
           Kandidát bol prevedený medzi pracovníkov ${UI.date(c.converted_at)}.</div>` : ''}
+        ${window.Tsk && Tsk.slot ? Tsk.slot('candidate', c.id, c.full_name) : ''}
+
         <div class="modal-actions">
           <button class="btn btn-danger" onclick="Cand.del('${c.id}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
@@ -440,6 +442,7 @@
               ${Icon('site')} Nasadiť na zákazku</button><span style="align-self:center;display:inline-flex;">${UI.tip('Kandidát je už medzi živnostníkmi. Nasadenie = zapíšete ho na konkrétnu zákazku od konkrétneho dňa. Appka pri tom skontroluje doklady; bez platných dokladov sa nasadiť nedá, len s výnimkou admina.')}</span>` : '')}
         </div>`;
       UI.modal(c.full_name, body, { wide: true });
+      if (window.Tsk && Tsk.fill) Tsk.fill(document.getElementById('ui-modal'));
 
       // proces a polia sa dotiahnu až po otvorení, nech sa modal zobrazí okamžite
       await this.loadChips(id);

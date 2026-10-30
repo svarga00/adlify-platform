@@ -259,6 +259,8 @@
           <span class="lr-go">${Icon('chevron', 15)}</span></button>`).join('')
           || '<div class="js-empty">Zatiaľ žiadne zákazky.</div>'}
 
+        ${window.Tsk && Tsk.slot ? Tsk.slot('partner', p.id, p.name) : ''}
+
         <div class="form-section">Dokumenty</div>
         ${window.Docs ? Docs.slot('partner', p.id, { empty: 'Zatiaľ žiadne. Rámcová zmluva, Werkvertrag, ponuka či faktúra sa sem uložia, keď z nich spravíte PDF.' }) : ''}
 
@@ -276,6 +278,7 @@
       UI.modal(p.name, body, { wide: true });
       if (window.Docs) Docs.fill(document.getElementById('ui-modal'));
       if (window.Mail) Mail.fill(document.getElementById('ui-modal'));
+      if (window.Tsk && Tsk.fill) Tsk.fill(document.getElementById('ui-modal'));
     },
 
     // ── Overenie USt-IdNr v registri (VIES) ───────────────────────────────

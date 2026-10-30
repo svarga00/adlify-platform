@@ -372,6 +372,24 @@ console.log('Úlohy a pravidlá');
   eq(T.relDue(null, TODAY).text, 'bez termínu', 'bez termínu');
 }
 
+// ── Nenápadný odpočet ───────────────────────────────────────────────────────
+{
+  const now = new Date(2026, 8, 17, 17, 0, 0);          // štvrtok 17:00 miestneho času
+  eq(T.countdown(task('a', '2026-09-17'), now).text, 'zostáva 7 h', 'dnes: hodiny do konca dňa');
+  eq(T.countdown(task('a', '2026-09-17'), now).tone, 'today', 'a tón dneška');
+  eq(T.countdown(task('a', '2026-09-19'), now).text, 'zostáva 2 d 7 h', 'o dva dni aj s hodinami');
+  eq(T.countdown(task('a', '2026-09-29'), now).text, 'zostáva 12 d', 'ďalej len dni');
+  eq(T.countdown(task('a', '2026-09-11'), now).text, 'po termíne 6 d', 'po termíne');
+  eq(T.countdown(task('a', '2026-09-11'), now).tone, 'late', 'červené len po termíne');
+  eq(T.countdown(task('a', '2026-09-17'), new Date(2026, 8, 17, 23, 30)).text, 'končí o chvíľu',
+    'posledná hodina');
+  eq(T.countdown(task('a', null), now), null, 'bez termínu nič');
+  const half = T.countdown(task('a', '2026-09-18', { created_at: new Date(2026, 8, 17, 0, 0).toISOString() }),
+    new Date(2026, 8, 18, 0, 0));
+  eq(half.pct, 0.5, 'pruh: polovica času od založenia po termín');
+  eq(T.countdown(task('a', '2026-09-20'), now).pct, null, 'bez dátumu založenia bez pruhu');
+}
+
 // ── Odloženie ───────────────────────────────────────────────────────────────
 {
   eq(T.snoozeDate(task('a', '2026-09-01'), '1d', TODAY), '2026-09-18', 'po termíne + 1 deň = zajtra');

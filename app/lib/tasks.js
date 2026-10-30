@@ -405,6 +405,33 @@
     return { text: `${Number(dd)}. ${Number(m)}. ${y}`, tone: '', days: n };
   }
 
+  /**
+   * Nenápadný odpočet do konca dňa termínu: „zostáva 2 d 4 h", „zostáva 7 h",
+   * „po termíne 6 d". Termín je deň (nie hodina), preto sa ráta do polnoci.
+   * `pct` je, koľko času od založenia po termín už ubehlo (0–1) — na tenký
+   * pruh v riadku; bez dátumu založenia je null.
+   * @param {Date} now  miestny čas
+   * @returns {{ text: string, tone: 'late'|'today'|'', pct: number|null }|null}
+   */
+  function countdown(task, now = new Date()) {
+    const due = day(task && task.due_date);
+    if (!due) return null;
+    const [y, m, d] = due.split('-').map(Number);
+    const end = new Date(y, m - 1, d, 24, 0, 0).getTime();
+    const pad = (n) => String(n).padStart(2, '0');
+    const local = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const n = daysBetween(local, due);
+    const created = task.created_at ? Date.parse(task.created_at) : NaN;
+    const pct = Number.isFinite(created) && end > created
+      ? Math.max(0, Math.min(1, (now.getTime() - created) / (end - created))) : null;
+
+    if (n < 0) return { text: `po termíne ${-n} d`, tone: 'late', pct: 1 };
+    const h = Math.max(0, Math.floor((end - now.getTime()) / 3600000));
+    if (n === 0) return { text: h >= 1 ? `zostáva ${h} h` : 'končí o chvíľu', tone: 'today', pct };
+    const dd = Math.floor(h / 24), hh = h % 24;
+    return { text: dd < 3 && hh ? `zostáva ${dd} d ${hh} h` : `zostáva ${dd} d`, tone: '', pct };
+  }
+
   // ── Odloženie ─────────────────────────────────────────────────────────────
   /**
    * Na kedy sa úloha odloží. Posúva sa od pôvodného termínu, keď je ešte pred
@@ -550,7 +577,7 @@
   const API = {
     BUCKETS, SECTIONS, PRIORITY_RANK, UNASSIGNED, RULE_TABLES, RULE_VARS, QUICK_HELP,
     bucketOf, isActive, group, headline, counts, byPerson, people, isFor,
-    sectionOf, sortTasks, agenda, summary, recentDone, relDue, snoozeDate, parseQuick,
+    sectionOf, sortTasks, agenda, summary, recentDone, relDue, countdown, snoozeDate, parseQuick,
     memberName, findMember, ownerOf, inScope, outsideNames, assignPatch, initials,
     describeRule, reviewRule, tableLabel, addDays, plural,
   };

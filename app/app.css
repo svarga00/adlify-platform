@@ -3145,7 +3145,7 @@ button.tk-chip:hover { box-shadow: 0 0 0 1px currentColor; }
    sú v obale s `display: contents`, takže na počítači sú to stĺpce a na
    telefóne jeden zalomený riadok pod názvom. */
 .tk-table {
-  --tk-cols: 30px minmax(200px, 2fr) minmax(110px, .8fr) 104px 74px 108px minmax(120px, .7fr) 76px 116px;
+  --tk-cols: 30px minmax(200px, 2fr) minmax(110px, .8fr) 120px 68px 104px minmax(120px, .7fr) 72px 116px;
   padding: 0 0 4px; min-width: 0;
 }
 .tk-head, .tk-row {
@@ -3227,6 +3227,7 @@ button.tk-chip:hover { box-shadow: 0 0 0 1px currentColor; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .c-ent .link-chip { max-width: 100%; font-size: 11.5px; padding: 2px 9px 2px 7px; }
+.c-ent .link-chip.is-static { display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-dash { color: var(--border); }
 
 .c-due { display: flex; flex-direction: column; line-height: 1.3; }
@@ -3340,7 +3341,7 @@ button.tk-st.is-prog:hover { border-color: #C7D5FA; background: var(--blue-50); 
   .tk-rest > .tk-quiet { display: none; }
   .c-due { flex-direction: row; align-items: center; gap: 5px; order: -1; }
   .c-due > svg { display: block; color: var(--ink-mute); flex: none; }
-  .c-due small { display: none; }
+  .c-due small, .c-due .tk-cd { display: none; }
   .c-acts { margin-left: auto; gap: 4px; }
   .tk-act { width: 34px; height: 34px; border-color: var(--border-soft); background: #fff; }
   .tk-who-n { max-width: 140px; }
@@ -3354,13 +3355,150 @@ button.tk-st.is-prog:hover { border-color: #C7D5FA; background: var(--blue-50); 
   .tk-colleague { flex: 1 1 0; }
   .tk-colleague select { max-width: none; flex: 1; }
   .tk-me { margin-left: 0; }
-  .tk-quick { flex-wrap: wrap; padding: 0 6px 0 10px; }
-  .tk-quick input { flex: 1 1 0; font-size: 16px; padding: 12px 2px; }
-  .tk-quick-hint { order: 5; width: 100%; padding: 0 0 8px 24px; }
+  .tk-quick { flex-wrap: wrap; padding: 0 6px 6px 10px; row-gap: 0; }
+  .tk-quick input { flex: 1 1 calc(100% - 30px); font-size: 16px; padding: 12px 2px 8px; }
+  .tk-quick-hint { padding-left: 24px; margin-right: auto; }
+  .tk-quick .tip-btn { margin-left: auto; }
+  .tk-quick-hint:not(:empty) + .tip-btn { margin-left: 0; }
   .tk-search { flex: 1 1 0; max-width: none; }
   .tk-who-n { display: none; }
   .tk-who > summary { padding: 0; margin: 0; }
 }
+
+/* Hlavička stĺpcov: text vľavo, nad svojím stĺpcom. */
+.tk-head > .tk-th { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; text-align: left; }
+
+/* Tenký pruh: koľko času od založenia po termín už ubehlo. Bez blikania. */
+.tk-bar {
+  display: block; width: 72px; max-width: 100%; height: 3px; margin-top: 4px;
+  border-radius: 2px; background: var(--border-soft); overflow: hidden;
+}
+.tk-cd {
+  display: flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 11px; color: var(--ink-mute); white-space: nowrap;
+}
+.tk-cd .tk-bar { width: 22px; flex: none; margin: 0; }
+.tk-bar > i { display: block; height: 100%; border-radius: 2px; background: #B8C4DC; }
+.tk-bar.is-near > i { background: var(--brand); opacity: .7; }
+.tk-bar.is-late > i { background: var(--red); opacity: .6; }
+
+/* Výber riešiteľa: krúžky s iniciálami, nie voľne písané meno. */
+.tk-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tk-pick-i {
+  position: relative; display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%;
+  padding: 4px 11px 4px 4px; border: 1px solid var(--border); border-radius: 999px; background: #fff;
+  font-size: 13px; font-weight: 600; color: var(--ink-sub); cursor: pointer;
+  transition: border-color .12s, background .12s, color .12s;
+}
+.tk-pick-i > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-pick-i em { font-style: normal; font-weight: 500; font-size: 11px; color: var(--ink-mute); margin-left: 2px; }
+.tk-pick-i input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+.tk-pick-i:hover { border-color: #C9D6F2; color: var(--ink); }
+.tk-pick-i:has(input:checked), .tk-pick-i.on { border-color: var(--brand); background: var(--brand-50); color: var(--ink); }
+.tk-pick-i:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tk-pick-i .tk-av { width: 26px; height: 26px; font-size: 10px; }
+.tk-pick-i.is-out { border-style: dashed; }
+.tk-form-ent {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; padding: 8px 10px;
+  background: var(--field); border-radius: var(--radius); font-size: 12.5px; color: var(--ink-sub);
+}
+
+/* Detail úlohy. */
+.td-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -2px 0 14px; }
+.td-cd {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; background: var(--bg); color: var(--ink-sub); border: 1px solid var(--border-soft);
+}
+.td-cd-late { background: var(--red-50); color: var(--red); border-color: transparent; }
+.td-cd-today { background: var(--brand-50); color: var(--brand-dark); border-color: transparent; }
+.td-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.td-box {
+  min-width: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: #fff;
+}
+.td-desc, .td-hist { margin-top: 10px; }
+.td-box h4 {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 8px;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute);
+}
+.td-box h4 .tip-btn { margin-left: 2px; }
+.td-big { font-size: 20px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.td-big b, .td-big { color: var(--ink); }
+.td-big.tk-due-late { color: var(--red); }
+.td-big.tk-due-today { color: var(--brand-dark); }
+.td-big.tk-due-none { color: var(--ink-mute); font-weight: 600; }
+.td-sub { font-size: 12.5px; color: var(--ink-sub); margin-top: 2px; }
+.td-bar { width: 100%; margin-top: 10px; height: 4px; }
+.td-snz { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 10px; font-size: 12px; color: var(--ink-mute); }
+.td-pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: #fff; font-size: 12px; font-weight: 600; color: var(--ink-sub); cursor: pointer;
+}
+.td-pill:hover { border-color: var(--brand); color: var(--brand-dark); }
+.td-person { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
+.td-person .tk-av { width: 38px; height: 38px; font-size: 13px; }
+.td-person > div { min-width: 0; }
+.td-person > div > b { display: block; font-size: 14.5px; }
+.td-person > div > span { display: block; font-size: 12px; color: var(--ink-mute); overflow-wrap: anywhere; }
+.td-take { margin-bottom: 6px; }
+.td-change > summary {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--blue);
+  list-style: none; cursor: pointer;
+}
+.td-change > summary::-webkit-details-marker { display: none; }
+.td-change > summary:hover { text-decoration: underline; }
+.td-change[open] > summary { margin-bottom: 4px; }
+.td-recard { display: grid; gap: 8px; }
+.td-rec-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.td-kind { font-size: 11.5px; color: var(--ink-mute); font-weight: 600; }
+.td-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 12px; margin: 0; }
+.td-facts:empty { display: none; }
+.td-facts dt { font-size: 11px; color: var(--ink-mute); }
+.td-facts dd { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.td-p { margin: 0 0 6px; font-size: 13.5px; line-height: 1.55; color: var(--ink-sub); white-space: pre-line; }
+.td-muted { margin: 0 0 6px; font-size: 12px; color: var(--ink-mute); line-height: 1.45; }
+.td-note { display: flex; gap: 6px; margin-bottom: 10px; }
+.td-note input {
+  flex: 1; min-width: 0; padding: 8px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--field); font-size: 13.5px;
+}
+.td-note input:focus { outline: none; border-color: var(--brand); background: #fff; }
+.td-tl { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.td-tl > li { position: relative; display: flex; gap: 10px; padding: 0 0 12px; min-width: 0; }
+.td-tl > li:not(:last-child)::before {
+  content: ''; position: absolute; left: 11px; top: 24px; bottom: 2px; width: 1px; background: var(--border);
+}
+.td-tl-ico {
+  width: 23px; height: 23px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg); color: var(--ink-mute); border: 1px solid var(--border);
+}
+.td-tl > li.is-note .td-tl-ico { background: var(--blue-50); color: var(--blue); border-color: transparent; }
+.td-tl > li.is-done .td-tl-ico { background: var(--green-50); color: var(--green); border-color: transparent; }
+.td-tl p { margin: 1px 0 0; font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+.td-tl > li.is-note p { background: var(--field); padding: 6px 9px; border-radius: var(--radius); white-space: pre-line; }
+.td-tl time { font-size: 11.5px; color: var(--ink-mute); }
+.td-actions { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .td-grid { grid-template-columns: 1fr; }
+}
+
+/* Úlohy na karte človeka, zákazky, odberateľa, kandidáta. */
+.tsk-slot { margin: 14px 0; }
+.ui-modal .tsk-slot, .modal-body .tsk-slot { box-shadow: none; }
+.tsk-slot .card-title { display: flex; align-items: center; gap: 7px; }
+.tsk-mini { display: grid; }
+.tsk-mini-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 4px; min-width: 0;
+  border-top: 1px solid var(--border-soft); cursor: pointer; transition: background .12s;
+}
+.tsk-mini-row:first-child { border-top: 0; }
+.tsk-mini-row:hover { background: var(--field); }
+.tsk-mini-row .tk-check { width: 22px; height: 22px; }
+.tsk-mini-row .tk-av { width: 24px; height: 24px; font-size: 9.5px; }
+.tsk-mini-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tsk-mini-t b { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.tsk-mini-t small { font-size: 11.5px; color: var(--ink-mute); }
+.tsk-mini-t small.tk-due-late { color: var(--red); font-weight: 700; }
+.tsk-mini-t small.tk-due-today { color: var(--brand-dark); font-weight: 700; }
 
 /* Toast s tlačidlom „Vrátiť". */
 .toast.toast-has-act { display: flex; align-items: center; gap: 14px; }
