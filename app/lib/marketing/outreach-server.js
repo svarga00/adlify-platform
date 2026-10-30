@@ -22,6 +22,19 @@ const O = require('./outreach.js');
 const REPLY_FROM = ['new', 'contacted'];
 
 /**
+ * Úloha „Pripomenúť sa firme X" (nočná kontrola, kľúč outreach:…) stráca
+ * zmysel, keď firma odpísala, odhlásila sa alebo e-mail nedošiel — uzavrie sa.
+ */
+async function closeTasks(supabase, leadId, at) {
+  if (!leadId) return 0;
+  const { data } = await supabase.from('danubra_tasks').select('id,source_key,status')
+    .eq('entity_type', 'lead').eq('entity_id', leadId).in('status', ['open', 'in_progress']);
+  const ids = (data || []).filter(t => String(t.source_key || '').startsWith('outreach:')).map(t => t.id);
+  for (const id of ids) await supabase.from('danubra_tasks').update({ status: 'done', done_at: at }).eq('id', id);
+  return ids.length;
+}
+
+/**
  * Otvorenie alebo klik. Neznámy kľúč = nič (vráti null), žiadna chyba.
  * @param {Object} supabase  klient so service role
  * @param {Object} o         { token, kind: 'open'|'click', url, ip, ua, method, secret, now }
@@ -63,6 +76,7 @@ async function unsubscribe(supabase, token, { ip = null, ua = '', secret, now = 
     if (o.lead_id) await supabase.from('danubra_outreach').update({ next_followup_at: null }).eq('lead_id', o.lead_id);
     await supabase.from('danubra_outreach_events').insert({ outreach_id: o.id, lead_id: o.lead_id, type: 'unsubscribe', at,
       ip_hash: O.ipHash(ip, secret), user_agent: O.shortUa(ua) });
+    await closeTasks(supabase, o.lead_id, at);
   }
   return { email };
 }
@@ -116,6 +130,7 @@ async function onIncoming(supabase, { row = {}, id = null, parsed = {} } = {}) {
     if (!o.bounced_at) {
       await supabase.from('danubra_outreach').update({ status: 'bounced', bounced_at: at, next_followup_at: null }).eq('id', o.id);
       await supabase.from('danubra_outreach_events').insert({ outreach_id: o.id, lead_id: o.lead_id, type: 'bounce', at, mail_message_id: id });
+      await closeTasks(supabase, o.lead_id, at);
     }
     return { type: 'bounce', outreach_id: o.id };
   }
@@ -133,6 +148,7 @@ async function onIncoming(supabase, { row = {}, id = null, parsed = {} } = {}) {
   if (!o.replied_at) {
     await supabase.from('danubra_outreach').update({ replied_at: at, reply_message_id: id, next_followup_at: null }).eq('id', o.id);
     if (o.lead_id) await supabase.from('danubra_outreach').update({ next_followup_at: null }).eq('lead_id', o.lead_id);
+    await closeTasks(supabase, o.lead_id, at);
   }
   await supabase.from('danubra_outreach_events').insert({ outreach_id: o.id, lead_id: o.lead_id, type: 'reply', at, mail_message_id: id });
   if (o.lead_id) {
@@ -141,4 +157,4 @@ async function onIncoming(supabase, { row = {}, id = null, parsed = {} } = {}) {
   return { type: 'reply', outreach_id: o.id };
 }
 
-module.exports = { recordHit, unsubscribe, onIncoming, dsnText, headerMap };
+module.exports = { recordHit, unsubscribe, onIncoming, closeTasks, dsnText, headerMap };

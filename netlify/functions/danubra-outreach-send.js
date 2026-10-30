@@ -23,7 +23,7 @@
 // spáruje odpoveď firmy.
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MAIL_SECRET (heslá schránok),
-//      URL (adresa appky od Netlify; prípadne DANUBRA_PUBLIC_URL),
+//      URL (adresa appky od Netlify; prípadne HUB_PUBLIC_URL),
 //      TRACK_SECRET alebo IP_HASH_SECRET (podpis odkazov; inak MAIL_SECRET
 //      alebo service-role kľúč)
 // ============================================================================

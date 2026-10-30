@@ -23,7 +23,7 @@ console.log('\nNASTAVENIA');
 
 console.log('\nŠABLÓNA');
 {
-  const lead = { name: 'Müller Bau GmbH', city: 'Ulm', trade: 'Trockenbau', contact_name: 'Herr Müller' };
+  const lead = { name: 'Müller Bau GmbH', city: 'Ulm', trade: 'Trockenbau', contact_person: 'Herr Müller' };
   const v = O.vars(lead, { supplier: { name: 'Partner und Service s. r. o.' }, similarName: 'GU Ulm', portfolio: 'Wir haben 40 Leute.' });
   eq([v.firma, v.mesto, v.konatel, v.remeslo, v.podobna, v.oslovenie], ['Müller Bau GmbH', 'Ulm', 'Herr Müller', 'Trockenbau', 'GU Ulm', 'Guten Tag Herr Müller,'],
     'premenné {firma} {mesto} {konatel} {remeslo} {podobna} a oslovenie');

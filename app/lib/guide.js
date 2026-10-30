@@ -959,6 +959,68 @@
       ],
     },
 
+    // ── 8b ───────────────────────────────────────────────────────────────────
+    {
+      key: 'oslovovanie',
+      title: 'Marketing: oslovovanie firiem e-mailom',
+      lead: 'Nové firmy oslovujeme po jednom, osobným e-mailom. Appka eviduje, komu čo išlo, kto e-mail otvoril, klikol, '
+        + 'odpovedal — a komu sa treba pripomenúť.',
+      steps: [
+        {
+          title: 'Osloviť firmu',
+          what: 'Jeden osobný e-mail jednej firme z Vašej schránky. Text je zo šablóny alebo ho navrhne AI z profilu firmy — po nemecky, vykaním (Sie).',
+          how: [
+            'V Marketing → Nové firmy kliknite na firmu a dole „Osloviť" (alebo ikonu obálky v riadku zoznamu).',
+            'Vyberte schránku a jazyk. Text sa vloží zo šablóny; „Navrhnúť osobný text (AI)" napíše návrh podľa toho, čo firma robí.',
+            'Text si prečítajte a upravte. V náhľade vidíte celý e-mail aj s pätičkou (Impressum a odkaz na odhlásenie).',
+            'Kliknite „Odoslať". Firma dostane stav Oslovená a pri firme pribudne časová os.',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'Červený rámik v okne povie, prečo e-mail nemôže odísť: firma nemá e-mail, odhlásila sa, alebo je dnes vyčerpaný denný limit.',
+          example: 'Müller Bau GmbH z Ulmu robí Trockenbau. AI navrhne krátky e-mail, či nepotrebujú ďalších sadrokartonárov, a otázku na krátky telefonát.',
+        },
+        {
+          title: 'Čo znamenajú stavy pri e-maile',
+          what: 'Pri každom e-maile je časová os: Odoslané, Otvoril, Klikol, Odpovedal, Nedoručené, Odhlásil sa. V zozname firiem to ukazuje stĺpec „Oslovenie".',
+          how: [
+            'Otvoril = poštový program firmy načítal obrázok v e-maile. „Otvorenie (možno automaticky)" = načítal ho program (Apple Mail, Gmail, skener), nie nutne človek.',
+            'Klikol = niekto otvoril odkaz z e-mailu. Klik hneď po doručení appka označí ako možno automatický (bezpečnostný skener).',
+            'Odpovedal = odpoveď prišla do schránky a spárovala sa sama. „Otvoriť e-mail" ju ukáže v Správach. Firma dostane stav Odpísala.',
+            'Nedoručené = server firmy e-mail vrátil. Overte adresu na webe firmy a opravte ju.',
+            'Odhlásil sa = firma klikla na odhlásenie. Odvtedy jej appka nepošle žiadny e-mail, ani kampaň.',
+          ],
+          open: open('outreach', 'Otvoriť Oslovovanie'),
+          tip: 'Sledovanie otvorenia nie je 100 %: niektoré programy obrázky načítajú samy, iné ich blokujú. Rozhoduje odpoveď firmy.',
+          example: null,
+        },
+        {
+          title: 'Pripomenúť sa',
+          what: 'Keď firma do termínu (predvolene 5 dní) neodpíše, nočná kontrola založí úlohu „Pripomenúť sa firme …". Pripomenutie ide v tom istom vlákne.',
+          how: [
+            'V Marketing → Oslovovanie je záložka „Dnes na rade" so zoznamom firiem na pripomenutie a nových firiem s e-mailom.',
+            'Pri firme kliknite „Pripomenúť sa". Predmet je „Re: …" a text je krátka nadväzujúca správa.',
+            'Po odoslaní sa úloha uzavrie sama. Keď firma odpíše, ďalšie pripomenutie sa zruší.',
+          ],
+          open: open('outreach', 'Otvoriť Oslovovanie'),
+          tip: 'Jednej firme odídu najviac tri e-maily (nastaviteľné). Potom je lepší telefonát.',
+          example: null,
+        },
+        {
+          title: 'Pravidlá a nastavenia oslovovania',
+          what: 'V Nemecku je nevyžiadaný obchodný e-mail rizikový (§ 7 UWG). Appka preto posiela len jednotlivo, s Impressum a odhlásením v každom e-maile.',
+          how: [
+            'Oslovujte firmy, pri ktorých sa dá predpokladať záujem — tie, ktoré robia to, na čo dodávame ľudí. Pri pochybnosti sa poraďte s právnikom.',
+            'Odhlásený sa znova neosloví nikdy. Denný limit chráni schránku pred spamovými filtrami.',
+            'V Oslovovanie → Nastavenia administrátor zapína sledovanie otvorení a klikov, mení denný limit, počet dní do pripomenutia a vetu o našej ponuke.',
+            'V Oslovovanie → Šablóny sú texty prvého e-mailu a pripomenutia po nemecky a po anglicky.',
+          ],
+          open: open('outreach', 'Otvoriť Oslovovanie'),
+          tip: 'Bez názvu firmy, adresy a IČ DPH (alebo IČO) v Nastaveniach e-mail neodíde — Impressum je v Nemecku povinné.',
+          example: null,
+        },
+      ],
+    },
+
     // ── 9 ────────────────────────────────────────────────────────────────────
     {
       key: 'admin',

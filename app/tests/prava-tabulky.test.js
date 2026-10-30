@@ -167,6 +167,8 @@ const FILE_MODULES = {
   'js/modules/leads.js': ['marketing'],
   'js/modules/mail.js': ['messages'],
   'js/modules/marketing.js': ['marketing'],
+  // Oslovovanie (078): šablóny oslovenia a nastavenia mení len admin (GATED nižšie).
+  'js/modules/outreach.js': ['marketing'],
   'js/modules/members.js': ['settings'],
   'js/modules/messages.js': ['messages'],
   'js/modules/money.js': ['bank'],
@@ -199,7 +201,9 @@ const FILE_MODULES = {
 // Tabuľky, do ktorých zapisuje len admin už podľa skorších pravidiel (030).
 const ADMIN_TABLES = new Set(['danubra_settings', 'danubra_members']);
 // Zápis, ktorý appka sama pustí len s iným právom (overené nižšie).
-const GATED = { 'js/modules/workers.js': { danubra_advances: 'costs' } };
+const GATED = { 'js/modules/workers.js': { danubra_advances: 'costs' },
+  // Šablóny oslovenia upraví len administrátor (Outreach.templateForm → Danubra.isAdmin).
+  'js/modules/outreach.js': { danubra_message_templates: 'settings' } };
 
 function jsFiles(dir) {
   const out = [];

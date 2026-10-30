@@ -94,7 +94,7 @@
   function vars(lead = {}, ctx = {}) {
     const s = ctx.supplier || {};
     const lang = ctx.lang === 'en' ? 'en' : 'de';
-    const konatel = clean(lead.contact_name || lead.konatel || lead.contact || '');
+    const konatel = clean(lead.contact_person || lead.contact_name || lead.konatel || '');
     const oslovenie = lang === 'en'
       ? (konatel ? `Dear ${konatel},` : 'Dear Sir or Madam,')
       : (konatel ? `Guten Tag ${konatel},` : 'Sehr geehrte Damen und Herren,');
@@ -305,7 +305,7 @@
   /** Verejná adresa appky pre odkazy v e-mailoch (produkčná, nie náhľad nasadenia). */
   function siteUrl(env) {
     const e = env || (typeof process !== 'undefined' ? process.env : {}) || {};
-    return String(e.DANUBRA_PUBLIC_URL || e.URL || 'https://adlify-app.netlify.app').replace(/\/+$/, '');
+    return String(e.HUB_PUBLIC_URL || e.URL || 'https://adlify-app.netlify.app').replace(/\/+$/, '');
   }
 
   const TRACK = '/.netlify/functions/danubra-track';

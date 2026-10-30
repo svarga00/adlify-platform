@@ -71,6 +71,9 @@
     // Poznámka, nie otázka. `help` otvára vysvetlivku, `info` len označuje vetu,
     // ktorá niečo dopovedá — keby to bola tá istá ikona, klikalo by sa na ňu.
     info:      '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6h.01"/>',
+    // oslovovanie: otvoril, klikol
+    eye:       '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    link:      '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   };
 
   /** Vráti SVG ikonu. @param {string} name @param {number} size */

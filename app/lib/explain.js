@@ -297,7 +297,25 @@
         'Poznámky sa len pridávajú, staré sa neprepisujú.',
       ],
       why: ['Noví odberatelia sa hľadajú podľa tých, s ktorými to funguje — nie naslepo.'],
-      links: [['campaigns', 'E-maily'], ['partners', 'Odberatelia']],
+      links: [['outreach', 'Oslovovanie'], ['campaigns', 'E-maily'], ['partners', 'Odberatelia']],
+    },
+    'screen.outreach': {
+      title: 'Oslovovanie',
+      lead: 'Firmy oslovujeme po jednom, osobným e-mailom — a appka eviduje, komu čo išlo a čo sa s tým stalo.',
+      what: [
+        '„Osloviť" pri firme otvorí okno: schránka, komu, predmet a text zo šablóny alebo osobný návrh od AI (po nemecky v Sie-forme alebo po anglicky), náhľad a upozornenia.',
+        'Stavy pri e-maile: Odoslané → Otvoril (alebo „Otvorenie (možno automaticky)") → Klikol → Odpovedal. Nedoručené = server firmy e-mail vrátil. Odhlásil sa = klikol na odhlásenie a už ho neoslovíme.',
+        '„Možno automaticky": obrázky v e-maile načítal program (Apple Mail, Gmail, bezpečnostný skener), nie nutne človek. Sledovanie otvorenia preto nie je 100 % — rozhoduje odpoveď.',
+        'Odpoveď a nedoručenka sa spárujú samy, keď prídu do schránky, z ktorej e-mail odišiel (Správy sa sťahujú každých 10 minút). Firma potom dostane stav Odpísala.',
+      ],
+      how: [
+        'Keď firma do termínu neodpíše (predvolene 5 dní), vznikne úloha „Pripomenúť sa firme …". „Pripomenúť sa" pošle krátku správu v tom istom vlákne (Re: …).',
+        'Odhlásený sa znova neosloví nikdy. Denný limit (predvolene 30) chráni schránku pred spamovými filtrami.',
+        'V každom e-maile je pätička s Impressum (názov, adresa, IČ DPH z Nastavení) a odkaz na odhlásenie. Bez Impressum e-mail neodíde.',
+        'Sledovanie otvorení a klikov, denný limit, počet pripomenutí a veta o našej ponuke sa nastavujú v záložke Nastavenia (mení administrátor).',
+      ],
+      why: ['V Nemecku je nevyžiadaný obchodný e-mail rizikový (§ 7 UWG). Oslovujte po jednom, firmy, pri ktorých sa dá predpokladať záujem, vecne a podľa rady právnika.'],
+      links: [['leads', 'Nové firmy'], ['mail', 'Správy'], ['tasks', 'Úlohy']],
     },
     'screen.campaigns': {
       title: 'E-maily firmám',

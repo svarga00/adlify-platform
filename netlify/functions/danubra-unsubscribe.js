@@ -37,7 +37,9 @@ exports.handler = async (event) => {
   const t = String((event.queryStringParameters || {}).t || '').trim();
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(t)) return page('Link ungültig', 'Dieser Abmeldelink ist ungültig.');
   const { data: s } = await supabase.from('danubra_campaign_sends').select('id,email,lead_id').eq('token', t).maybeSingle();
-  if (!s && O.tokenOk(t)) {
+  const { data: o } = !s && O.tokenOk(t)
+    ? await supabase.from('danubra_outreach').select('id').eq('token', t).maybeSingle() : { data: null };
+  if (o) {
     // E-mail oslovenia (078). Na otvorenie odkazu (GET) sa len opýta — bezpečnostné
     // skenery pošty odkazy otvárajú samy a firmu by tak odhlásili bez jej vedomia.
     // Odhlási tlačidlo (POST) alebo „jedným klikom" z poštového programu (POST).

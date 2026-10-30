@@ -144,12 +144,14 @@ const get = (q, ua = HUMAN, ip = '1.2.3.4', method = 'GET') => track.handler({ h
     const r = await unsub({ httpMethod: 'GET', queryStringParameters: { t: 'abcdefabcdefabcdef12' }, headers: {} });
     ok(/Abmeldung bestätigt/.test(r.body) && sb.db.danubra_email_optout[0].email === 'x@y.de', 'odhlásenie z kampane funguje ako doteraz');
     const n = await unsub({ httpMethod: 'POST', queryStringParameters: { t: 'e'.repeat(32) }, headers: {} });
-    ok(/Link ungültig/.test(n.body), 'neznámy kľúč = neplatný odkaz');
+    const g = await unsub({ httpMethod: 'GET', queryStringParameters: { t: 'e'.repeat(32) }, headers: {} });
+    ok(/Link ungültig/.test(n.body) && /Link ungültig/.test(g.body), 'neznámy kľúč = neplatný odkaz (bez otázky na odhlásenie)');
   }
 
   console.log('\nOdpoveď a nedoručenie (synchronizácia pošty)');
   {
-    const sb = reset();
+    const sb = reset({ danubra_tasks: [{ id: 't1', source_key: 'outreach:o1:1', entity_type: 'lead', entity_id: 'l1', status: 'open' },
+      { id: 't2', source_key: null, entity_type: 'lead', entity_id: 'l1', status: 'open' }] });
     const row = { direction: 'in', from_email: 'hans@mueller-bau.de', subject: 'Re: Fachkräfte', in_reply_to: '<abc.1@punds.eu>',
       refs: '<abc.1@punds.eu>', sent_at: '2026-10-02T09:00:00Z', lead_id: null };
     const r = await OS.onIncoming(sb, { row, id: 'm9', parsed: { headers: new Map() } });
@@ -159,6 +161,7 @@ const get = (q, ua = HUMAN, ip = '1.2.3.4', method = 'GET') => track.handler({ h
     ok(sb.db.danubra_leads[0].status === 'replied', 'firma: Odpísala');
     ok(sb.db.danubra_outreach_events.some(e => e.type === 'reply' && e.mail_message_id === 'm9'), 'udalosť s odkazom na e-mail v Správach');
     ok(sb.writes('danubra_mail_messages', 'update').length === 1, 'e-mail z inej adresy firmy sa priradí k firme');
+    ok(sb.db.danubra_tasks[0].status === 'done' && sb.db.danubra_tasks[1].status === 'open', 'úloha „Pripomenúť sa" sa uzavrie, ručná úloha zostane');
   }
   {
     const sb = reset({ danubra_leads: [{ id: 'l1', name: 'X', status: 'interested' }] });

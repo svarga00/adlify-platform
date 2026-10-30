@@ -5168,3 +5168,17 @@ label.mf-row:not(.is-off):hover { border-color: var(--brand-line); background: v
   .dl-pop, .dl-panel { animation: none; }
   .dl-sw, .dl-sw::after, .dl-row { transition: none; }
 }
+
+/* ── Oslovovanie: časová os e-mailov firme (js/modules/outreach.js) ───────── */
+.otl { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.otl-mail { border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 12px; background: var(--card); }
+.otl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; }
+.otl-subj { flex: 1 1 160px; min-width: 0; color: var(--ink-sub); overflow-wrap: anywhere; }
+.otl-meta { font-size: 11.5px; color: var(--ink-mute); margin: 2px 0 6px; }
+.otl-list { list-style: none; margin: 0; padding: 0 0 0 4px; border-left: 2px solid var(--border-soft); }
+.otl-ev { display: flex; align-items: flex-start; gap: 7px; font-size: 12.5px; padding: 3px 0 3px 8px; overflow-wrap: anywhere; }
+.otl-ico { flex: none; display: inline-flex; margin-top: 2px; }
+.otl-stats { width: 100%; border-collapse: collapse; font-size: 13px; }
+.otl-stats th, .otl-stats td { padding: 6px 8px; border-bottom: 1px solid var(--border-soft); text-align: left; }
+.otl-stats .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.otl-stats small { color: var(--ink-mute); }

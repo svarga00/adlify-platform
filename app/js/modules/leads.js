@@ -58,6 +58,8 @@
         <button class="btn btn-outline btn-sm" onclick="Lead.form()">${Icon('plus', 14)} Pridať ručne</button>
         <button class="btn btn-primary btn-sm" onclick="Lead.findForm()">${Icon('search', 14)} Hľadať podobné firmy</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
+      // Oslovenie (stĺpec a filtre) — js/modules/outreach.js.
+      if (window.Outreach && !Outreach.loaded) await Outreach.ensure();
       const sEmailom = this.rows.filter(r => r.status === 'new' && LL().emailOk(r.email));
       const bezi = this.searches.find(s => ['pending', 'running'].includes(s.status));
       const posledne = this.searches[0];
@@ -112,7 +114,7 @@
     detail(id) {
       const r = this.rows.find(x => x.id === id);
       if (!r) return;
-      UI.modal(r.name, `${this.card(r)}
+      UI.modal(r.name, `${this.card(r)}${window.Outreach ? Outreach.timelineHtml(r.id) : ''}
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
     },
 
@@ -135,7 +137,8 @@
         rowClick: (r) => Lead.detail(r.id),
         rowClass: (r) => (['rejected', 'unsubscribed'].includes(r.status) ? 'is-muted' : ''),
         rowLabel: (r) => `Firma ${r.name}`,
-        rowActions: [{ ico: 'chevron', label: 'Otvoriť firmu', run: (r) => Lead.detail(r.id) }],
+        rowActions: [...(window.Outreach ? [Outreach.rowAction()] : []),
+          { ico: 'chevron', label: 'Otvoriť firmu', run: (r) => Lead.detail(r.id) }],
         columns: [
           { key: 'firma', label: 'Firma', width: 'minmax(180px, 2fr)', mobile: 'title',
             render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([[r.postal_code, r.city].filter(Boolean).join(' '),
@@ -158,7 +161,8 @@
             render: (r) => `<span class="dl-two"><span>${SOURCE[r.source] || r.source || ''}</span>${
               r.seed_search_id ? `<small class="dl-note is-mute">${UI.esc(this.searchLabel(r.seed_search_id))}</small>` : ''}</span>`,
             sortValue: (r) => SOURCE[r.source] || r.source },
-          // oslovenie – stĺpce dopĺňa outreach
+          // Oslovenie: odoslané / otvorené / klik / odpoveď / nedoručené + dátum (js/modules/outreach.js).
+          ...(window.Outreach ? [Outreach.column()] : []),
         ],
         sort: { key: 'skore', dir: -1 },
         sorts: [{ key: 'pridana', label: 'Pridaná', value: (r) => r.created_at, dir: -1 }],
@@ -177,6 +181,8 @@
             options: Object.entries(SOURCE).map(([k, l]) => [k, l]) },
           { key: 'skore', type: 'range-number', label: 'Skóre od', value: 'score', more: true,
             hint: 'Napr. od 70 — len firmy, ktoré sa na zadané firmy naozaj podobajú.' },
+          // Oslovené, Otvoril, Klikol, Odpovedal, Nedoručené, Čaká na pripomenutie (js/modules/outreach.js).
+          ...(window.Outreach ? Outreach.filters() : []),
         ],
         empty: { ico: 'search', title: 'Zatiaľ žiadne firmy', sub: 'Kliknite na „Hľadať podobné firmy" — appka ich nájde podľa webov firiem, ktoré zadáte, alebo podľa Vašich odberateľov.',
           cta: `<button class="btn btn-primary" onclick="Lead.findForm()">${Icon('search')} Hľadať podobné firmy</button>` },

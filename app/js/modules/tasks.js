@@ -30,6 +30,8 @@
     contract: ['Zmluva', 'contracts'], quote: ['Ponuka', 'quotes'],
     candidate: ['Kandidát', 'candidates'], crew: ['Partia', 'crews'],
     bill: ['Prijatá faktúra', 'costs'],
+    // Firma z marketingu — úloha „Pripomenúť sa firme X" z nočnej kontroly (078).
+    lead: ['Firma', 'leads'],
   };
   // Filter stavu. „Na riešenie" je predvolený: otvorené a rozpracované,
   // ktoré nie sú odložené. Zrušené sa ukážu len tu, nech zoznam nezahlcujú.
