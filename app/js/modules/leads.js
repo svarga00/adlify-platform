@@ -43,12 +43,20 @@
     /** Je na serveri zapnutý Outscraper? Len áno/nie a strop záznamov — kľúč nikdy. */
     async loadStatus() {
       if (this.osStatus) return this.osStatus;
-      try {
-        const r = await fetch('/.netlify/functions/danubra-email-status');
-        const j = r.ok ? await r.json() : {};
-        this.osStatus = { on: j.outscraper === true, max: Number(j.outscraper_max) || OX().DEFAULT_MAX_RECORDS };
-      } catch (e) { this.osStatus = { on: false, max: OX().DEFAULT_MAX_RECORDS, failed: true }; }
-      return this.osStatus;
+      if (!this._osLoading) {
+        this._osLoading = (async () => {
+          let st;
+          try {
+            const r = await fetch('/.netlify/functions/danubra-email-status');
+            const j = r.ok ? await r.json() : {};
+            st = { on: j.outscraper === true, max: Number(j.outscraper_max) || OX().DEFAULT_MAX_RECORDS };
+          } catch (e) { st = { on: false, max: OX().DEFAULT_MAX_RECORDS, failed: true }; }
+          if (!this.osStatus) this.osStatus = st;
+          this._osLoading = null;
+          return this.osStatus;
+        })();
+      }
+      return this._osLoading;
     },
 
     async load() {
