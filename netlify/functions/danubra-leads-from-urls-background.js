@@ -115,6 +115,51 @@ const LEADS = {
   },
 };
 
+/** Outscraper: dotazy na Google Mapy z profilov zadaných firiem. */
+const QUERIES = {
+  name: 'report_maps_queries',
+  description: 'Odovzdaj dotazy na Google Mapy. Zavolaj raz, na konci.',
+  strict: true,
+  input_schema: {
+    type: 'object', additionalProperties: false, required: ['categories', 'locations', 'queries', 'avoid'],
+    properties: {
+      categories: { type: 'array', items: { type: 'string' },
+        description: 'Nemecké kategórie firiem tak, ako sú na Google Mapách (napr. Trockenbauunternehmen, Bauunternehmen, Fliesenleger, Malerbetrieb, Generalunternehmer), 2–5' },
+      locations: { type: 'array', items: { type: 'string' },
+        description: 'Mestá, PSČ alebo regióny v Nemecku (napr. München, 80331, Augsburg), 1–5' },
+      queries: { type: 'array', items: { type: 'string' },
+        description: 'Hotové dotazy v tvare „Kategorie, Ort" (napr. „Trockenbau, München"), najviac 10, od najsľubnejšieho' },
+      avoid: { type: 'array', items: { type: 'string' },
+        description: 'Druhy firiem, ktoré nechceme (napr. Baustoffhandel, Baumarkt, Personalvermittlung), 0–5' },
+    },
+  },
+};
+
+/** Outscraper: skóre podobnosti nájdených firiem — jedno volanie na dávku. */
+const SCORES = {
+  name: 'report_scores',
+  description: 'Odovzdaj skóre každej firmy zo zoznamu. Zavolaj raz, na konci, so všetkými firmami.',
+  strict: true,
+  input_schema: {
+    type: 'object', additionalProperties: false, required: ['scores'],
+    properties: {
+      scores: {
+        type: 'array',
+        items: {
+          type: 'object', additionalProperties: false, required: ['id', 'score', 'why', 'similar_to_url', 'trade'],
+          properties: {
+            id: { type: 'string', description: 'id firmy presne zo zoznamu (f1, f2…)' },
+            score: { type: 'integer', description: 'Podobnosť so zadanými firmami 0–100; obchod, agentúra, portál alebo iný odbor = do 20' },
+            why: nullStr('Jedna veta po slovensky: prečo sa podobá (alebo nepodobá) a prečo by mohla potrebovať naše partie'),
+            similar_to_url: nullStr('Adresa zadanej firmy, ktorej sa najviac podobá — presne zo zadania'),
+            trade: nullStr('Čím sa firma zaoberá, po slovensky, krátko (napr. suchá výstavba)'),
+          },
+        },
+      },
+    },
+  },
+};
+
 // ── Sieť: stiahnutie stránky bez SSRF ───────────────────────────────────────
 /**
  * DNS, ktorý odmietne lokálne a súkromné adresy. Pripojenie ide presne na
