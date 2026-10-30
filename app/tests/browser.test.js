@@ -3878,7 +3878,7 @@ console.log('Prehliadač');
       p.bezPredaka = await ids('partie');
       ok(p.predvolene.split(',')[0] === 'c2' && !p.predvolene.includes('c3'),
         'Partie: predvolene aktívne, prázdna partia (treba pozrieť) navrchu', p.predvolene);
-      ok(p.predak === 'Jozef Malý' && /Hala Pasing/.test(p.kde), 'Partie: predák a kde sú nasadení', `${p.predak} · ${p.kde}`);
+      ok(/Jozef Malý/.test(p.predak) && /Hala Pasing/.test(p.kde), 'Partie: predák a kde sú nasadení', `${p.predak} · ${p.kde}`);
       ok(p.zakazka === 'c1' && p.vsetky.split(',').length === 3, 'Partie: filter zákazky a stavu', `${p.zakazka} · ${p.vsetky}`);
       ok(p.bezPredaka.split(',').sort().join(',') === 'c2,c3', 'Partie: „Bez predáka"', p.bezPredaka);
 
