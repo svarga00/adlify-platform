@@ -135,7 +135,8 @@ if (D) {
     groups.every(g => html.includes(`<span>${g}</span>`)));
   t('a nie podľa agend', !html.includes('Spoločné'));
   // Každá viditeľná obrazovka musí byť v menu práve raz.
-  const dupes = D.visibleNav().map(n => n[1])
+  // Názov je ten istý ako v ľavom menu (itemLabelOf) — jedno meno všade.
+  const dupes = D.visibleNav().map(n => D.itemLabelOf(n[0]))
     .filter(label => (html.split(`<b>${label}</b>`).length - 1) !== 1);
   t(`každá obrazovka je v mega menu práve raz${dupes.length ? ' — problém: ' + dupes.join(', ') : ''}`,
     !dupes.length);
