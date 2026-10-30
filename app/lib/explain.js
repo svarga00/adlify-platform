@@ -285,11 +285,14 @@
       title: 'Nové firmy',
       lead: 'Nemecké firmy, ktoré ešte nie sú odberateľmi — podobné tým, s ktorými už robíme.',
       what: [
-        '„Hľadať podobné firmy": na mape (OpenStreetMap, zadarmo) okolo miest Vašich odberateľov, alebo cez AI na webe.',
+        '„Hľadať podobné firmy": podľa webov firiem, ktoré zadáte (3 až 10), alebo podľa Vašich odberateľov — na mape (OpenStreetMap, zadarmo) alebo cez AI na webe.',
         'AI vezme e-mail len z Impressum/Kontaktu firmy. Keď tam nie je, nechá ho prázdny — nevymýšľa.',
+        'Pri hľadaní podľa webov appka stiahne Impressum každej nájdenej firmy a sama z neho vezme e-mail, telefón, adresu, USt-IdNr a konateľa.',
       ],
       how: [
-        'Firma, ktorú už máte (medzi odberateľmi alebo tu), sa neuloží druhýkrát — aj keď sa píše trochu inak.',
+        'Firma, ktorú už máte (medzi odberateľmi alebo tu), sa neuloží druhýkrát — aj keď sa píše trochu inak. Pri hľadaní podľa webov sa porovnáva aj doména webu a vynechajú sa firmy, ktoré sa odhlásili z e-mailov.',
+        'Skóre 0–100 je odhad AI, ako veľmi sa firma podobá na zadané firmy. Filter „Skóre od" v Ďalších filtroch ukáže len tie najpodobnejšie.',
+        'E-mail „z Impressum" appka našla na stránke firmy sama. „Neoverený" našla AI, ale web firmy sa nedal stiahnuť.',
         'Stav: Nová → Oslovená (po e-maile sa nastaví sám) → Odpísala → Má záujem → „Urobiť odberateľa".',
         'Poznámky sa len pridávajú, staré sa neprepisujú.',
       ],

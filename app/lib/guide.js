@@ -942,6 +942,20 @@
           tip: null,
           example: null,
         },
+        {
+          title: 'Nové firmy podľa webov',
+          what: 'Zadáte weby 3 až 10 nemeckých firiem, aké chcete. AI zistí, čo robia, nájde podobné firmy a appka z ich Impressum vezme e-mail, telefón, adresu, USt-IdNr a konateľa.',
+          how: [
+            'V menu Marketing → Nové firmy kliknite „Hľadať podobné firmy". Prvá voľba je „Podľa webov firiem".',
+            'Do poľa napíšte weby, jeden na riadok (stačí firma.de). Pod poľom vidíte, ktoré domény appka rozpoznala.',
+            'Voliteľne vyplňte „Región (nepovinné)", „Koľko firiem" a „Poznámka (nepovinné)". Kliknite „Hľadať".',
+            'Hľadá sa na pozadí 3 až 10 minút. Keď skončí, kliknite „Ukázať nájdené" — zoznam sa vyfiltruje na toto hľadanie.',
+            'Klik na firmu otvorí jej kartu: skóre, prečo, e-mail s označením „z Impressum", konateľ. Tam meníte stav a pridávate poznámky.',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'E-mail označený „neoverený" našla AI, ale web firmy sa nedal stiahnuť. Pred oslovením si ho pozrite na ich webe.',
+          example: 'Zadáte weby dvoch firiem na suchú výstavbu z Bavorska a do poznámky „nad 20 zamestnancov" — v zozname pribudnú podobné firmy so skóre.',
+        },
       ],
     },
 

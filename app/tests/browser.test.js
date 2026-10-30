@@ -4603,7 +4603,33 @@ console.log('Prehliadač');
         Danubra.route = 'leads'; Lead.loaded = false;
         await Danubra.renderRoute();
         const res = { menu: [...document.querySelectorAll('#sidebar-nav .nav-item .nav-text')].map(x => x.textContent.trim()),
-          karty: [...document.querySelectorAll('#view .acc-name')].map(x => x.textContent.trim()) };
+          karty: [...document.querySelectorAll('#view .dl-title b')].map(x => x.textContent.trim()) };
+        // Hľadanie podľa webov firiem: prvá voľba v okne.
+        Lead.findForm();
+        res.prvaVolba = (document.querySelector('[data-fmode].active') || {}).textContent;
+        const ta = document.querySelector('#find-urls [name=urls]');
+        ta.value = 'https://www.huber-trockenbau.de/leistungen\nhuber-trockenbau.de\nschmidt-ausbau.de\nhttp://localhost/\nweber-bau.de';
+        ta.dispatchEvent(new Event('input'));
+        res.domeny = [...document.querySelectorAll('#find-urls-out .link-chip span')].map(x => x.textContent);
+        res.nahlad = document.getElementById('find-urls-out').textContent.replace(/\s+/g, ' ');
+        document.querySelector('#find-urls [name=u_count]').value = '30';
+        document.querySelector('#find-urls [name=u_note]').value = 'len suchá výstavba';
+        await Lead.searchUrls();
+        const hl = zapis.find(z => z.t === 'lead_searches');
+        res.hladanie = hl ? [hl.row.kind, hl.row.params.urls.length, hl.row.params.count, hl.row.params.note] : null;
+        const fv = volania.find(v => v.url.includes('danubra-leads-from-urls-background'));
+        res.funkciaWeby = fv ? fv.auth : null;
+        res.bezi = document.querySelector('#view').textContent.includes('Hľadám firmy podobné zadaným webom');
+        // Firma z hľadania podľa webov: skóre, e-mail z Impressum, konateľ, filter Hľadanie.
+        Lead.rows.push({ id: 'l5', name: 'Maier Innenausbau GmbH', city: 'Augsburg', email: 'info@maier.de', status: 'new', source: 'urls',
+          score: 91, contact_person: 'Thomas Maier', vat_id: 'DE811222333', seed_search_id: 'n1',
+          profile: { email_source: 'impressum', similar_to_url: 'https://www.huber-trockenbau.de/' } });
+        await Danubra.renderRoute();
+        res.skore = [...document.querySelectorAll('#view .dl-row')].map(r => r.textContent.replace(/\s+/g, ' ')).find(t => t.includes('Maier')) || '';
+        Lead.detail('l5');
+        res.detail = (document.querySelector('.modal') || document.body).textContent.replace(/\s+/g, ' ');
+        UI.closeModal();
+        Lead._findMode = 'partners';
         Lead.findForm();
         const sp = window.setTimeout;
         window.setTimeout = (f, ms) => sp(f, Math.min(ms || 0, 5));
@@ -4630,6 +4656,15 @@ console.log('Prehliadač');
       });
       ok(out.menu.includes('Marketing') && out.menu.includes('Fakturácia'), 'v menu je Marketing aj Fakturácia', out.menu.join(', '));
       ok(out.karty.includes('Fliesen Huber'), 'Nové firmy ukazujú uložené firmy', out.karty.join(', '));
+      ok(out.prvaVolba === 'Podľa webov firiem', 'prvá voľba v hľadaní je „Podľa webov firiem"', out.prvaVolba);
+      ok(JSON.stringify(out.domeny) === '["huber-trockenbau.de","schmidt-ausbau.de","weber-bau.de"]', 'rozpoznané domény bez duplicít', JSON.stringify(out.domeny));
+      ok(/dvakrát/.test(out.nahlad) && /localhost/.test(out.nahlad), 'ukážka povie o duplicite aj o nepoužiteľnej adrese', out.nahlad);
+      ok(JSON.stringify(out.hladanie) === '["urls",3,30,"len suchá výstavba"]', 'hľadanie sa založí s adresami, počtom a poznámkou', JSON.stringify(out.hladanie));
+      ok(out.funkciaWeby === 'Bearer jwt-123', 'a zavolá server s prihlásením', String(out.funkciaWeby));
+      ok(out.bezi, 'kým beží, obrazovka to povie');
+      ok(/91/.test(out.skore) && /z Impressum/.test(out.skore) && /Thomas Maier|podľa webov/.test(out.skore), 'v zozname je skóre a e-mail z Impressum', out.skore);
+      ok(/konateľ Thomas Maier/.test(out.detail) && /DE811222333/.test(out.detail) && /ako huber-trockenbau\.de/.test(out.detail),
+        'karta firmy ukáže konateľa, USt-IdNr a ktorej firme sa podobá', out.detail.slice(0, 300));
       ok(JSON.stringify(out.najdene) === '["Müller Bau GmbH"]', 'mapa nájde firmy pri meste odberateľa, už uloženú nie', JSON.stringify(out.najdene));
       ok(JSON.stringify(out.ulozene) === '[["Müller Bau GmbH","osm","info@mueller-bau.de"]]', 'vybraná firma sa uloží aj s e-mailom', JSON.stringify(out.ulozene));
       ok(out.smtp, 'E-maily ukážu, z akej adresy sa posiela');
