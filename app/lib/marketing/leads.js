@@ -112,7 +112,7 @@
 
   /**
    * Komu sa smie poslať: má platný e-mail, neodhlásil sa, nie je odmietnutý,
-   * a nikto nie je dvakrát (tá istá adresa pri dvoch firmách).
+   * nie je natrvalo zatvorený (Google Mapy, 079) a nikto nie je dvakrát (tá istá adresa pri dvoch firmách).
    */
   function recipients(list, optouts = []) {
     const von = new Set((optouts || []).map(o => String(o.email || o).toLowerCase()));
@@ -121,7 +121,8 @@
     for (const r of list || []) {
       const e = String(r.email || '').trim().toLowerCase();
       const why = !emailOk(e) ? 'bez e-mailu' : von.has(e) ? 'odhlásil sa'
-        : ['rejected', 'unsubscribed'].includes(r.status) ? 'nechce' : videne.has(e) ? 'rovnaký e-mail dvakrát' : null;
+        : ['rejected', 'unsubscribed'].includes(r.status) ? 'nechce' : r.closed_at ? 'firma je zatvorená'
+        : videne.has(e) ? 'rovnaký e-mail dvakrát' : null;
       if (why) { skip.push({ ...r, why }); continue; }
       videne.add(e);
       ok.push({ ...r, email: e });

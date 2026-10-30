@@ -162,6 +162,10 @@ console.log('\nČO SA SMIE POSLAŤ');
   eq(O.canSend({ lead, step: 2 }).blocks.map(b => b.code), ['no_prev'], 'pripomenutie bez prvého e-mailu nie');
   eq(O.canSend({ lead, history: [{ ...h[0], status: 'bounced', bounced_at: 'x' }], step: 2 }).blocks.map(b => b.code), ['bounced'], 'na nedoručenú adresu nie');
   eq(O.canSend({ lead, history: h, step: 4 }).blocks.map(b => b.code), ['max'], 'najviac tri e-maily');
+  const zatv = O.canSend({ lead: { ...lead, closed_at: '2026-11-02T06:00:00Z' } });
+  ok(zatv.blocks.some(b => b.code === 'closed') && /zatvorená/.test(zatv.blocks[0].text), 'natrvalo zatvorenú firmu (Google Mapy) neoslovíme — s vetou');
+  ok(O.canSend({ lead: { ...lead, email_mx_ok: false } }).warns.some(w => w.code === 'mx'), 'e-mail bez poštového servera (MX) upozorní');
+  ok(!O.canSend({ lead: { ...lead, email_mx_ok: false }, email: 'iny@firma2.de' }).warns.some(w => w.code === 'mx'), 'ale nie pri inej adrese, než sa overovala');
 }
 
 console.log('\nPREHĽAD');

@@ -267,6 +267,169 @@ console.log('Nové firmy podľa webov — serverová funkcia');
     eq(d6.db.inserted.find(x => /Maier/.test(x.name)).email, null, 'osobný e-mail od AI bez Impressum nie');
   }
 
+  // ── Bez kľúča Outscraperu: AI s web search, a v hľadaní je to napísané ─────
+  {
+    const fin2 = db.updates[db.updates.length - 1];
+    eq([fin2.source, fin2.stats && fin2.stats.note, fin2.stats && fin2.stats.saved], ['ai', 'bez Outscraperu (chýba kľúč)', 4],
+      'bez OUTSCRAPER_API_KEY: zdroj ai, „bez Outscraperu (chýba kľúč)", počty');
+    ok(db.updates.some(u => u.seeds && u.source === 'ai' && u.stats.note), 'poznámka je v hľadaní už počas behu');
+  }
+
+  // ── S kľúčom: Google Mapy cez Outscraper ──────────────────────────────────
+  {
+    const MAPS_SITES = {
+      'https://maier-innenausbau.de/': SITES['https://maier-innenausbau.de/'],
+      'https://maier-innenausbau.de/impressum.html': SITES['https://maier-innenausbau.de/impressum.html'],
+      'https://keller-akustik.de/': SITES['https://keller-akustik.de/'],
+      'https://keller-akustik.de/impressum': SITES['https://keller-akustik.de/impressum'],
+    };
+    const fp2 = async (url) => {
+      url = new URL(url).href; fetched.push(url);
+      if (SITES[url] && !/maier|keller/.test(url)) return { ok: true, url, html: SITES[url] };
+      return MAPS_SITES[url] ? { ok: true, url, html: MAPS_SITES[url] } : { ok: false, url, error: 'Stránka vrátila chybu 404.' };
+    };
+    const place = (o) => ({ query: 'Trockenbau, Augsburg', country_code: 'DE', business_status: 'OPERATIONAL', state: 'Bayern', ...o });
+    const PLACES = [[
+      place({ name: 'Maier Innenausbau GmbH', site: 'https://maier-innenausbau.de/', place_id: 'pl-maier', google_id: 'g-maier', city: 'Augsburg',
+        postal_code: '86150', street: 'Lindenstraße 3', phone: '+49 821 445500', subtypes: 'Trockenbauunternehmen, Innenausbau', rating: 4.7, reviews: 41,
+        latitude: 48.37, longitude: 10.89 }),
+      place({ name: 'Keller Akustik GmbH', site: 'https://keller-akustik.de', place_id: 'pl-keller', google_id: 'g-keller', city: 'München',
+        postal_code: '80331', category: 'Akustikbau', rating: 4.1, reviews: 9 }),
+      place({ name: 'Zatvorená GmbH', site: 'https://zatvorena-bau.de', place_id: 'pl-z', business_status: 'CLOSED_PERMANENTLY' }),
+      place({ name: 'Baumarkt Süd', site: 'https://baumarkt-sued.de', place_id: 'pl-bm', category: 'Baumarkt', postal_code: '86152' }),
+    ], [
+      place({ query: 'Bauunternehmen, Augsburg', name: 'Müller Bau GmbH', site: 'https://mueller-bau.de', place_id: 'pl-mu', city: 'Ulm' }),
+      place({ query: 'Bauunternehmen, Augsburg', name: 'Maier Innenausbau GmbH', site: 'https://maier-innenausbau.de/', place_id: 'pl-maier' }),
+      place({ query: 'Bauunternehmen, Augsburg', name: 'Ohne Web Bau', site: '', place_id: 'pl-nw' }),
+      place({ query: 'Bauunternehmen, Augsburg', name: 'Pauza Bau GmbH', site: 'https://pauza-bau.de', place_id: 'pl-p', business_status: 'CLOSED_TEMPORARILY',
+        postal_code: '86153', city: 'Augsburg' }),
+    ]];
+    const QUERIES_R = tool('report_maps_queries', { categories: ['Trockenbauunternehmen', 'Bauunternehmen'], locations: ['Augsburg'],
+      queries: ['Trockenbau, Augsburg', 'Bauunternehmen, Augsburg', 'Innenausbau, Augsburg'], avoid: ['Baumarkt'] });
+    const SCORE_BY = { 'Maier Innenausbau GmbH': 90, 'Keller Akustik GmbH': 75, 'Baumarkt Süd': 10, 'Pauza Bau GmbH': 60 };
+
+    const runMaps = async ({ mode, count = 10, min = 50 }) => {
+      process.env.OUTSCRAPER_API_KEY = 'test-kluc-123';
+      process.env.OUTSCRAPER_MAX_RECORDS = '200';
+      const os = { maps: [], requests: [], contacts: [], keys: [] };
+      const mkRes = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+      const fetchMock = async (u, o) => {
+        const url = new URL(u);
+        ok(url.hostname === 'api.app.outscraper.com', `volá sa len api.app.outscraper.com (${url.pathname})`);
+        os.keys.push(o.headers['X-API-KEY']);
+        if (url.pathname === '/maps/search-v3') {
+          os.maps.push(url);
+          return mode === 'async' ? mkRes(202, { id: 'req-test-async', status: 'Pending' })
+            : mkRes(200, { id: 'req-test-sync', status: 'Success', data: PLACES });
+        }
+        if (url.pathname.startsWith('/requests/')) {
+          os.requests.push(url.pathname);
+          return mkRes(200, os.requests.length < 2 ? { id: 'req-test-async', status: 'Pending' } : { id: 'req-test-async', status: 'Success', data: PLACES });
+        }
+        if (url.pathname === '/emails-and-contacts') {
+          os.contacts.push(url.searchParams.getAll('query'));
+          return mkRes(200, { status: 'Success', data: [[{ query: 'keller-akustik.de', emails: [{ value: 'p.keller@keller-akustik.de' }, { value: 'info@keller-akustik.de' }, { value: 'seo@agentur.de' }],
+            phones: [{ value: '+49 89 7777' }] }]] });
+        }
+        return mkRes(404, {});
+      };
+      const models = [];
+      const db = mkDb({ ...SEARCH, params: { urls: SEARCH.params.urls, region: 'Augsburg', count, min_score: min } });
+      const { d } = deps({ db, fetchPage: fp2 });
+      d.callModel = async (b) => {
+        models.push(b);
+        const name = b.tools[b.tools.length - 1].name;
+        if (name === 'report_profiles') return PROFILES;
+        if (name === 'report_maps_queries') return QUERIES_R;
+        const firms = JSON.parse(b.messages[0].content.match(/<firmy>\n([\s\S]*?)\n<\/firmy>/)[1]);
+        return tool('report_scores', { scores: firms.map(f => ({ id: f.id, score: SCORE_BY[f.name] ?? 0, why: `Ako ${f.name}.`,
+          similar_to_url: 'https://www.huber-trockenbau.de/', trade: 'suchá výstavba' })) });
+      };
+      d.fetch = fetchMock;
+      d.sleep = async () => {};
+      d.resolveMx = async (dom) => { if (dom === 'maier-innenausbau.de') return [{ exchange: 'mx.maier.de', priority: 10 }]; const e = new Error('x'); e.code = 'ENODATA'; throw e; };
+      fetched.length = 0;
+      const res = parse(await F.handle(ev({ search_id: 's1' }), d));
+      delete process.env.OUTSCRAPER_API_KEY;
+      delete process.env.OUTSCRAPER_MAX_RECORDS;
+      return { res, db, os, models };
+    };
+
+    // Synchrónne.
+    const { res: rs, db: dbs, os: oss, models: ms } = await runMaps({ mode: 'sync' });
+    eq([rs.code, rs.status, rs.source], [200, 'done', 'outscraper'], 'Outscraper: hľadanie skončí');
+    eq(ms.map(b => b.tools.map(t => t.name).join('+')), ['web_search+report_profiles', 'report_maps_queries', 'report_scores'],
+      'Claude: profil → dotazy na Mapy → skóre jedným volaním (dotazy a skóre bez web search)');
+    ok(ms[1].messages[0].content.includes('Augsburg') && ms[1].messages[0].content.includes('Suchá výstavba pre bytové domy.'),
+      'dotazy sa navrhujú z profilov a z oblasti od používateľa');
+    const mq = oss.maps[0];
+    eq([mq.searchParams.getAll('query'), mq.searchParams.get('language'), mq.searchParams.get('region'), mq.searchParams.get('async')],
+      [['Trockenbau, Augsburg', 'Bauunternehmen, Augsburg', 'Innenausbau, Augsburg'], 'de', 'DE', 'false'], 'GET /maps/search-v3: dotazy, de, DE, synchrónne');
+    eq(mq.searchParams.get('limit'), '10', 'limit na dotaz = počet × 3 / počet dotazov (10 × 3 / 3)');
+    ok(oss.keys.every(k => k === 'test-kluc-123'), 'kľúč ide len v hlavičke X-API-KEY');
+    ok(!JSON.stringify(dbs.updates).includes('test-kluc-123') && !JSON.stringify(rs).includes('test-kluc-123'), 'kľúč nie je v hľadaní ani v odpovedi');
+    ok(!fetched.some(u => /zatvorena|mueller-bau/.test(u)), 'weby zatvorených a známych firiem sa nesťahujú');
+    eq(oss.contacts, [['keller-akustik.de', 'pauza-bau.de']], 'kontakty z Outscraperu len pre vybrané firmy bez e-mailu v Impressum');
+
+    const ins = dbs.inserted;
+    eq(ins.map(x => [x.name, x.score]), [['Maier Innenausbau GmbH', 90], ['Keller Akustik GmbH', 75], ['Pauza Bau GmbH', 60]],
+      'uložia sa firmy nad prahom, zoradené podľa skóre');
+    const m = ins[0];
+    eq([m.source, m.google_place_id, m.rating, m.reviews_count, m.business_status, m.lat, m.lng, m.categories],
+      ['outscraper', 'pl-maier', 4.7, 41, 'OPERATIONAL', 48.37, 10.89, ['Trockenbauunternehmen', 'Innenausbau']], 'údaje z Máp');
+    eq([m.email, m.email_mx_ok, m.contact_person, m.vat_id, m.phone, m.web_ok, m.data_source.email, m.data_source.phone],
+      ['info@maier-innenausbau.de', true, 'Thomas Maier', 'DE811222333', '+49 821 445500', true, 'impressum', 'maps'],
+      'e-mail z Impressum s MX, konateľ a USt-IdNr z Impressum, telefón z Máp');
+    ok(!!m.verified_at && m.closed_at === null && m.seed_search_id === 's1', 'verified_at, z ktorého hľadania');
+    const k2 = ins[1];
+    eq([k2.email, k2.email_mx_ok, k2.data_source.email, k2.profile.email_source], ['info@keller-akustik.de', false, 'outscraper_contacts', 'outscraper_contacts'],
+      'e-mail z kontaktov Outscraperu (firemný z vlastnej domény), MX chýba → neoverený');
+    const pz = ins[2];
+    eq([pz.business_status, pz.profile.temp_closed, pz.web_ok, pz.email], ['CLOSED_TEMPORARILY', true, false, null], 'dočasne zatvorená sa označí, web nefunguje');
+
+    const fs2 = dbs.updates[dbs.updates.length - 1];
+    eq([fs2.status, fs2.source, fs2.found, fs2.added], ['done', 'outscraper', 8, 3], 'hľadanie: zdroj, koľko vrátil Outscraper, koľko uložené');
+    eq(fs2.stats.dropped, { no_name: 0, closed: 1, foreign: 0, no_web: 1, duplicate: 1, known: 1, seed: 0, optout: 0, low_score: 1, over_count: 0 },
+      'vyradené podľa dôvodu');
+    eq([fs2.stats.returned, fs2.stats.records_estimate, fs2.stats.temp_closed, fs2.stats.saved, fs2.stats.contacts_lookups, fs2.stats.mx_missing, fs2.stats.queries.length],
+      [8, 8, 1, 3, 2, 1, 3], 'počty: vrátené (= odhad spotreby), dočasne zatvorené, uložené, kontakty, bez MX, dotazy');
+    eq(fs2.stats.avoid, ['Baumarkt'], 'čo AI odporúča nebrať, sa zapíše');
+
+    // Asynchrónne (a prah 70).
+    const { res: ra, db: dba, os: osa } = await runMaps({ mode: 'async', min: 70 });
+    eq([ra.status, osa.requests.length, osa.requests[0]], ['done', 2, '/requests/req-test-async'], 'asynchrónne: čaká sa cez /requests/<id>');
+    eq(dba.inserted.map(x => x.name), ['Maier Innenausbau GmbH', 'Keller Akustik GmbH'], 'prah 70 nechá len dve');
+    const fa = dba.updates[dba.updates.length - 1];
+    eq([fa.stats.async, fa.stats.polls, fa.stats.dropped.low_score], [true, 2, 2], 'v hľadaní: async, počet čakaní, nízke skóre');
+
+    // Chyba Outscraperu (bez kreditu).
+    {
+      process.env.OUTSCRAPER_API_KEY = 'k';
+      const db3 = mkDb(SEARCH);
+      const { d } = deps({ db: db3, models: [PROFILES, QUERIES_R] });
+      d.fetch = async () => ({ ok: false, status: 402, json: async () => ({ errorMessage: 'Payment required' }) });
+      await F.handle(ev({ search_id: 's1' }), d);
+      delete process.env.OUTSCRAPER_API_KEY;
+      ok(db3.search.status === 'error' && /kredit/.test(db3.search.error), 'bez kreditu → chyba hľadania s vetou', db3.search.error);
+    }
+  }
+
+  // ── Databáza bez migrácie 079 ─────────────────────────────────────────────
+  {
+    const calls = [];
+    const fake = { from: (t) => ({
+      update: (patch) => ({ eq: async () => { calls.push(['update', Object.keys(patch).sort().join(',')]);
+        return { error: 'stats' in patch ? { code: 'PGRST204', message: "Could not find the 'stats' column" } : null }; } }),
+      insert: async (row) => { calls.push(['insert', row.source]);
+        return { error: row.source === 'outscraper' ? { code: '23514', message: 'violates check constraint "danubra_leads_source_check"' } : null }; },
+    }) };
+    const sdb = F.supabaseDb(() => fake);
+    await sdb.updateSearch('s1', { status: 'done', stats: {}, source: 'outscraper' });
+    eq(calls.slice(0, 2), [['update', 'source,stats,status'], ['update', 'status']], 'bez 079 sa stav hľadania zapíše aj tak (bez source a stats)');
+    const r2 = await sdb.insertLead({ name: 'X', source: 'outscraper', google_place_id: 'p', profile: {} });
+    eq([r2.error, calls[3]], [null, ['insert', 'urls']], 'a firma z Máp sa uloží ako „podľa webov"');
+  }
+
   // ── Sťahovanie: SSRF a presmerovania ──────────────────────────────────────
   {
     const req = [];

@@ -90,7 +90,7 @@
 
   /** Dotaz pre Mapy: jeden riadok, bez riadiacich znakov, 3–100 znakov. */
   function cleanQuery(q) {
-    const s = clean(q).replace(/[<>{}"`]/g, '').slice(0, 100).trim();
+    const s = clean(String(q == null ? '' : q).replace(/<[^>]*>/g, '')).replace(/[<>{}"`]/g, '').slice(0, 100).trim();
     return s.length >= 3 ? s : '';
   }
 
@@ -112,13 +112,15 @@
 
   /**
    * Plán hľadania: najviac 10 dotazov a limit na dotaz, aby spolu
-   * nepresiahli rozpočet. Hotové dotazy od AI majú prednosť, doplnia sa
-   * kombináciou kategórií a lokalít.
+   * nepresiahli rozpočet. Hotové dotazy od AI majú prednosť; keď sú menej
+   * ako tri, doplnia sa kombináciou kategórií a lokalít.
    * @returns {{ queries: string[], perQuery: number, estimate: number, budget: number }}
    */
   function planQueries({ queries = [], categories = [], locations = [], count = 20, max = DEFAULT_MAX_RECORDS, maxQueries = MAX_QUERIES } = {}) {
     const b = budget({ count, max });
-    const list = uniq([...(queries || []).map(cleanQuery), ...combine(categories, locations)].filter(Boolean));
+    // Hotové dotazy od AI; keď sú menej ako 3, doplnia sa kombináciou.
+    const own = uniq((queries || []).map(cleanQuery).filter(Boolean));
+    const list = own.length >= 3 ? own : uniq([...own, ...combine(categories, locations)]);
     if (!list.length) return { queries: [], perQuery: 0, estimate: 0, budget: b };
     const nq = Math.max(1, Math.min(list.length, maxQueries, Math.floor(b / MIN_PER_QUERY) || 1));
     const perQuery = Math.max(1, Math.min(MAX_PER_QUERY, Math.floor(b / nq)));

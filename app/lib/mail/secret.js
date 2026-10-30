@@ -40,15 +40,20 @@ function decrypt(enc, raw) {
   }
 }
 
-/** Podpísaný kľúč pre automatické spúšťanie (cron → synchronizácia), platí 2 hodiny. */
-function cronToken(date = new Date(), raw) {
+/**
+ * Podpísaný kľúč pre automatické spúšťanie (cron → synchronizácia), platí 2 hodiny.
+ * `purpose` oddelí kľúče rôznych úloh — kľúč synchronizácie pošty nespustí
+ * overovanie firiem (`leads-refresh`) a naopak. Bez neho ako doteraz.
+ */
+function cronToken(date = new Date(), raw, purpose = 'cron') {
   const h = new Date(date).toISOString().slice(0, 13);
-  return crypto.createHmac('sha256', key(raw)).update(`cron:${h}`).digest('hex');
+  const p = purpose === 'cron' ? 'cron' : `cron-${purpose}`;
+  return crypto.createHmac('sha256', key(raw)).update(`${p}:${h}`).digest('hex');
 }
-function cronOk(token, now = new Date(), raw) {
+function cronOk(token, now = new Date(), raw, purpose = 'cron') {
   const t = String(token || '');
   return [0, -1].some((d) => {
-    const x = cronToken(new Date(new Date(now).getTime() + d * 3600e3), raw);
+    const x = cronToken(new Date(new Date(now).getTime() + d * 3600e3), raw, purpose);
     return t.length === x.length && crypto.timingSafeEqual(Buffer.from(t), Buffer.from(x));
   });
 }
