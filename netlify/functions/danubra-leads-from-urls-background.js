@@ -64,6 +64,11 @@
 // Počty príkladov a 2–3 vety „Čo AI zistila" (pravidlami zo stats) sú
 // v stats.learning a stats.insights.
 //
+// Logo a náhľad webu (082): z úvodnej stránky, ktorá sa aj tak sťahuje kvôli
+// Impressum, sa pri ukladaní vytiahne logo, og:image, titulok, popis a či sa
+// web smie ukázať v okne appky (app/lib/marketing/sitemeta.js). Bez 082 sa
+// firma uloží bez týchto stĺpcov.
+//
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY,
 //      CLAUDE_MODEL_LEADS (voliteľné), OUTSCRAPER_API_KEY (voliteľné),
 //      OUTSCRAPER_MAX_RECORDS (voliteľné, predvolene 200)
@@ -78,6 +83,7 @@ const O = require('../../app/lib/marketing/outscraper.js');
 const OS = require('../../app/lib/marketing/outscraper-server.js');
 const P = require('../../app/lib/marketing/progress.js');
 const L = require('../../app/lib/marketing/learning.js');
+const SM = require('../../app/lib/marketing/sitemeta.js');
 
 const MODEL = () => process.env.CLAUDE_MODEL_LEADS || 'claude-opus-5-5';
 const TOTAL_MS = 13 * 60 * 1000;
@@ -250,6 +256,8 @@ function requestOnce(url, { timeoutMs = PAGE_TIMEOUT_MS, maxBytes = PAGE_MAX_BYT
         res.resume();
         return finish({ status, location: res.headers.location || null, type });
       }
+      // Hlavičky na „smie sa web ukázať v okne appky" (082, sitemeta.embeddable).
+      const keep = { 'x-frame-options': res.headers['x-frame-options'] || '', 'content-security-policy': res.headers['content-security-policy'] || '' };
       const enc = String(res.headers['content-encoding'] || '').toLowerCase();
       const stream = enc === 'gzip' ? res.pipe(zlib.createGunzip()) : enc === 'deflate' ? res.pipe(zlib.createInflate())
         : enc === 'br' ? res.pipe(zlib.createBrotliDecompress()) : res;
@@ -258,7 +266,7 @@ function requestOnce(url, { timeoutMs = PAGE_TIMEOUT_MS, maxBytes = PAGE_MAX_BYT
         const buf = Buffer.concat(chunks);
         let body = '';
         try { body = new TextDecoder(charsetOf(type, buf)).decode(buf); } catch (e) { body = buf.toString('utf8'); }
-        finish({ status, type, body });
+        finish({ status, type, body, headers: keep });
       };
       stream.on('data', (c) => {
         size += c.length;
@@ -278,7 +286,7 @@ function requestOnce(url, { timeoutMs = PAGE_TIMEOUT_MS, maxBytes = PAGE_MAX_BYT
 /**
  * Stiahne stránku: overí adresu, nasleduje najviac 3 presmerovania (každé
  * znova overené), berie len HTML/text.
- * @returns {Promise<{ ok: true, url, html } | { ok: false, url, error }>}
+ * @returns {Promise<{ ok: true, url, html, headers } | { ok: false, url, error }>}
  */
 async function fetchPage(url, { request = requestOnce, maxRedirects = MAX_REDIRECTS } = {}) {
   let current = url;
@@ -294,7 +302,7 @@ async function fetchPage(url, { request = requestOnce, maxRedirects = MAX_REDIRE
     if (!r.status) return { ok: false, url: c.url, error: r.error || 'Stránka sa nedá stiahnuť.' };
     if (r.status >= 400) return { ok: false, url: c.url, error: `Stránka vrátila chybu ${r.status}.` };
     if (r.type && !/text\/html|application\/xhtml|text\/plain/i.test(r.type)) return { ok: false, url: c.url, error: 'Nie je to webová stránka.' };
-    return { ok: true, url: c.url, html: String(r.body || '') };
+    return { ok: true, url: c.url, html: String(r.body || ''), headers: r.headers || null };
   }
   return { ok: false, url: current, error: 'Priveľa presmerovaní.' };
 }
@@ -305,8 +313,12 @@ async function fetchPage(url, { request = requestOnce, maxRedirects = MAX_REDIRE
  */
 async function readSite(url, d, { deadline }) {
   const home = await d.fetchPage(url);
-  const out = { url, ok: home.ok, finalUrl: home.ok ? home.url : url, homeText: '', impressumUrl: null, impressumText: '', error: home.ok ? null : home.error };
-  if (home.ok) out.homeText = S.htmlToText(home.html);
+  const out = { url, ok: home.ok, finalUrl: home.ok ? home.url : url, homeText: '', impressumUrl: null, impressumText: '', error: home.ok ? null : home.error, meta: null };
+  if (home.ok) {
+    out.homeText = S.htmlToText(home.html);
+    // Logo a náhľad webu (082) — z tej istej stránky, nič navyše sa nesťahuje.
+    try { out.meta = SM.extract(home.html, home.url, home.headers); } catch (e) { out.meta = null; }
+  }
   const cands = [];
   for (const l of home.ok ? S.impressumLinks(home.html, home.url) : []) cands.push(l.url);
   for (const g of S.guessPages(out.finalUrl)) if (!cands.some(c => c.replace(/\/$/, '') === g)) cands.push(g);
@@ -560,10 +572,12 @@ function supabaseDb(make) {
       const leads = l.data || [];
       return { leads, partners: p.data || [], optouts: o.data || [], placeIds: leads.map(x => x.google_place_id).filter(Boolean) };
     },
-    /** Bez 079 sa firma z Máp uloží ako „podľa webov", údaje z Máp ostanú v profile. */
+    /** Bez 079 sa firma z Máp uloží ako „podľa webov", údaje z Máp ostanú v profile. Bez 082 bez loga a náhľadu. */
     async insertLead(row) {
-      let { error } = await c().from('danubra_leads').insert(row);
-      if (error && row.source === 'outscraper' && missing079(error)) ({ error } = await c().from('danubra_leads').insert(O.legacyRow(row)));
+      let r = row;
+      let { error } = await c().from('danubra_leads').insert(r);
+      if (error && SM.missing082(error)) { r = SM.without082(r); ({ error } = await c().from('danubra_leads').insert(r)); }
+      if (error && r.source === 'outscraper' && missing079(error)) ({ error } = await c().from('danubra_leads').insert(SM.without082(O.legacyRow(r))));
       return { error };
     },
   };
@@ -789,7 +803,7 @@ async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, mi
   await pool(cands, 5, async (c) => {
     if (!c.place.website || d.now() > deadline - 150000 || rep.stopped) return;
     const site = await readSite(c.place.website, d, { deadline: deadline - 150000 });
-    c.site = { ok: !!site.ok, impressumUrl: site.impressumUrl || null };
+    c.site = { ok: !!site.ok, impressumUrl: site.impressumUrl || null, meta: site.meta || null };
     c.text = String(site.homeText || '').slice(0, 600);
     if (site.impressumText) c.imp = S.parseImpressum(site.impressumText, { website: c.place.website });
     imp++;
@@ -865,7 +879,8 @@ async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, mi
   }
 
   // f) Uložiť (znova bez duplicít — e-mail mohol prezradiť doménu, ktorú už máme).
-  const rows = sel.selected.map(c => O.toLead(c, { searchId: id, seeds: parsed.seeds, now: new Date() }));
+  const rows = sel.selected.map(c => ({ ...O.toLead(c, { searchId: id, seeds: parsed.seeds, now: new Date() }),
+    ...(c.site && c.site.meta ? SM.leadPatch(c.site.meta, new Date()) : {}) }));
   const again = S.dedupe(rows, { ...known, seeds: parsed.seeds });
   for (const k of again.known) dropped[dropCode(k.why)]++;
   let added = 0, failedInsert = 0;
@@ -922,12 +937,13 @@ async function viaAi({ d, id, seeds, parsed, region, count, note, deadline, rep,
       k++;
       await rep.step('impressum', { frac: [k, first.length], label: `Overujem Impressum ${k} z ${first.length}` });
       await rep.checkCancel();
-      return { ...m, impressum_url: site.impressumUrl || null };
+      return { ...m, impressum_url: site.impressumUrl || null, _meta: site.ok ? site.meta : null };
     });
     const stopped = rep.stopped || await rep.checkCancel(true);
 
     // d) + e) Riadky, znova bez duplicít (Impressum mohlo prezradiť doménu e-mailu), uložiť.
-    const rows = S.rank(enriched.filter(Boolean).map(x => S.toLead(x, { searchId: id, seeds: parsed.seeds })).filter(r => r.name));
+    const rows = S.rank(enriched.filter(Boolean).map(x => ({ ...S.toLead(x, { searchId: id, seeds: parsed.seeds }),
+      ...(x._meta ? SM.leadPatch(x._meta, new Date()) : {}) })).filter(r => r.name));
     const { fresh, known: dup2 } = S.dedupe(rows, { ...known, seeds: parsed.seeds });
     let added = 0;
     const ok = [];

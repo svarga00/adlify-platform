@@ -394,8 +394,7 @@ window.Danubra = {
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
-    // „E-maily firmám", nie „E-maily" — to isté slovo má záložka Správ.
-    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', outreach: 'Oslovovanie', campaigns: 'E-maily firmám', printwork: 'Tlačoviny', website: 'Weby',
+    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', outreach: 'Oslovovanie', campaigns: 'E-maily', printwork: 'Tlačoviny', website: 'Weby',
     money: 'Prehľad', invoices: 'Vydané', costs: 'Prijaté', advances: 'Zálohy a výplaty', bank: 'Banka',
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
     mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné', archiv: 'Archív',
@@ -504,13 +503,6 @@ window.Danubra = {
       .filter(i => this.topRoutes.includes(i[0]) && this.can(i[0]));
   },
   labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'Dnes'; },
-  /**
-   * Názov obrazovky v zozname obrazoviek — rozbalené ľavé menu, vysúvacie
-   * podmenu aj mega menu („Všetko"). Jedno meno na všetkých troch miestach:
-   * v ľavom menu bolo „Nové firmy" a v mega menu „Marketing", „E-maily"
-   * vs. „E-maily firmám", „Weby" vs. „Weby punds".
-   */
-  itemLabelOf(key) { return this.navSubLabel[key] || this.navTabLabel[key] || this.labelOf(key); },
   /** Nadpis obrazovky Dnes — to isté meno ako jej záložka a riadok v menu. */
   DASH_TITLE: 'Prehľad dňa',
 
@@ -726,7 +718,7 @@ window.Danubra = {
           const n = this.badges[k];
           return `<button class="nav-sub-item${k === this.route ? ' active' : ''}" data-sub="${k}"
             onclick="Danubra.go('${k}')" title="${UI.esc(this.hintOf(k))}">${Icon(kico, 15)}<span class="nav-text">${
-            UI.esc(this.itemLabelOf(k))}</span>${n ? `<span class="nav-badge">${n}</span>` : ''}</button>`;
+            UI.esc(this.navSubLabel[k] || this.navTabLabel[k] || this.labelOf(k))}</span>${n ? `<span class="nav-badge">${n}</span>` : ''}</button>`;
         }).join('')}</div>` : ''}`;
       }).join('')}`;
     }).join('');
@@ -934,7 +926,7 @@ window.Danubra = {
           return `<button class="fly-item${k === this.route ? ' active' : ''}" role="menuitem"
             onclick="Danubra._flyGo('${k}')" title="${UI.esc(this.hintOf(k))}">
             <span class="fly-ico">${Icon(ico, 20)}</span>
-            <span class="fly-txt"><b>${UI.esc(this.itemLabelOf(k))}</b>${hint ? `<em>${UI.esc(hint)}</em>` : ''}</span>
+            <span class="fly-txt"><b>${UI.esc(this.labelOf(k))}</b>${hint ? `<em>${UI.esc(hint)}</em>` : ''}</span>
             ${n ? `<span class="nav-badge">${n}</span>` : ''}
           </button>`;
         }).join('')}
@@ -988,9 +980,8 @@ window.Danubra = {
   },
 
   megaHtml() {
-    const item = ([key, , ico]) => {
+    const item = ([key, label, ico]) => {
       const b = this.badges[key];
-      const label = UI.esc(this.itemLabelOf(key));
       // Obrazovka, ktorá je záložkou inej, musí v zozname povedať, kde ju
       // hľadať — inak ju človek v ľavom menu marne hľadá a myslí si, že zmizla.
       const parent = this.parentOf(key);

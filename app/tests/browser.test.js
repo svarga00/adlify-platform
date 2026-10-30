@@ -5884,7 +5884,7 @@ console.log('Prehliadač');
           stage_label: 'Zastavené – uložené 3 firmy', cancel_requested: true,
           stats: { dropped: { known: 5, closed: 2 }, insights: ['Najviac relevantných firiem bolo v kategórii Trockenbauunternehmen.', 'Vyradených bolo 7 firiem.'] } });
         await new Promise(r => setTimeout(r, 2600));
-        res.koniec = txt(document.querySelector('#view .regimebox'));
+        res.koniec = txt(document.querySelector('#view .ls-note, #view .regimebox'));
         // Prerušené hľadanie (server sa neozval > 3 min).
         DATA.lead_searches = [{ ...RUN, id: 'r2', status: 'running', cancel_requested: false, finished_at: null, stats: null, progress: 66, stage: 'impressum', heartbeat_at: ago(5) }];
         Lead.loaded = false; await Danubra.renderRoute();
