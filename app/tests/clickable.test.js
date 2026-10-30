@@ -55,6 +55,16 @@ for (const sel of ['.list-row.is-static', '.pick-tile.is-static']) {
 check(rules.some(r => r.sel.includes('.arch-row:hover')) && rules.some(r => r.sel.includes('.arch-main:hover b') && /underline/.test(r.body)),
   'Dokumenty: riadok má hover, názov sa pod myšou podčiarkne');
 
+// Zoznam s filtrami (DataList): riadok sa otvára cez delegovaný klik (nemá
+// onclick), preto ruku a podfarbenie musí mať vo vlastnom pravidle.
+check(ruleWith(['.dl-row.is-click'], /cursor:\s*pointer/) && rules.some(r => r.sel.includes('.dl-row.is-click:hover') && /background/.test(r.body)),
+  'DataList: klikateľný riadok má ruku a hover');
+for (const sel of ['.dl-dd-btn', '.dl-tog', '.dl-opt', '.dl-chip button', '.dl-sort', '.dl-act']) {
+  check(rules.some(r => r.sel.split(',').map(x => x.trim()).includes(sel) && /cursor:\s*pointer/.test(r.body))
+    && rules.some(r => r.sel.split(',').map(x => x.trim()).some(x => x.startsWith(`${sel}:hover`))),
+  `DataList: ${sel} má ruku a hover`);
+}
+
 // ── JS: klikateľný <div>/<span> má role="button" ──────────────────────────
 // Výnimka (zdôvodnená): onclick="event.stopPropagation()" nie je akcia —
 // len zastaví klik, aby karta pod odkazmi neotvorila detail. Taký prvok sa

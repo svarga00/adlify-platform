@@ -223,6 +223,19 @@ ok(tourSel.size === (G.TOUR || []).length, 'kroky sprievodcu sa neopakujú');
   ok(!/Ja som/.test(text), 'návod už nespomína výber „Ja som"');
 }
 
+// Filtre v zoznamoch: návod hovorí o tlačidlách, ktoré zoznam (DataList) naozaj má.
+{
+  const DL = read('js/components/datalist.js') + read('js/modules/subcontracts.js');
+  const step = (G.CHAPTERS || []).flatMap(c => c.steps || []).find(s => s.title === 'Filtre v zoznamoch');
+  ok(step, 'návod má krok „Filtre v zoznamoch"');
+  const text = step ? [step.what, ...(step.how || []), step.tip, step.example].join(' ') : '';
+  for (const label of ['Ďalšie filtre', 'Filtre', 'Zrušiť filtre', 'Len s problémom', 'Export',
+    'Predvolené filtre', 'Zoradené', 'Otvorené']) {
+    ok(text.includes(label), `návod k filtrom spomína „${label}"`);
+    ok(DL.includes(label), `„${label}" je naozaj v zozname`);
+  }
+}
+
 // ── Slovníček ───────────────────────────────────────────────────────────────
 ok(Array.isArray(G.GLOSSARY) && G.GLOSSARY.length >= 12 && G.GLOSSARY.length <= 22,
   'slovníček má 12 až 22 pojmov');
