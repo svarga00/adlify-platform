@@ -143,55 +143,211 @@
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
 
     // ── Prijaté faktúry ───────────────────────────────────────────────────
+    // Zoznam je spoločný komponent (`DataList`): stĺpce, filtre s počtami,
+    // čipy, zoradenie, súčet v päte a na telefóne karty. Dovtedy tu boli karty
+    // s hľadaním, výberom stavu a obdobím.
     billsHtml(q) {
-      // Čo čaká na nás, je hore. Zoznam drží `Shell.list` (filtre, prázdny
-      // stav, karty), takže sa nedelí na sekcie — len sa poradie zoradí podľa
-      // toho, čo treba spraviť. Pri zapnutom filtri stavu sa neradí: človek
-      // si už vybral a prehadzovanie poradia by ho zmätlo.
-      const rows = this.filters.status ? this.billRows() : this.sortByWork(this.billRows(), q);
+      return DataList.html(this.billConfig(this.billListRows(q)));
+    },
 
-      const card = (b) => {
-        const c = DanubraBills.check(b, this.ctx(b));
-        const off = c.variance != null && Math.abs(c.variance) > DanubraBills.TOLERANCE;
-        return `
-          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Cost.billDetail('${b.id}')">
-            <div class="card-head">
-              <div class="card-title">${UI.esc(b.worker_name || '—')}${b.worker_id ? ''
-                : ` <span style="color:var(--ink-mute);font-weight:400;font-size:12.5px;">· ${
-                  UI.esc(Enums.label('cost_category', b.category) || 'dodávateľ')}</span>`}</div>
-              ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}
-            </div>
-            <div class="meta-row">
-              ${this.isReceipt(b) ? `<span>${Icon('receipt', 14)} bloček</span>` : ''}
-              ${b.bill_number ? `<span>${Icon('invoices', 14)} ${UI.esc(b.bill_number)}</span>` : ''}
-              <span><strong>${Money.format(Money.toCents(b.amount))}</strong></span>
-              ${b.issue_date ? `<span>${Icon('clock', 14)} ${UI.date(b.issue_date)}</span>` : ''}
-              ${this.periodLabel(b.period_id) ? `<span>${this.periodLabel(b.period_id)}</span>` : ''}
-            </div>
-            ${off ? `<div class="meta-row" style="color:var(--red);">
-              ${Icon('alert', 14)} ${c.variance > 0 ? 'o ' + Money.format(c.variance) + ' viac'
-                : 'o ' + Money.format(Math.abs(c.variance)) + ' menej'},
-              než má schválených hodín (${c.hours} h)</div>` : ''}
-          </div>`;
+    /** Stavy, ktoré sú v zozname predvolene: bez nahratých na kontrolu (majú kartu hore) a zahodených. */
+    BILL_LIST_STATUSES: ['received', 'checked', 'disputed', 'approved', 'paid', 'self_draft', 'self_sent'],
+
+    /** Názov stavu prijatej faktúry — z číselníka, inak záloha (číselník sa nemusí načítať). */
+    billStatusLabel(s) {
+      const FB = { review: 'Na kontrolu', received: 'Prijatá', checked: 'Skontrolovaná', disputed: 'Sporná',
+        approved: 'Schválená', paid: 'Uhradená', self_draft: 'Návrh za živnostníka',
+        self_sent: 'Čaká na potvrdenie živnostníka', discarded: 'Zahodená' };
+      const l = Enums.label('bill_status', s);
+      return l && l !== s ? l : (FB[s] || l || '');
+    },
+    catLabel(c) {
+      const FB = { work: 'Práca', accommodation: 'Ubytovanie', transport: 'Doprava', fuel: 'Palivo', tools: 'Náradie',
+        material: 'Materiál', other: 'Iné' };
+      const l = Enums.label('cost_category', c);
+      return l && l !== c ? l : (FB[c] || l || '');
+    },
+
+    /**
+     * Riadok zoznamu prijatých faktúr: faktúra a to, čo sa o nej počíta raz
+     * za vykreslenie — porovnanie s hodinami (`DanubraBills.check`) a poradie
+     * „čo je na rade" (`sortByWork`).
+     */
+    billListRows(q) {
+      const today = Danubra._dayISO();
+      const DL = DanubraDataList;
+      const order = new Map(this.sortByWork(this.bills.slice(), q).map((b, i) => [b.id, i]));
+      const grp = (b) => {
+        if (!q) return 3;
+        if (q.disputed.some(x => x.id === b.id)) return 0;
+        if (q.toCheck.some(x => x.id === b.id)) return 1;
+        if (q.latePay.some(x => x.id === b.id)) return 2;
+        return 3;
       };
-
-      return Shell.list({
-        rows, total: this.bills.length, render: card, layout: 'cards',
-        emptyIcon: 'invoices', emptyTitle: 'Zatiaľ žiadna prijatá faktúra',
-        emptySub: 'Nahrajte PDF faktúry — appka ju prečíta. Faktúra od živnostníka sa porovná s hodinami.',
-        filter: {
-          search: { value: this.filters.q, placeholder: 'Hľadať podľa čísla, mena alebo dodávateľa…',
-            oninput: 'Cost.setF("q", this.value)' },
-          selects: [{
-            value: this.filters.status, label: 'Stav',
-            onchange: 'Cost.setF("status", this.value)',
-            options: [['', 'Všetky stavy'], ...Enums.options('bill_status')],
-          }],
-          period: { field: 'issue_date', key: this.filters.period, from: this.filters.from,
-            to: this.filters.to, label: 'Vystavené', set: 'Cost.setF' },
-          exportCsv: 'Cost.exportBills()',
-        },
+      const UNPAID = ['received', 'checked', 'disputed', 'approved', 'self_draft', 'self_sent'];
+      return this.bills.map(b => {
+        const w = this.workerOf(b.worker_id);
+        const live = DanubraBills.check(b, this.ctx(b));
+        // Bez obdobia sa naživo porovnať nedá — vtedy platí rozdiel, ktorý pri
+        // uložení zapísala databáza (sporná faktúra ho má vždy).
+        const c = live.variance == null && b.variance != null && b.expected_amount != null
+          ? { ...live, expected: Money.toCents(b.expected_amount), variance: Money.toCents(b.variance), stored: true } : live;
+        const off = c.variance != null && Math.abs(c.variance) > DanubraBills.TOLERANCE;
+        const due = b.due_date ? String(b.due_date).slice(0, 10) : '';
+        const unpaid = UNPAID.includes(b.status);
+        const self = b.source === 'self_billing';
+        const receipt = this.isReceipt(b);
+        const druh = self ? 'self' : b.worker_id ? 'worker' : receipt ? 'receipt'
+          : b.category === 'accommodation' ? 'accommodation' : 'other';
+        return {
+          id: b.id, b, c, off, self, receipt, druh, unpaid,
+          who: w.full_name || b.supplier_name || (b.extracted && b.extracted._file) || '',
+          whoKey: b.worker_id ? `w:${b.worker_id}` : b.supplier_name ? `s:${String(b.supplier_name).trim().toLowerCase()}` : '',
+          ico: b.supplier_ico || w.company_id || '',
+          subTitle: b.subcontract_id ? (this.subOf(b.subcontract_id).title || 'Zákazka') : '',
+          period: this.periodLabel(b.period_id) || '',
+          cents: Money.toCents(b.amount),
+          days: due ? DL.daysBetween(today, due) : null,
+          late: unpaid && !!due && due < today,
+          work: grp(b), pos: order.get(b.id) ?? 0,
+        };
       });
+    },
+
+    /** Konfigurácia zoznamu prijatých faktúr pre `DataList`. */
+    billConfig(rows) {
+      const DL = DanubraDataList;
+      const rok = Danubra._dayISO().slice(0, 4);
+      const day = (d) => DL.fmtDay(d, { year: String(d).slice(0, 4) !== rok });
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const DRUH = { worker: 'Živnostník', self: 'Samofakturácia', accommodation: 'Ubytovanie', receipt: 'Bloček', other: 'Iný dodávateľ' };
+      // Krátke názvy stavov do úzkeho stĺpca; celý názov je v detaile aj vo filtri.
+      const SHORT = { self_sent: 'Čaká na potvrdenie', self_draft: 'Návrh za živnostníka' };
+      const DRUH_ICO = { worker: 'user', self: 'receipt', accommodation: 'bed', receipt: 'receipt', other: 'invoices' };
+      const statusIdx = (s) => { const i = ['self_draft', 'disputed', 'received', 'checked', 'self_sent', 'approved', 'paid', 'review', 'discarded'].indexOf(s); return i < 0 ? 99 : i; };
+      const dueCell = (r) => {
+        if (!r.b.due_date) return '';
+        const d = `<b>${day(r.b.due_date)}</b>`;
+        if (!r.unpaid || r.days == null) return `<span class="dl-two">${d}</span>`;
+        const note = r.days < 0 ? `<span class="dl-note is-red">po splatnosti ${dni(-r.days)}</span>`
+          : r.days === 0 ? '<span class="dl-note is-amber">splatná dnes</span>'
+            : `<span class="dl-note ${r.days <= 7 ? 'is-amber' : 'is-mute'}">splatná o ${dni(r.days)}</span>`;
+        return `<span class="dl-two">${d}${note}</span>`;
+      };
+      const checkCell = (r) => {
+        if (r.off) {
+          const t = r.c.variance > 0 ? `o ${Money.format(r.c.variance)} viac` : `o ${Money.format(Math.abs(r.c.variance))} menej`;
+          return `<button type="button" class="tip-btn dl-flag" data-tip="${UI.esc(`${t}, než ${r.c.stored ? 'dávajú' : `dáva ${r.c.hours} h`} schválené hodiny × sadzba (${Money.format(r.c.expected)}).`)}"
+            aria-label="Nesedí s hodinami: ${UI.esc(t)}">${Icon('alert', 12)} ${UI.esc(t)}</button>`;
+        }
+        if (r.c.variance != null) return `<span class="dl-ok">${Icon('check', 13)} sedí (${r.c.hours} h)</span>`;
+        return '';
+      };
+      return {
+        id: 'prijate', storageKey: 'prijate', label: 'Prijaté faktúry',
+        noun: ['faktúra', 'faktúry', 'faktúr'],
+        rows,
+        rowClick: (r) => Cost.billDetail(r.id),
+        rowClass: (r) => (r.work === 0 ? 'is-hot' : r.work < 3 || r.b.status === 'self_draft' ? 'is-warn'
+          : ['paid', 'discarded'].includes(r.b.status) ? 'is-muted' : ''),
+        rowLabel: (r) => `Faktúra ${r.b.bill_number || ''} od ${r.who || 'dodávateľa'}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť faktúru', run: (r) => Cost.billDetail(r.id) }],
+        columns: [
+          { key: 'kto', label: 'Od koho', width: 'minmax(140px, 1.3fr)', mobile: 'title',
+            render: (r) => {
+              const sub = [r.b.worker_id ? DRUH[r.druh] : this.catLabel(r.b.category), r.ico ? `IČO ${r.ico}` : ''].filter(Boolean).join(' · ');
+              return `<span class="dl-title"><b>${UI.esc(r.who || '—')}</b>${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
+            },
+            sortValue: (r) => r.who, sortLabel: 'Dodávateľ' },
+          { key: 'cislo', label: 'Číslo', width: '112px', mobileLabel: 'č.',
+            render: (r) => (r.b.bill_number || r.b.variable_symbol ? `<span class="dl-two"><b class="mono">${UI.esc(r.b.bill_number || '—')}</b>${
+              r.b.variable_symbol ? `<small>VS ${UI.esc(r.b.variable_symbol)}</small>` : ''}</span>` : ''),
+            sortValue: (r) => r.b.bill_number || null },
+          { key: 'druh', label: 'Druh', width: '112px', hideBelow: 1200,
+            render: (r) => `<span class="dl-tag">${Icon(DRUH_ICO[r.druh] || 'invoices', 14)}${DRUH[r.druh]}</span>`,
+            sortValue: (r) => DRUH[r.druh] },
+          { key: 'zakazka', label: 'Zákazka', width: 'minmax(100px, 1fr)', hideBelow: 1020,
+            render: (r) => (r.b.subcontract_id ? `<span class="dl-two">${Danubra.link('subcontract', r.b.subcontract_id, r.subTitle)}${
+              r.period ? `<small>${r.period}</small>` : ''}</span>` : ''),
+            sortValue: (r) => r.subTitle || null },
+          { key: 'datum', label: 'Vystavená', width: '76px', mobileLabel: 'vystavená',
+            render: (r) => (r.b.issue_date ? `<span class="dl-num">${day(r.b.issue_date)}</span>` : ''),
+            sortValue: (r) => r.b.issue_date || null, sortDir: -1 },
+          { key: 'splatnost', label: 'Splatnosť', width: '116px', mobileLabel: 'splatná',
+            render: dueCell, sortValue: (r) => (r.unpaid ? r.b.due_date || null : null) },
+          { key: 'suma', label: 'Suma', width: '98px', align: 'right',
+            render: (r) => `<b class="dl-num dl-amt">${Money.format(r.cents)}</b>`,
+            sortValue: (r) => r.cents, sortDir: -1 },
+          { key: 'kontrola', label: 'S hodinami', width: '124px', hideBelow: 960,
+            tip: 'Faktúra od živnostníka naviazaná na uzavreté obdobie sa porovná so schválenými hodinami × jeho sadzba. '
+              + 'Rozdiel nad 1 cent je spor. Ukážte myšou na štítok — povie, o koľko.',
+            render: checkCell, sortValue: (r) => (r.c.variance == null ? null : Math.abs(r.c.variance)), sortDir: -1 },
+          { key: 'stav', label: 'Stav', width: '136px', mobile: 'badge',
+            render: (r) => `${UI.badge(SHORT[r.b.status] || this.billStatusLabel(r.b.status), this.billKind(r.b.status))}${
+              r.b.payment_ordered_at && r.b.status === 'approved' ? `<small class="dl-note is-mute" style="display:block;">príkaz ${day(r.b.payment_ordered_at)}</small>` : ''}`,
+            // Predvolené poradie ako predtým: sporné, neskontrolované, po splatnosti, zvyšok.
+            sortValue: (r) => [r.work, r.pos], sortLabel: 'Čo je na rade' },
+        ],
+        sorts: [{ key: 'stav-n', label: 'Stav', value: (r) => statusIdx(r.b.status) }],
+        sort: { key: 'stav', dir: 1 },
+        groups: [
+          { key: 'stav', label: 'Stav', value: (r) => r.b.status, labelOf: (k) => this.billStatusLabel(k),
+            tone: (k) => this.billKind(k), order: ['self_draft', 'disputed', 'received', 'checked', 'self_sent', 'approved', 'paid', 'review', 'discarded'] },
+          { key: 'druh', label: 'Druh', value: 'druh', labelOf: (k) => DRUH[k] || k, order: ['worker', 'self', 'accommodation', 'receipt', 'other'] },
+          { key: 'kto', label: 'Dodávateľ', value: (r) => r.who || '—' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať číslo, meno, dodávateľa, VS…',
+            label: 'Hľadať podľa čísla, mena, dodávateľa, IČO alebo variabilného symbolu',
+            fields: ['b.bill_number', 'who', 'b.variable_symbol', 'ico', 'subTitle', 'b.note'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.b.status, default: this.BILL_LIST_STATUSES,
+            options: ['received', 'checked', 'disputed', 'approved', 'paid', 'self_draft', 'self_sent', 'review', 'discarded']
+              .map(k => [k, this.billStatusLabel(k)]), sortOptions: false, allLabel: 'Všetky aj zahodené',
+            hint: 'Nahraté faktúry na kontrolu majú vlastnú kartu hore; zahodené sú v zozname len na vyžiadanie.',
+            presets: [
+              { label: 'Platné', value: this.BILL_LIST_STATUSES, hint: 'Všetko okrem nahratých na kontrolu a zahodených' },
+              { label: 'Neuhradené', value: ['received', 'checked', 'disputed', 'approved', 'self_sent'], hint: 'Ešte sme ich nezaplatili' },
+              { label: 'Na kontrolu', value: ['received', 'disputed', 'self_draft'], hint: 'Prijaté, sporné a návrhy za živnostníkov — čaká sa na nás' },
+            ] },
+          { key: 'druh', type: 'multi', label: 'Druh', value: 'druh', sortOptions: false,
+            options: ['worker', 'self', 'accommodation', 'receipt', 'other'].map(k => [k, DRUH[k]]) },
+          { key: 'kto', type: 'select', label: 'Dodávateľ', value: 'whoKey', optionLabel: (v, r) => (r ? r.who : v),
+            allLabel: 'Všetci dodávatelia' },
+          { key: 'late', type: 'toggle', label: 'Po splatnosti', test: (r) => r.late,
+            hint: 'Ešte nezaplatené faktúry, ktorých splatnosť uplynula.' },
+          { key: 'spor', type: 'toggle', label: 'Nesedí s hodinami', test: (r) => r.off, more: true,
+            hint: 'Faktúry, ktorých suma sa líši od schválených hodín × sadzba.' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (r) => r.b.subcontract_id || '', more: true,
+            optionLabel: (v, r) => (r ? r.subTitle : v), emptyLabel: 'Bez zákazky', allLabel: 'Všetky zákazky' },
+          { key: 'vystavena', type: 'range-date', label: 'Vystavená', field: 'b.issue_date', more: true },
+          { key: 'splatnost', type: 'range-date', label: 'Splatnosť', field: 'b.due_date', more: true },
+          { key: 'suma', type: 'range-number', label: 'Suma', value: (r) => r.cents / 100, unit: '€', more: true },
+        ],
+        empty: { ico: 'invoices', title: 'Zatiaľ žiadna prijatá faktúra',
+          sub: 'Nahrajte PDF faktúry — appka ju prečíta. Faktúra od živnostníka sa porovná s hodinami.' },
+        // Súčet toho, čo je vidieť — v centoch.
+        foot: (list) => {
+          const open = list.filter(r => r.unpaid);
+          return { cells: {
+            kto: `<span class="dl-foot-l">Spolu <em>${list.length} ${Shell.plural(list.length, 'faktúra', 'faktúry', 'faktúr')}</em></span>`,
+            suma: `<b class="dl-num" data-sum="suma">${Money.format(Money.sum(list.map(r => r.cents)))}</b>`,
+            kontrola: open.length ? `<span class="dl-two"><b class="dl-num" data-sum="neuhradene">${Money.format(Money.sum(open.map(r => r.cents)))}</b><small>neuhradené</small></span>` : '',
+          } };
+        },
+        export: {
+          name: ['prijate-faktury'],
+          columns: [
+            ['Číslo', r => r.b.bill_number], ['Od koho', r => r.who], ['Druh', r => DRUH[r.druh]],
+            ['IČO', r => r.ico], ['VS', r => r.b.variable_symbol],
+            ['Zákazka', r => r.subTitle], ['Obdobie', r => r.period],
+            ['Vystavená', r => r.b.issue_date], ['Splatnosť', r => r.b.due_date],
+            ['Stav', r => this.billStatusLabel(r.b.status)],
+            ['Suma', r => DanubraExport.num(r.b.amount)],
+            ['Očakávané', r => (r.c.expected != null ? DanubraExport.num(Money.fromCents(r.c.expected)) : DanubraExport.num(r.b.expected_amount))],
+            ['Rozdiel', r => (r.c.variance != null ? DanubraExport.num(Money.fromCents(r.c.variance)) : DanubraExport.num(r.b.variance))],
+          ],
+        },
+      };
     },
 
     /**
@@ -212,53 +368,15 @@
         .map(x => x.b);
     },
 
-    /** Prijaté faktúry po filtroch. Export vyváža presne toto. */
+    /** Prijaté faktúry, ktoré sú po filtroch vidieť. Export vyváža presne toto. */
     billRows() {
-      const f = this.filters;
-      // Nahraté na kontrolu a zahodené sú v zozname len na vyžiadanie (filter
-      // stavu) — na kontrolu majú vlastnú kartu hore.
-      const rows = f.status ? this.bills
-        : this.bills.filter(b => !['review', 'discarded'].includes(b.status));
-      return Shell.filterRows(
-        rows.map(b => ({ ...b,
-          worker_name: this.workerOf(b.worker_id).full_name || b.supplier_name || '' })),
-        { q: f.q, fields: ['bill_number', 'worker_name', 'variable_symbol'],
-          equals: { status: f.status },
-          period: { field: 'issue_date', key: f.period, from: f.from, to: f.to } });
+      const vid = window.DataList && DataList._reg.prijate ? DataList.visible('prijate') : null;
+      return vid ? vid.map(r => r.b) : this.bills.filter(b => !['review', 'discarded'].includes(b.status));
     },
 
-    exportBills() {
-      const f = this.filters;
-      Shell.exportCsv(this.billRows(), [
-        ['Číslo', b => b.bill_number],
-        ['Od koho', b => b.worker_name],
-        ['IČO', b => b.supplier_ico || this.workerOf(b.worker_id).company_id],
-        ['VS', b => b.variable_symbol],
-        ['Vystavená', b => b.issue_date],
-        ['Splatnosť', b => b.due_date],
-        ['Stav', b => Enums.label('bill_status', b.status)],
-        ['Suma', b => DanubraExport.num(b.amount)],
-        ['Očakávané', b => DanubraExport.num(b.expected_amount)],
-        ['Rozdiel', b => DanubraExport.num(b.variance)],
-      ], ['prijate-faktury',
-        Shell.periodSlug({ field: 'issue_date', key: f.period, from: f.from, to: f.to })]);
-    },
-
-    exportCosts() {
-      const f = this.filters;
-      Shell.exportCsv(this.costRows(), [
-        ['Popis', c => c.description],
-        ['Kategória', c => Enums.label('cost_category', c.category)],
-        ['Dátum', c => c.cost_date],
-        ['Dodávateľ', c => c.supplier],
-        ['Zákazka', c => this.subOf(c.subcontract_id).title],
-        ['Opakovaný', c => (c.recurring ? 'áno' : 'nie')],
-        ['Refakturovateľný', c => (c.rebillable ? 'áno' : 'nie')],
-        ['Už refakturovaný', c => (c.rebilled_invoice_id ? 'áno' : 'nie')],
-        ['Suma', c => DanubraExport.num(c.amount)],
-      ], ['naklady',
-        Shell.periodSlug({ field: 'cost_date', key: f.period, from: f.from, to: f.to })]);
-    },
+    /** Export do CSV — ten istý, ako tlačidlo Export v zozname. */
+    exportBills() { const btn = document.querySelector('#dl-prijate [data-dl-a="export"]'); if (btn) btn.click(); },
+    exportCosts() { const btn = document.querySelector('#dl-naklady [data-dl-a="export"]'); if (btn) btn.click(); },
 
     billKind(s) {
       return { received: 'gray', checked: 'blue', disputed: 'red', review: 'amber', self_draft: 'amber', self_sent: 'blue',
@@ -968,58 +1086,127 @@
     },
 
     // ── Ostatné náklady ───────────────────────────────────────────────────
+    // Zoznam je `DataList`; pod ním súčty po kategóriách za to, čo je
+    // práve vyfiltrované (prekreslia sa pri každej zmene filtra).
     costsHtml() {
-      const rows = this.costRows();
-      const by = DanubraBills.byCategory(rows);
-      const total = Money.sum(rows.map(c => Money.toCents(c.amount)));
-
-      const row = (c) => `
-        <div class="list-row" role="button" tabindex="0" onclick="Cost.costForm('${c.id}')">
-          <span class="dot ${c.parent_cost_id ? '' : c.recurring ? 'blue' : ''}"></span>
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(c.description || Enums.label('cost_category', c.category))}</strong>
-            ${c.recurring ? UI.badge('opakovaný', 'blue') : ''}
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${UI.esc(Enums.label('cost_category', c.category))}
-              · ${UI.date(c.cost_date)}
-              ${c.supplier ? ' · ' + UI.esc(c.supplier) : ''}
-              ${c.subcontract_id ? ' · ' + UI.esc(this.subOf(c.subcontract_id).title || '') : ''}</span>
-          </span>
-          <strong>${Money.format(Money.toCents(c.amount))}</strong>
-        </div>`;
-
-      return Shell.list({
-        rows, total: this.costs.length, render: row,
-        emptyIcon: 'invoices', emptyTitle: 'Zatiaľ žiadne náklady',
-        emptySub: 'Ubytovanie, doprava, náradie — všetko, čo nie je faktúra od živnostníka.',
-        filter: {
-          search: { value: this.filters.q, placeholder: 'Hľadať náklad, dodávateľa…',
-            oninput: 'Cost.setF("q", this.value)' },
-          selects: [{
-            value: this.filters.category, label: 'Kategória',
-            onchange: 'Cost.setF("category", this.value)',
-            options: [['', 'Všetky kategórie'], ...Enums.options('cost_category')],
-          }],
-          period: { field: 'cost_date', key: this.filters.period, from: this.filters.from,
-            to: this.filters.to, label: 'Dátum', set: 'Cost.setF' },
-          exportCsv: 'Cost.exportCosts()',
-        },
-      }) + (rows.length ? `
-        <div class="form-section">Po kategóriách</div>
-        ${Shell.sums({
-          lines: by.map(x => ({ label: Enums.label('cost_category', x.category), cents: x.cents })),
-          totalLabel: 'Spolu',
-        })}` : '');
+      return DataList.html(this.costConfig(this.costListRows()))
+        + `<div id="cost-bycat">${this.byCatHtml(null)}</div>`;
     },
 
-    /** Ostatné náklady po filtroch. */
+    /** Súčty po kategóriách — za riadky, ktoré sú vo filtri vidieť. */
+    byCatHtml(rows) {
+      const list = rows || (window.DataList && DataList._reg.naklady ? DataList.visible('naklady') : this.costListRows());
+      if (!list.length) return '';
+      const by = DanubraBills.byCategory(list.map(r => r.c));
+      return `<div class="form-section">Po kategóriách</div>
+        ${Shell.sums({
+          lines: by.map(x => ({ label: this.catLabel(x.category), cents: x.cents })),
+          totalLabel: 'Spolu',
+        })}`;
+    },
+    paintByCat(rows) {
+      const box = document.getElementById('cost-bycat');
+      if (box) box.innerHTML = this.byCatHtml(rows);
+    },
+
+    costListRows() {
+      return this.costs.map(c => ({
+        id: c.id, c,
+        title: c.description || this.catLabel(c.category) || 'Náklad',
+        cat: this.catLabel(c.category),
+        subTitle: c.subcontract_id ? (this.subOf(c.subcontract_id).title || 'Zákazka') : '',
+        person: c.worker_id ? (this.workerOf(c.worker_id).full_name || '') : '',
+        cents: Money.toCents(c.amount),
+      }));
+    },
+
+    /** Konfigurácia zoznamu ostatných nákladov pre `DataList`. */
+    costConfig(rows) {
+      const DL = DanubraDataList;
+      const rok = Danubra._dayISO().slice(0, 4);
+      const day = (d) => DL.fmtDay(d, { year: String(d).slice(0, 4) !== rok });
+      const flags = (r) => [
+        r.c.recurring ? UI.badge('opakovaný', 'blue') : '',
+        r.c.rebilled_invoice_id ? UI.badge('refakturovaný', 'green') : r.c.rebillable ? UI.badge('na refaktúru', 'amber') : '',
+      ].filter(Boolean).join(' ');
+      return {
+        id: 'naklady', storageKey: 'naklady', label: 'Ostatné náklady',
+        noun: ['náklad', 'náklady', 'nákladov'],
+        rows,
+        rowClick: (r) => Cost.costForm(r.id),
+        rowClass: (r) => (r.c.parent_cost_id ? 'is-muted' : ''),
+        rowLabel: (r) => `Náklad ${r.title}`,
+        rowActions: [{ ico: 'edit', label: 'Upraviť náklad', run: (r) => Cost.costForm(r.id) }],
+        onChange: (st, list) => this.paintByCat(list),
+        columns: [
+          { key: 'popis', label: 'Náklad', width: 'minmax(170px, 1.8fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.title)}</b>${r.c.supplier ? `<small>${UI.esc(r.c.supplier)}</small>` : ''}</span>`,
+            sortValue: (r) => r.title, sortLabel: 'Popis' },
+          { key: 'kategoria', label: 'Kategória', width: '118px',
+            render: (r) => `<span class="dl-tag">${UI.esc(r.cat)}</span>`, sortValue: (r) => r.cat },
+          { key: 'datum', label: 'Dátum', width: '80px', mobileLabel: '',
+            render: (r) => (r.c.cost_date ? `<span class="dl-num">${day(r.c.cost_date)}</span>` : ''),
+            sortValue: (r) => r.c.cost_date || null, sortDir: -1 },
+          { key: 'zakazka', label: 'Zákazka', width: 'minmax(110px, 1fr)',
+            render: (r) => (r.c.subcontract_id ? Danubra.link('subcontract', r.c.subcontract_id, r.subTitle) : ''),
+            sortValue: (r) => r.subTitle || null },
+          { key: 'koho', label: 'Koho sa týka', width: 'minmax(100px, .8fr)', hideBelow: 1000,
+            render: (r) => (r.c.worker_id ? Danubra.link('worker', r.c.worker_id, r.person) : ''),
+            sortValue: (r) => r.person || null },
+          { key: 'znaky', label: 'Opakovanie · refaktúra', width: '204px', hideBelow: 1100, mobile: 'line',
+            tip: 'Opakovaný = vzniká každý mesiac sám. Na refaktúru = má sa vrátiť na faktúre odberateľovi; refakturovaný = už je na faktúre.',
+            render: flags, csv: false },
+          { key: 'suma', label: 'Suma', width: '108px', align: 'right',
+            render: (r) => `<b class="dl-num dl-amt">${Money.format(r.cents)}</b>`,
+            sortValue: (r) => r.cents, sortDir: -1 },
+        ],
+        sort: { key: 'datum', dir: -1 },
+        groups: [
+          { key: 'kategoria', label: 'Kategória', value: 'cat' },
+          { key: 'zakazka', label: 'Zákazka', value: (r) => r.subTitle || 'Bez zákazky (réžia)' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať náklad, dodávateľa…', label: 'Hľadať popis, dodávateľa alebo zákazku',
+            fields: ['title', 'c.supplier', 'subTitle', 'person'] },
+          { key: 'kategoria', type: 'multi', label: 'Kategória', value: (r) => r.c.category || '',
+            optionLabel: (v) => this.catLabel(v) },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: (r) => r.c.subcontract_id || '',
+            optionLabel: (v, r) => (r ? r.subTitle : v), emptyLabel: 'Bez zákazky (réžia)', allLabel: 'Všetky zákazky' },
+          { key: 'datum', type: 'range-date', label: 'Dátum', field: 'c.cost_date' },
+          { key: 'opak', type: 'toggle', label: 'Opakované', test: (r) => !!r.c.recurring, more: true,
+            hint: 'Náklady, ktoré vznikajú každý mesiac samy (napr. ubytovanie).' },
+          { key: 'refa', type: 'toggle', label: 'Na refaktúru, ešte nie na faktúre', more: true,
+            test: (r) => !!r.c.rebillable && !r.c.rebilled_invoice_id,
+            hint: 'Zaplatili sme ich my a majú sa vrátiť na faktúre odberateľovi — zatiaľ nie sú na žiadnej.' },
+          { key: 'koho', type: 'select', label: 'Koho sa týka', value: (r) => r.c.worker_id || '', more: true,
+            optionLabel: (v, r) => (r ? r.person : v), allLabel: 'Všetci' },
+          { key: 'suma', type: 'range-number', label: 'Suma', value: (r) => r.cents / 100, unit: '€', more: true },
+        ],
+        empty: { ico: 'invoices', title: 'Zatiaľ žiadne náklady',
+          sub: 'Ubytovanie, doprava, náradie — všetko, čo nie je faktúra od živnostníka.',
+          cta: `<button class="btn btn-primary" onclick="Cost.costForm()">${Icon('plus')} Náklad</button>` },
+        foot: (list) => ({ cells: {
+          popis: `<span class="dl-foot-l">Spolu <em>${list.length} ${Shell.plural(list.length, 'náklad', 'náklady', 'nákladov')}</em></span>`,
+          suma: `<b class="dl-num" data-sum="suma">${Money.format(Money.sum(list.map(r => r.cents)))}</b>`,
+        } }),
+        export: {
+          name: ['naklady'],
+          columns: [
+            ['Popis', r => r.c.description], ['Kategória', r => r.cat], ['Dátum', r => r.c.cost_date],
+            ['Dodávateľ', r => r.c.supplier], ['Zákazka', r => r.subTitle], ['Koho sa týka', r => r.person],
+            ['Opakovaný', r => (r.c.recurring ? 'áno' : 'nie')],
+            ['Refakturovateľný', r => (r.c.rebillable ? 'áno' : 'nie')],
+            ['Už refakturovaný', r => (r.c.rebilled_invoice_id ? 'áno' : 'nie')],
+            ['Suma', r => DanubraExport.num(r.c.amount)],
+          ],
+        },
+      };
+    },
+
+    /** Ostatné náklady, ktoré sú po filtroch vidieť. */
     costRows() {
-      const f = this.filters;
-      return Shell.filterRows(this.costs, {
-        q: f.q, fields: ['description', 'supplier'],
-        equals: { category: f.category },
-        period: { field: 'cost_date', key: f.period, from: f.from, to: f.to },
-      });
+      const vid = window.DataList && DataList._reg.naklady ? DataList.visible('naklady') : null;
+      return vid ? vid.map(r => r.c) : this.costs.slice();
     },
 
     costForm(id, preset) {

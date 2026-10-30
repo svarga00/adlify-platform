@@ -19,7 +19,6 @@
 
   const Opp = {
     items: [], trades: [], loaded: false, openId: null,
-    filters: { status: '', q: '' },
 
     async load() {
       const [o, t] = await Promise.all([
@@ -45,6 +44,10 @@
     archived() { return this.items.filter(x => x.archived_at); },
 
     // ── Zoznam ────────────────────────────────────────────────────────────
+    // Zoznam je spoločný komponent (`DataList`): lišta filtrov, čipy toho, čo
+    // je zapnuté, a riadky po stĺpcoch. Dovtedy tu boli pilulky stavov a karty
+    // — filtrovať sa dalo len podľa stavu a odstránené boli v samostatnej
+    // pilulke. Teraz sú „Odstránené" jedna z hodnôt filtra Stav.
     async view(el) {
       Danubra.setActions(`
         <button class="btn btn-outline btn-sm" onclick="Opp.inquiryForm()">
@@ -54,48 +57,225 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
 
+      const today = Danubra._dayISO();
       const live = this.live();
-      const q = O.nowNext(live, Danubra._dayISO());
+      const q = O.nowNext(live, today);
       const s = O.summary(live);
-      const rows = this.rows();
-      const odlozene = this.archived().length;
 
       el.innerHTML = Danubra.header('Dopyty',
         `${s.live} ${Shell.plural(s.live, 'rozpracovaná', 'rozpracované', 'rozpracovaných')}`
         + (s.rate != null ? ` · úspešnosť ${UI.pct(s.rate)}${UI.tip('Z uzavretých dopytov (vyhrané aj stratené) koľko percent sme vyhrali. Ukáže sa až vtedy, keď sú uzavreté aspoň tri.')}` : ''))
-        + this.nowHtml(q) + `
-        <div class="pillbar" style="margin-bottom:12px;width:max-content;max-width:100%;overflow-x:auto;">
-          <button class="pill${!this.filters.status ? ' active' : ''}"
-            onclick="Opp.setF('status','')">Všetky</button>
-          ${O.STATUS.map(st => {
-            const n = live.filter(x => x.status === st[0]).length;
-            return n ? `<button class="pill${this.filters.status === st[0] ? ' active' : ''}"
-              onclick="Opp.setF('status','${st[0]}')">${st[1]} ${n}</button>` : '';
-          }).join('')}
-          ${odlozene ? `<button class="pill${this.filters.status === '__arch' ? ' active' : ''}"
-            onclick="Opp.setF('status','__arch')">${Icon('trash', 12)} Odstránené ${odlozene}</button>` : ''}
-        </div>
-        ${rows.length === 0
-          ? (live.length || this.filters.status === '__arch'
-              ? UI.empty('search', 'Filtru nič nesedí', 'Skúste iný stav.')
-              : UI.empty('offers', 'Zatiaľ žiadne dopyty',
-                  'Keď sa niekto ozve, zapíšte to sem — aj keď o tom viete málo. '
-                  + 'Dopyt, ktorý nie je zapísaný, neexistuje.',
-                  `<button class="btn btn-primary" onclick="Opp.form()">${Icon('plus')} Zapísať dopyt</button>`))
-          : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
+        + this.nowHtml(q)
+        + DataList.html(this.listConfig(this.rows(today)));
     },
 
-    rows() {
-      const f = this.filters;
-      if (f.status === '__arch') {
-        return Shell.filterRows(this.archived(), { q: f.q, fields: ['title', 'company_name', 'city'] });
-      }
-      return Shell.filterRows(this.live(), {
-        q: f.q, fields: ['title', 'company_name', 'city'],
-        equals: { status: f.status },
-      });
+    /** Stavy, s ktorými sa ešte pracuje — predvolený filter zoznamu. */
+    OPEN_STATUSES: ['new', 'checking', 'offer'],
+
+    /** Riadky zoznamu — všetky dopyty vrátane odstránených (tie skryje filter Stav). */
+    rows(today = Danubra._dayISO()) {
+      return this.items.map(x => this.listRow(x, today));
     },
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+
+    /** Kompatibilita: nastaví filter zoznamu z kódu (napr. odkaz z prehľadu). */
+    setF(k, v) {
+      if (k === 'status') return DataList.set('dopyty', 'stav', v ? [v] : []);
+      if (k === 'q') return DataList.set('dopyty', 'q', v || '');
+      return undefined;
+    },
+
+    /**
+     * Riadok zoznamu: dopyt a to, čo sa o ňom počíta raz za vykreslenie.
+     * Poradie „čo horí" (`rank`) je to isté ako v „Čo spraviť teraz"
+     * (`DanubraOpp.nowNext`): nový dopyt bez odpovede, neplatné USt-IdNr,
+     * nepreverená firma, chýbajúci údaj, ponuka bez odpovede.
+     */
+    listRow(x, today) {
+      const L = DanubraDataList;
+      const v = O.verification(x);
+      const chyba = O.missing(x);
+      const m = O.margin(x);
+      const arch = !!x.archived_at;
+      const closed = O.ZAVRETE.includes(x.status);
+      const live = !arch && !closed;
+      const created = x.created_at ? String(x.created_at).slice(0, 10) : '';
+      const age = created ? L.daysBetween(created, today) : null;
+      const toStart = x.start_date ? L.daysBetween(today, String(x.start_date).slice(0, 10)) : null;
+      let rank = 5;
+      if (arch) rank = 9;
+      else if (closed) rank = 8;
+      else if (x.status === 'new') rank = 0;
+      else if (v.state === 'invalid') rank = 1;
+      else if (x.company_vat && v.state !== 'valid') rank = 2;
+      else if (chyba.length) rank = 3;
+      else if (x.status === 'offer') rank = 4;
+      return {
+        id: x.id, x, v, chyba, m, arch, closed, live, age, toStart, rank, created,
+        hot: live && rank <= 1, problem: live && rank <= 3,
+        stav: arch ? '__arch' : (x.status || 'new'),
+        title: x.title || 'Dopyt',
+        company: x.company_name || '',
+        trade: x.trade_key ? this.tradeName(x.trade_key) : '',
+        city: x.city || '',
+        source: x.source || '',
+        marza: m.perHour != null ? m.perHour / 100 : null,
+      };
+    },
+
+    /** Konfigurácia zoznamu dopytov pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const ST = [...O.STATUS.map(s => [s[0], s[1]]), ['__arch', 'Odstránené']];
+      const statusIdx = (k) => { const i = ST.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
+      const statusLabel = (k) => (ST.find(s => s[0] === k) || [k, k])[1];
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const pred = (n) => (n <= 0 ? 'dnes' : n === 1 ? 'včera' : `pred ${n} dňami`);
+      const rate = (n) => `${Number(n).toLocaleString('sk-SK', { maximumFractionDigits: 2 })} €/h`;
+      const esc = UI.esc;
+      const hasArch = rows.some(r => r.arch);
+
+      const firmaCell = (r) => {
+        const name = r.company ? `<b>${esc(r.company)}</b>` : '<b class="opp-none">firma nezadaná</b>';
+        const st = r.v.state;
+        const note = st === 'valid' ? '<span class="dl-note is-green">preverená</span>'
+          : st === 'invalid' ? '<span class="dl-note is-red">USt-IdNr neplatné</span>'
+            : st === 'unavailable' ? '<span class="dl-note is-amber">register neodpovedal</span>'
+              : r.x.company_vat ? '<span class="dl-note is-mute">nepreverená</span>'
+                : '<span class="dl-note is-mute">bez USt-IdNr</span>';
+        return `<span class="dl-two" title="${esc(r.v.label)}">${name}${note}</span>`;
+      };
+      const sadzbyCell = (r) => {
+        const c = r.x.rate_client, w = r.x.rate_worker;
+        if (r.m.perHour != null) {
+          return `<span class="dl-two" title="Platia ${esc(rate(c))}, dáme ${esc(rate(w))} — marža ${esc(UI.pct(r.m.pct))} zo sadzby odberateľa">
+            <b class="${r.m.pct >= 25 ? 'opp-ok' : 'opp-thin'}">${esc(Money.format(r.m.perHour))}/h</b>
+            <small class="dl-num">${esc(rate(c))} → ${esc(String(w).replace('.', ','))}</small></span>`;
+        }
+        if (c) return `<span class="dl-two"><b>${esc(rate(c))}</b><small>platia, bez našej sadzby</small></span>`;
+        return '';
+      };
+      const nastupCell = (r) => {
+        if (!r.x.start_date) return '';
+        const t = r.toStart;
+        let note = '';
+        if (r.live && t != null) {
+          if (t < 0) note = `<span class="dl-note is-red">mal byť pred ${dni(-t)}</span>`;
+          else if (t === 0) note = '<span class="dl-note is-amber">dnes</span>';
+          else if (t <= 30) note = `<span class="dl-note ${t <= 7 ? 'is-amber' : 'is-mute'}">o ${dni(t)}</span>`;
+        }
+        return `<span class="dl-two"><b>${L.fmtDay(r.x.start_date)}</b>${note}</span>`;
+      };
+      const prisielCell = (r) => {
+        if (!r.created) return r.source ? `<span class="dl-two"><small>${esc(r.source)}</small></span>` : '';
+        const hot = r.x.status === 'new' && r.live && r.age >= 1;
+        return `<span class="dl-two" title="Zapísané ${L.fmtDay(r.created)}">
+          <b class="${hot ? 'opp-wait' : ''}">${pred(r.age)}</b>${r.source ? `<small>${esc(r.source)}</small>` : ''}</span>`;
+      };
+      const dalejCell = (r) => {
+        const x = r.x;
+        if (r.arch) {
+          return `<span class="dl-note is-mute">Odstránené ${L.fmtDay(x.archived_at)}${
+            x.archived_reason ? ` · ${esc(x.archived_reason)}` : ''}</span>`;
+        }
+        if (x.status === 'won') return `<span class="dl-ok">${Icon('check', 13)} ${x.subcontract_id ? 'Je z neho zákazka' : 'Vyhrali sme'}</span>`;
+        if (x.status === 'lost') return `<span class="dl-note is-mute">${x.lost_reason ? esc(x.lost_reason) : 'Stratená — bez dôvodu'}</span>`;
+        const n = r.chyba.length;
+        const chyba = n ? `chýba ${n} ${Shell.plural(n, 'údaj', 'údaje', 'údajov')}` : '';
+        const two = (b, note, tone) => `<span class="dl-two is-wrap"><b class="opp-do is-${tone}">${b}</b>${
+          note ? `<span class="dl-note is-mute">${esc(note)}</span>` : ''}</span>`;
+        if (r.rank === 0) return two('Ozvať sa', [r.age ? `čaká ${dni(r.age)}` : 'čaká na prvú odpoveď', chyba].filter(Boolean).join(' · '), 'red');
+        if (r.rank === 1) return two('USt-IdNr neplatné', 'overte číslo u firmy', 'red');
+        if (r.rank === 2) return two(r.v.state === 'unavailable' ? 'Preveriť znova' : 'Preveriť firmu', 'v registri EÚ', 'amber');
+        if (r.rank === 3) return two(`Doplniť ${r.chyba[0].title}`, r.chyba.length > 1 ? `a ${r.chyba.slice(1, 3).map(c => c.title).join(', ')}${r.chyba.length > 3 ? '…' : ''}` : '', 'amber');
+        if (r.rank === 4) return two('Pripomenúť sa k ponuke', 'ponuka odišla, je ticho', 'mute');
+        return `<span class="dl-ok">${Icon('check', 13)} Všetko doplnené</span>`;
+      };
+
+      return {
+        id: 'dopyty', storageKey: 'dopyty', label: 'Dopyty',
+        noun: ['dopyt', 'dopyty', 'dopytov'],
+        rows,
+        rowClick: (r) => Opp.detail(r.id),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.problem ? 'is-warn' : (r.closed || r.arch) ? 'is-muted' : ''),
+        rowLabel: (r) => `Dopyt ${r.title}`,
+        rowActions: [
+          { ico: (r) => (r.arch ? 'repeat' : 'trash'), label: (r) => (r.arch ? 'Vrátiť do zoznamu' : 'Odstrániť dopyt'),
+            run: (r) => (r.arch ? Opp.restore(r.id) : Opp.archiveForm(r.id)) },
+          { ico: 'chevron', label: 'Otvoriť dopyt', run: (r) => Opp.detail(r.id) },
+        ],
+        columns: [
+          { key: 'dopyt', label: 'O čo ide', width: 'minmax(150px, 1.5fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${esc(r.title)}</b>${
+              r.city ? `<small>${Icon('site', 11)} ${esc(r.city)}</small>` : ''}</span>`,
+            sortValue: (r) => r.title, sortLabel: 'Názov' },
+          { key: 'firma', label: 'Firma', width: 'minmax(118px, 1fr)', render: firmaCell, sortValue: (r) => r.company },
+          { key: 'remeslo', label: 'Remeslo · ľudia', width: '112px', hideBelow: 980,
+            render: (r) => (r.trade || r.x.headcount ? `<span class="dl-two">${r.trade ? `<b>${esc(r.trade)}</b>` : '<b class="opp-none">remeslo?</b>'}${
+              r.x.headcount ? `<small>${r.x.headcount} ${Shell.plural(Number(r.x.headcount), 'človek', 'ľudia', 'ľudí')}</small>` : ''}</span>` : ''),
+            sortValue: (r) => Number(r.x.headcount) || null, sortDir: -1, sortLabel: 'Počet ľudí' },
+          { key: 'sadzby', label: 'Marža', width: '104px', mobileLabel: 'marža',
+            tip: 'Hore marža na hodinu jedného človeka (čo platí odberateľ mínus čo dáme živnostníkovi, bez DPH). Dole platia → dáme. Zelená od 25 %.',
+            render: sadzbyCell, sortValue: (r) => r.m.perHour, sortDir: -1, sortLabel: 'Marža' },
+          { key: 'nastup', label: 'Nástup', width: '100px', mobileLabel: 'nástup', render: nastupCell,
+            sortValue: (r) => r.x.start_date || null },
+          { key: 'stav', label: 'Stav', width: '108px', mobile: 'badge',
+            render: (r) => (r.arch ? UI.badge('Odstránený', 'gray') : this.badge(r.x.status)),
+            sortValue: (r) => statusIdx(r.stav) },
+          { key: 'prisiel', label: 'Prišiel', width: '92px', hideBelow: 1100, mobileLabel: 'prišiel',
+            tip: 'Kedy bol dopyt zapísaný a odkiaľ prišiel (zdroj). Nový dopyt, ktorý čaká deň a viac, je oranžový.',
+            render: prisielCell, sortValue: (r) => r.x.created_at || null, sortDir: -1 },
+          { key: 'dalej', label: 'Čo ďalej', width: 'minmax(150px, 1.4fr)', mobile: 'line',
+            tip: 'Čo treba s dopytom spraviť. Poradie je rovnaké ako v „Čo spraviť teraz": najprv nové dopyty bez odpovede, potom neplatné USt-IdNr, nepreverené firmy a chýbajúce údaje.',
+            render: dalejCell,
+            sortValue: (r) => [r.rank, r.rank <= 2 ? (r.x.created_at || '') : '', r.title],
+            sortLabel: 'Čo horí' },
+        ],
+        sorts: [{ key: 'firmy', label: 'Firma', value: (r) => r.company }],
+        sort: { key: 'dalej', dir: 1 },
+        groups: [
+          { key: 'stav', label: 'Stav', value: 'stav', labelOf: statusLabel, order: ST.map(s => s[0]),
+            tone: (k) => ({ new: 'amber', checking: 'blue', offer: 'blue', won: 'green', lost: 'gray', __arch: 'gray' }[k] || 'gray') },
+          { key: 'firma', label: 'Firma', value: 'company', emptyLabel: 'Firma nezadaná' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať dopyt…', label: 'Hľadať názov, firmu, mesto, kontakt alebo remeslo',
+            fields: ['title', 'company', 'city', 'trade', 'source', 'x.contact_name', 'x.contact_phone', 'x.contact_email', 'x.company_vat'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: 'stav', default: this.OPEN_STATUSES,
+            options: ST, sortOptions: false, allLabel: 'Všetky',
+            presets: [
+              { label: 'Rozpracované', value: this.OPEN_STATUSES, hint: 'Nová, Preverujeme a Ponuka odišla — bez uzavretých a odstránených' },
+              { label: 'Uzavreté', value: ['won', 'lost'], hint: 'Vyhrali sme a Stratená' },
+              ...(hasArch ? [{ label: 'Odstránené', value: ['__arch'], hint: 'Odložené dopyty — dajú sa vrátiť do zoznamu' }] : []),
+            ] },
+          { key: 'firma', type: 'select', label: 'Firma', value: 'company', emptyLabel: 'Firma nezadaná', allLabel: 'Všetky firmy' },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', value: (r) => r.x.trade_key,
+            optionLabel: (v) => this.tradeName(v), emptyLabel: 'Nezadané', allLabel: 'Všetky remeslá' },
+          { key: 'problem', type: 'toggle', label: 'Len s problémom', test: (r) => r.problem,
+            hint: 'Dopyty, pri ktorých niečo čaká na nás: nový dopyt bez odpovede, neplatné alebo nepreverené USt-IdNr, chýbajúci údaj (firma, telefón, remeslo, počet ľudí, mesto, sadzba, nástup).' },
+          { key: 'mesto', type: 'select', label: 'Mesto', value: 'city', emptyLabel: 'Bez mesta', allLabel: 'Všetky mestá', more: true },
+          { key: 'zdroj', type: 'select', label: 'Zdroj', value: 'source', emptyLabel: 'Nezadaný', allLabel: 'Všetky zdroje', more: true },
+          { key: 'nastup', type: 'range-date', label: 'Nástup', field: 'x.start_date', more: true,
+            hint: 'Dopyty s nástupom v zvolenom období. Dopyt bez nástupu sa neukáže.' },
+          { key: 'prisiel', type: 'range-date', label: 'Prišiel', field: 'created', more: true },
+          { key: 'marza', type: 'range-number', label: 'Marža €/h', value: 'marza', unit: '€', more: true },
+        ],
+        empty: { ico: 'offers', title: 'Zatiaľ žiadne dopyty',
+          sub: 'Keď sa niekto ozve, zapíšte to sem — aj keď o tom viete málo. Dopyt, ktorý nie je zapísaný, neexistuje.',
+          cta: `<button class="btn btn-primary" onclick="Opp.form()">${Icon('plus')} Zapísať dopyt</button>` },
+        export: {
+          name: ['dopyty'],
+          columns: [
+            ['Dopyt', r => r.title], ['Firma', r => r.company], ['USt-IdNr', r => r.x.company_vat],
+            ['Overenie', r => r.v.label], ['Kontakt', r => r.x.contact_name], ['Telefón', r => r.x.contact_phone],
+            ['E-mail', r => r.x.contact_email], ['Mesto', r => r.city], ['Remeslo', r => r.trade],
+            ['Ľudí', r => r.x.headcount], ['Platia €/h', r => r.x.rate_client], ['Dáme €/h', r => r.x.rate_worker],
+            ['Marža €/h', r => r.marza], ['Nástup', r => r.x.start_date], ['Stav', r => statusLabel(r.stav)],
+            ['Prišiel', r => r.created], ['Zdroj', r => r.source],
+            ['Čo chýba', r => (r.live ? r.chyba.map(c => c.title).join(', ') : '')],
+          ],
+        },
+      };
+    },
 
     nowHtml(n) {
       const kam = n.opp ? `Opp.detail('${n.opp.id}')` : 'Opp.form()';
@@ -106,43 +286,6 @@
         help: 'card.opp.now',
         action: { label, onclick: kam, ico: n.key === 'new' ? 'phone' : 'chevron' },
       });
-    },
-
-    card(x) {
-      const v = O.verification(x);
-      const chyba = O.missing(x);
-      const m = O.margin(x);
-      return `
-        <div class="acc-card card${x.archived_at ? ' is-archived' : ''}" role="button" tabindex="0" onclick="Opp.detail('${x.id}')">
-          <div class="acc-card-head">
-            <div style="min-width:0;">
-              <div class="acc-name">${UI.esc(x.title)}</div>
-              <div class="acc-loc">${UI.esc(x.company_name || 'firma nezadaná')}</div>
-            </div>
-            <span class="opp-card-acts">
-              ${x.archived_at ? UI.badge('odstránený', 'gray') : this.badge(x.status)}
-              ${x.archived_at
-                ? `<button class="btn btn-outline btn-sm" title="Vrátiť do zoznamu"
-                    onclick="event.stopPropagation();Opp.restore('${x.id}')">${Icon('repeat', 13)} Vrátiť</button>`
-                : `<button class="opp-del" title="Odstrániť dopyt" aria-label="Odstrániť dopyt"
-                    onclick="event.stopPropagation();Opp.archiveForm('${x.id}')">${Icon('trash', 15)}</button>`}
-            </span>
-          </div>
-          ${x.archived_at ? `<div class="opp-arch-note">Odstránené ${UI.date(x.archived_at)}${
-            x.archived_reason ? ` · ${UI.esc(x.archived_reason)}` : ''}</div>` : ''}
-          <div class="acc-meta">
-            ${x.trade_key ? `<span>${Icon('wrench', 14)} ${UI.esc(this.tradeName(x.trade_key))}</span>` : ''}
-            ${x.headcount ? `<span>${Icon('user', 14)} ${x.headcount}</span>` : ''}
-            ${x.city ? `<span>${Icon('site', 14)} ${UI.esc(x.city)}</span>` : ''}
-            ${m.perHour != null ? `<span>${Icon('euro', 14)} marža ${Money.format(m.perHour)}/h${UI.tip('Koľko nám ostane z jednej hodiny jedného človeka: čo platí odberateľ mínus čo dáme živnostníkovi. Bez DPH.')}</span>` : ''}
-          </div>
-          <div class="card-now${v.state === 'invalid' ? ' card-now-hot' : ''}">
-            <b>${UI.esc(v.label)}</b>
-            <span>${UI.esc(chyba.length
-              ? `Chýba: ${chyba.slice(0, 3).map(c => c.title).join(', ')}`
-              : 'Všetko potrebné je doplnené.')}</span>
-          </div>
-        </div>`;
     },
 
     // ── Pridanie: štyri polia, nič viac ───────────────────────────────────
@@ -891,7 +1034,11 @@
       const { error } = await DB.update('opportunities', id, { archived_at: null, archived_reason: null });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       x.archived_at = null; x.archived_reason = null;
-      if (!this.archived().length && this.filters.status === '__arch') this.filters.status = '';
+      // Posledný vrátený: zoznam „Odstránené" by ostal prázdny — späť na rozpracované.
+      const st = window.DataList && DataList.state('dopyty');
+      if (!this.archived().length && st && JSON.stringify(st.f.stav) === '["__arch"]') {
+        DataList.set('dopyty', 'stav', this.OPEN_STATUSES);
+      }
       UI.toast('Dopyt je späť v zozname. Nábor, ak bol zrušený, obnovte v Nábore.', 'ok');
       Danubra._chain = null;
       Danubra.renderRoute();

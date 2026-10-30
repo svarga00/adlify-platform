@@ -91,84 +91,173 @@
           : this.tab === 'calls' ? this.callsHtml() : this.consentsHtml()}`;
     },
 
+    // ── Zoznamy (DataList) ────────────────────────────────────────────────
+    // Dohody, hovory a súhlasy sú spoločné zoznamy s filtrami, zoradením
+    // a exportom. Dovtedy to boli riadky pod sebou bez filtra — nesplnený
+    // sľub sa hľadal očami.
+
+    promiseRow(p, today) {
+      const w = this.workerOf(p.subject_id);
+      const late = p.status === 'open' && !!p.due_date && String(p.due_date).slice(0, 10) < today;
+      return {
+        id: p.id, p, w, late,
+        lowConf: p.confidence != null && p.confidence < 0.6,
+        kind: PROMISE_KIND[p.kind] || p.kind || '',
+        who: (w && w.full_name) || p.subject_name || '',
+        statement: p.statement || '',
+      };
+    },
+
     promisesHtml() {
-      if (!this.promises.length) {
-        return UI.empty('note', 'Žiadne zachytené dohody',
-          'Pridajte nahrávku hovoru — systém z nej vytiahne, čo sa sľúbilo.',
-          `<button class="btn btn-primary" onclick="Rec.uploadForm()">${Icon('upload')} Pridať hovor</button>`);
-      }
-      return this.promises.map(p => {
-        const w = this.workerOf(p.subject_id);
-        const late = p.status === 'open' && p.due_date && p.due_date < new Date().toISOString().slice(0, 10);
-        const lowConf = p.confidence != null && p.confidence < 0.6;
-        return `
-        <div class="list-row" style="align-items:flex-start;">
-          <span class="dot ${p.status === 'fulfilled' ? 'green' : p.status === 'broken' ? 'red' : 'amber'}"
-            style="margin-top:5px;"></span>
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(PROMISE_KIND[p.kind] || p.kind)}</strong>
-            ${w ? `<span style="color:var(--ink-mute);"> · ${UI.esc(w.full_name)}</span>` : ''}
-            ${lowConf ? UI.badge('overiť', 'amber') + UI.tip('Appka si pri tejto dohode z nahrávky nie je istá. Vypočujte si hovor a skontrolujte, či sa to naozaj tak povedalo.') : ''}
-            ${late ? UI.badge('po termíne', 'red') : ''}
-            <span style="display:block;color:var(--ink-sub);margin-top:2px;">${UI.esc(p.statement)}</span>
-            ${p.value_text ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">
-              Hodnota: ${UI.esc(p.value_text)}${p.due_date ? ` · termín ${UI.date(p.due_date)}` : ''}</span>` : ''}
-          </span>
-          <select class="verif-sel" onchange="Rec.setPromiseStatus('${p.id}',this.value)">
-            ${Object.entries(PROMISE_STATUS).map(([k, v]) =>
-              `<option value="${k}" ${p.status === k ? 'selected' : ''}>${v[0]}</option>`).join('')}
-          </select>
-        </div>`;
-      }).join('');
+      const today = new Date().toISOString().slice(0, 10);
+      const ORDER = ['broken', 'disputed', 'open', 'fulfilled', 'cancelled'];
+      return DataList.html({
+        id: 'dohody', storageKey: 'dohody', label: 'Zachytené dohody',
+        noun: ['dohoda', 'dohody', 'dohôd'],
+        rows: this.promises.map(p => this.promiseRow(p, today)),
+        rowClass: (r) => (r.p.status === 'broken' || r.late ? 'is-hot' : r.p.status === 'disputed' || r.lowConf ? 'is-warn'
+          : ['fulfilled', 'cancelled'].includes(r.p.status) ? 'is-muted' : ''),
+        columns: [
+          { key: 'dohoda', label: 'Dohoda', width: 'minmax(220px, 2.2fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.kind)}${r.lowConf ? ` <button type="button" class="tip-btn dl-flag is-amber" data-tip="Appka si pri tejto dohode z nahrávky nie je istá. Vypočujte si hovor a skontrolujte, či sa to naozaj tak povedalo." aria-label="Overiť: appka si pri tejto dohode nie je istá">overiť</button>` : ''}</b>${
+              r.statement ? `<small class="pl-wrap">${UI.esc(r.statement)}</small>` : ''}</span>`,
+            sortValue: (r) => r.kind, sortLabel: 'Druh' },
+          { key: 'kto', label: 'Komu', width: 'minmax(130px, 1fr)',
+            render: (r) => (r.w ? Danubra.link('worker', r.w.id, r.w.full_name) : UI.esc(r.who)),
+            sortValue: (r) => r.who },
+          { key: 'hodnota', label: 'Hodnota', width: 'minmax(100px, .8fr)', mobileLabel: 'hodnota',
+            render: (r) => UI.esc(r.p.value_text || ''), sortValue: (r) => r.p.value_text },
+          { key: 'termin', label: 'Termín', width: '116px', mobileLabel: 'termín',
+            render: (r) => (r.p.due_date ? `<span class="dl-two"><b>${DanubraDataList.fmtDay(r.p.due_date)}</b>${
+              r.late ? '<span class="dl-note is-red">po termíne</span>' : ''}</span>` : ''),
+            sortValue: (r) => r.p.due_date },
+          { key: 'stav', label: 'Stav', width: '138px', mobile: 'badge',
+            tip: 'Zmena stavu sa uloží hneď.',
+            render: (r) => `<select class="verif-sel" aria-label="Stav dohody" onchange="Rec.setPromiseStatus('${r.p.id}',this.value)">
+              ${Object.entries(PROMISE_STATUS).map(([k, v]) =>
+                `<option value="${k}" ${r.p.status === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>`,
+            csv: (r) => (PROMISE_STATUS[r.p.status] || PROMISE_STATUS.open)[0],
+            // Čo horí hore: nesplnené, potom po termíne, sporné, otvorené.
+            sortValue: (r) => [ORDER.indexOf(r.p.status) === 0 ? 0 : r.late ? 1 : ORDER.indexOf(r.p.status) + 1, r.p.due_date || '9999-12-31'],
+            sortLabel: 'Čo horí' },
+        ],
+        sort: { key: 'stav', dir: 1 },
+        sorts: [{ key: 'vznik', label: 'Najnovšie', value: (r) => r.p.created_at, dir: -1 }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať v dohodách…', label: 'Hľadať v znení, hodnote a mene',
+            fields: ['statement', 'who', 'kind', 'p.value_text'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.p.status || 'open',
+            options: ORDER.map(k => [k, PROMISE_STATUS[k][0]]), sortOptions: false, allLabel: 'Všetky',
+            presets: [{ label: 'Na riešenie', value: ['open', 'broken', 'disputed'] }] },
+          { key: 'druh', type: 'select', label: 'Druh', value: (r) => r.p.kind,
+            options: Object.entries(PROMISE_KIND), allLabel: 'Všetky druhy' },
+          { key: 'kto', type: 'select', label: 'Komu', value: (r) => r.who, emptyLabel: 'Bez mena', allLabel: 'Všetci' },
+          { key: 'neskoro', type: 'toggle', label: 'Po termíne', test: (r) => r.late,
+            hint: 'Otvorené dohody, ktorých termín už uplynul.' },
+          { key: 'overit', type: 'toggle', label: 'Treba overiť', more: true, test: (r) => r.lowConf,
+            hint: 'Dohody, pri ktorých si appka z nahrávky nie je istá.' },
+        ],
+        empty: { ico: 'note', title: 'Žiadne zachytené dohody',
+          sub: 'Pridajte nahrávku hovoru — systém z nej vytiahne, čo sa sľúbilo.',
+          cta: `<button class="btn btn-primary" onclick="Rec.uploadForm()">${Icon('upload')} Pridať hovor</button>` },
+        export: { name: ['dohody'] },
+      });
     },
 
     callsHtml() {
-      if (!this.recordings.length) {
-        return UI.empty('phone', 'Žiadne hovory', 'Nahrávku pridáte, až keď máte zaznamenaný súhlas.',
-          `<button class="btn btn-primary" onclick="Rec.uploadForm()">${Icon('upload')} Pridať hovor</button>`);
-      }
-      return this.recordings.map(r => {
-        const w = this.workerOf(r.subject_id);
-        const n = this.promises.filter(p => p.recording_id === r.id).length;
-        return `
-        <div class="list-row" role="button" tabindex="0" onclick="Rec.callDetail('${r.id}')" style="align-items:flex-start;">
-          <span class="dot ${r.status === 'done' ? 'green' : r.status === 'failed' || !r.consent_confirmed ? 'red' : 'amber'}"
-            style="margin-top:5px;"></span>
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(w?.full_name || r.subject_name || r.subject_phone || 'Hovor')}</strong>
-            <span style="color:var(--ink-mute);"> · ${UI.date(r.recorded_at)}</span>
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${!r.consent_confirmed ? 'bez potvrdeného súhlasu · ' : ''}${n ? `${n} dohôd · ` : ''}${r.summary ? UI.esc(r.summary.slice(0, 90)) + '…' : ''}</span>
-          </span>
-          ${this.recBadge(r.status)}
-        </div>`;
-      }).join('');
+      return DataList.html({
+        id: 'hovory', storageKey: 'hovory', label: 'Hovory',
+        noun: ['hovor', 'hovory', 'hovorov'],
+        rows: this.recordings.map(r => {
+          const w = this.workerOf(r.subject_id);
+          return { id: r.id, r, w, who: (w && w.full_name) || r.subject_name || r.subject_phone || 'Hovor',
+            n: this.promises.filter(p => p.recording_id === r.id).length, noConsent: !r.consent_confirmed };
+        }),
+        rowClick: (x) => Rec.callDetail(x.id),
+        rowClass: (x) => (x.noConsent && x.r.status !== 'deleted' ? 'is-hot' : x.r.status === 'failed' ? 'is-warn'
+          : x.r.status === 'deleted' ? 'is-muted' : ''),
+        rowLabel: (x) => `Hovor ${x.who}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť hovor', run: (x) => Rec.callDetail(x.id) }],
+        columns: [
+          { key: 'kto', label: 'S kým', width: 'minmax(160px, 1.3fr)', mobile: 'title',
+            render: (x) => `<span class="dl-title"><b>${UI.esc(x.who)}</b>${x.r.recorded_at ? `<small>${UI.date(x.r.recorded_at)}</small>` : ''}</span>`,
+            sortValue: (x) => x.who },
+          { key: 'suhlas', label: 'Súhlas', width: '120px',
+            render: (x) => (x.noConsent ? `<span class="dl-note is-red">${Icon('alert', 12)} nepotvrdený</span>`
+              : `<span class="dl-ok">${Icon('check', 13)} potvrdený</span>`),
+            sortValue: (x) => (x.noConsent ? 0 : 1) },
+          { key: 'dohody', label: 'Dohody', width: '80px', align: 'right', mobileLabel: 'dohody',
+            render: (x) => (x.n ? `<span class="dl-num"><b>${x.n}</b></span>` : ''), sortValue: (x) => x.n, sortDir: -1 },
+          { key: 'zhrnutie', label: 'Zhrnutie', width: 'minmax(200px, 2fr)', mobile: 'line', hideBelow: 900,
+            render: (x) => (x.r.summary ? `<span class="pl-clip">${UI.esc(x.r.summary)}</span>` : ''), csv: (x) => x.r.summary },
+          { key: 'stav', label: 'Stav', width: '120px', mobile: 'badge',
+            render: (x) => this.recBadge(x.r.status), sortValue: (x) => (REC_STATUS[x.r.status] || REC_STATUS.uploaded)[0] },
+        ],
+        sorts: [
+          { key: 'hori', label: 'Čo horí', value: (x) => [x.r.status === 'deleted' ? 1 : 0, x.noConsent ? 0 : 1,
+            x.r.status === 'failed' ? 0 : 1, -(new Date(x.r.recorded_at || 0).getTime() || 0)] },
+          { key: 'kedy', label: 'Kedy sa volalo', value: (x) => x.r.recorded_at, dir: -1 },
+        ],
+        sort: { key: 'hori', dir: 1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať meno, telefón, zhrnutie…', label: 'Hľadať meno, telefón alebo zhrnutie',
+            fields: ['who', 'r.subject_phone', 'r.summary'] },
+          { key: 'stav', type: 'select', label: 'Stav', value: (x) => x.r.status,
+            options: Object.entries(REC_STATUS).map(([k, v]) => [k, v[0]]), allLabel: 'Všetky' },
+          { key: 'kto', type: 'select', label: 'S kým', value: 'who', allLabel: 'Všetci' },
+          { key: 'bezsuhlasu', type: 'toggle', label: 'Bez súhlasu', test: (x) => x.noConsent && x.r.status !== 'deleted',
+            hint: 'Nahrávky bez potvrdeného súhlasu sa nedajú spracovať a mali by sa zmazať.' },
+          { key: 'kedy', type: 'range-date', label: 'Kedy sa volalo', more: true, field: 'r.recorded_at' },
+        ],
+        empty: { ico: 'phone', title: 'Žiadne hovory', sub: 'Nahrávku pridáte, až keď máte zaznamenaný súhlas.',
+          cta: `<button class="btn btn-primary" onclick="Rec.uploadForm()">${Icon('upload')} Pridať hovor</button>` },
+        export: { name: ['hovory'] },
+      });
     },
 
     consentsHtml() {
-      if (!this.consents.length) {
-        return UI.empty('shield', 'Žiadne súhlasy',
-          'Súhlas s nahrávaním musí byť daný pred hovorom — v SR aj v Nemecku je to podmienka zákonnosti.',
-          `<button class="btn btn-primary" onclick="Rec.consentForm()">${Icon('shield')} Zaznamenať súhlas</button>`);
-      }
-      return this.consents.map(c => {
-        const w = this.workerOf(c.subject_id);
-        const active = c.granted && !c.revoked_at;
-        return `
-        <div class="list-row" style="align-items:flex-start;">
-          <span class="dot ${active ? 'green' : 'red'}" style="margin-top:5px;"></span>
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(w?.full_name || c.subject_name || c.subject_phone || '—')}</strong>
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${c.granted ? `udelený ${UI.date(c.granted_at)}` : 'neudelený'}
-              ${c.method ? ` · ${UI.esc(c.method)}` : ''}
-              ${c.revoked_at ? ` · odvolaný ${UI.date(c.revoked_at)}` : ''}
-              ${c.retention_until ? ` · uchovať do ${UI.date(c.retention_until)}` : ''}</span>
-          </span>
-          ${active ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);"
-            onclick="Rec.revoke('${c.id}')">Odvolať</button>${UI.tip('Použite, keď človek povie, že už nesúhlasí s nahrávaním. Súhlas prestane platiť a jeho nahrávky treba potom zmazať.')}` : ''}
-        </div>`;
-      }).join('');
+      const METHOD = { verbal_recorded: 'ústne, na nahrávke', sms: 'SMS', email: 'e-mail', written: 'písomne', app: 'v aplikácii' };
+      return DataList.html({
+        id: 'suhlasy', storageKey: 'suhlasy', label: 'Súhlasy',
+        noun: ['súhlas', 'súhlasy', 'súhlasov'],
+        rows: this.consents.map(c => {
+          const w = this.workerOf(c.subject_id);
+          const st = c.revoked_at ? 'revoked' : c.granted ? 'active' : 'none';
+          return { id: c.id, c, w, st, who: (w && w.full_name) || c.subject_name || c.subject_phone || '—' };
+        }),
+        rowClass: (x) => (x.st === 'active' ? '' : 'is-muted'),
+        columns: [
+          { key: 'kto', label: 'Kto', width: 'minmax(160px, 1.4fr)', mobile: 'title',
+            render: (x) => `<span class="dl-title"><b>${UI.esc(x.who)}</b>${x.c.subject_phone ? `<small>${UI.esc(x.c.subject_phone)}</small>` : ''}</span>`,
+            sortValue: (x) => x.who },
+          { key: 'udeleny', label: 'Udelený', width: '120px', mobileLabel: 'udelený',
+            render: (x) => (x.c.granted && x.c.granted_at ? UI.date(x.c.granted_at) : ''), sortValue: (x) => x.c.granted_at, sortDir: -1 },
+          { key: 'ako', label: 'Ako', width: 'minmax(120px, 1fr)', hideBelow: 900,
+            render: (x) => UI.esc(METHOD[x.c.method] || x.c.method || ''), sortValue: (x) => x.c.method },
+          { key: 'do', label: 'Uchovať do', width: '120px', mobileLabel: 'do',
+            render: (x) => (x.c.retention_until ? UI.date(x.c.retention_until) : ''), sortValue: (x) => x.c.retention_until },
+          { key: 'stav', label: 'Stav', width: '120px', mobile: 'badge',
+            render: (x) => (x.st === 'active' ? UI.badge('platný', 'green')
+              : x.st === 'revoked' ? `<span title="${UI.esc(x.c.revoked_at ? `odvolaný ${UI.date(x.c.revoked_at)}` : '')}">${UI.badge('odvolaný', 'red')}</span>`
+              : UI.badge('neudelený', 'gray')),
+            sortValue: (x) => ({ active: 0, none: 1, revoked: 2 }[x.st]) },
+          { key: 'akcia', label: '', width: '96px', align: 'right', mobile: 'line', csv: false,
+            render: (x) => (x.st === 'active' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);"
+              onclick="Rec.revoke('${x.c.id}')" title="Použite, keď človek povie, že už nesúhlasí s nahrávaním. Súhlas prestane platiť a jeho nahrávky treba potom zmazať.">Odvolať</button>` : '') },
+        ],
+        sort: { key: 'stav', dir: 1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať meno alebo telefón…', fields: ['who', 'c.subject_phone'] },
+          { key: 'stav', type: 'select', label: 'Stav', value: 'st',
+            options: [['active', 'Platné'], ['revoked', 'Odvolané'], ['none', 'Neudelené']], allLabel: 'Všetky' },
+          { key: 'ako', type: 'select', label: 'Ako', value: (x) => x.c.method, optionLabel: (v) => METHOD[v] || v, allLabel: 'Všetky spôsoby' },
+          { key: 'konci', type: 'range-date', label: 'Uchovať do', field: 'c.retention_until' },
+        ],
+        empty: { ico: 'shield', title: 'Žiadne súhlasy',
+          sub: 'Súhlas s nahrávaním musí byť daný pred hovorom — v SR aj v Nemecku je to podmienka zákonnosti.',
+          cta: `<button class="btn btn-primary" onclick="Rec.consentForm()">${Icon('shield')} Zaznamenať súhlas</button>` },
+        export: { name: ['suhlasy'] },
+      });
     },
 
     setTab(t) { this.tab = t; Danubra.renderRoute(); },
@@ -536,6 +625,11 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       const p =this.promises.find(x => x.id === id); if (p) Object.assign(p, patch);
       UI.toast('Uložené', 'ok');
+      // Zoznam dohôd prepočíta filtre a poradie s novým stavom.
+      if (DataList._reg.dohody) {
+        const today = new Date().toISOString().slice(0, 10);
+        DataList.refresh('dohody', this.promises.map(x => this.promiseRow(x, today)));
+      }
     },
 
     /** Privátny bucket → krátkodobo podpísaný odkaz, nikdy nie verejná URL. */

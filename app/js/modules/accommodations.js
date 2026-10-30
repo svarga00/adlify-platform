@@ -17,11 +17,21 @@
   const Acc = {
     items: [],
     loaded: false,
+    // Obsadenosť a väzby na zákazky (pohľad `v_lodging_occupancy` — počíta sa
+    // z pobytov) a názvy zákaziek. Len na čítanie, kvôli stĺpcom zoznamu.
+    occupancy: [], subs: [],
+    // Staré filtre zostali kvôli `Acc.filtered()`; obrazovka má `DataList`.
     filters: { city: '', country: '', verification_status: '', q: '' },
 
     async load() {
-      const { data } = await DB.list('accommodations', { order: { column: 'created_at', ascending: false }, limit: 500 });
-      this.items = data || [];
+      const [r, o, s] = await Promise.all([
+        DB.list('accommodations', { order: { column: 'created_at', ascending: false }, limit: 500 }),
+        DB.list('v_lodging_occupancy', { limit: 2000 }),
+        DB.list('subcontracts', { select: 'id,title,status,site_city', limit: 500 }),
+      ]);
+      this.items = (r && r.data) || [];
+      this.occupancy = (o && o.data) || [];
+      this.subs = (s && s.data) || [];
       this.loaded = true;
     },
 
@@ -50,46 +60,144 @@
         <button class="btn btn-outline btn-sm" onclick="Acc.importCsv()">Import CSV</button>
         <button class="btn btn-primary btn-sm" onclick="Acc.form()">${Icon('plus')} Pridať</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.filtered();
-      el.innerHTML = Danubra.header('Ubytovania', `${this.items.length} v databáze · ${this.items.filter(a => a.verification_status === 'verified').length} overených`) + `
-        <div class="filterbar">
-          <input class="fb-search" placeholder="Hľadať názov, mesto, majiteľ…" value="${UI.esc(this.filters.q)}"
-            oninput="Acc.setF('q',this.value)">
-          <select onchange="Acc.setF('country',this.value)">
-            <option value="">Všetky krajiny</option>
-            ${COUNTRIES.map(c => `<option value="${c}" ${this.filters.country === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
-          <select onchange="Acc.setF('verification_status',this.value)">
-            <option value="">Všetky stavy</option>
-            ${VERIF.map(v => `<option value="${v[0]}" ${this.filters.verification_status === v[0] ? 'selected' : ''}>${v[1]}</option>`).join('')}
-          </select>
-        </div>
-        <div class="count-line">${rows.length} ZÁZNAMOV</div>
-        ${rows.length === 0
-          ? UI.empty('bed', 'Žiadne ubytovania', 'Pridajte prvé alebo importujte CSV.',
-              `<button class="btn btn-primary" onclick="Acc.form()">${Icon('plus')} Pridať ubytovanie</button>`)
-          : `<div class="cards">${rows.map(a => this.card(a)).join('')}</div>`}`;
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = this.items.map(a => this.listRow(a, today));
+      const active = rows.filter(r => r.active).length;
+      // Zoznam je spoločný komponent (`DataList`). Dovtedy tu boli karty
+      // a tri filtre (krajina, stav, hľadanie) — nebolo vidieť, kde je voľné
+      // miesto a ktoré ubytovanie práve slúži niektorej zákazke.
+      el.innerHTML = Danubra.header('Ubytovania',
+        `${this.items.length} v databáze · ${this.items.filter(a => a.verification_status === 'verified').length} overených · ${active} pri bežiacej zákazke`)
+        + DataList.html(this.listConfig(rows));
     },
 
-    card(a) {
-      const price = a.price_per_bed_night != null ? `${UI.money(a.price_per_bed_night)}/lôžko/noc` : 'cena neuvedená';
-      return `
-        <div class="acc-card card" role="button" tabindex="0" onclick="Acc.detail('${a.id}')">
-          <div class="acc-card-head">
-            <div>
-              <div class="acc-name">${UI.esc(a.name)}</div>
-              <div class="acc-loc">${UI.esc(a.city)}${a.country ? ', ' + a.country : ''} · ${this.typeLabel(a.type)}</div>
-            </div>
-            ${this.verifBadge(a.verification_status)}
-          </div>
-          <div class="acc-meta">
-            <span>${Icon('euro', 14)} ${price}</span>
-            ${a.max_persons ? `<span>${Icon('user', 14)} max ${a.max_persons}</span>` : ''}
-            ${a.beds ? `<span>${Icon('bed', 14)} ${a.beds} lôžok</span>` : ''}
-            ${a.van_parking ? `<span>${Icon('van', 14)} parkovanie</span>` : ''}
-            ${a.invoice_payment ? `<span>${Icon('receipt', 14)} na faktúru</span>` : ''}
-          </div>
-        </div>`;
+    /** Riadok zoznamu: ubytovanie, jeho väzby na zákazky a obsadenosť dnes. */
+    listRow(a, today) {
+      const links = this.occupancy.filter(o => o.accommodation_id === a.id);
+      const now = links.filter(l => (!l.date_from || String(l.date_from).slice(0, 10) <= today)
+        && (!l.date_to || String(l.date_to).slice(0, 10) >= today));
+      const subOf = (id) => this.subs.find(s => s.id === id) || null;
+      const running = now.filter(l => { const s = subOf(l.subcontract_id); return !s || ['won', 'active'].includes(s.status); });
+      const capacity = Number(a.max_persons) || Number(a.beds) || null;
+      const occupied = running.reduce((n, l) => n + (Number(l.occupied_now) || 0), 0);
+      const subIds = [...new Set(links.map(l => l.subcontract_id).filter(Boolean))];
+      const price = a.price_per_bed_night != null ? Number(a.price_per_bed_night)
+        : a.price_month != null ? Number(a.price_month) / 30 : null;
+      return {
+        id: a.id, a, links, active: running.length > 0, occupied, capacity,
+        free: capacity != null ? Math.max(capacity - occupied, 0) : null,
+        subIds, subNames: subIds.map(id => (subOf(id) || {}).title).filter(Boolean),
+        activeSubs: [...new Set(running.map(l => l.subcontract_id))].map(id => (subOf(id) || {}).title).filter(Boolean),
+        price, city: a.city || '',
+      };
+    },
+
+    /** Konfigurácia zoznamu ubytovaní pre `DataList`. */
+    listConfig(rows) {
+      const money = (n) => UI.money(n);
+      const placeCell = (r) => {
+        if (r.capacity == null) return r.occupied ? `<span class="dl-num"><b>${r.occupied}</b> býva</span>` : '';
+        const full = r.free === 0 && r.active;
+        return `<span class="dl-two"><span class="dl-num"><b${full ? ' class="is-short"' : ''}>${r.occupied}</b> / ${r.capacity}</span>${
+          r.active ? `<small class="${full ? 'acc-full' : ''}">${full ? 'plné' : `${r.free} ${Shell.plural(r.free, 'voľné miesto', 'voľné miesta', 'voľných miest')}`}</small>`
+            : `<small>${r.capacity} ${Shell.plural(r.capacity, 'miesto', 'miesta', 'miest')}</small>`}</span>`;
+      };
+      const priceCell = (r) => {
+        const a = r.a;
+        if (a.price_per_bed_night != null) return `<span class="dl-two"><b class="dl-num">${money(a.price_per_bed_night)}</b><small>lôžko / noc</small></span>`;
+        if (a.price_week != null) return `<span class="dl-two"><b class="dl-num">${money(a.price_week)}</b><small>týždeň</small></span>`;
+        if (a.price_month != null) return `<span class="dl-two"><b class="dl-num">${money(a.price_month)}</b><small>mesiac</small></span>`;
+        return '<span class="dl-note is-mute">neuvedená</span>';
+      };
+      const contactCell = (r) => {
+        const a = r.a;
+        if (!a.owner_name && !a.owner_phone && !a.owner_email) return '';
+        return `<span class="dl-two"><b>${UI.esc(a.owner_name || a.owner_email || '')}</b>${
+          a.owner_phone ? `<small>${UI.esc(a.owner_phone)}${a.owner_whatsapp ? ' · WhatsApp' : ''}</small>` : a.owner_name && a.owner_email ? `<small>${UI.esc(a.owner_email)}</small>` : ''}</span>`;
+      };
+      const subsCell = (r) => {
+        if (!r.subNames.length) return '';
+        const first = r.activeSubs[0] || r.subNames[0];
+        const more = r.subNames.length - 1;
+        return `<span class="dl-two"><b title="${UI.esc(r.subNames.join(', '))}">${UI.esc(first)}</b><small>${
+          r.active ? 'býva sa tam teraz' : 'teraz nikto'}${more > 0 ? ` · +${more}` : ''}</small></span>`;
+      };
+      const extras = (a) => [a.van_parking ? 'parkovanie' : '', a.invoice_payment ? 'na faktúru' : ''].filter(Boolean).join(' · ');
+
+      return {
+        id: 'ubytovania', storageKey: 'ubytovania', label: 'Ubytovania',
+        noun: ['ubytovanie', 'ubytovania', 'ubytovaní'],
+        rows,
+        rowClick: (r) => Acc.detail(r.id),
+        rowClass: (r) => (r.a.verification_status === 'not_cooperating' ? 'is-muted' : r.active && r.free === 0 ? 'is-warn' : ''),
+        rowLabel: (r) => `Ubytovanie ${r.a.name}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť ubytovanie', run: (r) => Acc.detail(r.id) }],
+        columns: [
+          { key: 'nazov', label: 'Ubytovanie', width: 'minmax(170px, 1.6fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.a.name || '—')}</b><small>${
+              UI.esc([r.a.type ? this.typeLabel(r.a.type) : '', extras(r.a)].filter(Boolean).join(' · '))}</small></span>`,
+            sortValue: (r) => r.a.name, sortLabel: 'Názov' },
+          { key: 'mesto', label: 'Mesto', width: 'minmax(110px, 1fr)',
+            render: (r) => (r.city ? `<span class="dl-two"><b>${UI.esc(r.city)}${r.a.country ? `, ${UI.esc(r.a.country)}` : ''}</b>${
+              r.a.highway_distance_km != null ? `<small>${UI.esc(r.a.highway_distance_km)} km k diaľnici</small>` : ''}</span>` : ''),
+            sortValue: (r) => r.city },
+          { key: 'miesta', label: 'Obsadené', width: '112px', mobileLabel: 'obsadené',
+            tip: 'Koľko ľudí tam dnes býva (z pobytov pri zákazkách) z koľkých miest (max. osôb, inak lôžok).',
+            render: placeCell, sortValue: (r) => [r.active ? 0 : 1, r.free == null ? null : -r.free], sortLabel: 'Voľné miesta' },
+          { key: 'cena', label: 'Cena', width: '104px', align: 'right',
+            render: priceCell, sortValue: (r) => r.price, csv: (r) => r.a.price_per_bed_night },
+          { key: 'kontakt', label: 'Kontakt', width: 'minmax(120px, 1fr)', hideBelow: 1100, render: contactCell,
+            sortValue: (r) => r.a.owner_name, csv: (r) => [r.a.owner_name, r.a.owner_phone, r.a.owner_email] },
+          { key: 'zakazky', label: 'Zákazky', width: 'minmax(130px, 1.2fr)', mobile: 'line', render: subsCell,
+            sortValue: (r) => [r.active ? 0 : 1, r.subNames.length ? 0 : 1, r.a.name], sortLabel: 'Pri zákazke (aktívne hore)' },
+          { key: 'stav', label: 'Overenie', width: '118px', mobile: 'badge',
+            render: (r) => this.verifBadge(r.a.verification_status),
+            sortValue: (r) => VERIF.findIndex(v => v[0] === (r.a.verification_status || 'new')) },
+        ],
+        sorts: [{ key: 'pridane', label: 'Pridané', value: (r) => r.a.created_at, dir: -1 }],
+        sort: { key: 'zakazky', dir: 1 },
+        groups: [
+          { key: 'mesto', label: 'Mesto', value: (r) => r.city, labelOf: (k) => k || 'Bez mesta' },
+          { key: 'stav', label: 'Overenie', value: (r) => r.a.verification_status || 'new',
+            labelOf: (k) => (VERIF.find(v => v[0] === k) || VERIF[0])[1],
+            tone: (k) => (VERIF.find(v => v[0] === k) || VERIF[0])[2], order: VERIF.map(v => v[0]) },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať názov, mesto, majiteľa…', label: 'Hľadať názov, mesto, adresu alebo majiteľa',
+            fields: ['a.name', 'city', 'a.owner_name', 'a.address', 'a.postal_code', 'a.owner_phone', (r) => r.subNames.join(' ')] },
+          { key: 'mesto', type: 'select', label: 'Mesto', value: 'city', allLabel: 'Všetky mestá', emptyLabel: 'Bez mesta' },
+          { key: 'volne', type: 'toggle', label: 'S voľným miestom', test: (r) => r.capacity != null && r.free > 0,
+            hint: 'Ubytovania, kde dnes ostáva aspoň jedno voľné miesto (kapacita mínus tí, čo tam dnes bývajú).' },
+          { key: 'aktivne', type: 'toggle', label: 'Aktívne', test: (r) => r.active,
+            hint: 'Ubytovania, kde sa dnes býva pri získanej alebo bežiacej zákazke.' },
+          { key: 'stav', type: 'multi', label: 'Overenie', value: (r) => r.a.verification_status || 'new',
+            options: VERIF.map(v => [v[0], v[1]]), sortOptions: false,
+            presets: [{ label: 'Spolupracujú', value: ['new', 'contacted', 'prices_confirmed', 'verified'], hint: 'Bez tých, ktoré nespolupracujú' }] },
+          { key: 'krajina', type: 'select', label: 'Krajina', value: (r) => r.a.country, more: true,
+            options: COUNTRIES.map(c => [c, c]), allLabel: 'Všetky krajiny' },
+          { key: 'typ', type: 'select', label: 'Typ', value: (r) => r.a.type, more: true,
+            options: TYPES, emptyLabel: 'Nezadaný', allLabel: 'Všetky typy' },
+          { key: 'zakazka', type: 'select', label: 'Zákazka', value: 'subIds', more: true,
+            optionLabel: (v) => (this.subs.find(s => s.id === v) || {}).title || v, allLabel: 'Všetky zákazky' },
+          { key: 'cena', type: 'range-number', label: 'Cena za lôžko a noc', value: (r) => r.a.price_per_bed_night, unit: '€', more: true },
+          { key: 'faktura', type: 'toggle', label: 'Platba na faktúru', test: (r) => !!r.a.invoice_payment, more: true },
+          { key: 'parking', type: 'toggle', label: 'Parkovanie pre dodávku', test: (r) => !!r.a.van_parking, more: true },
+        ],
+        empty: { ico: 'bed', title: 'Žiadne ubytovania', sub: 'Pridajte prvé alebo importujte CSV.',
+          cta: `<button class="btn btn-primary" onclick="Acc.form()">${Icon('plus')} Pridať ubytovanie</button>` },
+        export: {
+          name: ['ubytovania'],
+          columns: [
+            ['Názov', r => r.a.name], ['Typ', r => this.typeLabel(r.a.type)], ['Mesto', r => r.city], ['Krajina', r => r.a.country],
+            ['Adresa', r => r.a.address], ['PSČ', r => r.a.postal_code],
+            ['Kapacita', r => r.capacity], ['Býva dnes', r => r.occupied], ['Voľné', r => r.free],
+            ['Cena lôžko/noc', r => r.a.price_per_bed_night], ['Cena týždeň', r => r.a.price_week], ['Cena mesiac', r => r.a.price_month],
+            ['Majiteľ', r => r.a.owner_name], ['Telefón', r => r.a.owner_phone], ['E-mail', r => r.a.owner_email],
+            ['Zákazky', r => r.subNames.join(', ')],
+            ['Overenie', r => (VERIF.find(v => v[0] === r.a.verification_status) || VERIF[0])[1]],
+          ],
+        },
+      };
     },
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },

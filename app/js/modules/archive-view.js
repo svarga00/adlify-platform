@@ -75,23 +75,39 @@
     } catch { return String(ts); }
   }
 
-  const Arv = {
-    table: 'subcontracts',
-    rows: [], loadedFor: null, error: null,
+  const groupOfKind = (k) => (KINDS.find(g => g[1].some(x => x[0] === k)) || ['Ostatné'])[0];
 
+  const Arv = {
+    // `table` zostal kvôli `setTable` (starý vstup z inej obrazovky); zoznam
+    // teraz načíta všetky druhy naraz a druh je filter.
+    table: 'subcontracts',
+    rows: [], loadedFor: null, error: null, errors: [],
+
+    /**
+     * Archív všetkých druhov naraz. Druh, ktorý sa načítať nepodarí (napr.
+     * tabuľka bez archívu v starej databáze), nezastaví ostatné — ukáže sa
+     * ako upozornenie nad zoznamom.
+     */
     async load() {
-      const { data, error } = await DB.rpc('archived', { p_table: this.table });
-      this.error = error ? (error.message || String(error)) : null;
-      this.rows = Array.isArray(data) ? data : [];
-      this.loadedFor = this.table;
+      const res = await Promise.all(ALL.map(([k]) => DB.rpc('archived', { p_table: k })
+        .then(r => ({ k, r }), e => ({ k, r: { data: null, error: e } }))));
+      this.rows = []; this.errors = [];
+      for (const { k, r } of res) {
+        if (r && r.error) { this.errors.push({ k, msg: r.error.message || String(r.error) }); continue; }
+        for (const x of (Array.isArray(r && r.data) ? r.data : [])) this.rows.push({ ...x, _table: k });
+      }
+      // Keď nejde nič (napr. chýba právo), je to chyba celej obrazovky.
+      this.error = this.errors.length === ALL.length ? this.errors[0].msg : null;
+      this.loadedFor = 'all';
     },
 
+    /** Starý vstup: otvorí archív s filtrom na jeden druh. */
     async setTable(k) {
       if (!ALL.some(x => x[0] === k)) return;
       this.table = k;
-      try { localStorage.setItem('danubra_archiv_table', k); } catch {}
-      this.loadedFor = null;
-      Danubra.renderRoute();
+      if (window.DataList && DataList._reg.archiv && Danubra.route === 'archiv') return DataList.set('archiv', 'druh', [k]);
+      this._wantKind = k;
+      return Danubra.renderRoute();
     },
 
     /** Kto archivoval — meno z používateľov, inak nič (nie je to podstatné). */
@@ -108,10 +124,7 @@
             'Ak potrebujete niečo vrátiť späť, povedzte to administrátorovi.');
         return;
       }
-      if (this.loadedFor === null) {
-        try { const k = localStorage.getItem('danubra_archiv_table'); if (k && ALL.some(x => x[0] === k)) this.table = k; } catch {}
-      }
-      if (this.loadedFor !== this.table) { el.innerHTML = UI.loading(); await this.load(); }
+      if (this.loadedFor !== 'all') { el.innerHTML = UI.loading(); await this.load(); }
       Danubra.setActions('');
 
       const tip = UI.tip('Archív je odložené, nie vyhodené. Keď pri zázname stlačíte „Archivovať", '
@@ -119,53 +132,89 @@
         + 'a tlačidlom „Vrátiť späť" ho vráti tam, kde bol. Vráti sa aj to, čo sa archivovalo '
         + 'spolu s ním (napríklad nasadenia pri zákazke alebo odpovede pri otázke).');
 
-      const select = `<label class="fld" style="margin:0;min-width:240px;">
-          <span>Druh záznamov</span>
-          <select onchange="Arv.setTable(this.value)" aria-label="Druh záznamov">
-            ${KINDS.map(([g, items]) => `<optgroup label="${UI.esc(g)}">${items.map(([k, l]) =>
-              `<option value="${k}" ${k === this.table ? 'selected' : ''}>${UI.esc(l)}</option>`).join('')}</optgroup>`).join('')}
-          </select></label>`;
-
-      const rows = this.rows.slice().sort((a, b) =>
-        String(b.archived_at || '').localeCompare(String(a.archived_at || '')));
+      const rows = this.rows.map(r => ({
+        id: `${r._table}:${r.id}`, r, kind: r._table, kindLabel: labelOfKind(r._table), group: groupOfKind(r._table),
+        label: r.label || '—', at: r.archived_at || '', day: String(r.archived_at || '').slice(0, 10),
+        whoId: r.archived_by || '', whoName: this.who(r.archived_by),
+      }));
 
       let body;
       if (this.error) {
         body = `<div class="warnbox">${Icon('alert', 14)} Archív sa nepodarilo načítať: ${UI.esc(this.error)}</div>`;
-      } else if (!rows.length) {
-        body = UI.empty('archive', `V archíve nie sú žiadne ${labelOfKind(this.table).toLowerCase()}`,
-          'Keď niečo archivujete, objaví sa to tu a dá sa to vrátiť späť.');
       } else {
-        body = `<div class="card card-pad"><div class="kpi-table-wrap"><table class="kpi-table">
-          <thead><tr><th>Názov</th><th>Archivované</th><th class="ta-r"></th></tr></thead>
-          <tbody>${rows.map(r => {
-            const kto = this.who(r.archived_by);
-            return `<tr style="vertical-align:middle;">
-              <td><strong>${UI.esc(r.label || '—')}</strong></td>
-              <td class="dim" style="white-space:nowrap;">${UI.esc(when(r.archived_at))}${kto ? `<br>${UI.esc(kto)}` : ''}</td>
-              <td class="ta-r"><button class="btn btn-outline btn-sm" onclick="Arv.restore('${UI.esc(r.id)}')">
-                ${Icon('undo', 14)} Vrátiť späť</button></td>
-            </tr>`;
-          }).join('')}</tbody></table></div></div>`;
+        const zle = this.errors.map(e => labelOfKind(e.k));
+        // Zoznam je spoločný komponent (`DataList`). Dovtedy sa vyberal jeden
+        // druh záznamov a pod ním bola tabuľka bez filtrov.
+        body = (zle.length ? `<div class="warnbox" style="margin-bottom:12px;">${Icon('alert', 14)}
+            Niektoré druhy sa nenačítali: ${UI.esc(zle.slice(0, 6).join(', '))}${zle.length > 6 ? ` a ďalšie (${zle.length - 6})` : ''}.</div>` : '')
+          + DataList.html(this.listConfig(rows));
+        if (this._wantKind) { const k = this._wantKind; this._wantKind = null; setTimeout(() => DataList.set('archiv', 'druh', [k]), 0); }
       }
 
       el.innerHTML = Danubra.header('Archív',
         `Čo bolo archivované — nič sa nemaže a dá sa to vrátiť späť ${tip}`)
-        + `<div class="filterbar" style="align-items:flex-end;">${select}
-            <span class="card-note" style="margin:0;">${rows.length ? `V archíve: ${zaznamov(rows.length)}` : ''}</span></div>`
         + body;
     },
 
-    async restore(id) {
-      const r = this.rows.find(x => String(x.id) === String(id));
+    /** Konfigurácia zoznamu archívu pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const day30 = (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 30); return d.toISOString().slice(0, 10); })();
+      return {
+        id: 'archiv', storageKey: 'archiv', label: 'Archív',
+        noun: ['záznam', 'záznamy', 'záznamov'],
+        rows,
+        rowLabel: (x) => `${x.kindLabel}: ${x.label}`,
+        columns: [
+          { key: 'nazov', label: 'Názov', width: 'minmax(200px, 2fr)', mobile: 'title',
+            render: (x) => `<span class="dl-title"><b>${UI.esc(x.label)}</b><small>${UI.esc(x.group)}</small></span>`,
+            sortValue: (x) => x.label, sortLabel: 'Názov' },
+          { key: 'druh', label: 'Druh', width: 'minmax(130px, 1fr)', mobile: 'badge',
+            render: (x) => `<span class="dl-tag">${Icon('archive', 14)}${UI.esc(x.kindLabel)}</span>`, sortValue: (x) => x.kindLabel },
+          { key: 'kedy', label: 'Archivované', width: '150px',
+            render: (x) => `<span class="dl-num">${UI.esc(when(x.at))}</span>`, sortValue: (x) => x.at, sortDir: -1,
+            csv: (x) => when(x.at) },
+          { key: 'kto', label: 'Kto', width: 'minmax(120px, 1fr)', mobileLabel: 'archivoval',
+            render: (x) => (x.whoName ? UI.esc(x.whoName) : ''), sortValue: (x) => x.whoName || null },
+          { key: 'akcia', label: '', width: '132px', align: 'right', mobile: 'line', csv: false,
+            render: (x) => `<button class="btn btn-outline btn-sm" onclick="Arv.restore('${UI.esc(x.r.id)}', '${UI.esc(x.kind)}')">
+              ${Icon('undo', 14)} Vrátiť späť</button>` },
+        ],
+        sort: { key: 'kedy', dir: -1 },
+        groups: [
+          { key: 'druh', label: 'Druh', value: 'kindLabel' },
+          { key: 'skupina', label: 'Skupina', value: 'group', order: KINDS.map(g => g[0]) },
+          { key: 'kto', label: 'Kto archivoval', value: (x) => x.whoName, labelOf: (k) => k || 'Neznámy' },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať v archíve…', label: 'Hľadať názov, druh alebo meno',
+            fields: ['label', 'kindLabel', 'whoName'] },
+          { key: 'druh', type: 'multi', label: 'Druh', value: 'kind',
+            options: (rs) => ALL.filter(([k]) => rs.some(x => x.kind === k)).map(([k, l]) => [k, l]), sortOptions: false, allLabel: 'Všetky' },
+          { key: 'kto', type: 'select', label: 'Kto', value: 'whoId', optionLabel: (v, x) => (x && x.whoName) || 'Neznámy',
+            emptyLabel: 'Neznámy', allLabel: 'Ktokoľvek' },
+          { key: 'kedy', type: 'range-date', label: 'Kedy', field: 'day' },
+          { key: 'nedavno', type: 'toggle', label: 'Posledných 30 dní', test: (x) => x.day >= day30 },
+          { key: 'skupina', type: 'select', label: 'Skupina', value: 'group', more: true,
+            options: KINDS.map(g => [g[0], g[0]]), allLabel: 'Všetky skupiny' },
+        ],
+        empty: { ico: 'archive', title: 'Archív je prázdny',
+          sub: 'Keď niečo archivujete, objaví sa to tu a dá sa to vrátiť späť.' },
+        export: { name: ['archiv'] },
+      };
+    },
+
+    async restore(id, table) {
+      const r = this.rows.find(x => String(x.id) === String(id) && (!table || x._table === table));
       if (!r) return;
+      const t = r._table || this.table;
       const ok = await UI.confirm(`Vrátiť „${r.label || 'záznam'}" späť?`, {
         hint: 'Záznam sa znova objaví v zoznamoch tam, kde bol. Vráti sa aj to, čo sa archivovalo '
           + 'spolu s ním (napríklad nasadenia pri zákazke).',
         ok: 'Vrátiť späť', danger: false,
       });
       if (!ok) return;
-      const { data, error } = await DB.rpc('unarchive', { p_table: this.table, p_id: r.id });
+      const { data, error } = await DB.rpc('unarchive', { p_table: t, p_id: r.id });
       if (error) return UI.toast('Nepodarilo sa vrátiť: ' + (error.message || error), 'err');
       const n = Number(data) || 0;
       UI.toast(n ? `Vrátené späť: ${zaznamov(n)}` : 'Nič sa nevrátilo — záznam už asi nie je v archíve.',

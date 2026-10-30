@@ -157,50 +157,142 @@
     },
 
     // ── Pohyby ────────────────────────────────────────────────────────────
+    // Zoznam je spoločný komponent (`DataList`): stĺpce, filtre s počtami,
+    // čipy, súčet príjmov a výdajov v päte a na telefóne karty. Dovtedy tu
+    // bolo hľadanie a výber stavu párovania (predvolene nespárované) — ten
+    // je dnes filter „Stav" s rovnakou predvoľbou.
     txsHtml() {
-      const rows = Shell.filterRows(this.txs, {
-        q: this.filters.q, fields: ['counterparty_name', 'variable_symbol', 'message'],
-        equals: { match_status: this.filters.status },
-      });
-
-      const row = (t) => {
-        const cents = Money.toCents(t.amount);
-        const matched = t.matched_invoice_id || t.matched_bill_id || t.matched_cost_id;
-        return `<div class="list-row" role="button" tabindex="0" onclick="Bank.txDetail('${t.id}')">
-          <span class="dot ${t.match_status === 'unmatched' ? 'amber'
-            : t.match_status === 'ignored' ? '' : 'green'}"></span>
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(t.counterparty_name || '—')}</strong>
-            ${UI.badge(Enums.label('match_status', t.match_status),
-              t.match_status === 'unmatched' ? 'amber' : t.match_status === 'ignored' ? 'gray' : 'green')}
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${UI.date(t.booked_at)}
-              ${t.variable_symbol ? ' · VS ' + UI.esc(t.variable_symbol) : ''}
-              ${t.message ? ' · ' + UI.esc(String(t.message).slice(0, 60)) : ''}
-              ${matched ? ' · spárované' : ''}</span>
-          </span>
-          <strong style="${cents < 0 ? 'color:var(--red);' : ''}">${Money.format(cents, { sign: true })}</strong>
-        </div>`;
-      };
-
-      return Shell.list({
-        rows, total: this.txs.length, render: row,
-        emptyIcon: 'invoices', emptyTitle: 'Zatiaľ žiadne pohyby',
-        emptySub: 'Načítajte výpis z banky — CSV z internet bankingu stačí.',
-        filter: {
-          search: { value: this.filters.q, placeholder: 'Hľadať protistranu, symbol, správu…',
-            oninput: 'Bank.setF("q", this.value)' },
-          selects: [{
-            value: this.filters.status, label: 'Stav párovania',
-            onchange: 'Bank.setF("status", this.value)',
-            options: [['', 'Všetky'], ...Enums.options('match_status')],
-          }],
-          right: `<button class="btn btn-outline btn-sm" onclick="Bank.automatch()">
+      return `<div class="fk-tools">
+          <button class="btn btn-outline btn-sm" onclick="Bank.automatch()">
             ${Icon('repeat', 14)} Spárovať automaticky</button>${UI.tip('Appka sama priradí platby k faktúram: '
               + 'príjem podľa variabilného symbolu (= číslo našej faktúry), výdavok podľa sumy a k tomu VS alebo '
-              + 'IBAN-u. Spárovaná faktúra sa označí ako uhradená.')}`,
-        },
+              + 'IBAN-u. Spárovaná faktúra sa označí ako uhradená.')}
+        </div>` + DataList.html(this.listConfig(this.listRows()));
+    },
+
+    /** Názov stavu párovania — z číselníka, inak záloha. */
+    matchLabel(s) {
+      const FB = { unmatched: 'Nespárované', auto: 'Spárované automaticky', manual: 'Spárované ručne', ignored: 'Nezaujíma nás' };
+      const l = Enums.label('match_status', s);
+      return l && l !== s ? l : (FB[s] || l || '');
+    },
+    matchTone(s) { return s === 'unmatched' ? 'amber' : s === 'ignored' ? 'gray' : 'green'; },
+
+    /** Riadok zoznamu pohybov: pohyb a doklad, s ktorým je spárovaný. */
+    listRows() {
+      const inv = new Map(this.invoices.map(i => [i.id, i]));
+      const bil = new Map(this.bills.map(b => [b.id, b]));
+      return this.txs.map(t => {
+        const cents = Money.toCents(t.amount);
+        let link = null;
+        if (t.matched_invoice_id) {
+          const i = inv.get(t.matched_invoice_id);
+          link = { type: 'invoice', id: t.matched_invoice_id, label: `Faktúra ${(i && i.invoice_number) || ''}`.trim(), kind: 'vydaná faktúra' };
+        } else if (t.matched_bill_id) {
+          const b = bil.get(t.matched_bill_id);
+          link = { type: 'bill', id: t.matched_bill_id, label: `Faktúra ${(b && b.bill_number) || ''}`.trim(), kind: 'prijatá faktúra' };
+        } else if (t.matched_cost_id) {
+          link = { type: 'cost', id: t.matched_cost_id, label: 'Náklad', kind: 'náklad' };
+        }
+        return {
+          id: t.id, t, cents, link,
+          dir: cents >= 0 ? 'in' : 'out',
+          who: t.counterparty_name || t.counterparty || '',
+          ms: t.match_status || 'unmatched',
+        };
       });
+    },
+
+    /** Konfigurácia zoznamu pohybov pre `DataList`. */
+    listConfig(rows) {
+      const DL = DanubraDataList;
+      const ORDER = ['unmatched', 'auto', 'manual', 'ignored'];
+      const sumOf = (list) => Money.sum(list.map(r => r.cents));
+      return {
+        id: 'banka', storageKey: 'banka', label: 'Pohyby na účte',
+        noun: ['pohyb', 'pohyby', 'pohybov'],
+        rows,
+        rowClick: (r) => Bank.txDetail(r.id),
+        rowClass: (r) => (r.ms === 'unmatched' ? 'is-warn' : r.ms === 'ignored' ? 'is-muted' : ''),
+        rowLabel: (r) => `Pohyb ${DL.fmtDay(r.t.booked_at)} ${r.who} ${Money.format(r.cents, { sign: true })}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť pohyb', run: (r) => Bank.txDetail(r.id) }],
+        columns: [
+          { key: 'datum', label: 'Dátum', width: '92px', mobileLabel: '',
+            render: (r) => (r.t.booked_at ? `<span class="dl-num">${DL.fmtDay(r.t.booked_at)}</span>` : ''),
+            sortValue: (r) => r.t.booked_at || null, sortDir: -1 },
+          { key: 'protiucet', label: 'Protiúčet', width: 'minmax(170px, 1.5fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.who || '—')}</b>${
+              r.t.counterparty_iban ? `<small class="mono">${UI.esc(r.t.counterparty_iban)}</small>` : ''}</span>`,
+            sortValue: (r) => r.who || null },
+          { key: 'vs', label: 'VS', width: '96px', mobileLabel: 'VS',
+            tip: 'Variabilný symbol, ktorý platiteľ zadal k platbe. Pri našich faktúrach je to číslo faktúry — podľa neho sa platba spáruje.',
+            render: (r) => (r.t.variable_symbol ? `<span class="mono">${UI.esc(r.t.variable_symbol)}</span>` : ''),
+            sortValue: (r) => r.t.variable_symbol || null },
+          { key: 'sprava', label: 'Správa', width: 'minmax(120px, 1.2fr)', hideBelow: 1100, hideOnMobile: true,
+            render: (r) => (r.t.message ? `<span class="dl-two"><small title="${UI.esc(r.t.message)}">${UI.esc(String(r.t.message).slice(0, 80))}</small></span>` : ''),
+            csv: (r) => r.t.message || '' },
+          { key: 'sparovane', label: 'Spárované s', width: 'minmax(130px, 1fr)', mobile: 'line',
+            render: (r) => (r.link ? `<span class="dl-two">${Danubra.link(r.link.type, r.link.id, r.link.label)}<small>${r.link.kind}</small></span>`
+              : r.ms === 'unmatched' ? '<span class="dl-note is-amber">čaká na spárovanie</span>'
+                : r.ms === 'ignored' ? '<span class="dl-note is-mute">nepatrí k faktúre</span>' : ''),
+            sortValue: (r) => (r.link ? r.link.label : null) },
+          { key: 'stav', label: 'Stav', width: '150px', mobile: 'badge',
+            render: (r) => UI.badge(this.matchLabel(r.ms), this.matchTone(r.ms)),
+            sortValue: (r) => ORDER.indexOf(r.ms) },
+          { key: 'suma', label: 'Suma', width: '118px', align: 'right',
+            render: (r) => `<b class="dl-num dl-amt is-${r.dir}">${Money.format(r.cents, { sign: true })}</b>`,
+            sortValue: (r) => r.cents, sortDir: -1 },
+        ],
+        sort: { key: 'datum', dir: -1 },
+        groups: [
+          { key: 'stav', label: 'Stav párovania', value: 'ms', labelOf: (k) => this.matchLabel(k),
+            tone: (k) => this.matchTone(k), order: ORDER },
+          { key: 'smer', label: 'Príjem / výdaj', value: 'dir', labelOf: (k) => (k === 'in' ? 'Príjmy' : 'Výdaje'),
+            tone: (k) => (k === 'in' ? 'green' : 'red'), order: ['in', 'out'] },
+        ],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať protistranu, symbol, správu…',
+            label: 'Hľadať protistranu, IBAN, variabilný symbol alebo správu',
+            fields: ['who', 't.counterparty_iban', 't.variable_symbol', 't.message', (r) => (r.link ? r.link.label : '')] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: 'ms', default: ['unmatched'], sortOptions: false,
+            options: ORDER.map(k => [k, this.matchLabel(k)]), allLabel: 'Všetky',
+            hint: 'Nespárovaný pohyb je platba, pri ktorej appka ešte nevie, ku ktorej faktúre patrí.',
+            presets: [
+              { label: 'Nespárované', value: ['unmatched'], hint: 'Čakajú, kým ich priradíte k faktúre' },
+              { label: 'Spárované', value: ['auto', 'manual'], hint: 'Automaticky aj ručne' },
+            ] },
+          { key: 'smer', type: 'select', label: 'Príjem / výdaj', value: 'dir', sortOptions: false,
+            options: [['in', 'Príjmy'], ['out', 'Výdaje']], allLabel: 'Príjmy aj výdaje' },
+          { key: 'datum', type: 'range-date', label: 'Obdobie', field: 't.booked_at' },
+          { key: 'protiucet', type: 'select', label: 'Protistrana', value: (r) => r.who || '', more: true,
+            allLabel: 'Všetky protistrany' },
+          { key: 'suma', type: 'range-number', label: 'Suma', value: (r) => Math.abs(r.cents) / 100, unit: '€', more: true,
+            hint: 'Bez znamienka — príjem aj výdaj podľa výšky.' },
+        ],
+        empty: { ico: 'invoices', title: 'Zatiaľ žiadne pohyby',
+          sub: 'Načítajte výpis z banky — CSV z internet bankingu stačí.',
+          cta: `<button class="btn btn-primary" onclick="Bank.importForm()">${Icon('upload')} Načítať výpis</button>` },
+        // Príjmy, výdaje a rozdiel toho, čo je vidieť — v centoch.
+        foot: (list) => {
+          const inc = sumOf(list.filter(r => r.cents > 0));
+          const out = sumOf(list.filter(r => r.cents < 0));
+          return { cells: {
+            datum: `<span class="dl-foot-l">Spolu <em>${list.length} ${Shell.plural(list.length, 'pohyb', 'pohyby', 'pohybov')}</em></span>`,
+            sparovane: `<span class="dl-two"><b class="dl-num is-in" data-sum="prijmy">${Money.format(inc, { sign: true })}</b><small>príjmy</small></span>`,
+            stav: `<span class="dl-two"><b class="dl-num is-out" data-sum="vydaje">${Money.format(out, { sign: true })}</b><small>výdaje</small></span>`,
+            suma: `<span class="dl-two"><b class="dl-num" data-sum="rozdiel">${Money.format(inc + out, { sign: true })}</b><small>rozdiel</small></span>`,
+          } };
+        },
+        export: {
+          name: ['banka-pohyby'],
+          columns: [
+            ['Dátum', r => r.t.booked_at ? String(r.t.booked_at).slice(0, 10) : ''], ['Protistrana', r => r.who],
+            ['IBAN', r => r.t.counterparty_iban || ''], ['VS', r => r.t.variable_symbol || ''],
+            ['Správa', r => r.t.message || ''], ['Suma', r => DanubraExport.num(r.t.amount)],
+            ['Stav', r => this.matchLabel(r.ms)], ['Spárované s', r => (r.link ? r.link.label : '')],
+          ],
+        },
+      };
     },
 
     txDetail(id) {

@@ -734,10 +734,12 @@ console.log('Prehliadač');
         'pod tým je päť krokov reťazca');
       ok(out.text.includes('z 5 fáz hotových'), 'a koľko z nich je hotových');
       ok(out.html.includes('is-now'), 'ten, ktorý je na rade, je zvýraznený');
-      // Plán je karta: remeslo menom a „0 z 4 nabraných" (nie kľúč „murar × 4").
+      // Plán je riadok zoznamu: remeslo menom a „0 z 4 nabraných" (nie kľúč „murar × 4").
       ok(out.text.includes('Murár') && /0 z 4 nabraných/.test(out.text) && !/murar ×/.test(out.text),
         'plán ukazuje názov remesla, nie kľúč',
         out.text.slice(0, 300));
+      ok(/id="dl-nabor"/.test(out.html) && /class="dl-row[^"]*" role="row" data-dl-row="p1"/.test(out.html),
+        'náborové plány sú zoznam s filtrami (DataList), plán je v ňom riadok');
       ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
         'a odtiaľto sa dá ísť na zvyšok náboru');
 
@@ -808,6 +810,14 @@ console.log('Prehliadač');
             + (document.getElementById('page-actions')
               ? (document.getElementById('page-actions').innerHTML.match(/Guide\.startCall/g) || []).length
               : 0);
+          // Zoznam je DataList: obaja čakajú na telefonát, takže ich prepínač nechá.
+          res.riadkov = v.querySelectorAll('#dl-kandidati .dl-row').length;
+          res.cakaNaTel = (v.querySelector('#dl-kandidati .dl-row .dl-col-prisiel') || {}).textContent || '';
+          DataList.set('kandidati', 'caka', true);
+          res.poPrepinaci = v.querySelectorAll('#dl-kandidati .dl-row').length;
+          DataList.set('kandidati', 'q', 'Urban');
+          res.poHladani = [...v.querySelectorAll('#dl-kandidati .dl-row .dl-col-meno b')].map(b => b.textContent.trim());
+          DataList.reset('kandidati');
 
           // S dostatkom ľudí v procese má kanban zmysel a zapne sa sám.
           Cand.items = Array.from({ length: 7 }, (_, i) => ({
@@ -815,6 +825,10 @@ console.log('Prehliadač');
           Danubra.renderRoute();
           await new Promise(r => setTimeout(r, 300));
           res.kanbanovVela = document.getElementById('view').querySelectorAll('.kanban-col').length;
+          // Kanban kreslí tie isté riadky, aké prepustia filtre zoznamu.
+          res.kartPred = document.querySelectorAll('#cand-kanban .kanban-card').length;
+          DataList.set('kandidati', 'q', 'Človek 3');
+          res.kartPo = document.querySelectorAll('#cand-kanban .kanban-card').length;
           return res;
         })();
       });
@@ -823,6 +837,12 @@ console.log('Prehliadač');
       ok(out.kanbanov === 0, 'pri dvoch kandidátoch sa kanban nekreslí',
         `${out.kanbanov} stĺpcov`);
       ok(out.kanbanovVela > 0, 'pri siedmich sa zapne sám', `${out.kanbanovVela} stĺpcov`);
+      ok(out.riadkov === 2, 'kandidáti sú riadky zoznamu s filtrami', `${out.riadkov} riadkov`);
+      ok(/čaká na telefonát/.test(out.cakaNaTel), 'v riadku je vidieť, kto čaká na telefonát', out.cakaNaTel);
+      ok(out.poPrepinaci === 2, 'prepínač „Čaká na prvý telefonát" ich nechá', `${out.poPrepinaci}`);
+      ok(out.poHladani.join(',') === 'Dávid Urban', 'hľadanie nechá len hľadaného', out.poHladani.join(','));
+      ok(out.kartPred === 7 && out.kartPo === 1, 'filter zoznamu platí aj pre kanban',
+        `${out.kartPred} → ${out.kartPo}`);
       ok(out.text.includes('zatiaľ nemeriame'),
         'prázdna metrika povie, že sa ešte nemeria');
       ok(!out.text.includes('konverzia 0 %'),
@@ -831,6 +851,123 @@ console.log('Prehliadač');
         'veta v metrike nemá veľkosť čísla, aby sa nezalomila');
       ok(out.text.includes('väzba vzniká pri hovore'),
         'pri neznámom pôvode sa povie, kde tá väzba vzniká');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Ľudia a Inzeráty: zoznamy s filtrami ──────────────────────────────
+    // „Všetky zoznamy prehľadnejšie a hlavne všade filtre." Ľudia majú v riadku
+    // všetkých šesť papierov, čo horí je hore a odkaz z Prehľadu („komu chýba
+    // GDPR") otvorí zoznam už vyfiltrovaný.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const sken = { storage_path: 'docs/x.pdf', status: 'valid', valid_from: '2026-01-01' };
+        const DATA = {
+          workers: [
+            { id: 'w1', full_name: 'Jozef Malý', status: 'deployed', legal_form: 'szco', profession: 'murar', city: 'Nitra' },
+            { id: 'w2', full_name: 'Anna Veselá', status: 'ready', legal_form: 'szco', profession: 'maliar', city: 'Trnava', hourly_cost: 21 },
+            { id: 'w3', full_name: 'Milan Starý', status: 'inactive', legal_form: 'szco', profession: 'murar', city: 'Nitra' },
+          ],
+          worker_documents: [
+            { id: 'd1', worker_id: 'w2', kind: 'gdpr', ...sken },
+            { id: 'd2', worker_id: 'w2', kind: 'contract', ...sken },
+            { id: 'd3', worker_id: 'w2', kind: 'a1', ...sken, valid_to: '2099-01-01' },
+            { id: 'd4', worker_id: 'w2', kind: 'trade_licence', ...sken },
+            { id: 'd5', worker_id: 'w2', kind: 'id_card', ...sken },
+            { id: 'd6', worker_id: 'w1', kind: 'contract', valid_from: '2026-01-01', storage_path: null, file_url: null },
+          ],
+          assignments: [{ id: 'a1', worker_id: 'w1', subcontract_id: 'sc1', status: 'active' }],
+          subcontracts: [{ id: 'sc1', title: 'Stavba Ulm', status: 'active' }],
+          crews: [], overrides: [], work_orders: [],
+          ads: [
+            { id: 'ad1', title: 'Murári Ulm', channel: 'facebook', active: true },
+            { id: 'ad2', title: 'Maliari jar', channel: 'portal', active: false },
+          ],
+          v_ad_performance: [{ id: 'ad1', candidates: 3, contacted: 1, hired: 0 }],
+          trades: [], recruitment_plans: [],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        DB.signedDocUrls = async () => new Map();
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        try { localStorage.clear(); } catch {}
+
+        const res = {};
+        const view = document.getElementById('view');
+        const mena = () => [...view.querySelectorAll('#dl-ludia .dl-row .dl-col-meno b')].map(b => b.textContent.trim());
+        return (async () => {
+          Wrk.loaded = false; Wrk.openId = null;
+          Danubra.route = 'workers';
+          await Danubra.views.workers.call(Danubra, view);
+          res.poradie = mena();
+          res.hori = !!view.querySelector('.dl-row[data-dl-row="w1"].is-hot');
+          res.papierov = view.querySelectorAll('.dl-row[data-dl-row="w2"] .pl-doc').length;
+          res.w2ok = view.querySelectorAll('.dl-row[data-dl-row="w2"] .pl-doc.is-ok').length;
+          res.w2idle = view.querySelectorAll('.dl-row[data-dl-row="w2"] .pl-doc.is-idle').length;
+          res.zmluvaBezSkenu = !!view.querySelector('.dl-row[data-dl-row="w1"] .pl-doc.is-scan');
+          res.nasadeny = (view.querySelector('.dl-row[data-dl-row="w1"] .dl-col-zakazka') || {}).textContent || '';
+
+          // Prepínač „Pripravený na nasadenie" — kliknutím, ako to spraví človek.
+          view.querySelector('#dl-ludia [data-dl-a="tog"][data-k="volny"]').click();
+          res.pripraveni = mena();
+          DataList.reset('ludia');
+
+          // Odkaz z Prehľadu: „komu chýba súhlas GDPR" (neaktívni sa nerátajú).
+          Wrk.filters.doc = 'nogdpr';
+          await Danubra.views.workers.call(Danubra, view);
+          res.bezGdpr = mena();
+          res.cip = (view.querySelector('#dl-ludia .dl-chips') || {}).textContent || '';
+          res.cip = res.cip.replace(/\s+/g, ' ');
+
+          // Klik na riadok otvorí kartu človeka.
+          DataList.reset('ludia');
+          view.querySelector('.dl-row[data-dl-row="w2"] .dl-col-remeslo').click();
+          res.profil = Wrk.openId;
+          // Profil sa dokreslí (dotiahne si účet) — až potom ďalej.
+          await new Promise(r => setTimeout(r, 400));
+          Wrk.openId = null;
+
+          // Inzeráty: predvolene len bežiace, „Všetky" ukáže aj dobehnuté.
+          Ads.loaded = false;
+          Danubra.route = 'ads';
+          await Danubra.views.ads.call(Danubra, view);
+          const inz = () => [...view.querySelectorAll('#dl-inzeraty .dl-row .dl-col-nazov b')].map(b => b.textContent.trim());
+          res.bezia = inz();
+          res.caka = (view.querySelector('#dl-inzeraty .dl-row .dl-col-reakcie') || {}).textContent || '';
+          DataList.set('inzeraty', 'stav', '');
+          res.vsetky = inz();
+          return res;
+        })();
+      });
+
+      ok(out.poradie[0] === 'Jozef Malý', 'čo horí je hore: človek na stavbe bez papierov',
+        out.poradie.join(', '));
+      ok(out.poradie[out.poradie.length - 1] === 'Milan Starý', 'neaktívni sú na konci', out.poradie.join(', '));
+      ok(out.hori, 'a jeho riadok je označený ako horiaci');
+      ok(out.papierov === 6 && out.w2ok === 5 && out.w2idle === 1,
+        'v riadku je šesť papierov (aj A1, živnosť, totožnosť); objednávka bez stavby nie je chyba',
+        `${out.papierov} papierov, ${out.w2ok} v poriadku, ${out.w2idle} netreba teraz`);
+      ok(out.zmluvaBezSkenu, 'zapísaná zmluva bez skenu je vidieť ako „bez skenu"');
+      ok(/Stavba Ulm/.test(out.nasadeny), 'pri človeku je zákazka, kde je nasadený', out.nasadeny);
+      ok(out.pripraveni.join(',') === 'Anna Veselá', 'filter „Pripravený na nasadenie" nechá toho, kto môže ísť',
+        out.pripraveni.join(','));
+      ok(out.bezGdpr.join(',') === 'Jozef Malý', 'odkaz z Prehľadu ukáže len ľudí bez súhlasu GDPR',
+        out.bezGdpr.join(','));
+      ok(/Papiere: Chýba súhlas GDPR/.test(out.cip), 'a v čipoch je vidieť, prečo', out.cip);
+      ok(out.profil === 'w2', 'klik na riadok otvorí kartu človeka', String(out.profil));
+      ok(out.bezia.join(',') === 'Murári Ulm', 'inzeráty: predvolene len bežiace', out.bezia.join(','));
+      ok(/2 čakajú na telefonát/.test(out.caka), 'pri inzeráte je vidieť, koľkí čakajú na telefonát', out.caka);
+      ok(out.vsetky.length === 2, 'filter „Všetky" ukáže aj dobehnuté', out.vsetky.join(','));
       ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -1456,7 +1593,8 @@ console.log('Prehliadač');
       const male = await page.evaluate(() => {
         Danubra.go('timesheets');
         return new Promise((res) => setTimeout(() => {
-          const out = [...document.querySelectorAll('.row-acts .btn')]
+          // Hodiny sú zoznam (DataList): fajka a archív v riadku sú `.ts-btn`.
+          const out = [...document.querySelectorAll('.row-acts .btn, .ts-acts .ts-btn')]
             .map(b => b.getBoundingClientRect())
             .filter(r => r.width < 40 || r.height < 40).length;
           res(out);
@@ -1650,13 +1788,19 @@ console.log('Prehliadač');
           const view = document.getElementById('view');
           Danubra.route = 'orders';
           Ord.loaded = false;
+          try { localStorage.removeItem('danubra_dl_objednavky'); } catch {}
+          if (window.DataList) delete DataList._reg.objednavky;
           await Danubra.views.orders.call(Danubra, view);
+          // Zoznam je `DataList`: predvolene obe strany, filter „Druh" vyberie jednu.
+          const obe = view.querySelectorAll('.dl-row').length;
+          Ord.setKind('customer');
           const odberatel = view.innerText;
-          const kariet = view.querySelectorAll('#ord-list .card').length;
+          const kariet = view.querySelectorAll('.dl-row').length;
 
           Ord.setKind('worker');
           await new Promise(r => setTimeout(r, 60));
           const zivnostnik = document.getElementById('view').innerText;
+          const zivRiadkov = document.querySelectorAll('#view .dl-row').length;
 
           // Formulár pre živnostníka: ponúknu sa len voľné nasadenia.
           Ord.form();
@@ -1674,12 +1818,14 @@ console.log('Prehliadač');
             ?.closest('.fld')?.querySelector('.fld-hint')?.textContent) || '';
           UI.closeModal();
 
-          return { odberatel, zivnostnik, kariet, moznosti, maPlus, maIchCislo, hint };
+          return { odberatel, zivnostnik, kariet, obe, zivRiadkov, moznosti, maPlus, maIchCislo, hint };
         })();
       });
 
+      ok(out.obe === 2, 'objednávky: predvolene sú v zozname obe strany', `riadkov: ${out.obe}`);
       ok(out.kariet === 1, 'zobrazia sa len objednávky vybranej strany',
-        `kariet: ${out.kariet}`);
+        `riadkov: ${out.kariet}`);
+      ok(out.zivRiadkov === 1 && !/Trockenbau/.test(out.zivnostnik), 'a druhá strana zmizne', `riadkov: ${out.zivRiadkov}`);
       ok(/4500123456/.test(out.odberatel),
         'číslo odberateľa je vidieť na karte — kvôli nemu sa zapisuje');
       ok(/ide na faktúru/.test(out.odberatel), 'aj to, načo je');
@@ -2278,7 +2424,8 @@ console.log('Prehliadač');
         const view = document.getElementById('view');
         Danubra.route = 'opportunities';
         Opp.loaded = false; Opp.openId = null;
-        Opp.filters = { status: '', q: '' };
+        try { localStorage.removeItem('danubra_dl_dopyty'); } catch {}
+        if (window.DataList) delete DataList._reg.dopyty;
         await Danubra.views.opportunities.call(Danubra, view);
 
         const box = view.querySelector('.nowbox');
@@ -2511,7 +2658,35 @@ console.log('Prehliadač');
         await Danubra.views.bank.call(Danubra, view);
         const parovanie = čítaj();
 
-        return { stary, parovanie };
+        // Pohyby: zoznam s filtrami (DataList), predvolene nespárované,
+        // v päte príjmy, výdaje a rozdiel v centoch.
+        try { localStorage.removeItem('danubra_dl_banka'); } catch {}
+        delete DataList._reg.banka;
+        Bank.invoices = [{ id: 'i9', invoice_number: '2026009', total: 5000, status: 'paid' }];
+        Bank.txs = [
+          { id: 't1', booked_at: presun(1), amount: 5000, match_status: 'auto', matched_invoice_id: 'i9', counterparty_name: 'GU Ulm GmbH' },
+          { id: 't2', booked_at: presun(2), amount: 900.1, match_status: 'unmatched', counterparty_name: 'Bau Pasing GmbH', variable_symbol: '2026010' },
+          { id: 't3', booked_at: presun(3), amount: -300.2, match_status: 'unmatched', counterparty_name: 'Pension Am Neckar' },
+          { id: 't4', booked_at: presun(40), amount: -0.1, match_status: 'unmatched', counterparty_name: 'Tatra banka' },
+          { id: 't5', booked_at: presun(4), amount: -12.9, match_status: 'ignored', counterparty_name: 'Tatra banka' },
+        ];
+        Bank.tab = 'txs';
+        await Danubra.views.bank.call(Danubra, view);
+        const t = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+        const riadky = () => [...view.querySelectorAll('.dl-row')].map(e => e.getAttribute('data-dl-row'));
+        const pata = (k) => t(view.querySelector(`.dl-foot [data-sum="${k}"]`)).replace(/\s/g, '');
+        const pohyby = { riadky: riadky(), prijmy: pata('prijmy'), vydaje: pata('vydaje'), rozdiel: pata('rozdiel'),
+          automat: !!view.querySelector('[onclick="Bank.automatch()"]') };
+        DataList.set('banka', 'smer', 'out');
+        pohyby.vydajeLen = { riadky: riadky(), rozdiel: pata('rozdiel') };
+        DataList.set('banka', 'smer', '');
+        DataList.set('banka', 'stav', ['auto', 'manual']);
+        pohyby.sparovane = { riadky: riadky(), odkaz: t(view.querySelector('.dl-row[data-dl-row="t1"] .dl-col-sparovane')) };
+        DataList.set('banka', 'stav', []);
+        DataList.set('banka', 'datum', { from: presun(5), to: dnes });
+        pohyby.obdobie = riadky();
+
+        return { stary, parovanie, pohyby };
       });
 
       ok(/Načítať výpis/.test(out.stary.title),
@@ -2531,6 +2706,76 @@ console.log('Prehliadač');
         's dôvodom: nespárovaná platba klame výhľad', out.parovanie.why);
       ok(!out.parovanie.hot, 'nehorí to');
 
+      ok(out.pohyby.riadky.join() === 't2,t3,t4', 'pohyby: predvolene nespárované, od najnovšieho', out.pohyby.riadky.join(', '));
+      ok(out.pohyby.prijmy === '+900,10€' && out.pohyby.vydaje === '−300,30€',
+        'v päte príjmy a výdaje v centoch', `${out.pohyby.prijmy} / ${out.pohyby.vydaje}`);
+      ok(out.pohyby.rozdiel === '+599,80€', 'a rozdiel (900,10 − 300,20 − 0,10)', out.pohyby.rozdiel);
+      ok(out.pohyby.automat, 'tlačidlo „Spárovať automaticky" zostalo pri zozname');
+      ok(out.pohyby.vydajeLen.riadky.join() === 't3,t4' && out.pohyby.vydajeLen.rozdiel === '−300,30€',
+        'filter „Výdaje"', JSON.stringify(out.pohyby.vydajeLen));
+      ok(out.pohyby.sparovane.riadky.join() === 't1' && /2026009/.test(out.pohyby.sparovane.odkaz),
+        'filter „Spárované" a pri pohybe je, s čím je spárovaný', JSON.stringify(out.pohyby.sparovane));
+      ok(out.pohyby.obdobie.join() === 't1,t2,t3,t5', 'filter obdobia', out.pohyby.obdobie.join(', '));
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Zálohy: zoznam všetkých záloh s filtrami a súčtom v päte ──────────
+    // Dovtedy tu bolo posledných dvanásť záloh bez filtrov. Zrušená záloha
+    // sa nemaže — je vo filtri stavu a do súčtu sa neráta.
+    {
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          advances: [
+            { id: 'a1', worker_id: 'w1', amount: 100.1, paid_on: '2026-10-20', method: 'cash', note: 'na stravu' },
+            { id: 'a2', worker_id: 'w2', amount: 200.2, paid_on: '2026-10-10', method: 'bank' },
+            { id: 'a3', worker_id: 'w1', amount: 50, paid_on: '2026-09-01', method: 'bank', settled_at: '2026-09-20T10:00:00Z' },
+            { id: 'a4', worker_id: 'w2', amount: 999, paid_on: '2026-10-15', method: 'cash', voided_at: '2026-10-16T10:00:00Z', void_reason: 'zapísané dvakrát' },
+          ],
+          bills: [{ id: 'b1', worker_id: 'w1', status: 'approved', amount: 1000 }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý' }, { id: 'w2', full_name: 'Milan Starý' }],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        try { localStorage.removeItem('danubra_dl_zalohy'); } catch {}
+        if (window.DataList) delete DataList._reg.zalohy;
+        const view = document.getElementById('view');
+        Danubra.route = 'advances';
+        Adv.loaded = false;
+        await Danubra.views.advances.call(Danubra, view);
+        const t = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+        const riadky = () => [...view.querySelectorAll('#dl-zalohy .dl-row')].map(e => e.getAttribute('data-dl-row'));
+        const pata = (k) => t(view.querySelector(`#dl-zalohy .dl-foot [data-sum="${k}"]`)).replace(/\s/g, '');
+        const res = { riadky: riadky(), suma: pata('suma'), nevyrovnane: pata('nevyrovnane'),
+          ludia: view.querySelectorAll('.adv-row').length };
+        DataList.set('zalohy', 'komu', 'w1');
+        res.jozef = { riadky: riadky(), suma: pata('suma') };
+        DataList.set('zalohy', 'komu', '');
+        DataList.set('zalohy', 'stav', ['void']);
+        res.zrusene = { riadky: riadky(), text: t(view.querySelector('#dl-zalohy .dl-row')) };
+        return res;
+      });
+
+      ok(out.riadky.join() === 'a1,a2,a3', 'zálohy: predvolene bez zrušených, od najnovšej', out.riadky.join(', '));
+      ok(out.suma === '350,30€', 'súčet v päte sedí v centoch (100,10 + 200,20 + 50)', out.suma);
+      ok(out.nevyrovnane === '300,30€', 'a koľko z toho je nevyrovnané', out.nevyrovnane);
+      ok(out.ludia === 2, 'prehľad „Kto čo od nás má dostať" zostal', String(out.ludia));
+      ok(out.jozef.riadky.join() === 'a1,a3' && out.jozef.suma === '150,10€', 'filter „Komu" a súčet za človeka',
+        JSON.stringify(out.jozef));
+      ok(out.zrusene.riadky.join() === 'a4' && /zapísané dvakrát/.test(out.zrusene.text),
+        'zrušená záloha sa nestratila — je vo filtri aj s dôvodom', JSON.stringify(out.zrusene));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -2550,17 +2795,22 @@ console.log('Prehliadač');
         const DATA = {
           bills: [
             { id: 'b1', bill_number: 'FA-2026-11', worker_id: 'w1', status: 'received',
-              amount: 1800, issue_date: '2026-10-10', due_date: '2026-10-25' },
+              amount: 1800.1, issue_date: '2026-10-10', due_date: '2099-10-25' },
             { id: 'b2', bill_number: 'FA-2026-12', worker_id: 'w2', status: 'disputed',
               amount: 2400, issue_date: '2026-10-08', due_date: '2026-10-22',
               expected_amount: 1900, variance: 500 },
             { id: 'b3', bill_number: 'FA-2026-13', worker_id: 'w1', status: 'approved',
-              amount: 900, issue_date: '2026-09-05', due_date: '2026-10-01' },
+              amount: 900.2, issue_date: '2026-09-05', due_date: '2026-10-01' },
             { id: 'b4', bill_number: 'FA-2026-14', worker_id: 'w2', status: 'paid',
               amount: 700, issue_date: '2026-08-05', due_date: '2026-09-01' },
           ],
           workers: [{ id: 'w1', full_name: 'Jozef Malý' }, { id: 'w2', full_name: 'Milan Starý' }],
-          costs: [], timesheets: [], assignments: [], periods: [], subcontracts: [],
+          costs: [
+            { id: 'c1', description: 'Ubytovanie Stuttgart', category: 'accommodation', amount: 10.1, cost_date: '2026-10-01', recurring: true },
+            { id: 'c2', description: 'Nafta', category: 'fuel', amount: 20.2, cost_date: '2026-10-05', supplier: 'OMV' },
+            { id: 'c3', description: 'Brúska', category: 'tools', amount: 0.1, cost_date: '2026-09-05' },
+          ],
+          timesheets: [], assignments: [], periods: [], subcontracts: [],
         };
         DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
         DB.count = async () => 0;
@@ -2575,6 +2825,8 @@ console.log('Prehliadač');
         Danubra.route = 'costs';
         Cost.loaded = false; Cost.tab = 'bills';
         Cost.filters = { status: '', q: '', category: '', period: 'all', from: '', to: '' };
+        try { localStorage.removeItem('danubra_dl_prijate'); localStorage.removeItem('danubra_dl_naklady'); } catch {}
+        if (window.DataList) { delete DataList._reg.prijate; delete DataList._reg.naklady; }
         await Danubra.views.costs.call(Danubra, view);
 
         const box = view.querySelector('.nowbox');
@@ -2587,15 +2839,30 @@ console.log('Prehliadač');
           hot: !!view.querySelector('.nowbox-hot'),
           help: !!(box && box.querySelector('.help-btn')),
         };
-        // Poradie kariet: sporná prvá, potom neskontrolovaná, potom po splatnosti.
-        const poradie = [...view.querySelectorAll('.card-title')].map(e => e.textContent.trim());
+        // Poradie riadkov (DataList): sporná prvá, potom neskontrolovaná, potom po splatnosti.
+        const t = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+        const poradie = [...view.querySelectorAll('.dl-row .dl-col-kto b')].map(t);
+        const riadky = () => [...view.querySelectorAll('.dl-row')].map(e => e.getAttribute('data-dl-row'));
+        const pata = (k) => t(view.querySelector(`.dl-foot [data-sum="${k}"]`)).replace(/\s/g, '');
+        const zoznam = { suma: pata('suma'), neuhradene: pata('neuhradene'), sporna: !!view.querySelector('.dl-row[data-dl-row="b2"] .dl-flag') };
+
+        // Filtre: „Po splatnosti" a stav.
+        view.querySelector('.dl-tog[data-k="late"]').click();
+        const poSplatnosti = { riadky: riadky(), suma: pata('suma') };
+        DataList.set('prijate', 'late', false);
+        DataList.set('prijate', 'stav', ['paid']);
+        const uhradene = riadky();
+        DataList.reset('prijate');
 
         // Ostatné náklady vetu nemajú — nie je tam čo schvaľovať.
         Cost.setTab('costs');
         await Danubra.views.costs.call(Danubra, view);
-        const naklady = { box: !!view.querySelector('.nowbox') };
+        const naklady = { box: !!view.querySelector('.nowbox'), riadky: riadky(), suma: pata('suma'),
+          kategorie: t(document.getElementById('cost-bycat')) };
+        DataList.set('naklady', 'datum', { from: '2026-10-01', to: '2026-10-31' });
+        naklady.oktober = { riadky: riadky(), suma: pata('suma'), kategorie: t(document.getElementById('cost-bycat')) };
 
-        return { teraz, poradie, naklady };
+        return { teraz, poradie, zoznam, poSplatnosti, uhradene, naklady };
       });
 
       ok(/nesedí/.test(out.teraz.title), 'prijaté faktúry začínajú tým, čo nesedí s hodinami',
@@ -2612,6 +2879,20 @@ console.log('Prehliadač');
       ok(out.poradie.indexOf('Jozef Malý') === 1,
         'potom neskontrolovaná', out.poradie.join(' | '));
       ok(!out.naklady.box, 'ostatné náklady vetu „čo teraz" nemajú — nič sa tam neschvaľuje');
+      ok(out.zoznam.suma === '5800,30€', 'prijaté: súčet v päte sedí v centoch (1800,10 + 2400 + 900,20 + 700)', out.zoznam.suma);
+      ok(out.zoznam.neuhradene === '5100,30€', 'a koľko z toho je neuhradené', out.zoznam.neuhradene);
+      ok(out.zoznam.sporna, 'sporná faktúra má v stĺpci „S hodinami" štítok s rozdielom');
+      ok(out.poSplatnosti.riadky.join() === 'b2,b3', 'filter „Po splatnosti" nechá len nezaplatené po splatnosti',
+        out.poSplatnosti.riadky.join(', '));
+      ok(out.poSplatnosti.suma === '3300,20€', 'a súčet sa prepočíta', out.poSplatnosti.suma);
+      ok(out.uhradene.join() === 'b4', 'filter stavu „Uhradená"', out.uhradene.join(', '));
+      ok(out.naklady.riadky.join() === 'c2,c1,c3', 'ostatné náklady: zoznam od najnovšieho', out.naklady.riadky.join(', '));
+      ok(out.naklady.suma === '30,40€', 'náklady: súčet v päte v centoch (10,10 + 20,20 + 0,10)', out.naklady.suma);
+      ok(out.naklady.oktober.riadky.length === 2 && out.naklady.oktober.suma === '30,30€',
+        'filter obdobia (október) a súčet za neho', JSON.stringify(out.naklady.oktober));
+      ok(/Spolu/.test(out.naklady.oktober.kategorie) && /30,30/.test(out.naklady.oktober.kategorie)
+        && /Náradie/.test(out.naklady.kategorie) && !/Náradie/.test(out.naklady.oktober.kategorie),
+        'súčty po kategóriách idú za tým, čo je vo filtri', out.naklady.oktober.kategorie);
 
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
@@ -2635,15 +2916,18 @@ console.log('Prehliadač');
               total: 5280, currency: 'EUR', partner_id: 'p1', due_date: '2026-11-10',
               issue_date: '2026-10-10' },
             { id: 'i2', invoice_number: '2026002', status: 'sent',
-              total: 1200, currency: 'EUR', partner_id: 'p1', due_date: '2026-10-01',
+              total: 1200.1, currency: 'EUR', partner_id: 'p1', due_date: '2026-10-01',
               issue_date: '2026-09-01' },
             { id: 'i3', invoice_number: '2026003', status: 'paid',
               total: 900, currency: 'EUR', partner_id: 'p1', due_date: '2026-09-15',
               issue_date: '2026-08-15' },
             { id: 'i4', invoice_number: '', status: 'draft',
-              total: 300, currency: 'EUR', partner_id: 'p1' },
+              total: 300.2, currency: 'EUR', partner_id: 'p1' },
+            { id: 'i5', invoice_number: '2026005', status: 'issued',
+              total: 410, currency: 'EUR', partner_id: 'p2', due_date: '2099-01-31',
+              issue_date: '2026-10-20' },
           ],
-          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }, { id: 'p2', name: 'Bau Pasing GmbH', country: 'DE' }],
           invoice_items: [], clients: [], orders: [], overrides: [],
           subcontracts: [], periods: [],
         };
@@ -2660,6 +2944,8 @@ console.log('Prehliadač');
         Danubra.route = 'invoices';
         Inv.loaded = false;
         Inv.filters = { status: '', q: '', period: 'all', from: '', to: '' };
+        try { localStorage.removeItem('danubra_dl_faktury'); } catch {}
+        if (window.DataList) delete DataList._reg.faktury;
         await Danubra.views.invoices.call(Danubra, view);
 
         const box = view.querySelector('.nowbox');
@@ -2674,19 +2960,51 @@ console.log('Prehliadač');
           help: !!(box && box.querySelector('.help-btn')),
         });
         const teraz = čítaj();
-        const sekcie = [...view.querySelectorAll('.form-section')].map(e => e.textContent.trim());
-        const prvaSkupina = [...view.querySelectorAll('.cards')][0];
-        const horne = prvaSkupina
-          ? [...prvaSkupina.querySelectorAll('.acc-name')].map(e => e.textContent.trim()) : [];
+        // Zoznam je DataList: sekcia „Čaká na Vás" (zoskupenie „Čo je na rade")
+        // a pod ňou riadky. Riadky sekcie = súrodenci až po ďalšiu sekciu.
+        const t = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+        const sekcie = [...view.querySelectorAll('.dl-sec')].map(t);
+        const skupiny = {};
+        let kde = '';
+        for (const e of view.querySelectorAll('.dl-table > .dl-sec, .dl-table > .dl-row')) {
+          if (e.classList.contains('dl-sec')) { kde = t(e); skupiny[kde] = []; continue; }
+          (skupiny[kde] = skupiny[kde] || []).push(e.getAttribute('data-dl-row'));
+        }
+        const horne = skupiny[sekcie[0]] || [];
+        const riadky = () => [...view.querySelectorAll('.dl-row')].map(e => e.getAttribute('data-dl-row'));
+        const suma = () => t(view.querySelector('.dl-foot [data-sum="suma"]')).replace(/\s/g, ' ');
+        const zostava = () => t(view.querySelector('.dl-foot [data-sum="zostava"]')).replace(/\s/g, ' ');
+        const fmt = (c) => Money.format(c).replace(/\s/g, ' ');
+        const vychodzie = {
+          riadky: riadky(), suma: suma(), zostava: zostava(),
+          // Súčet v päte musí sedieť v centoch: 5280 + 1200,10 + 300,20 + 410.
+          ocakavane: fmt(Money.sum(DataList.visible('faktury').map(r => Money.toCents(r.x.total)))),
+          floaty: 5280 + 1200.1 + 300.2 + 410,
+          cipy: [...view.querySelectorAll('.dl-chip')].map(t),
+        };
 
-        // Pri zapnutom filtri sa zoznam nedelí — človek si už vybral.
+        // Filter: prepínač „Po splatnosti" nechá len faktúru po splatnosti.
+        view.querySelector('.dl-tog[data-k="late"]').click();
+        const poSplatnosti = { riadky: riadky(), suma: suma() };
+        DataList.set('faktury', 'late', false);
+        // Filter odberateľa a hľadanie.
+        DataList.set('faktury', 'odberatel', 'partner:p2');
+        const odberatel = riadky();
+        DataList.set('faktury', 'odberatel', '');
+        DataList.set('faktury', 'q', '2026001');
+        const hladanie = riadky();
+        DataList.set('faktury', 'q', '');
+
+        // Odkaz z inej obrazovky (napr. „Otvoriť návrhy") nastaví filter stavu.
         Inv.filters.status = 'paid';
         await Danubra.views.invoices.call(Danubra, view);
         const vofiltri = {
-          sekcie: [...view.querySelectorAll('.form-section')].map(e => e.textContent.trim()),
+          riadky: riadky(),
+          cipy: [...view.querySelectorAll('.dl-chip')].map(t),
+          stary: !!view.querySelector('.pillbar, .cards'),
         };
 
-        return { teraz, sekcie, horne, vofiltri };
+        return { teraz, sekcie, horne, vychodzie, poSplatnosti, odberatel, hladanie, vofiltri };
       });
 
       ok(/Čo spraviť teraz/.test(out.teraz.label), 'faktúry hovoria, čo spraviť teraz',
@@ -2701,16 +3019,29 @@ console.log('Prehliadač');
         'tlačidlo vedie na tú faktúru, ktorá čaká', out.teraz.onclick);
       ok(out.teraz.help, 'a je pri tom vysvetlivka');
 
-      ok(out.sekcie.some(x => /Čaká na Vás \(2\)/.test(x)),
-        'hore je to, čo čaká na nás — návrh a rozpracovaný podklad',
+      ok(/^Čaká na Vás 2$/.test(out.sekcie[0] || ''),
+        'hore je to, čo čaká na nás — návrh a rozpracovaný podklad (zoskupenie „Čo je na rade")',
         out.sekcie.join(' | '));
-      ok(out.sekcie.some(x => /Ostatné \(2\)/.test(x)), 'pod tým ostatné',
-        out.sekcie.join(' | '));
-      ok(out.horne.includes('2026001'), 'faktúra na schválenie je v hornej skupine',
-        out.horne.join(', '));
-      ok(!out.horne.includes('2026003'), 'a zaplatená tam nie je', out.horne.join(', '));
-      ok(out.vofiltri.sekcie.length === 0,
-        'pri zapnutom filtri sa zoznam nedelí', out.vofiltri.sekcie.join(' | '));
+      ok(out.sekcie.some(x => /Po splatnosti 1/.test(x)) && out.sekcie.some(x => /Čaká na peniaze 1/.test(x)),
+        'pod tým po splatnosti a čo čaká na peniaze', out.sekcie.join(' | '));
+      ok(out.horne.includes('i1') && out.horne.includes('i4') && out.horne.length === 2,
+        'faktúra na schválenie aj návrh sú v hornej skupine', out.horne.join(', '));
+      ok(!out.vychodzie.riadky.includes('i3') && out.vychodzie.riadky.length === 4,
+        'predvolene len otvorené — zaplatená tam nie je', out.vychodzie.riadky.join(', '));
+      ok(out.vychodzie.cipy.some(c => /Stav: Otvorené/.test(c)), 'predvolený filter je vidieť ako čip',
+        out.vychodzie.cipy.join(' | '));
+      ok(out.vychodzie.suma === out.vychodzie.ocakavane && out.vychodzie.suma.replace(/\s/g, '') === '7190,30€',
+        'súčet v päte sedí v centoch (7 190,30 €, nie súčet floatov)', `${out.vychodzie.suma} / ${out.vychodzie.floaty}`);
+      ok(out.vychodzie.zostava.replace(/\s/g, '') === '1610,10€',
+        'v päte je aj to, čo ešte má prísť (vystavené, odoslané, po splatnosti)', out.vychodzie.zostava);
+      ok(out.poSplatnosti.riadky.join() === 'i2', 'filter „Po splatnosti" nechá len faktúru po splatnosti',
+        out.poSplatnosti.riadky.join(', '));
+      ok(out.poSplatnosti.suma.replace(/\s/g, '') === '1200,10€', 'a súčet v päte sa prepočíta', out.poSplatnosti.suma);
+      ok(out.odberatel.join() === 'i5', 'filter odberateľa', out.odberatel.join(', '));
+      ok(out.hladanie.join() === 'i1', 'hľadanie podľa čísla faktúry', out.hladanie.join(', '));
+      ok(out.vofiltri.riadky.join() === 'i3' && out.vofiltri.cipy.some(c => /Stav: Zaplatená/.test(c)),
+        'odkaz z inej obrazovky (Inv.filters.status) nastaví filter stavu', `${out.vofiltri.riadky.join(', ')} / ${out.vofiltri.cipy.join(' | ')}`);
+      ok(!out.vofiltri.stary, 'staré pilulky a karty sú preč — je to jeden zoznam s filtrami');
 
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
@@ -3019,10 +3350,22 @@ console.log('Prehliadač');
               work_date: '2026-10-07', activity_type: 'construction', period_id: null },
             { id: 't2', assignment_id: 'a1', worker_id: 'w1', hours: 8, approved: true,
               work_date: '2026-10-06', activity_type: 'construction', period_id: null },
+            // Iný človek: september vo faktúre (nemení sa) a deň na inej zákazke.
+            { id: 't3', assignment_id: 'a2', worker_id: 'w2', hours: 9, approved: false,
+              work_date: '2026-09-15', activity_type: 'construction', period_id: 'pe0' },
+            { id: 't4', assignment_id: 'a3', worker_id: 'w2', hours: 7, approved: true,
+              work_date: '2026-10-08', activity_type: 'workshop', period_id: null },
           ],
-          assignments: [{ id: 'a1', subcontract_id: 'sc1', worker_id: 'w1', status: 'active' }],
-          workers: [{ id: 'w1', full_name: 'Jozef Malý' }],
-          subcontracts: [{ id: 'sc1', title: 'Sadrokartón Ulm', work_type: 'construction' }],
+          assignments: [{ id: 'a1', subcontract_id: 'sc1', worker_id: 'w1', status: 'active' },
+            { id: 'a2', subcontract_id: 'sc1', worker_id: 'w2', status: 'active' },
+            { id: 'a3', subcontract_id: 'sc2', worker_id: 'w2', status: 'active' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý' }, { id: 'w2', full_name: 'Peter Veľký' }],
+          subcontracts: [{ id: 'sc1', title: 'Sadrokartón Ulm', work_type: 'construction' },
+            { id: 'sc2', title: 'Hala Pasing', work_type: 'workshop' }],
+          periods: [{ id: 'pe0', subcontract_id: 'sc1', status: 'invoiced', period_from: '2026-09-01', period_to: '2026-09-30' }],
+          crews: [{ id: 'c1', name: 'Partia Ulm', status: 'active' }],
+          crew_members: [{ id: 'cm1', crew_id: 'c1', worker_id: 'w1', joined_at: '2026-01-01', left_at: null }],
+          hour_sheets: [{ id: 'h1', subcontract_id: 'sc1', iso_year: 2026, iso_week: 41, signed_at: '2026-10-10T12:00:00Z' }],
         };
         DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
         DB.count = async () => 0;
@@ -3042,9 +3385,14 @@ console.log('Prehliadač');
         const view = document.getElementById('view');
         Danubra.route = 'timesheets';
         Tms.loaded = false;
-        Tms.filters = { month: '2026-10', worker_id: '', subcontract_id: '', q: '',
-          period: 'all', from: '', to: '' };
+        // Zoznam je `DataList`: obdobie (predvolene tento mesiac) sa nastaví
+        // na október 2026 natvrdo, nech test nezávisí od dnešného dátumu.
+        localStorage.setItem('danubra_dl_hodiny', JSON.stringify({ v: 1,
+          f: { obdobie: { from: '2026-10-01', to: '2026-10-31' } } }));
+        delete DataList._reg.hodiny;
         await Danubra.views.timesheets.call(Danubra, view);
+        const ids = () => DataList.visible('hodiny').map(r => r.id).sort().join(',');
+        const vOkt = ids();
 
         const veta = {
           text: (view.querySelector('.nowbox') || { textContent: '' })
@@ -3071,11 +3419,33 @@ console.log('Prehliadač');
         // Schválenie toho, čo je vo filtri. Potvrdenie sa preskočí.
         const povodne = UI.confirm;
         UI.confirm = async () => true;
-        Tms.filters.worker_id = 'w1';
+        // Filtre zoznamu hodín. Obdobie september–október, aby bol vidieť
+        // aj deň vo faktúre.
+        DataList.set('hodiny', 'obdobie', { from: '2026-09-01', to: '2026-10-31' });
+        const filtre = { vsetko: ids() };
+        DataList.set('hodiny', 'stav', ['approved']); filtre.schvalene = ids();
+        DataList.set('hodiny', 'stav', ['invoiced']); filtre.faktura = ids();
+        DataList.set('hodiny', 'stav', []);
+        DataList.set('hodiny', 'zakazka', 'sc2'); filtre.zakazka = ids();
+        DataList.set('hodiny', 'zakazka', '');
+        DataList.set('hodiny', 'partia', 'c1'); filtre.partia = ids();
+        DataList.set('hodiny', 'partia', '');
+        DataList.set('hodiny', 'late', true); filtre.late = ids();
+        DataList.set('hodiny', 'late', false);
+        const zamok = { lock: !!view.querySelector('.dl-row[data-dl-row="t3"] .ts-lock'),
+          btn: !!view.querySelector('.dl-row[data-dl-row="t3"] .ts-btn'),
+          podpis: (view.querySelector('.dl-row[data-dl-row="t1"] .dl-col-podpis') || {}).textContent || '' };
+        const predZamkom = updaty.length;
+        await Tms.toggleApprove('t3');
+        zamok.zapis = updaty.length - predZamkom;
+        filtre.export = DanubraDataList.csvRows(DataList.visible('hodiny'), DataList._reg.hodiny.cfg)[0].join('|');
+
+        DataList.set('hodiny', 'clovek', 'w1');
         await Tms.approveShown();
         UI.confirm = povodne;
 
         return {
+          vOkt, filtre, zamok,
           veta, riadky, prvyDen, hotove, vyplnene, sucet,
           zapisane: zapisane.map(([t, rows]) => ({ t, rows })),
           schvalene: updaty.filter(u => u[2] && u[2].approved === true).map(u => u[1]),
@@ -3120,6 +3490,21 @@ console.log('Prehliadač');
       // Hromadné schválenie berie to, čo je vo filtri.
       ok(out.schvalene.join(',') === 't1',
         'schváli sa presne to, čo je vo filtri neschválené', out.schvalene.join(','));
+
+      // Zoznam hodín (DataList): filtre, stav, zámok uzavretého obdobia.
+      ok(out.vOkt === 't1,t2,t4', 'hodiny: predvolené obdobie berie len svoj mesiac', out.vOkt);
+      ok(out.filtre.vsetko === 't1,t2,t3,t4', 'hodiny: obdobie od–do rozšíri zoznam', out.filtre.vsetko);
+      ok(out.filtre.schvalene === 't2,t4' && out.filtre.faktura === 't3',
+        'hodiny: filter stavu — schválené a vo faktúre', JSON.stringify(out.filtre));
+      ok(out.filtre.zakazka === 't4' && out.filtre.partia === 't1,t2',
+        'hodiny: filter zákazky a partie', JSON.stringify(out.filtre));
+      ok(out.filtre.late === 't1', 'hodiny: „neschválené 7+ dní" ukáže len to, čo mešká (nie deň vo faktúre)', out.filtre.late);
+      ok(out.zamok.lock && !out.zamok.btn && out.zamok.zapis === 0,
+        'hodiny: deň vo faktúre má zámok namiesto tlačidiel a schválenie sa nezmení', JSON.stringify(out.zamok));
+      ok(/10\.\s?10\./.test(out.zamok.podpis),
+        'hodiny: pri dni je podpis majstra z týždenného výkazu', out.zamok.podpis);
+      ok(/Stav/.test(out.filtre.export) && /Podpis majstra/.test(out.filtre.export) && /Partia/.test(out.filtre.export),
+        'hodiny: export CSV má stav, partiu aj podpis', out.filtre.export);
 
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
@@ -3396,6 +3781,313 @@ console.log('Prehliadač');
       ok(p.length === 7 && p.includes('Stav') && p.includes('Obdobie'), 'panel „Filtre" má na telefóne všetky filtre', p.join(', '));
 
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Zoznamy: Ubytovania, Partie, Archív (DataList) ────────────────────
+    // Každý má lištu filtrov a riadky po stĺpcoch. Tu sa kontroluje, že
+    // filtre naozaj filtrujú (aj kliknutím), že „čo horí" je navrchu a že
+    // z Archívu sa vracia do správnej tabuľky.
+    {
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      await page.evaluate(() => {
+        const dnes = new Date().toISOString().slice(0, 10);
+        const DATA = {
+          accommodations: [
+            { id: 'u1', name: 'Pension Linde', city: 'Stuttgart', country: 'DE', max_persons: 6, price_per_bed_night: 24, verification_status: 'verified' },
+            { id: 'u2', name: 'Zimmer Seeblick', city: 'Wörthsee', country: 'DE', max_persons: 4, price_per_bed_night: 28, verification_status: 'new' },
+            { id: 'u3', name: 'Hostel Ulm', city: 'Ulm', country: 'DE', max_persons: 20, verification_status: 'not_cooperating' },
+          ],
+          v_lodging_occupancy: [
+            { lodging_id: 'l1', subcontract_id: 's1', accommodation_id: 'u1', occupied_now: 2, date_from: '2026-01-01', date_to: null },
+            { lodging_id: 'l2', subcontract_id: 's1', accommodation_id: 'u2', occupied_now: 4, date_from: '2026-01-01', date_to: null },
+          ],
+          subcontracts: [{ id: 's1', title: 'Wohnpark', status: 'active', site_city: 'Stuttgart' },
+            { id: 's2', title: 'Hala Pasing', status: 'active', site_city: 'München' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', status: 'deployed' }, { id: 'w2', full_name: 'Peter Veľký', status: 'deployed' },
+            { id: 'w3', full_name: 'Ján Novák', status: 'ready' }],
+          crews: [{ id: 'c1', name: 'Partia Nitra', status: 'active', trade_key: 'zvarac', leader_worker_id: 'w1' },
+            { id: 'c2', name: 'Prázdna partia', status: 'active' },
+            { id: 'c3', name: 'Stará partia', status: 'paused' }],
+          crew_members: [{ id: 'm1', crew_id: 'c1', worker_id: 'w1', role: 'leader', joined_at: '2026-01-01' },
+            { id: 'm2', crew_id: 'c1', worker_id: 'w2', role: 'member', joined_at: '2026-01-01' },
+            { id: 'm3', crew_id: 'c3', worker_id: 'w3', role: 'member', joined_at: '2026-01-01' }],
+          assignments: [{ id: 'a1', worker_id: 'w1', subcontract_id: 's2', status: 'active', date_from: '2026-01-01', date_to: null }],
+        };
+        const ARCH = {
+          workers: [{ id: 'x1', label: 'Milan Starý', archived_at: '2026-08-12T14:00:00Z', archived_by: 'test' }],
+          tasks: [{ id: 'x2', label: 'Zavolať (duplicitná)', archived_at: dnes + 'T08:00:00Z', archived_by: 'test' }],
+        };
+        window.__rpc = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.signedDocUrls = async () => new Map();
+        DB.rpc = async (n, a) => {
+          window.__rpc.push([n, a]);
+          if (n === 'archived') return { data: (ARCH[a.p_table] || []).map(x => ({ ...x })), error: null };
+          if (n === 'unarchive') return { data: 1, error: null };
+          return { data: null, error: null };
+        };
+        UI.confirm = async () => true;
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ user_id: 'test', full_name: 'Štefan Varga', role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        for (const k of ['ubytovania', 'partie', 'archiv']) { localStorage.removeItem('danubra_dl_' + k); delete DataList._reg[k]; }
+      });
+      const ids = (id) => page.evaluate((x) => DataList.visible(x).map(r => r.id).join(','), id);
+
+      // Ubytovania: aktívne (pri bežiacej zákazke) navrchu, prepínače kliknutím.
+      await page.evaluate(async () => { Danubra.route = 'accommodations'; Acc.loaded = false;
+        await Danubra.views.accommodations.call(Danubra, document.getElementById('view')); });
+      const u = { poradie: await ids('ubytovania'),
+        obsadene: await page.evaluate(() => (document.querySelector('.dl-row[data-dl-row="u2"] .dl-col-miesta') || {}).textContent.replace(/\s+/g, ' ').trim()) };
+      await page.click('.dl-tog[data-k="volne"]');
+      u.volne = await ids('ubytovania');
+      await page.click('.dl-tog[data-k="volne"]');
+      await page.click('.dl-tog[data-k="aktivne"]');
+      u.aktivne = await ids('ubytovania');
+      await page.click('.dl-tog[data-k="aktivne"]');
+      await page.click('details.dl-dd[data-dl-dd="mesto"] > summary');
+      await page.click('details.dl-dd[data-dl-dd="mesto"] .dl-opt[data-v="Ulm"]');
+      u.mesto = await ids('ubytovania');
+      u.cip = await page.evaluate(() => [...document.querySelectorAll('.dl-chip')].map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+      ok(u.poradie.startsWith('u1,u2') || u.poradie.startsWith('u2,u1'), 'Ubytovania: aktívne pri bežiacej zákazke sú navrchu', u.poradie);
+      ok(/4\s*\/\s*4/.test(u.obsadene) && /plné/.test(u.obsadene), 'Ubytovania: obsadené / kapacita a „plné"', u.obsadene);
+      ok(u.volne === 'u1,u3' || u.volne === 'u3,u1' || u.volne.split(',').sort().join(',') === 'u1,u3', 'Ubytovania: „S voľným miestom" skryje plné', u.volne);
+      ok(u.aktivne.split(',').sort().join(',') === 'u1,u2', 'Ubytovania: „Aktívne" ukáže len tie, kde sa dnes býva', u.aktivne);
+      ok(u.mesto === 'u3' && /Mesto: Ulm/.test(u.cip), 'Ubytovania: filter mesta z rozbaľovacieho okna, s čipom', `${u.mesto} · ${u.cip}`);
+
+      // Partie: predvolene aktívne, „čo treba pozrieť" navrchu, filter zákazky.
+      await page.evaluate(async () => { Danubra.route = 'crews'; Crews.loaded = false; Wrk.loaded = false;
+        await Danubra.views.crews.call(Danubra, document.getElementById('view')); });
+      const p = { predvolene: await ids('partie'),
+        predak: await page.evaluate(() => (document.querySelector('.dl-row[data-dl-row="c1"] .dl-col-predak') || {}).textContent.trim()),
+        kde: await page.evaluate(() => (document.querySelector('.dl-row[data-dl-row="c1"] .dl-col-kde') || {}).textContent.replace(/\s+/g, ' ').trim()) };
+      await page.evaluate(() => DataList.set('partie', 'zakazka', 's2'));
+      p.zakazka = await ids('partie');
+      await page.evaluate(() => { DataList.set('partie', 'zakazka', ''); DataList.set('partie', 'stav', []); });
+      p.vsetky = await ids('partie');
+      await page.evaluate(() => DataList.set('partie', 'predak', true));
+      p.bezPredaka = await ids('partie');
+      ok(p.predvolene.split(',')[0] === 'c2' && !p.predvolene.includes('c3'),
+        'Partie: predvolene aktívne, prázdna partia (treba pozrieť) navrchu', p.predvolene);
+      ok(/Jozef Malý/.test(p.predak) && /Hala Pasing/.test(p.kde), 'Partie: predák a kde sú nasadení', `${p.predak} · ${p.kde}`);
+      ok(p.zakazka === 'c1' && p.vsetky.split(',').length === 3, 'Partie: filter zákazky a stavu', `${p.zakazka} · ${p.vsetky}`);
+      ok(p.bezPredaka.split(',').sort().join(',') === 'c2,c3', 'Partie: „Bez predáka"', p.bezPredaka);
+
+      // Archív: všetky druhy naraz, filter druhu, vrátenie do správnej tabuľky.
+      await page.evaluate(async () => { Danubra.route = 'archiv'; Arv.loadedFor = null;
+        await Danubra.views.archiv.call(Danubra, document.getElementById('view')); });
+      const a = { vsetko: await ids('archiv') };
+      await page.evaluate(() => DataList.set('archiv', 'druh', ['workers']));
+      a.ludia = await ids('archiv');
+      await page.evaluate(() => { DataList.set('archiv', 'druh', []); DataList.set('archiv', 'nedavno', true); });
+      a.nedavno = await ids('archiv');
+      await page.evaluate(() => DataList.set('archiv', 'nedavno', false));
+      await page.click('.dl-row[data-dl-row="workers:x1"] button.btn');
+      await page.waitForTimeout(150);
+      a.vratene = await page.evaluate(() => JSON.stringify(window.__rpc.filter(x => x[0] === 'unarchive').map(x => x[1])));
+      ok(a.vsetko === 'tasks:x2,workers:x1', 'Archív: všetky druhy naraz, najnovšie navrchu', a.vsetko);
+      ok(a.ludia === 'workers:x1' && a.nedavno === 'tasks:x2', 'Archív: filter druhu a „Posledných 30 dní"', `${a.ludia} · ${a.nedavno}`);
+      ok(/"p_table":"workers","p_id":"x1"/.test(a.vratene), 'Archív: „Vrátiť späť" ide do tabuľky záznamu', a.vratene);
+      ok(chyby.length === 0, 'Zoznamy (Ubytovania, Partie, Archív): nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Zoznamy v Zákazkách: Dopyty, Ponuky, Odberatelia, Zmluvy, Objednávky ──
+    // Všetky päť sú `DataList`: predvolený výber stavu, „čo horí" navrchu,
+    // prepínač podľa obrazovky (s problémom / po platnosti / bez USt-IdNr /
+    // končí čoskoro), výber v rozbaľovacom filtri a export toho, čo je vidieť.
+    {
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const den = (n) => { const d = new Date(); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+        const DATA = {
+          trades: [{ key: 'zvarac', name_sk: 'Zvárač' }, { key: 'murar', name_sk: 'Murár' }],
+          opportunities: [
+            { id: 'o1', title: 'Hala Pasing', status: 'checking', company_name: 'Bau Pasing GmbH', company_vat: 'DE1',
+              verify_result: { valid: true }, contact_phone: '1', trade_key: 'zvarac', headcount: 2, city: 'München',
+              rate_client: 34, rate_worker: 22, start_date: den(20), created_at: den(-9) + 'T08:00:00Z' },
+            { id: 'o2', title: 'Kotolňa Wörthsee', status: 'new', company_name: 'GU Ulm GmbH', created_at: den(-3) + 'T08:00:00Z' },
+            { id: 'o3', title: 'Raffinerie', status: 'lost', company_name: 'Petro GmbH', created_at: den(-40) + 'T08:00:00Z' },
+            { id: 'o4', title: 'Duplicita Pasing', status: 'new', company_name: 'Bau Pasing GmbH',
+              archived_at: den(-1) + 'T08:00:00Z', archived_reason: 'Duplicita', created_at: den(-5) + 'T08:00:00Z' },
+          ],
+          partners: [
+            { id: 'p1', name: 'GU Ulm GmbH', ust_idnr: 'DE111', vies_result: { valid: true }, city: 'Ulm', is_construction: true },
+            { id: 'p2', name: 'Bau Pasing GmbH', city: 'München', is_construction: true },
+            { id: 'p3', name: 'Metall Nord GmbH', ust_idnr: 'DE222', vies_result: { valid: false }, city: 'Hamburg', is_construction: false },
+          ],
+          subcontracts: [{ id: 's1', partner_id: 'p1', title: 'Wohnpark', status: 'active' }],
+          invoices: [
+            { id: 'i1', partner_id: 'p1', total: 5000, status: 'sent', issue_date: den(-50), due_date: den(-20) },
+            { id: 'i2', partner_id: 'p3', total: 900, status: 'cancelled', issue_date: den(-50), due_date: den(-20) },
+          ],
+          quotes: [
+            { id: 'q1', quote_number: 'PON-1', title: 'Zvárači Wörthsee', status: 'sent', partner_id: 'p1', trade_key: 'zvarac',
+              charge_rate: 36, worker_rate: 23, overhead_per_hour: 4, hours_per_month: 168, valid_until: den(-4) },
+            { id: 'q2', quote_number: 'PON-2', title: 'Murári Ulm', status: 'draft', partner_id: 'p2', trade_key: 'murar',
+              charge_rate: 30, worker_rate: 31, overhead_per_hour: 2, hours_per_month: 160, valid_until: den(20) },
+            { id: 'q3', quote_number: 'PON-3', title: 'Feuerbach', status: 'accepted', partner_id: 'p1',
+              charge_rate: 34, worker_rate: 22, overhead_per_hour: 4, hours_per_month: 168, valid_until: den(-60) },
+          ],
+          contracts: [
+            { id: 'k1', contract_number: 'ZML-1', title: 'Wohnpark obklady', partner_id: 'p1', kind: 'werkvertrag', status: 'active',
+              date_from: den(-60), date_to: den(10), scope: 'Obklady.', storage_path: 'x.pdf' },
+            { id: 'k2', contract_number: 'ZML-2', title: 'Hala Pasing', partner_id: 'p2', kind: 'werkvertrag', status: 'active',
+              date_from: den(-120), date_to: den(-3), scope: 'Oceľ.' },
+            { id: 'k3', contract_number: 'ZML-3', title: 'Rámcová GU Ulm', partner_id: 'p1', kind: 'framework', status: 'signed',
+              date_from: den(-200), date_to: den(400), scope: 'Rámec.' },
+            { id: 'k4', contract_number: 'ZML-0', title: 'Augsburg', partner_id: 'p2', kind: 'werkvertrag', status: 'ended',
+              date_from: den(-300), date_to: den(-100), scope: 'Priečky.' },
+          ],
+          contract_amendments: [{ id: 'am1', contract_id: 'k2', field: 'charge_rate', old_value: '32', new_value: '33' }],
+          workers: [{ id: 'w1', full_name: 'Ján Novák' }],
+          worker_documents: [],
+          assignments: [{ id: 'a1', subcontract_id: 's1', worker_id: 'w1', status: 'active' }],
+          work_orders: [
+            { id: 'wo1', kind: 'customer', order_number: 'OBJ-1', title: 'Trockenbau', partner_id: 'p1', subcontract_id: 's1',
+              their_ref: '4500123456', status: 'confirmed', scope: 'Wände' },
+            { id: 'wo2', kind: 'worker', order_number: 'OBJ-2', title: 'Priečky', worker_id: 'w1', assignment_id: 'a1',
+              subcontract_id: 's1', status: 'draft', date_from: den(2) },
+            { id: 'wo3', kind: 'customer', order_number: 'OBJ-3', title: 'Hala', partner_id: 'p2', status: 'done', scope: 'Hala' },
+          ],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        DB.signedDocUrls = async () => new Map();
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        const view = document.getElementById('view');
+        const t = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+        const ids = () => [...view.querySelectorAll('.dl-row')].map(r => r.getAttribute('data-dl-row'));
+        const klik = (sel) => { const e = view.querySelector(sel); if (e) e.click(); return !!e; };
+        const otvor = async (route, mod, id) => {
+          try { localStorage.removeItem(`danubra_dl_${id}`); } catch {}
+          delete DataList._reg[id];
+          Danubra.route = route;
+          window[mod].loaded = false;
+          if ('openId' in window[mod]) window[mod].openId = null;
+          await Danubra.views[route].call(Danubra, view);
+        };
+        const res = {};
+
+        // Dopyty
+        await otvor('opportunities', 'Opp', 'dopyty');
+        res.opp = { start: ids(), teraz: !!view.querySelector('.nowbox'), cipy: [...view.querySelectorAll('.dl-chip')].map(t) };
+        klik('.dl-tog[data-k="problem"]');
+        res.opp.problem = ids();
+        klik('.dl-chip button[data-k="problem"]');
+        klik('details.dl-dd[data-dl-dd="stav"] > summary');
+        klik('details.dl-dd[data-dl-dd="stav"] .dl-preset[data-i="2"]');
+        res.opp.arch = ids();
+        res.opp.vratit = (view.querySelector('.dl-row[data-dl-row="o4"] .dl-act') || {}).title || '';
+        DataList.set('dopyty', 'stav', []);
+        DataList.set('dopyty', 'firma', 'Bau Pasing GmbH');
+        res.opp.firma = ids();
+
+        // Ponuky
+        await otvor('quotes', 'Quo', 'ponuky');
+        res.quo = { start: ids(), chyba: t(view.querySelector('.dl-row[data-dl-row="q2"] .dl-col-kontrola')),
+          plati: t(view.querySelector('.dl-row[data-dl-row="q1"] .dl-col-plati')) };
+        klik('.dl-tog[data-k="po_platnosti"]');
+        res.quo.po = ids();
+        const inst = DataList._reg.ponuky;
+        res.quo.csv = DanubraDataList.csvRows(DataList.visible('ponuky'), inst.cfg);
+
+        // Odberatelia
+        await otvor('partners', 'Prt', 'odberatelia');
+        res.prt = { start: ids(), dlh: t(view.querySelector('.dl-row[data-dl-row="p1"] .dl-col-peniaze')) };
+        klik('.dl-tog[data-k="bez_ust"]');
+        res.prt.bezUst = ids();
+        klik('.dl-tog[data-k="bez_ust"]');
+        klik('.dl-tog[data-k="po_splatnosti"]');
+        res.prt.po = ids();
+        klik('.dl-tog[data-k="po_splatnosti"]');
+        klik('details.dl-dd[data-dl-dd="typ"] > summary');
+        klik('details.dl-dd[data-dl-dd="typ"] [data-dl-a="set"][data-v="dielna"]');
+        res.prt.dielna = ids();
+
+        // Zmluvy
+        await otvor('contracts', 'Con', 'zmluvy');
+        res.con = { start: ids(), platnost: t(view.querySelector('.dl-row[data-dl-row="k2"] .dl-col-platnost')) };
+        klik('.dl-tog[data-k="konci"]');
+        res.con.konci = ids();
+
+        // Objednávky
+        await otvor('orders', 'Ord', 'objednavky');
+        res.ord = { start: ids() };
+        klik('.dl-tog[data-k="problem"]');
+        res.ord.problem = ids();
+        klik('.dl-chip button[data-k="problem"]');
+        klik('details.dl-dd[data-dl-dd="druh"] > summary');
+        klik('details.dl-dd[data-dl-dd="druh"] [data-dl-a="set"][data-v="customer"]');
+        res.ord.odberatel = ids();
+        res.ord.kind = Ord.kind;
+        return res;
+      });
+
+      const o = out.opp;
+      ok(o.teraz && o.start.join() === 'o2,o1', 'dopyty: banner zostal, predvolene rozpracované a nový dopyt bez odpovede navrchu', o.start.join());
+      ok(o.cipy.some(c => /Stav: Rozpracované/.test(c)), 'dopyty: predvolený filter je vidieť ako čip', o.cipy.join(' | '));
+      ok(o.problem.join() === 'o2', 'dopyty: „Len s problémom" nechá dopyt, ktorý čaká na odpoveď', o.problem.join());
+      ok(o.arch.join() === 'o4' && /Vrátiť/.test(o.vratit), 'dopyty: „Odstránené" sú vo filtri Stav a dajú sa vrátiť', `${o.arch.join()} ${o.vratit}`);
+      ok(o.firma.join() === 'o1,o4', 'dopyty: filter Firma', o.firma.join());
+
+      const q = out.quo;
+      ok(q.start.join() === 'q1,q2', 'ponuky: predvolene otvorené, po platnosti navrchu', q.start.join());
+      ok(/1 chyba/.test(q.chyba) && /po platnosti 4 dni/.test(q.plati), 'ponuky: záporná marža je chyba, platnosť s odpočtom', `${q.chyba} / ${q.plati}`);
+      ok(q.po.join() === 'q1', 'ponuky: prepínač „Po platnosti"', q.po.join());
+      ok(q.csv.length === 2 && q.csv[0].includes('Platí do') && q.csv[1].includes('PON-1'), 'ponuky: export berie to, čo je vidieť', JSON.stringify(q.csv[0]));
+
+      const p = out.prt;
+      ok(p.start[0] === 'p3' && p.start.length === 3, 'odberatelia: neplatné USt-IdNr navrchu', p.start.join());
+      ok(/5\s?000,00/.test(p.dlh) && /1 po splatnosti/.test(p.dlh), 'odberatelia: otvorené faktúry a po splatnosti (bez stornovaných)', p.dlh);
+      ok(p.bezUst.join() === 'p3,p2', 'odberatelia: „Bez USt-IdNr" (aj neplatné)', p.bezUst.join());
+      ok(p.po.join() === 'p1', 'odberatelia: „Po splatnosti"', p.po.join());
+      ok(p.dielna.join() === 'p3', 'odberatelia: filter Typ prác v rozbaľovacom okne', p.dielna.join());
+
+      const c = out.con;
+      ok(c.start.join() === 'k2,k1,k3', 'zmluvy: bez ukončených, po platnosti navrchu', c.start.join());
+      ok(/skončila pred 3 dni/.test(c.platnost), 'zmluvy: pri platnosti je odpočet', c.platnost);
+      ok(c.konci.join() === 'k2,k1', 'zmluvy: prepínač „Končí čoskoro"', c.konci.join());
+
+      const r = out.ord;
+      ok(r.start.join() === 'wo2,wo1', 'objednávky: obe strany, bez vybavených; neodoslaná pred nástupom navrchu', r.start.join());
+      ok(r.problem.join() === 'wo2', 'objednávky: „Len s problémom" (bez popisu diela, nástup o 2 dni)', r.problem.join());
+      ok(r.odberatel.join() === 'wo1' && r.kind === 'customer', 'objednávky: filter Druh a nová objednávka pre vybranú stranu', `${r.odberatel.join()} ${r.kind}`);
+
+      // Telefón: Dopyty ako karty, nič nepreteká do boku.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.evaluate(async () => {
+        delete DataList._reg.dopyty;
+        Opp.loaded = false; Danubra.route = 'opportunities';
+        await Danubra.views.opportunities.call(Danubra, document.getElementById('view'));
+      });
+      await page.waitForTimeout(200);
+      const m = await page.evaluate(() => ({
+        flex: getComputedStyle(document.querySelector('#view .dl-row')).display,
+        scroll: document.documentElement.scrollWidth,
+      }));
+      ok(m.flex === 'flex' && m.scroll <= 390, 'dopyty na telefóne: karty a nič nepreteká', JSON.stringify(m));
+
+      ok(chyby.length === 0, 'zoznamy v Zákazkách: nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
 
@@ -4322,8 +5014,22 @@ console.log('Prehliadač');
         await Danubra.views.archive.call(Danubra, document.getElementById('view'));
         const v = document.getElementById('view');
         await Docs.pick('r1', true);
+        // Zoznam je `DataList`, predvolene zoskupený podľa toho, komu dokument patrí.
+        const skupiny = [...v.querySelectorAll('.dl-sec')].map(h => h.textContent.replace(/\s+/g, ' ').trim());
+        const oznaceny = !!v.querySelector('.dl-row.is-picked[data-dl-row="r1"]');
+        const ids = () => DataList.visible('dokumenty').map(x => x.id).join(',');
+        const filtre = {};
+        DataList.set('dokumenty', 'kcomu', 'partner'); filtre.firmy = ids();
+        DataList.set('dokumenty', 'kcomu', '');
+        DataList.set('dokumenty', 'druh', ['zmluvy']); filtre.zmluvy = ids();
+        DataList.set('dokumenty', 'druh', ['gdpr']); filtre.gdpr = ids();
+        DataList.set('dokumenty', 'druh', []);
+        DataList.set('dokumenty', 'obdobie', { from: '2026-10-22', to: '' }); filtre.obdobie = ids();
+        DataList.set('dokumenty', 'obdobie', { from: '', to: '' });
+        DataList.set('dokumenty', 'jazyk', 'de'); filtre.de = ids();
+        DataList.set('dokumenty', 'jazyk', '');
         return {
-          skupiny: [...v.querySelectorAll('.arch-head')].map(h => h.textContent.replace(/\s+/g, ' ').trim()),
+          skupiny, oznaceny, filtre,
           lista: (v.querySelector('.arch-bar') || {}).textContent || '',
           zalozka: Danubra.parentOf('archive'),
         };
@@ -4332,6 +5038,10 @@ console.log('Prehliadač');
         'Dokumenty sú triedené podľa ľudí a firiem', arch.skupiny.join(' | '));
       ok(/Vybraté: 1/.test(arch.lista) && /Poslať/.test(arch.lista), 'po zaškrtnutí sa dá poslať aj viac naraz', arch.lista.replace(/\s+/g, ' '));
       ok(arch.zalozka === 'dashboard', 'Dokumenty sú záložka pri Dnes');
+      ok(arch.oznaceny, 'zaškrtnutý dokument je v zozname podfarbený');
+      ok(arch.filtre.firmy === 'r2' && arch.filtre.zmluvy === 'r1,r2' && arch.filtre.gdpr === ''
+        && arch.filtre.obdobie === 'r1' && arch.filtre.de === 'r2',
+        'Dokumenty: filtre k čomu, druh, obdobie a jazyk', JSON.stringify(arch.filtre));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -4651,6 +5361,56 @@ console.log('Prehliadač');
         const sends = zapis.find(z => z.t === 'campaign_sends');
         res.adresati = sends ? sends.rows.map(r => [r.email, !!r.token && r.token.length >= 16]) : null;
         res.funkcia = volania.filter(v => v.url.includes('email-send')).map(v => v.auth);
+
+        // E-maily firmám: zoznam (DataList) so stĺpcami a filtrami.
+        ['kampane', 'inzercia', 'vydavky'].forEach(k => { try { localStorage.removeItem('danubra_dl_' + k); } catch (e) { /* nič */ } });
+        DATA.campaigns = [
+          { id: 'c1', name: 'Predstavenie október', subject: 'Fachkräfte für {firma}', status: 'paused', created_at: '2026-10-01T08:00:00Z' },
+          { id: 'c2', name: 'Suchá výstavba', subject: 'Trockenbauer verfügbar', status: 'done', created_at: '2026-09-01T08:00:00Z' },
+          { id: 'c3', name: 'Zvárači Hamburg', subject: 'Schweißer', status: 'draft', created_at: '2026-10-20T08:00:00Z' }];
+        DATA.campaign_sends = [
+          { id: 'x1', campaign_id: 'c1', status: 'sent', email: 'a@x.de', sent_at: '2026-10-02T09:00:00Z' },
+          { id: 'x2', campaign_id: 'c1', status: 'queued', email: 'b@x.de' },
+          { id: 'x3', campaign_id: 'c1', status: 'failed', email: 'c@x.de', error: '550' },
+          { id: 'x4', campaign_id: 'c2', status: 'sent', email: 'd@x.de', sent_at: '2026-09-02T09:00:00Z' },
+          { id: 'x5', campaign_id: 'c3', status: 'queued', email: 'e@x.de' }];
+        Danubra.route = 'campaigns'; Camp.loaded = false;
+        await Danubra.renderRoute();
+        const nazvy = (id) => [...document.querySelectorAll(`#dl-${id} .dl-row .dl-title b`)].map(b => b.textContent.trim());
+        res.kampane = nazvy('kampane');
+        res.kampaneStlpce = [...document.querySelectorAll('#dl-kampane .dl-th')].map(x => x.textContent.trim()).filter(Boolean);
+        res.kampaneTlacidla = [...document.querySelectorAll('#dl-kampane .cmp-go')].map(b => b.textContent.replace(/\s+/g, ' ').trim());
+        document.querySelector('#dl-kampane [data-dl-a="tog"][data-k="caka"]').click();
+        res.kampaneCaka = nazvy('kampane');
+        document.querySelector('#dl-kampane [data-dl-a="tog"][data-k="chyba"]').click();
+        res.kampaneChyba = nazvy('kampane');
+        DataList.reset('kampane');
+
+        // Inzercia a výdavky: inzeráty podľa obnovenia, filter „Obnoviť do 7 dní", súčet výdavkov.
+        const dni = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+        DATA.marketing_listings = [
+          { id: 'ml1', platform: 'auftragsbank', listing_type: 'Subdodávky', language: 'de', status: 'active', renew_at: dni(60) },
+          { id: 'ml2', platform: 'facebook', listing_type: 'Nábor', status: 'expired', renew_at: '2026-01-31' },
+          { id: 'ml3', platform: 'profesia', listing_type: 'Nábor zváračov', language: 'sk', status: 'active', renew_at: dni(3) }];
+        DATA.marketing_expenses = [
+          { id: 'me1', spent_at: dni(-2), channel: 'portal', amount: 49 },
+          { id: 'me2', spent_at: dni(-9), channel: 'ads', amount: 180, note: 'Facebook' }];
+        Danubra.route = 'marketing'; Mkt.loaded = false; Mkt.tab = 'listings';
+        await Danubra.renderRoute();
+        const portaly = () => [...document.querySelectorAll('#dl-inzercia .dl-row .dl-title b')].map(b => b.textContent.trim());
+        res.inzeraty = portaly();
+        res.odpocet = ([...document.querySelectorAll('#dl-inzercia .dl-row')].find(r => r.textContent.includes('profesia')) || {}).textContent || '';
+        document.querySelector('#dl-inzercia [data-dl-a="tog"][data-k="skoro"]').click();
+        res.inzeratySkoro = portaly();
+        DataList.reset('inzercia');
+        Mkt.setTab('expenses');
+        await new Promise(r => sp(r, 30));
+        res.vydavkySpolu = (document.getElementById('mkt-exp-sum') || {}).textContent || '';
+        DataList.set('vydavky', 'kanal', ['ads']);
+        res.vydavkyReklama = (document.getElementById('mkt-exp-sum') || {}).textContent || '';
+        res.vydavkyRiadky = document.querySelectorAll('#dl-vydavky .dl-row').length;
+        DataList.reset('vydavky');
+        Mkt.tab = 'listings';
         window.fetch = pravy;
         return res;
       });
@@ -4673,6 +5433,17 @@ console.log('Prehliadač');
         'ukážka: meno firmy doplnené, pätička s odosielateľom a odhlásením', out.ukazka);
       ok(JSON.stringify(out.adresati) === '[["info@huber.de",true]]', 'adresáti sa zapíšu s kľúčom na odhlásenie', JSON.stringify(out.adresati));
       ok(out.funkcia.length === 1 && out.funkcia[0] === 'Bearer jwt-123', 'posielanie volá server s prihlásením (kľúč schránky je len tam)', JSON.stringify(out.funkcia));
+      ok(JSON.stringify(out.kampane) === '["Zvárači Hamburg","Predstavenie október","Suchá výstavba"]',
+        'E-maily firmám sú zoznam s riadkami, najnovšie hore', JSON.stringify(out.kampane));
+      ok(['E-mail', 'Stav', 'Odoslané', 'Čaká', 'Zlyhalo'].every(x => out.kampaneStlpce.includes(x)), 'zoznam e-mailov má stĺpce stav, odoslané, čaká, zlyhalo', out.kampaneStlpce.join(', '));
+      ok(JSON.stringify(out.kampaneTlacidla) === '["Odoslať 1","Pokračovať 1"]', 'v riadku je tlačidlo Odoslať / Pokračovať s počtom čakajúcich', JSON.stringify(out.kampaneTlacidla));
+      ok(JSON.stringify(out.kampaneCaka) === '["Zvárači Hamburg","Predstavenie október"]', 'filter „Čaká na odoslanie" nechá len e-maily s čakajúcimi adresátmi', JSON.stringify(out.kampaneCaka));
+      ok(JSON.stringify(out.kampaneChyba) === '["Predstavenie október"]', 'a s „So zlyhaním" len ten, kde schránka niečo neprijala', JSON.stringify(out.kampaneChyba));
+      ok(JSON.stringify(out.inzeraty) === '["profesia.sk","Auftragsbank.de","Facebook"]', 'Inzercia: zoznam podľa obnovenia, expirované na konci', JSON.stringify(out.inzeraty));
+      ok(/o 3 dni/.test(out.odpocet) && /Na obnovenie/.test(out.odpocet), 'pri inzeráte je odpočet do obnovenia a stav Na obnovenie', out.odpocet.replace(/\s+/g, ' '));
+      ok(JSON.stringify(out.inzeratySkoro) === '["profesia.sk"]', 'filter „Obnoviť do 7 dní" nechá len inzerát, ktorý treba obnoviť', JSON.stringify(out.inzeratySkoro));
+      ok(/všetky výdavky/.test(out.vydavkySpolu) && /229/.test(out.vydavkySpolu), 'výdavky: súčet všetkých', out.vydavkySpolu);
+      ok(/1 z 2/.test(out.vydavkyReklama) && /180/.test(out.vydavkyReklama) && out.vydavkyRiadky === 1, 'filter kanála prepočíta súčet na to, čo je vidieť', out.vydavkyReklama);
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -4785,6 +5556,54 @@ console.log('Prehliadač');
         const ul = volania.filter(x => x.body && x.body.action === 'save').map(x => x.body);
         res.ulozenie = ul.map(b => ({ email: b.mailbox.email, host: b.mailbox.imap_host, pass: b.password, access: b.access, sig: b.mailbox.signature }));
         res.zaSync = volania.some(x => x.url.includes('danubra-mail-sync-background') && x.auth === 'Bearer jwt-9');
+
+        // Hľadanie v e-mailoch: bez diakritiky, slová zvlášť, len zoznam (pole ostane).
+        // (Uloženie schránky ešte dokresľuje Schránky — počkať, nech ich neprekreslí cez Správy.)
+        await new Promise(r => setTimeout(r, 150));
+        Danubra.route = 'mail'; Mail.openId = null; Mail.box = 'b1'; Mail.folder = 'in';
+        await Danubra.renderRoute();
+        const pole = v.querySelector('.mail-tools input[type=search]');
+        pole.value = 'gruber WOHNPARK'; pole.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 250));
+        res.hladaj = { riadky: v.querySelectorAll('#mail-rows .mail-row').length, pole: v.querySelector('.mail-tools input[type=search]') === pole };
+        pole.value = 'zalohova faktura'; pole.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 250));
+        res.hladajNic = v.querySelector('#mail-rows').textContent.replace(/\s+/g, ' ');
+        Mail.clearF();
+
+        // Nastavenia → Používatelia: zoznam (DataList) s filtrom roly a prístupu.
+        ['clenovia', 'spravy'].forEach(k => { try { localStorage.removeItem('danubra_dl_' + k); } catch (e) { /* nič */ } });
+        DATA.members.push({ id: 'u2', user_id: 'uid-2', email: 'old@punds.eu', full_name: 'Lucia Stará', role: 'coordinator', active: false });
+        Danubra.route = 'members'; Mem.loaded = false;
+        await Danubra.renderRoute();
+        const mena = () => [...v.querySelectorAll('#dl-clenovia .dl-row .dl-title b')].map(b => b.textContent.trim());
+        res.clenovia = mena();
+        res.clenoviaStlpce = [...v.querySelectorAll('#dl-clenovia .dl-th')].map(x => x.textContent.trim()).filter(Boolean);
+        DataList.set('clenovia', 'rola', ['coordinator']);
+        res.clenoviaKoord = mena();
+        DataList.set('clenovia', 'aktivny', 'on');
+        res.clenoviaAktivni = mena();
+        DataList.reset('clenovia');
+
+        // Správy → Interné: vlákna ako zoznam, predvolene otvorené.
+        DATA.message_threads = [
+          { id: 't1', subject: 'Kľúče od bytu', channel: 'internal', party_name: 'Jozef Malý', status: 'open', last_at: '2026-10-03T09:00:00Z' },
+          { id: 't2', subject: 'Stundennachweis KW 42', channel: 'email', party_name: 'Bau Pasing', to_email: 'info@bau-pasing.de', status: 'open', last_at: '2026-10-02T09:00:00Z' },
+          { id: 't3', subject: 'Faktúra RE-041', channel: 'email', party_name: 'GU Ulm', status: 'done', last_at: '2026-10-01T09:00:00Z' }];
+        DATA.messages = [
+          { id: 'n1', thread_id: 't1', direction: 'note', channel: 'internal', body: 'Kľúče sú u správcu.', status: 'note', created_at: '2026-10-03T09:00:00Z' },
+          { id: 'n2', thread_id: 't2', direction: 'out', channel: 'email', body: 'Anbei der Nachweis.', status: 'queued', created_at: '2026-10-02T09:00:00Z' }];
+        DATA.message_templates = [];
+        Danubra.route = 'messages'; Msg.loaded = false; Msg.openId = null;
+        await Danubra.renderRoute();
+        const vlakna = () => [...v.querySelectorAll('#dl-spravy .dl-row .dl-title b')].map(b => b.textContent.trim());
+        res.vlakna = vlakna();
+        document.querySelector('#dl-spravy [data-dl-a="tog"][data-k="fronta"]').click();
+        res.vlaknaFronta = vlakna();
+        DataList.reset('spravy');
+        DataList.set('spravy', 'stav', '');
+        res.vlaknaVsetky = vlakna();
+        DataList.reset('spravy');
         window.fetch = pravy;
         return res;
       });
@@ -4812,6 +5631,15 @@ console.log('Prehliadač');
       ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@punds.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
         'uloženie pošle heslo len serveru, s prístupmi a podpisom', JSON.stringify(out.ulozenie));
       ok(out.zaSync, 'po uložení sa e-maily hneď začnú sťahovať');
+      ok(out.hladaj.riadky === 1 && out.hladaj.pole, 'hľadanie v e-mailoch: slová zvlášť, bez ohľadu na veľkosť písmen, pole sa neprekreslí', JSON.stringify(out.hladaj));
+      ok(/Hľadaniu nič nezodpovedá/.test(out.hladajNic) && /Zrušiť filtre/.test(out.hladajNic), 'keď sa nič nenájde, povie to a ponúkne zrušenie', out.hladajNic);
+      ok(JSON.stringify(out.clenovia) === '["Štefan","Jana","Lucia Stará"]', 'Používatelia sú zoznam s riadkami (admin hore)', JSON.stringify(out.clenovia));
+      ok(['Meno', 'E-mail', 'Rola', 'Na čo má', 'Prístup'].every(x => out.clenoviaStlpce.includes(x)), 'stĺpce meno, e-mail, rola, na čo má, prístup', out.clenoviaStlpce.join(', '));
+      ok(JSON.stringify(out.clenoviaKoord) === '["Jana","Lucia Stará"]', 'filter roly Koordinátor', JSON.stringify(out.clenoviaKoord));
+      ok(JSON.stringify(out.clenoviaAktivni) === '["Jana"]', 'a filter „Má prístup" skryje vypnutých', JSON.stringify(out.clenoviaAktivni));
+      ok(JSON.stringify(out.vlakna) === '["Kľúče od bytu","Stundennachweis KW 42"]', 'Interné správy: zoznam vlákien, predvolene len otvorené', JSON.stringify(out.vlakna));
+      ok(JSON.stringify(out.vlaknaFronta) === '["Stundennachweis KW 42"]', 'filter „Čaká alebo neodišlo"', JSON.stringify(out.vlaknaFronta));
+      ok(out.vlaknaVsetky.length === 3, 'stav Všetky ukáže aj uzavreté', JSON.stringify(out.vlaknaVsetky));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -4891,6 +5719,27 @@ console.log('Prehliadač');
         Danubra.route = 'outreach'; Outreach.tab = 'today';
         await Danubra.renderRoute();
         res.prehlad = document.querySelector('#view').textContent.replace(/\s+/g, ' ');
+        // Odoslané: zoznam (DataList) so sledovaním a filtrami.
+        try { localStorage.removeItem('danubra_dl_oslovovanie-odoslane'); } catch (e) { /* nič */ }
+        DATA.outreach.push({ id: 'o4', lead_id: 'l2', step: 1, lang: 'de', status: 'failed', to_email: 'off@schmidt.de',
+          subject: 'Fachkräfte für Schmidt?', error: 'Adresa je odhlásená', created_at: '2026-01-06T09:00:00Z' });
+        Outreach.loaded = false;
+        Outreach.setTab('sent');
+        for (let i = 0; i < 40 && !document.querySelector('#dl-odoslane .dl-row'); i++) await new Promise(r => setTimeout(r, 50));
+        const firmy = () => [...document.querySelectorAll('#dl-odoslane .dl-row .dl-title b')].map(b => b.textContent.trim());
+        res.odoslane = firmy();
+        const weber = [...document.querySelectorAll('#dl-odoslane .dl-row')].find(r => r.textContent.includes('Weber'));
+        res.odoslaneIkony = !!weber && !!weber.querySelector('[title^="Otvoril"]') && !!weber.querySelector('[title^="Klikol"]');
+        res.odoslaneChyba = ([...document.querySelectorAll('#dl-odoslane .dl-row')].find(r => r.textContent.includes('Schmidt')) || {}).textContent || '';
+        res.odoslaneExport = !!document.querySelector('#dl-odoslane [data-dl-a="export"]');
+        document.querySelector('#dl-odoslane [data-dl-a="tog"][data-k="otvoril"]').click();
+        res.odoslaneOtvoril = firmy();
+        document.querySelector('#dl-odoslane [data-dl-a="tog"][data-k="odpovedal"]').click();
+        res.odoslaneOdpovedal = (document.querySelector('#dl-odoslane') || {}).textContent || '';
+        DataList.reset('odoslane');
+        DataList.set('odoslane', 'stav', ['failed']);
+        res.odoslaneNeodislo = firmy();
+        DataList.reset('odoslane');
         Outreach.setTab('settings');
         await new Promise(r => setTimeout(r, 30));
         res.nastavenia = !!document.querySelector('#os-form [name=track_opens]') && !!document.querySelector('#os-form [name=daily_limit]');
@@ -4910,6 +5759,13 @@ console.log('Prehliadač');
       ok(/odhlásila/.test(out.blok) && out.blokGo, 'odhlásenú firmu appka nedovolí osloviť a povie prečo', out.blok);
       ok(/Oslovovanie/.test(out.prehlad) && /Pripomenúť sa/.test(out.prehlad) && /Ako to ide/.test(out.prehlad) && /§ 7 UWG/.test(out.prehlad),
         'Oslovovanie: dnes na rade, čísla a právne upozornenie', out.prehlad.slice(0, 300));
+      ok(JSON.stringify(out.odoslane) === '["Schmidt Ausbau","Weber Bau"]', 'Odoslané: zoznam riadkov, najnovšie hore', JSON.stringify(out.odoslane));
+      ok(out.odoslaneIkony, 'v riadku sú ikonky sledovania (otvoril, klikol)');
+      ok(/Adresa je odhlásená/.test(out.odoslaneChyba) && /Neodišlo/.test(out.odoslaneChyba), 'e-mail, ktorý neodišiel, ukáže dôvod', out.odoslaneChyba.replace(/\s+/g, ' '));
+      ok(out.odoslaneExport, 'zoznam odoslaných sa dá exportovať do CSV');
+      ok(JSON.stringify(out.odoslaneOtvoril) === '["Weber Bau"]', 'filter „Otvoril" nechá len otvorené e-maily', JSON.stringify(out.odoslaneOtvoril));
+      ok(/Filtrom nič nezodpovedá/.test(out.odoslaneOdpovedal), 'filter „Odpovedal" — nikto neodpísal, zoznam to povie', out.odoslaneOdpovedal.slice(0, 200));
+      ok(JSON.stringify(out.odoslaneNeodislo) === '["Schmidt Ausbau"]', 'filter stavu „Neodišlo"', JSON.stringify(out.odoslaneNeodislo));
       ok(out.nastavenia, 'nastavenia oslovovania (sledovanie, denný limit)');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();

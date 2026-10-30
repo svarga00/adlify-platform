@@ -64,62 +64,91 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.thread(el, this.openId);
 
-      const rows = this.rows();
       const q = M().queueCounts(this.messages);
       const cfg = M().canSend(this.sendCfg());
 
       Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Msg.compose()">${Icon('plus')} Nová správa</button>`);
 
-      const card = (t) => `
-        <div class="card card-pad list-card" role="button" tabindex="0" onclick="Msg.open('${t.id}')">
-          <div class="card-head">
-            <div class="card-title">${UI.esc(t.subject || t.party_name || 'Bez predmetu')}</div>
-            ${t.failed ? UI.badge('neodoslané', 'red')
-              : t.waiting ? UI.badge('čaká', 'amber')
-              : UI.badge(channelLabel(t.channel), t.channel === 'internal' ? 'gray' : 'blue')}
-          </div>
-          <div class="meta-row">
-            ${t.party_name ? `<span>${Icon('user', 14)} ${UI.esc(t.party_name)}</span>` : ''}
-            ${t.to_email ? `<span>${Icon('mail', 14)} ${UI.esc(t.to_email)}</span>` : ''}
-            <span>${Icon('note', 14)} ${t.count} ${
-              Shell.plural(t.count, 'správa', 'správy', 'správ')}</span>
-            ${t.last_at ? `<span>${Icon('clock', 14)} ${UI.date(t.last_at)}</span>` : ''}
-          </div>
-          ${t.preview ? `<p class="card-note">${UI.esc(t.preview)}</p>` : ''}
-          ${Danubra.canOpen(t.entity_type, t.entity_id)
-            ? `<span class="link-row" style="margin-top:8px;" onclick="event.stopPropagation()">
-                 ${Danubra.link(t.entity_type, t.entity_id, t.party_name || '')}</span>` : ''}
-        </div>`;
-
       el.innerHTML = Danubra.header(Danubra.labelOf('messages'),
         `Komunikácia pri zázname, ktorého sa týka${UI.tip('Vlákno = jedna téma: všetky správy a poznámky k nej pod sebou. Nič sa tu nemaže ani neprepisuje — dá sa len pridať ďalšia správa, takže vždy vidíte, čo bolo dohodnuté.')}`)
         + (!cfg.ok ? `<div class="warnbox" style="margin-bottom:14px;">
-            ${Icon('alert', 14)} <strong>Odosielanie ešte nie je zapnuté.</strong>
+            ${Icon('alert', 14)} <span><strong>Odosielanie ešte nie je zapnuté.</strong>
             ${UI.esc(cfg.reason)} Interné poznámky a zápis toho, čo už odišlo inou
-            cestou, fungujú bez toho.</div>` : '')
+            cestou, fungujú bez toho.</span></div>` : '')
         + (q.queued || q.failed ? `<div class="regimebox" style="margin-bottom:14px;">
             ${q.queued ? `${q.queued} ${Shell.plural(q.queued, 'správa čaká', 'správy čakajú', 'správ čaká')} vo fronte. ` : ''}
             ${q.failed ? `${q.failed} sa nepodarilo odoslať. ` : ''}
             Nič z toho neodišlo.${UI.tip('Front = správy pripravené na odoslanie. Odídu až keď bude v Nastaveniach zapnuté odosielanie (poskytovateľ a adresa odosielateľa). Dovtedy adresát nič nedostal.')}</div>` : '')
-        + Shell.list({
-          rows, total: this.threads.length, render: card, layout: 'cards',
-          emptyIcon: 'mail', emptyTitle: 'Zatiaľ žiadna komunikácia',
-          emptySub: 'Začnite poznámkou pri zázname alebo novou správou.',
-          filter: {
-            right: UI.tip('Otvorené = vlákna, ktoré ešte riešite. Uzavreté = vybavené; nič sa z nich nezmazalo a dajú sa znova otvoriť. Kanál = ako komunikácia prebieha (interne, e-mail, SMS, WhatsApp).'),
-            search: { value: this.filters.q, placeholder: 'Hľadať predmet, meno, text…',
-              oninput: 'Msg.setF("q", this.value)' },
-            selects: [
-              { value: this.filters.state, label: 'Stav',
-                onchange: 'Msg.setF("state", this.value)',
-                options: [['open', 'Otvorené'], ['done', 'Uzavreté'], ['', 'Všetky']] },
-              { value: this.filters.channel, label: 'Kanál',
-                onchange: 'Msg.setF("channel", this.value)',
-                options: [['', 'Všetky kanály'], ...CHANNELS] },
-            ],
-          },
-        });
+        // Zoznam je spoločný komponent (`DataList`): dovtedy tu boli karty
+        // s hľadaním a dvoma výbermi (stav, kanál).
+        + DataList.html(this.listConfig(M().threadList(this.threads, this.messages)));
+    },
+
+    /** Konfigurácia zoznamu vlákien pre `DataList`. */
+    listConfig(rows) {
+      const lastOf = (t) => t.last_at || (t.last && t.last.created_at) || null;
+      const shortDate = (d) => {
+        const x = new Date(d);
+        if (!d || isNaN(x)) return '';
+        return `${x.getDate()}. ${x.getMonth() + 1}. ${x.getFullYear()} ${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
+      };
+      const flag = (t) => (t.failed ? UI.badge('neodoslané', 'red') : t.waiting ? UI.badge('čaká', 'amber') : '');
+      return {
+        id: 'spravy', storageKey: 'spravy', label: 'Interné poznámky a správy',
+        noun: ['vlákno', 'vlákna', 'vlákien'],
+        rows,
+        rowClick: (t) => Msg.open(t.id),
+        rowClass: (t) => (t.failed ? 'is-hot' : t.waiting ? 'is-warn' : t.status === 'done' ? 'is-muted' : ''),
+        rowLabel: (t) => `Vlákno ${t.subject || t.party_name || 'bez predmetu'}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť vlákno', run: (t) => Msg.open(t.id) }],
+        columns: [
+          { key: 'vlakno', label: 'Vlákno', width: 'minmax(220px, 2.4fr)', mobile: 'title',
+            render: (t) => `<span class="dl-title"><b>${UI.esc(t.subject || t.party_name || 'Bez predmetu')}</b>${
+              t.preview ? `<small title="${UI.esc(t.preview)}">${UI.esc(t.preview)}</small>` : ''}</span>`,
+            sortValue: (t) => t.subject || t.party_name || '', sortLabel: 'Predmet', csv: (t) => t.subject || '' },
+          { key: 'komu', label: 'S kým', width: 'minmax(150px, 1.3fr)', mobileLabel: '',
+            render: (t) => (t.party_name || t.to_email || t.to_phone ? `<span class="dl-two"><b>${UI.esc(t.party_name || '—')}</b>${
+              t.to_email || t.to_phone ? `<small>${UI.esc(t.to_email || t.to_phone)}</small>` : ''}</span>` : ''),
+            sortValue: (t) => t.party_name || null, csv: (t) => [t.party_name, t.to_email, t.to_phone].filter(Boolean).join(' · ') },
+          { key: 'kanal', label: 'Kanál', width: '104px', mobile: 'badge',
+            render: (t) => UI.badge(channelLabel(t.channel), t.channel === 'internal' ? 'gray' : 'blue'),
+            sortValue: (t) => channelLabel(t.channel), csv: (t) => channelLabel(t.channel) },
+          { key: 'pocet', label: 'Správ', width: '64px', align: 'right', mobileLabel: 'správ',
+            render: (t) => `<span class="dl-num">${t.count}</span>`, sortValue: (t) => t.count, sortDir: -1 },
+          { key: 'zaznam', label: 'Týka sa', width: 'minmax(130px, 1fr)', hideBelow: 1100, hideOnMobile: true,
+            tip: 'Záznam v appke, ku ktorému vlákno patrí — napr. živnostník, zákazka alebo faktúra. Kliknutím ho otvoríte.',
+            render: (t) => (Danubra.canOpen(t.entity_type, t.entity_id) ? Danubra.link(t.entity_type, t.entity_id, t.party_name || '') : ''),
+            csv: false },
+          { key: 'posledna', label: 'Posledná', width: '128px', mobileLabel: '',
+            render: (t) => (lastOf(t) ? `<span class="dl-num">${UI.esc(shortDate(lastOf(t)))}</span>` : ''),
+            sortValue: lastOf, sortDir: -1, csv: (t) => lastOf(t) || '' },
+          { key: 'stav', label: 'Stav', width: '112px', mobileLabel: '',
+            tip: 'Otvorené = ešte riešite, uzavreté = vybavené. Čaká = správa je vo fronte a ešte neodišla. Neodoslané = odoslanie zlyhalo.',
+            render: (t) => flag(t) || (t.status === 'done' ? '<span class="dl-note is-mute">uzavreté</span>' : '<span class="dl-note is-green">otvorené</span>'),
+            sortValue: (t) => (t.failed ? 0 : t.waiting ? 1 : t.status === 'done' ? 3 : 2),
+            csv: (t) => [t.status === 'done' ? 'uzavreté' : 'otvorené', t.failed ? 'neodoslané' : t.waiting ? 'čaká' : ''].filter(Boolean).join(', ') },
+        ],
+        sort: { key: 'posledna', dir: -1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať predmet, meno, text…', label: 'Hľadať predmet, meno, e-mail alebo text',
+            fields: ['subject', 'party_name', 'to_email', 'to_phone', 'preview'] },
+          { key: 'stav', type: 'select', label: 'Stav', value: (t) => (t.status === 'done' ? 'done' : 'open'), default: 'open', allLabel: 'Všetky',
+            options: [['open', 'Otvorené'], ['done', 'Uzavreté']],
+            hint: 'Otvorené = vlákna, ktoré ešte riešite. Uzavreté = vybavené; nič sa z nich nezmazalo a dajú sa znova otvoriť.' },
+          { key: 'kanal', type: 'multi', label: 'Kanál', value: 'channel', options: CHANNELS, sortOptions: false, allLabel: 'Všetky kanály',
+            hint: 'Ako komunikácia prebieha: interne, e-mail, SMS, WhatsApp.' },
+          { key: 'fronta', type: 'toggle', label: 'Čaká alebo neodišlo', test: (t) => t.waiting || t.failed,
+            hint: 'Vlákna so správou, ktorá čaká vo fronte na odoslanie, alebo sa ju nepodarilo odoslať. Nič z toho adresátovi neprišlo.' },
+          { key: 'kedy', type: 'range-date', label: 'Posledná správa', field: lastOf, more: true },
+          { key: 'zaznam', type: 'select', label: 'Týka sa', value: 'entity_type', allLabel: 'Čohokoľvek', emptyLabel: 'Ničoho', more: true,
+            optionLabel: (v) => ({ worker: 'Živnostník', partner: 'Odberateľ', subcontract: 'Zákazka', invoice: 'Faktúra', candidate: 'Uchádzač',
+              lead: 'Nová firma', opportunity: 'Dopyt', contract: 'Zmluva' }[v] || v) },
+        ],
+        empty: { ico: 'mail', title: 'Zatiaľ žiadna komunikácia', sub: 'Začnite poznámkou pri zázname alebo novou správou.',
+          cta: `<button class="btn btn-primary" onclick="Msg.compose()">${Icon('plus')} Nová správa</button>` },
+        export: { name: ['spravy'] },
+      };
     },
 
     open(id) { this.openId = id; Danubra.renderRoute(); },

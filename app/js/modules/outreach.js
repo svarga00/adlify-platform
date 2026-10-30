@@ -472,20 +472,113 @@
         <div class="regimebox" style="margin-top:12px;">${UI.esc(LEGAL)}</div>`;
     },
 
+    // Zoznam odoslaných je spoločný komponent (`DataList`). Dovtedy tu bolo
+    // posledných 200 riadkov bez filtrov — nedalo sa zistiť, kto otvoril,
+    // kto odpísal, ani čo poslal ktorý kolega.
     sentHtml(leads) {
-      const meno = (id) => (leads.find(l => l.id === id) || {}).name || 'firma';
-      const list = this.rows.filter(r => r.status !== 'draft').slice(0, 200);
-      if (!list.length) return UI.empty('mail', 'Zatiaľ nič neodišlo', 'E-mail firme pošlete tlačidlom „Osloviť" pri firme v zozname Nových firiem.', '');
-      return list.map(o => {
+      const byId = new Map((leads || []).map(l => [l.id, l]));
+      const rows = this.rows.filter(r => r.status !== 'draft').map(o => {
         const s = OO().summary([o]);
-        const st = OO().STATES[s.state] || OO().STATES.sent;
-        return `<div class="list-row" role="button" tabindex="0" onclick="Lead.detail('${o.lead_id}')">
-          <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(meno(o.lead_id))}</strong>
-            <span style="color:var(--ink-mute);"> · ${o.step > 1 ? `pripomenutie ${o.step - 1}` : 'prvý e-mail'} · ${UI.esc(this.shortDate(o.sent_at || o.created_at))}</span>
-            <span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(o.subject || '')}${o.status === 'failed' && o.error ? ` · ${UI.esc(o.error)}` : ''}</span></span>
-          ${o.status === 'failed' ? UI.badge('Neodišlo', 'red') : UI.badge(st[0], st[1])}
-        </div>`;
-      }).join('');
+        const l = byId.get(o.lead_id) || {};
+        return { id: o.id, o, s, state: o.status === 'failed' ? 'failed' : s.state, lead: l,
+          firm: l.name || 'firma', who: this.who(o.sent_by), at: o.sent_at || o.created_at };
+      });
+      return DataList.html(this.sentConfig(rows));
+    },
+
+    /** Ikonky sledovania jedného e-mailu: otvoril, klik, odpoveď, nedoručené, odhlásil. */
+    trackIcons(o) {
+      const ico = (n, t, tone) => `<span class="or-ico is-${tone}" title="${UI.esc(t)}" aria-label="${UI.esc(t)}">${Icon(n, 14)}</span>`;
+      const ik = [];
+      if (o.opened_at) ik.push(ico('eye', `Otvoril (${Number(o.open_count) || 1}×)`, 'green'));
+      else if (o.auto_opened_at) ik.push(ico('eye', 'Otvorenie (možno automaticky)', 'mute'));
+      if (o.clicked_at) ik.push(ico('link', `Klikol na odkaz (${Number(o.click_count) || 1}×)`, 'green'));
+      if (o.replied_at) ik.push(ico('back', 'Odpovedal', 'green'));
+      if (o.bounced_at || o.status === 'bounced') ik.push(ico('alert', 'Nedoručené', 'red'));
+      if (o.unsubscribed_at) ik.push(ico('x', 'Odhlásil sa', 'red'));
+      return ik.length ? `<span class="or-icos">${ik.join('')}</span>` : '';
+    },
+
+    /** Konfigurácia zoznamu odoslaných e-mailov pre `DataList`. */
+    sentConfig(rows) {
+      const ST = OO().STATES;
+      const stLabel = (k) => (k === 'failed' ? 'Neodišlo' : (ST[k] || ST.sent)[0]);
+      const krok = (o) => (Number(o.step) > 1 ? `Pripomenutie ${o.step - 1}` : 'Prvý e-mail');
+      const order = ['failed', 'bounced', 'unsubscribed', 'replied', 'clicked', 'opened', 'auto', 'sent', 'none'];
+      return {
+        id: 'odoslane', storageKey: 'oslovovanie-odoslane', label: 'Odoslané e-maily oslovenia',
+        noun: ['e-mail', 'e-maily', 'e-mailov'],
+        rows,
+        rowClick: (r) => Lead.detail(r.o.lead_id),
+        rowClass: (r) => (['failed', 'bounced'].includes(r.state) ? 'is-hot' : r.state === 'replied' ? '' : r.state === 'unsubscribed' ? 'is-muted' : ''),
+        rowLabel: (r) => `E-mail firme ${r.firm}`,
+        rowActions: [
+          { ico: 'mail', label: 'Pripomenúť sa e-mailom', show: (r) => !this.missing && r.lead.id && this.nextStep(r.lead) > 1
+            && OO().lastSent(this.ofLead(r.lead.id)) && OO().lastSent(this.ofLead(r.lead.id)).id === r.o.id,
+            run: (r) => this.compose(r.lead.id, this.nextStep(r.lead)) },
+          { ico: 'chevron', label: 'Otvoriť firmu', run: (r) => Lead.detail(r.o.lead_id) },
+        ],
+        columns: [
+          { key: 'firma', label: 'Firma', width: 'minmax(160px, 1.4fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.firm)}</b><small>${UI.esc(r.o.to_email || '')}</small></span>`,
+            sortValue: (r) => r.firm, csv: (r) => r.firm },
+          { key: 'predmet', label: 'Predmet', width: 'minmax(180px, 2fr)', mobile: 'line',
+            render: (r) => `<span class="dl-two is-wrap"><b title="${UI.esc(r.o.subject || '')}">${UI.esc(r.o.subject || '—')}</b>${
+              r.o.status === 'failed' && r.o.error ? `<small class="dl-note is-red">${UI.esc(r.o.error)}</small>` : ''}</span>`,
+            sortValue: (r) => r.o.subject || null, csv: (r) => r.o.subject || '' },
+          { key: 'krok', label: 'Krok', width: '112px', mobileLabel: '',
+            render: (r) => `<span class="dl-two"><b>${krok(r.o)}</b><small>${r.o.lang === 'en' ? 'po anglicky' : 'po nemecky'}</small></span>`,
+            sortValue: (r) => Number(r.o.step) || 1, csv: (r) => krok(r.o) },
+          { key: 'kto', label: 'Kto', width: '110px', hideBelow: 1050, mobileLabel: 'poslal(a)',
+            render: (r) => (r.who ? UI.esc(r.who) : ''), sortValue: (r) => r.who || null, csv: (r) => r.who },
+          { key: 'kedy', label: 'Kedy', width: '128px', mobileLabel: '',
+            render: (r) => (r.at ? `<span class="dl-num">${UI.esc(this.shortDate(r.at))}</span>` : ''),
+            sortValue: (r) => r.at || null, sortDir: -1, csv: (r) => r.at || '' },
+          { key: 'sled', label: 'Sledovanie', width: '104px', mobileLabel: '',
+            tip: `Otvoril (sivé oko = možno automaticky), klikol na odkaz, odpovedal, nedoručené, odhlásil sa. Ukážte myšou na ikonku. ${TRACK_TIP}`,
+            render: (r) => this.trackIcons(r.o), csv: false },
+          { key: 'stav', label: 'Stav', width: '124px', mobile: 'badge',
+            tip: 'Najďalší stav e-mailu. Možno automaticky = obrázky načítal program (Apple Mail, Gmail, skener), nie nutne človek.',
+            render: (r) => (r.state === 'failed' ? UI.badge('Neodišlo', 'red') : r.state === 'auto' ? UI.badge('Možno automaticky', 'gray')
+              : UI.badge(...(ST[r.state] || ST.sent))),
+            sortValue: (r) => order.indexOf(r.state), csv: (r) => stLabel(r.state) },
+        ],
+        sort: { key: 'kedy', dir: -1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať firmu, predmet, e-mail…', label: 'Hľadať firmu, predmet alebo e-mail',
+            fields: ['firm', 'o.subject', 'o.to_email', 'lead.city'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: 'state', sortOptions: false, allLabel: 'Všetky',
+            options: [['sent', 'Odoslané'], ['auto', 'Otvorenie (možno automaticky)'], ['opened', 'Otvoril'], ['clicked', 'Klikol'],
+              ['replied', 'Odpovedal'], ['bounced', 'Nedoručené'], ['unsubscribed', 'Odhlásený'], ['failed', 'Neodišlo']],
+            hint: 'Najďalší stav e-mailu: odpoveď je viac ako klik, klik viac ako otvorenie. Neodišlo = server e-mail neodoslal (dôvod je pod predmetom).' },
+          { key: 'otvoril', type: 'toggle', label: 'Otvoril', test: (r) => !!(r.o.opened_at || r.o.auto_opened_at),
+            hint: 'E-maily, ktoré firma otvorila — aj otvorenie „možno automaticky" (Apple Mail, Gmail predčítajú obrázky).' },
+          { key: 'odpovedal', type: 'toggle', label: 'Odpovedal', test: (r) => !!r.o.replied_at,
+            hint: 'E-maily, na ktoré firma odpísala (odpoveď sa spáruje sama zo schránky).' },
+          { key: 'kto', type: 'select', label: 'Kto poslal', value: (r) => r.o.sent_by, allLabel: 'Všetci',
+            optionLabel: (v, r) => (r && r.who) || 'neznámy', emptyLabel: 'Nezistené' },
+          { key: 'kedy', type: 'range-date', label: 'Obdobie', field: 'at', more: true },
+          { key: 'krok', type: 'select', label: 'Krok', value: (r) => (Number(r.o.step) > 1 ? 'followup' : 'intro'), more: true,
+            options: [['intro', 'Prvý e-mail'], ['followup', 'Pripomenutie']], allLabel: 'Všetky kroky' },
+          { key: 'klikol', type: 'toggle', label: 'Klikol na odkaz', test: (r) => !!r.o.clicked_at, more: true },
+          { key: 'nedorucene', type: 'toggle', label: 'Nedoručené alebo neodišlo', test: (r) => ['bounced', 'failed'].includes(r.o.status) || !!r.o.bounced_at, more: true,
+            hint: 'E-maily, ktoré server firmy vrátil, alebo ktoré vôbec neodišli — overte adresu pri firme.' },
+          { key: 'jazyk', type: 'select', label: 'Jazyk', value: (r) => (r.o.lang === 'en' ? 'en' : 'de'), more: true,
+            options: [['de', 'Nemecky'], ['en', 'Anglicky']], allLabel: 'Oba jazyky' },
+        ],
+        empty: { ico: 'mail', title: 'Zatiaľ nič neodišlo', sub: 'E-mail firme pošlete tlačidlom „Osloviť" pri firme v zozname Nových firiem.' },
+        export: {
+          name: ['oslovovanie-odoslane'],
+          columns: [
+            ['Firma', r => r.firm], ['E-mail', r => r.o.to_email], ['Predmet', r => r.o.subject], ['Krok', r => krok(r.o)],
+            ['Jazyk', r => (r.o.lang === 'en' ? 'EN' : 'DE')], ['Poslal(a)', r => r.who], ['Odoslané', r => r.o.sent_at || ''],
+            ['Stav', r => stLabel(r.state)], ['Otvorené', r => r.o.opened_at || ''], ['Otvorení', r => r.o.open_count || ''],
+            ['Otvorenie možno automaticky', r => r.o.auto_opened_at || ''], ['Klik', r => r.o.clicked_at || ''],
+            ['Odpoveď', r => r.o.replied_at || ''], ['Nedoručené', r => r.o.bounced_at || ''], ['Odhlásený', r => r.o.unsubscribed_at || ''],
+            ['Chyba', r => r.o.error || ''],
+          ],
+        },
+      };
     },
 
     // ── Šablóny ───────────────────────────────────────────────────────────
@@ -497,12 +590,48 @@
           <code>{mesto|Ihrer Region}</code>.${UI.tip('{oslovenie} = „Guten Tag <konateľ>," alebo „Sehr geehrte Damen und Herren,". {podobna} = náš odberateľ, na ktorého sa firma podobá — do e-mailu ho dávajte len výnimočne, s kým robíme, je obchodné tajomstvo. {portfolio} = text z Nastavení oslovovania. {datum} = kedy odišiel predchádzajúci e-mail (pri pripomenutí). Pätičku s Impressum a odhlásením pridá appka vždy sama.')}</div>
         ${admin ? `<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="Outreach.templateForm()">${Icon('plus', 14)} Nová šablóna</button></div>`
           : '<p class="card-note">Šablóny mení administrátor. Pri oslovení si text môžete vždy upraviť.</p>'}
-        ${list.length ? list.map(t => `<div class="list-row"${admin ? ` role="button" tabindex="0" onclick="Outreach.templateForm('${t.id}')"` : ''}>
-          <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(t.title || t.key)}</strong>
-            <span style="color:var(--ink-mute);"> · ${String(t.language || 'de').toUpperCase()} · ${String(t.key || '').includes('followup') ? 'pripomenutie' : 'prvý e-mail'}</span>
-            <span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(t.subject || '')}</span></span>
-          ${t.active === false ? UI.badge('Vypnutá', 'gray') : ''}</div>`).join('')
-          : '<div class="js-empty">V databáze zatiaľ nie sú šablóny oslovenia — použije sa predvolený text (migrácia 078 pridá štyri).</div>'}`;
+        ${DataList.html(this.templatesConfig(list.map(t => ({ id: t.id, t, title: t.title || t.key || '',
+          kind: String(t.key || '').includes('followup') ? 'followup' : 'intro', lang: String(t.language || 'de').toLowerCase() })), admin))}`;
+    },
+
+    /** Konfigurácia zoznamu šablón oslovenia pre `DataList`. */
+    templatesConfig(rows, admin) {
+      const KIND = { intro: 'Prvý e-mail', followup: 'Pripomenutie' };
+      const LANG = { de: 'Nemecky', en: 'Anglicky' };
+      return {
+        id: 'sablony-oslovenia', storageKey: 'sablony-oslovenia', label: 'Šablóny oslovenia',
+        noun: ['šablóna', 'šablóny', 'šablón'],
+        rows,
+        rowClick: admin ? (r) => Outreach.templateForm(r.id) : null,
+        rowClass: (r) => (r.t.active === false ? 'is-muted' : ''),
+        rowLabel: (r) => `Šablóna ${r.title}`,
+        rowActions: admin ? [{ ico: 'edit', label: 'Upraviť šablónu', run: (r) => Outreach.templateForm(r.id) }] : [],
+        columns: [
+          { key: 'nazov', label: 'Názov', width: 'minmax(170px, 1.4fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.title)}</b><small>${UI.esc(r.t.key || '')}</small></span>`,
+            sortValue: (r) => r.title },
+          { key: 'druh', label: 'Na čo', width: '120px', mobileLabel: '',
+            render: (r) => KIND[r.kind], sortValue: (r) => (r.kind === 'intro' ? 0 : 1), csv: (r) => KIND[r.kind] },
+          { key: 'jazyk', label: 'Jazyk', width: '92px', mobileLabel: '',
+            render: (r) => LANG[r.lang] || r.lang.toUpperCase(), sortValue: (r) => r.lang, csv: (r) => r.lang.toUpperCase() },
+          { key: 'predmet', label: 'Predmet', width: 'minmax(180px, 2fr)', mobile: 'line',
+            render: (r) => `<span class="dl-note is-mute">${UI.esc(r.t.subject || '')}</span>`, csv: (r) => r.t.subject || '' },
+          { key: 'stav', label: 'Pri oslovení', width: '118px', mobile: 'badge',
+            tip: 'Ponúka sa = šablóna je na výber v okne Osloviť. Vypnutá = ostáva uložená, ale nepoužíva sa.',
+            render: (r) => (r.t.active === false ? UI.badge('Vypnutá', 'gray') : UI.badge('Ponúka sa', 'green')),
+            sortValue: (r) => (r.t.active === false ? 1 : 0), csv: (r) => (r.t.active === false ? 'vypnutá' : 'ponúka sa') },
+        ],
+        sorts: [{ key: 'poradie', label: 'Poradie', value: (r) => Number(r.t.sort_order) || 0 }],
+        sort: { key: 'poradie', dir: 1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať názov, predmet, text…', label: 'Hľadať v šablónach', fields: ['title', 't.subject', 't.body', 't.key'] },
+          { key: 'druh', type: 'select', label: 'Na čo', value: 'kind', options: Object.entries(KIND), allLabel: 'Všetky' },
+          { key: 'jazyk', type: 'select', label: 'Jazyk', value: 'lang', options: Object.entries(LANG), allLabel: 'Oba jazyky' },
+          { key: 'aktivne', type: 'toggle', label: 'Len ponúkané', test: (r) => r.t.active !== false,
+            hint: 'Skryje vypnuté šablóny.' },
+        ],
+        empty: { ico: 'note', title: 'Zatiaľ žiadne šablóny', sub: 'V databáze zatiaľ nie sú šablóny oslovenia — použije sa predvolený text (migrácia 078 pridá štyri).' },
+      };
     },
 
     templateForm(id) {

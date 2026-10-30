@@ -57,10 +57,20 @@
       });
     },
 
-    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+    /** Filter z kódu (staré volania). Filtre drží `DataList`. */
+    setF(k, v) {
+      this.filters[k] = v;
+      const map = { q: ['q', v || ''], state: ['stav', v || ''], channel: ['kanal', v || ''] };
+      if (map[k] && DataList._reg.inzeraty) { DataList.set('inzeraty', map[k][0], map[k][1]); return; }
+      Danubra.renderRoute();
+    },
 
     exportCsv() {
-      Shell.exportCsv(this.rows(), [
+      // Keď je zoznam na obrazovke, exportuje sa to, čo je v ňom vidieť.
+      const shown = DataList._reg.inzeraty
+        ? DataList.visible('inzeraty').map(r => ({ ...r.x, running: r.running, trade_name: r.trade }))
+        : this.rows();
+      Shell.exportCsv(shown, [
         ['Inzerát', x => x.title],
         ['Kanál', x => A().channelLabel(x.channel)],
         ['Kde', x => x.channel_detail],
@@ -78,62 +88,133 @@
 
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.rows();
-
-      const card = (x) => {
-        const p = this.perfOf(x.id);
-        const promise = A().promiseLines(x);
-        return `
-          <div class="card card-pad list-card ad-card${x.running ? ' is-running' : ''}"
-               role="button" tabindex="0" onclick="Ads.detail('${x.id}')">
-            <div class="card-head">
-              <div class="card-title">${UI.esc(x.title)}</div>
-              <span style="display:flex;gap:6px;align-items:center;">${x.web_published ? UI.badge('na webe', 'blue') : ''}${x.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')}</span>
-            </div>
-            <div class="meta-row">
-              <span>${Icon('marketing', 14)} ${UI.esc(A().channelLabel(x.channel))}${
-                x.channel_detail ? ' · ' + UI.esc(x.channel_detail) : ''}</span>
-              ${x.trade_name ? `<span>${Icon('wrench', 14)} ${UI.esc(x.trade_name)}</span>` : ''}
-              ${x.city ? `<span>${Icon('pin', 14)} ${UI.esc(x.city)}</span>` : ''}
-              ${x.rate_offered ? `<span>${Icon('euro', 14)} ${
-                UI.esc(String(x.rate_offered).replace('.', ','))} €/h</span>` : ''}
-            </div>
-            ${promise.length ? `<div class="ad-promise">
-              ${promise.map(t => `<span>${UI.esc(t)}</span>`).join('')}</div>` : ''}
-            <div class="ad-perf">
-              <div><b>${p.candidates}</b><span>ozvalo sa</span></div>
-              <div><b>${p.contacted}</b><span>ozvali sme sa</span></div>
-              <div><b>${p.hired}</b><span>nastúpilo</span></div>
-              ${p.contactRate != null ? `<div class="${p.contactRate < 100 ? 'ad-warn' : ''}">
-                <b>${p.contactRate} %</b><span>stihnuté${UI.tip('Koľkým z tých, čo sa na inzerát ozvali, sme sa už ozvali späť. Cieľ je 100 % — každý, komu nezavoláme, je stratený človek.')}</span></div>` : ''}
-            </div>
-          </div>`;
-      };
-
       Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Ads.form()">${Icon('plus')} Nový inzerát</button>`);
+      // Zoznam je spoločný komponent (`DataList`). Dovtedy tu boli karty
+      // s hľadaním a dvoma výbermi; dnes sú to riadky so stĺpcami — kanál,
+      // nábor, dokedy beží a koľko ľudí sa ozvalo.
+      const today = new Date().toISOString().slice(0, 10);
       el.innerHTML = Danubra.header(Danubra.labelOf('ads'),
         'Na čo ľudia volajú — a čo sme im v tom sľúbili')
-        + Shell.list({
-          rows, total: this.items.length, render: card, layout: 'cards',
-          emptyIcon: 'marketing', emptyTitle: 'Zatiaľ žiadny inzerát',
-          emptySub: 'Založte inzerát skôr, než ho vyvesíte — hovor sa potom začína tým, '
-            + 'na čo človek volá, nie otázkou „a čo hľadáte?".',
-          emptyHtml: null,
-          filter: {
-            search: { value: this.filters.q, placeholder: 'Hľadať názov, skupinu, mesto, text…',
-              oninput: 'Ads.setF("q", this.value)' },
-            selects: [
-              { value: this.filters.state, label: 'Stav',
-                onchange: 'Ads.setF("state", this.value)',
-                options: [['running', 'Bežiace'], ['ended', 'Dobehnuté'], ['', 'Všetky']] },
-              { value: this.filters.channel, label: 'Kanál',
-                onchange: 'Ads.setF("channel", this.value)',
-                options: [['', 'Všetky kanály'], ...A().CHANNELS] },
-            ],
-            exportCsv: 'Ads.exportCsv()',
-          },
-        });
+        + DataList.html(this.listConfig(this.items.map(x => this.listRow(x, today))));
+    },
+
+    // ── Zoznam inzerátov (DataList) ───────────────────────────────────────
+    /** Riadok zoznamu: inzerát a to, čo sa o ňom počíta raz za vykreslenie. */
+    listRow(x, today) {
+      const p = this.perfOf(x.id);
+      const running = A().isRunning(x, today);
+      const plan = (this.plans || []).find(pl => pl.id === x.plan_id) || null;
+      const left = x.ends_on ? DanubraDataList.daysBetween(today, String(x.ends_on).slice(0, 10)) : null;
+      // Komu sme sa ešte neozvali — to je to, čo pri inzeráte horí.
+      const waiting = Math.max(0, (Number(p.candidates) || 0) - (Number(p.contacted) || 0));
+      return {
+        id: x.id, x, p, running, plan, left, waiting,
+        title: x.title || 'Inzerát', city: x.city || '', trade: this.tradeName(x.trade_key),
+        channel: A().channelLabel(x.channel),
+        state: running ? 'running' : 'ended',
+      };
+    },
+
+    /** Konfigurácia zoznamu inzerátov pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const endCell = (r) => {
+        if (!r.x.ends_on) return r.running ? '<span class="dl-note is-mute">bez konca</span>' : '';
+        let note = '';
+        if (r.running) {
+          note = r.left === 0 ? '<span class="dl-note is-amber">končí dnes</span>'
+            : `<span class="dl-note ${r.left <= 7 ? 'is-amber' : 'is-mute'}">ešte ${dni(r.left)}</span>`;
+        } else if (r.left != null && r.left < 0) {
+          note = `<span class="dl-note is-mute">pred ${dni(-r.left)}</span>`;
+        }
+        return `<span class="dl-two"><b>${L.fmtDay(r.x.ends_on)}</b>${note}</span>`;
+      };
+      const perfCell = (r) => {
+        const p = r.p;
+        if (!p.candidates) return '<span class="dl-note is-mute">zatiaľ nikto</span>';
+        return `<span class="pl-perf" title="${UI.esc(`Ozvalo sa ${p.candidates}, ozvali sme sa ${p.contacted}, nastúpilo ${p.hired}`)}">
+          <span><b>${p.candidates}</b> ozvalo sa · <b>${p.hired}</b> nastúpilo</span>
+          ${r.waiting ? `<span class="dl-note is-red">${r.waiting} ${Shell.plural(r.waiting, 'čaká', 'čakajú', 'čaká')} na telefonát</span>`
+            : `<span class="dl-note is-green">všetkým sme sa ozvali</span>`}</span>`;
+      };
+      return {
+        id: 'inzeraty', storageKey: 'inzeraty', label: 'Inzeráty',
+        noun: ['inzerát', 'inzeráty', 'inzerátov'],
+        rows,
+        rowClick: (r) => Ads.detail(r.id),
+        rowClass: (r) => (r.running && r.waiting ? 'is-hot' : r.running && r.left != null && r.left <= 3 ? 'is-warn' : !r.running ? 'is-muted' : ''),
+        rowLabel: (r) => `Inzerát ${r.title}`,
+        rowActions: [{ ico: 'chevron', label: 'Otvoriť inzerát', run: (r) => Ads.detail(r.id) }],
+        columns: [
+          { key: 'nazov', label: 'Inzerát', width: 'minmax(190px, 1.7fr)', mobile: 'title',
+            render: (r) => {
+              const sub = [r.trade, r.city, r.x.rate_offered ? `${String(r.x.rate_offered).replace('.', ',')} €/h` : '']
+                .filter(Boolean).map(UI.esc).join(' · ');
+              return `<span class="dl-title"><b>${UI.esc(r.title)}</b>${sub ? `<small>${sub}</small>` : ''}</span>`;
+            },
+            sortValue: (r) => r.title, sortLabel: 'Názov' },
+          { key: 'kanal', label: 'Kanál', width: 'minmax(110px, .9fr)',
+            render: (r) => `<span class="dl-two"><b>${UI.esc(r.channel)}${r.x.web_published ? ' <span class="pl-crew">na webe</span>' : ''}</b>${
+              r.x.channel_detail ? `<small>${UI.esc(r.x.channel_detail)}</small>` : ''}</span>`,
+            sortValue: (r) => r.channel },
+          { key: 'nabor', label: 'Nábor', width: 'minmax(120px, 1fr)',
+            render: (r) => (r.plan ? Danubra.link('plan', r.plan.id, r.plan.title) : '<span class="dl-note is-mute">bez náboru</span>'),
+            sortValue: (r) => (r.plan ? r.plan.title : null) },
+          { key: 'stav', label: 'Stav', width: '92px', mobile: 'badge',
+            tip: 'Inzerát „beží", keď nie je ukončený a dnešok je medzi dátumom od a do.',
+            render: (r) => (r.running ? UI.badge('beží', 'green') : UI.badge('dobehol', 'gray')),
+            sortValue: (r) => (r.running ? 0 : 1) },
+          { key: 'do', label: 'Platí do', width: '116px', mobileLabel: 'do',
+            render: endCell, sortValue: (r) => r.x.ends_on },
+          { key: 'reakcie', label: 'Reakcie', width: 'minmax(170px, 1.2fr)', mobile: 'line',
+            tip: 'Koľko ľudí sa na inzerát ozvalo a koľko nastúpilo. Červené: komu sme sa ešte neozvali — každý, komu nezavoláme, je stratený človek.',
+            render: perfCell,
+            // Čo horí hore: bežiace, kde niekto čaká na telefonát, potom čo
+            // čoskoro končí; dobehnuté na koniec.
+            sortValue: (r) => [r.running ? 0 : 1, -r.waiting, r.running && r.left != null ? r.left : 9999, -(Number(r.p.candidates) || 0)],
+            sortLabel: 'Čo horí' },
+        ],
+        sort: { key: 'reakcie', dir: 1 },
+        sorts: [
+          { key: 'ozvalo', label: 'Najviac reakcií', value: (r) => Number(r.p.candidates) || 0, dir: -1 },
+          { key: 'od', label: 'Beží od', value: (r) => r.x.starts_on || r.x.created_at, dir: -1 },
+        ],
+        groups: [{ key: 'kanal', label: 'Kanál', value: (r) => r.channel }],
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať názov, skupinu, mesto, text…',
+            label: 'Hľadať názov, skupinu, mesto, remeslo alebo text inzerátu',
+            fields: ['title', 'x.channel_detail', 'city', 'trade', 'x.body'] },
+          { key: 'stav', type: 'select', label: 'Stav', value: 'state', default: 'running',
+            options: [['running', 'Bežiace'], ['ended', 'Dobehnuté']], allLabel: 'Všetky' },
+          { key: 'kanal', type: 'select', label: 'Kanál', value: (r) => r.x.channel,
+            options: A().CHANNELS, allLabel: 'Všetky kanály' },
+          { key: 'nabor', type: 'select', label: 'Nábor', value: (r) => r.x.plan_id,
+            optionLabel: (v, r) => (r && r.plan ? r.plan.title : 'Nábor'), emptyLabel: 'Bez náboru', allLabel: 'Všetky nábory' },
+          { key: 'caka', type: 'toggle', label: 'Niekto čaká na telefonát', test: (r) => r.waiting > 0,
+            hint: 'Inzeráty, na ktoré sa niekto ozval a my sme mu ešte nezavolali späť.' },
+          { key: 'remeslo', type: 'select', label: 'Remeslo', more: true, value: (r) => r.x.trade_key,
+            optionLabel: (v) => this.tradeName(v), emptyLabel: 'Viac remesiel', allLabel: 'Všetky remeslá' },
+          { key: 'mesto', type: 'select', label: 'Mesto', more: true, value: 'city', allLabel: 'Všetky mestá' },
+          { key: 'web', type: 'toggle', label: 'Zverejnené na webe', more: true, test: (r) => !!r.x.web_published },
+          { key: 'obdobie', type: 'range-date', label: 'Beží v období', more: true, start: (r) => r.x.starts_on || r.x.created_at, end: 'x.ends_on',
+            hint: 'Inzeráty, ktoré v zvolenom období viseli aspoň jeden deň.' },
+        ],
+        empty: { ico: 'marketing', title: 'Zatiaľ žiadny inzerát',
+          sub: 'Založte inzerát skôr, než ho vyvesíte — hovor sa potom začína tým, na čo človek volá, nie otázkou „a čo hľadáte?".',
+          cta: `<button class="btn btn-primary" onclick="Ads.form()">${Icon('plus')} Nový inzerát</button>` },
+        export: {
+          name: ['inzeraty'],
+          columns: [
+            ['Inzerát', r => r.x.title], ['Kanál', r => r.channel], ['Kde', r => r.x.channel_detail],
+            ['Remeslo', r => r.trade], ['Mesto', r => r.x.city], ['Sadzba €/h', r => DanubraExport.num(r.x.rate_offered)],
+            ['Nábor', r => (r.plan ? r.plan.title : '')], ['Beží', r => (r.running ? 'áno' : 'nie')],
+            ['Od', r => r.x.starts_on], ['Do', r => r.x.ends_on],
+            ['Ozvalo sa', r => r.p.candidates], ['Ozvali sme sa', r => r.p.contacted], ['Nastúpilo', r => r.p.hired],
+          ],
+        },
+      };
     },
 
     detail(id) {

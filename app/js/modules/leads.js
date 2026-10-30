@@ -569,34 +569,110 @@
           { help: 'screen.campaigns', action: caka ? { label: 'Pokračovať', ico: 'mail', onclick: `Camp.run('${caka.id}')` }
             : { label: 'Nový e-mail', ico: 'plus', onclick: 'Camp.form()' } })
         + (st.smtp ? `<div class="regimebox">${Icon('check', 14)} Posiela sa z adresy <b>${UI.esc(st.from || '')}</b>.${UI.tip('Z tejto schránky odchádza každý e-mail. Odpovede firiem prídu e-mailom do tejto schránky, v appke sa samy neukážu — stav firmy (Odpísala, Má záujem) potom zmeňte v Nových firmách.')}</div>`
-          : `<div class="warnbox">${Icon('alert', 14)} Posielanie ešte nie je zapnuté. V Netlify (Site configuration → Environment variables) treba doplniť
+          : `<div class="warnbox">${Icon('alert', 14)} <span>Posielanie ešte nie je zapnuté. V Netlify (Site configuration → Environment variables) treba doplniť
               <b>SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS</b> a <b>SMTP_FROM</b> (napr. „Partner und Service &lt;info@punds.eu&gt;"). Kým to nie je,
-              e-maily sa dajú pripraviť, ale neodídu.${UI.tip('SMTP = prihlasovacie údaje k e-mailovej schránke (server, port, meno, heslo, adresa odosielateľa). Zadáva ich ten, kto spravuje Netlify — zámerne nie sú v appke, aby sa heslo nedostalo do prehliadača.')}</div>`)
-        + (this.rows.length ? `<div class="cards">${this.rows.map(c => this.card(c)).join('')}</div>`
-          : UI.empty('mail', 'Zatiaľ žiadny e-mail', 'Napíšte prvý — šablóna po nemecky je pripravená.',
-            `<button class="btn btn-primary" onclick="Camp.form()">${Icon('plus')} Nový e-mail</button>`));
+              e-maily sa dajú pripraviť, ale neodídu.</span>${UI.tip('SMTP = prihlasovacie údaje k e-mailovej schránke (server, port, meno, heslo, adresa odosielateľa). Zadáva ich ten, kto spravuje Netlify — zámerne nie sú v appke, aby sa heslo nedostalo do prehliadača.')}</div>`)
+        // Zoznam je spoločný komponent (`DataList`): dovtedy tu boli karty bez
+        // filtrov — pri desiatkach e-mailov sa nedalo nájsť, čo ešte čaká.
+        + DataList.html(this.listConfig(this.rows.map(c => this.listRow(c))));
       if (this.rows.some(c => c.status === 'sending')) this.poll();
     },
 
-    card(c) {
+    /** Stavy e-mailu (kampane): [názov, farba]. */
+    ST: { draft: ['Návrh', 'gray'], sending: ['Posiela sa', 'blue'], paused: ['Čaká na pokračovanie', 'amber'],
+      done: ['Odoslané', 'green'], error: ['Chyba', 'red'] },
+    stOf(k) { return this.ST[k] || ['—', 'gray']; },
+
+    /** Riadok zoznamu: e-mail a počty adresátov podľa stavu. */
+    listRow(c) {
       const s = this.sendsOf(c.id);
       const n = (k) => s.filter(x => x.status === k).length;
-      const ST = { draft: ['Návrh', 'gray'], sending: ['Posiela sa', 'blue'], paused: ['Čaká na pokračovanie', 'amber'],
-        done: ['Odoslané', 'green'], error: ['Chyba', 'red'] }[c.status] || ['—', 'gray'];
-      return `<div class="acc-card card">
-        <div class="acc-card-head"><div style="min-width:0;"><div class="acc-name">${UI.esc(c.name)}</div>
-          <div class="acc-loc">${UI.esc(c.subject)}</div></div><span style="display:inline-flex;align-items:center;flex:none;">${UI.badge(ST[0], ST[1])}${UI.tip(
-          'Návrh = uložené, nič neodišlo. Posiela sa = server práve posiela. Čaká na pokračovanie = odišla jedna dávka, zvyšok pošlete tlačidlom Pokračovať. Odoslané = odišlo všetkým.')}</span></div>
-        <div class="acc-meta"><span>${Icon('check', 14)} odoslané ${n('sent')}</span><span>${Icon('clock', 14)} čaká ${n('queued')}</span>
-          ${n('failed') ? `<span style="color:var(--red);">${Icon('alert', 14)} chyba ${n('failed')}</span>` : ''}
-          ${n('skipped') ? `<span>${Icon('x', 14)} preskočené ${n('skipped')}</span>` : ''}${n('failed') || n('skipped')
-            ? UI.tip('Chyba = schránka e-mail neprijala (napr. zlá adresa); dôvod uvidíte v Adresátoch. Preskočené = adresa sa medzitým odhlásila, tak sa jej nič neposlalo.') : ''}</div>
-        ${c.error ? `<div class="warnbox" style="margin-top:8px;">${UI.esc(c.error)}</div>` : ''}
-        <div class="js-acts">
-          ${n('queued') ? `<button class="btn btn-primary btn-sm" onclick="Camp.run('${c.id}')">${Icon('mail', 14)} ${c.status === 'draft' ? 'Odoslať' : 'Pokračovať'} (${n('queued')})</button>${UI.tip(
-            'Naraz odíde najviac 40 e-mailov, každý zvlášť a s pauzou pár sekúnd, aby Vaša schránka neskončila v spame. Ak čaká viac adresátov, po dávke kliknite znova na Pokračovať.')}` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="Camp.detail('${c.id}')">Adresáti</button>
-        </div></div>`;
+      const last = s.map(x => x.sent_at).filter(Boolean).sort().pop() || null;
+      return { id: c.id, c, name: c.name || 'E-mail', subject: c.subject || '', total: s.length,
+        sent: n('sent'), queued: n('queued'), failed: n('failed'), skipped: n('skipped'), last };
+    },
+
+    /** Konfigurácia zoznamu e-mailov pre `DataList`. */
+    listConfig(rows) {
+      const L = DanubraDataList;
+      const ST = this.ST;
+      const progress = (r) => {
+        if (!r.total) return '<span class="dl-note is-mute">bez adresátov</span>';
+        const pct = Math.round((r.sent / r.total) * 100);
+        return `<span class="cmp-prog" title="Odoslané ${r.sent} z ${r.total} adresátov">
+          <span class="dl-num"><b>${r.sent}</b> z ${r.total}</span>
+          <i class="cmp-bar" aria-hidden="true"><i style="width:${pct}%"></i></i></span>`;
+      };
+      const failCell = (r) => (r.failed || r.skipped ? `<span class="dl-two">${r.failed ? `<b class="dl-note is-red">chyba ${r.failed}</b>` : ''}${
+        r.skipped ? `<small>preskočené ${r.skipped}</small>` : ''}</span>` : '');
+      return {
+        id: 'kampane', storageKey: 'kampane', label: 'E-maily firmám',
+        noun: ['e-mail', 'e-maily', 'e-mailov'],
+        rows,
+        rowClick: (r) => Camp.detail(r.id),
+        rowClass: (r) => (r.c.status === 'error' || r.c.error ? 'is-hot' : r.queued && r.c.status !== 'draft' ? 'is-warn' : r.c.status === 'done' ? 'is-muted' : ''),
+        rowLabel: (r) => `E-mail ${r.name}`,
+        rowActions: [
+          { ico: 'clients', label: 'Adresáti', run: (r) => Camp.detail(r.id) },
+        ],
+        columns: [
+          { key: 'nazov', label: 'E-mail', width: 'minmax(200px, 2fr)', mobile: 'title',
+            render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc(r.subject || '—')}</small>${
+              r.c.error ? `<small class="dl-note is-red" title="${UI.esc(r.c.error)}">${UI.esc(r.c.error)}</small>` : ''}</span>`,
+            sortValue: (r) => r.name, sortLabel: 'Názov' },
+          { key: 'stav', label: 'Stav', width: '150px', mobile: 'badge',
+            tip: 'Návrh = uložené, nič neodišlo. Posiela sa = server práve posiela. Čaká na pokračovanie = odišla jedna dávka, zvyšok pošlete tlačidlom Pokračovať v stĺpci Čaká. Odoslané = odišlo všetkým.',
+            render: (r) => { const st = this.stOf(r.c.status); return UI.badge(st[0], st[1]); },
+            sortValue: (r) => Object.keys(ST).indexOf(r.c.status) },
+          { key: 'odoslane', label: 'Odoslané', width: '120px', mobileLabel: 'odoslané',
+            tip: 'Koľkým adresátom e-mail už odišiel z celkového počtu adresátov.',
+            render: progress, sortValue: (r) => r.sent, sortDir: -1, csv: (r) => r.sent },
+          { key: 'caka', label: 'Čaká', width: '136px', mobileLabel: '',
+            tip: 'Adresáti, ktorým e-mail ešte neodišiel. Tlačidlo ich pošle: naraz odíde najviac 40 e-mailov, každý zvlášť a s pauzou pár sekúnd, aby Vaša schránka neskončila v spame. Ak čaká viac adresátov, po dávke kliknite znova.',
+            render: (r) => (r.queued ? `<button type="button" class="btn ${r.c.status === 'draft' ? 'btn-primary' : 'btn-outline'} btn-sm cmp-go"
+              onclick="Camp.run('${UI.esc(r.id)}')" title="Poslať ďalšiu dávku (najviac 40)">${Icon('mail', 13)} ${r.c.status === 'draft' ? 'Odoslať' : 'Pokračovať'} ${r.queued}</button>` : ''),
+            sortValue: (r) => r.queued, sortDir: -1, csv: (r) => r.queued },
+          { key: 'zlyhalo', label: 'Zlyhalo', width: '104px', mobileLabel: '',
+            tip: 'Chyba = schránka e-mail neprijala (napr. zlá adresa); dôvod uvidíte v Adresátoch. Preskočené = adresa sa medzitým odhlásila, tak sa jej nič neposlalo.',
+            render: failCell, sortValue: (r) => r.failed + r.skipped || null, sortDir: -1, csv: (r) => r.failed },
+          { key: 'posledne', label: 'Naposledy', sortLabel: 'Posledné odoslanie', width: '112px', mobileLabel: 'naposledy',
+            tip: 'Kedy naposledy odišiel tento e-mail niektorému adresátovi.',
+            render: (r) => {
+              const x = new Date(r.last);
+              if (!r.last || isNaN(x)) return '';
+              const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
+              return `<span class="dl-two"><b class="dl-num">${x.getDate()}. ${x.getMonth() + 1}. ${x.getFullYear()}</b><small class="dl-num">${hm}</small></span>`;
+            },
+            sortValue: (r) => r.last, sortDir: -1, csv: (r) => r.last || '' },
+          { key: 'vytvoreny', label: 'Vytvorený', width: '96px', hideBelow: 1100,
+            render: (r) => L.fmtDay(r.c.created_at), sortValue: (r) => r.c.created_at, sortDir: -1 },
+        ],
+        sort: { key: 'vytvoreny', dir: -1 },
+        filters: [
+          { key: 'q', type: 'search', placeholder: 'Hľadať názov alebo predmet…', label: 'Hľadať názov alebo predmet e-mailu',
+            fields: ['name', 'subject'] },
+          { key: 'stav', type: 'multi', label: 'Stav', value: (r) => r.c.status, sortOptions: false, allLabel: 'Všetky',
+            options: Object.entries(ST).map(([k, v]) => [k, v[0]]),
+            presets: [{ label: 'Nedokončené', value: ['draft', 'sending', 'paused', 'error'], hint: 'Návrhy, rozposielané a s chybou — bez hotových' }] },
+          { key: 'caka', type: 'toggle', label: 'Čaká na odoslanie', test: (r) => r.queued > 0,
+            hint: 'E-maily, v ktorých ešte niektorí adresáti čakajú — pošlete ich tlačidlom v stĺpci Čaká.' },
+          { key: 'chyba', type: 'toggle', label: 'So zlyhaním', test: (r) => r.failed > 0 || !!r.c.error,
+            hint: 'E-maily, pri ktorých schránka niektoré správy neprijala, alebo rozosielanie skončilo chybou.' },
+          { key: 'kedy', type: 'range-date', label: 'Posledné odoslanie', field: 'last', more: true },
+          { key: 'vytvoreny', type: 'range-date', label: 'Vytvorený', field: 'c.created_at', more: true },
+        ],
+        empty: { ico: 'mail', title: 'Zatiaľ žiadny e-mail', sub: 'Napíšte prvý — šablóna po nemecky je pripravená.',
+          cta: `<button class="btn btn-primary" onclick="Camp.form()">${Icon('plus')} Nový e-mail</button>` },
+        export: {
+          name: ['emaily-firmam'],
+          columns: [
+            ['Názov', r => r.name], ['Predmet', r => r.subject], ['Stav', r => this.stOf(r.c.status)[0]],
+            ['Adresáti', r => r.total], ['Odoslané', r => r.sent], ['Čaká', r => r.queued], ['Chyba', r => r.failed],
+            ['Preskočené', r => r.skipped], ['Posledné odoslanie', r => r.last || ''], ['Vytvorený', r => String(r.c.created_at || '').slice(0, 10)],
+            ['Chyba rozosielania', r => r.c.error || ''],
+          ],
+        },
+      };
     },
 
     detail(id) {
