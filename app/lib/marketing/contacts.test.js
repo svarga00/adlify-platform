@@ -116,5 +116,47 @@ console.log('\nRýchle akcie');
   ok(C.mapsUrl({ data_source: { maps_url: 'https://www.google.com/maps/place/x' } }) === 'https://www.google.com/maps/place/x', 'alebo presný odkaz z Outscraperu');
 }
 
+console.log('\nDotazník po hovore: súhrn v bodoch a výsledok');
+{
+  const a = { right_person: 'yes', subcontractors: 'yes', trades: ['Maler', 'WDVS / Putz'], headcount: '4', when: 'spring', sites: 'Augsburg a okolie',
+    staffed: 'seasonal', interest: 4, send: ['profiles'], callback_when: 'o 2 týždne', note: 'Chcú partiu s vlastným lešením.' };
+  const s = C.composeSummary(a, { contactName: 'Hr. Demirtas', contactRole: 'Inhaber' });
+  const lines = s.split('\n');
+  ok(lines.every(l => l.startsWith('• ')), 'každý riadok je bod „• "', s);
+  ok(lines[0] === '• Správna osoba: Hr. Demirtas (Inhaber)' && lines.includes('• Subdodávateľov berú: áno') && lines.includes('• Remeslá: Maler, WDVS / Putz'),
+    'správna osoba s funkciou, subdodávatelia, remeslá', s);
+  ok(lines.includes('• Potrebujú: 4 ľudí, na jar') && lines.includes('• Stavby: Augsburg a okolie') && lines.includes('• Záujem: 4/5') && lines.includes('• Poslať: profily partií'),
+    'počet ľudí a odkedy, stavby, záujem, čo poslať', s);
+  ok(lines.includes('• Majú dosť ľudí: sezónne') && lines.includes('• Ozvať sa: o 2 týždne') && /Poznámka: Chcú partiu/.test(s), 'dosť ľudí, kedy sa ozvať, poznámka');
+  const FU = require('./followup.js');
+  ok(FU.hasIntent(s) && FU.parse(s, { now: NOW }) && FU.parse(s, { now: NOW }).date === FU.parse('o 2 týždne', { now: NOW }).date,
+    'súhrn číta návrh ďalšieho kroku (termín „o 2 týždne" z odpovede)');
+  const no = C.composeSummary({ right_person: 'no', decider_name: 'Herr Kaya', decider_role: 'Bauleiter', trades: [], trades_other: 'Estrich' });
+  ok(/^• Nesprávna osoba — rozhoduje: Herr Kaya \(Bauleiter\)/.test(no) && /Remeslá: Estrich/.test(no), 'nesprávna osoba → kto rozhoduje; iné remeslo', no);
+  ok(C.composeSummary({}) === '' && C.composeSummary(null) === '' && C.cleanAnswers({ interest: 9, when: 'hack', send: ['x'] }) === null, 'prázdne a neznáme odpovede = nič');
+  const c = C.cleanAnswers({ interest: '5', headcount: '1000', send: ['prices', 'hack'], trades: 'Maler', note: '  x  ' });
+  ok(c.interest === 5 && C.cleanAnswers({ interest: 2.5, note: 'x' }).interest === null && c.headcount === null && c.send.join() === 'prices' && c.trades.join() === 'Maler' && c.note === 'x', 'očistenie: záujem len číslo 1–5, počet do 999, známe „poslať"', JSON.stringify(c));
+  ok(C.composeSummary({ headcount: 1 }) === '• Potrebujú: 1 človeka', 'jeden človek');
+
+  const O = C.outcomeFromAnswers;
+  ok(O({ interest: 4 }) === 'interested' && O({ interest: 5, send: ['profiles'] }) === 'interested', 'záujem 4–5 → Má záujem');
+  ok(O({ interest: 3, send: ['prices'] }) === 'send_offer' && O({ send: ['prices', 'profiles'] }) === 'send_offer', 'chcú ceny / ponuku → Poslať ponuku');
+  ok(O({ interest: 1 }) === 'not_interested' && O({ subcontractors: 'no' }) === 'not_interested', 'záujem 1–2 alebo neberú subdodávateľov → Nemá záujem');
+  ok(O({ subcontractors: 'no', callback_when: 'na jar' }) === 'callback', '…ale s termínom „na jar" → Zavolať neskôr');
+  ok(O({ interest: 3 }) === 'callback' && O({ when: 'next_year' }) === 'callback' && O({ right_person: 'no', decider_name: 'X' }) === 'callback', 'záujem 3, „budúci rok", nesprávna osoba → Zavolať neskôr');
+  ok(O({ send: ['presentation'] }) === 'interested' && O({ sites: 'Ulm' }) === null && O(null) === null, 'chcú prezentáciu → Má záujem; len miesto → nič');
+}
+
+console.log('\nPosledný hovor do hlavičky');
+{
+  const t = C.lastCallText([
+    { kind: 'call', outcome: 'interested', our_member_name: 'Štefan Varga', happened_at: '2026-10-27T09:00:00Z' },
+    { kind: 'email', outcome: 'other', our_member_name: 'Jana', happened_at: '2026-10-29T09:00:00Z' },
+    { kind: 'call', summary: 'oprava', corrects_id: 'x', happened_at: '2026-10-30T08:00:00Z' },
+  ], NOW);
+  ok(t === 'Posledný hovor: pred 3 dňami · Má záujem · Štefan', 'pred 3 dňami · výsledok · krstné meno (e-mail a oprava sa nerátajú)', t);
+  ok(C.lastCallText([], NOW) === '' && C.lastCallText([{ kind: 'note' }], NOW) === '', 'bez hovoru nič');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

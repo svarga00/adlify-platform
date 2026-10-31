@@ -122,6 +122,77 @@
     };
   }
 
+  // ── Dotazník po hovore („Čo sme sa dozvedeli") ─────────────────────────
+  // Odpovede klikaním (lib/marketing/callsheet.js QUESTIONS) sa skladajú do
+  // súhrnu v bodoch a ukladajú štruktúrovane do ai_extracted.answers.
+  const WHEN = { now: 'hneď', month: 'o mesiac', spring: 'na jar', after_summer: 'po lete', next_year: 'budúci rok' };
+  const STAFFED = { yes: 'áno', no: 'nie', seasonal: 'sezónne' };
+  const YNU = { yes: 'áno', no: 'nie', unknown: 'nevedia / neviem' };
+  const SEND = { profiles: 'profily partií', presentation: 'prezentáciu', prices: 'ceny / ponuku', references: 'referencie', none: 'nič' };
+  const strList = (v, n = 12, len = 80) => (Array.isArray(v) ? v : (v == null || v === '' ? [] : [v])).map(x => one(x, len)).filter(Boolean).slice(0, n);
+  const oneOf = (v, keys) => (keys.includes(String(v)) ? String(v) : null);
+
+  /** Očistené odpovede (len známe kľúče a hodnoty), alebo null, keď nič nie je vyplnené. */
+  function cleanAnswers(a) {
+    if (!a || typeof a !== 'object') return null;
+    const n = Number(a.headcount);
+    const i = Number(a.interest);
+    const out = {
+      right_person: oneOf(a.right_person, ['yes', 'no']),
+      decider_name: one(a.decider_name, 160) || null, decider_role: one(a.decider_role, 120) || null,
+      subcontractors: oneOf(a.subcontractors, Object.keys(YNU)),
+      trades: strList(a.trades), trades_other: one(a.trades_other, 120) || null,
+      headcount: Number.isFinite(n) && n >= 1 && n <= 999 ? Math.round(n) : null,
+      when: oneOf(a.when, Object.keys(WHEN)),
+      sites: one(a.sites, 200) || null,
+      staffed: oneOf(a.staffed, Object.keys(STAFFED)),
+      interest: Number.isInteger(i) && i >= 1 && i <= 5 ? i : null,
+      send: strList(a.send).filter(k => SEND[k]),
+      callback_when: one(a.callback_when, 120) || null,
+      note: clean(a.note, 1500) || null,
+    };
+    const filled = Object.values(out).some(v => (Array.isArray(v) ? v.length : v != null));
+    return filled ? out : null;
+  }
+
+  /** Súhrn v bodoch po slovensky — ide do `summary` a číta ho návrh ďalšieho kroku (pravidlá aj AI). */
+  function composeSummary(answers, { contactName = '', contactRole = '' } = {}) {
+    const a = cleanAnswers(answers);
+    if (!a) return '';
+    const L = [];
+    const who = (n, r) => (n ? `${n}${r ? ` (${r})` : ''}` : (r || ''));
+    if (a.right_person === 'yes') L.push(`Správna osoba: ${who(one(contactName, 160), one(contactRole, 120)) || 'áno'}`);
+    else if (a.right_person === 'no') L.push(`Nesprávna osoba — rozhoduje: ${who(a.decider_name, a.decider_role) || 'nevieme kto'}`);
+    if (a.subcontractors) L.push(`Subdodávateľov berú: ${YNU[a.subcontractors]}`);
+    const trades = [...a.trades, a.trades_other].filter(Boolean);
+    if (trades.length) L.push(`Remeslá: ${trades.join(', ')}`);
+    if (a.headcount || a.when) L.push(`Potrebujú: ${[a.headcount ? `${a.headcount} ${a.headcount === 1 ? 'človeka' : 'ľudí'}` : '', a.when ? WHEN[a.when] : ''].filter(Boolean).join(', ')}`);
+    if (a.sites) L.push(`Stavby: ${a.sites}`);
+    if (a.staffed) L.push(`Majú dosť ľudí: ${STAFFED[a.staffed]}`);
+    if (a.interest) L.push(`Záujem: ${a.interest}/5`);
+    if (a.send.length) L.push(`Poslať: ${a.send.map(k => SEND[k]).join(', ')}`);
+    if (a.callback_when) L.push(`Ozvať sa: ${a.callback_when}`);
+    if (a.note) L.push(`Poznámka: ${a.note}`);
+    return L.map(x => `• ${x}`).join('\n');
+  }
+
+  /**
+   * Aký výsledok hovoru z odpovedí vyplýva (len návrh — človek ho vidí v tlačidlách):
+   * chcú ceny → Poslať ponuku; záujem 4–5 → Má záujem; záujem 1–2 alebo
+   * „subdodávateľov neberú" → Nemá záujem; termín, záujem 3 alebo nesprávna
+   * osoba → Zavolať neskôr.
+   */
+  function outcomeFromAnswers(answers) {
+    const a = cleanAnswers(answers);
+    if (!a) return null;
+    if (a.send.includes('prices')) return 'send_offer';
+    if (a.interest >= 4) return 'interested';
+    if ((a.interest && a.interest <= 2) || (a.subcontractors === 'no' && (a.interest == null || a.interest <= 3) && !a.callback_when)) return 'not_interested';
+    if (a.callback_when || a.interest === 3 || (a.when && a.when !== 'now') || a.right_person === 'no') return 'callback';
+    if (a.send.length && !a.send.includes('none')) return 'interested';
+    return null;
+  }
+
   // ── Úloha z ďalšieho kroku ─────────────────────────────────────────────
   /** Úloha do danubra_tasks: pri firme, termín = ďalší krok, pre toho, kto sa s firmou bavil. */
   function task(contact = {}, lead = {}, member = null) {
@@ -228,6 +299,16 @@
     return `${t.getDate()}. ${t.getMonth() + 1}. ${t.getFullYear()}`;
   }
 
+  /** „Posledný hovor: pred 3 dňami · Má záujem · Štefan" (krstné meno toho, kto volal), alebo ''. */
+  function lastCallText(contacts = [], now = new Date()) {
+    const c = (contacts || []).filter(x => x && x.kind === 'call' && !x.archived_at && !x.corrects_id)
+      .sort((a, b) => String(b.happened_at || '').localeCompare(String(a.happened_at || '')))[0];
+    if (!c) return '';
+    const o = outcomeOf(c.outcome);
+    const who = one(c.our_member_name, 80).split(' ')[0];
+    return [`Posledný hovor: ${relTime(c.happened_at, now)}`, o ? o[1] : '', who].filter(Boolean).join(' · ');
+  }
+
   // ── Súhrn pre zoznam a export ──────────────────────────────────────────
   /** Posledný kontakt a najbližší otvorený ďalší krok firmy. */
   function leadSummary(lead = {}, contacts = []) {
@@ -312,7 +393,8 @@
   }
 
   const API = { STAGES, STAGE_KEYS, NO_SEQUENCE, KINDS, OUTCOMES, stageOf, kindOf, outcomeOf, suggestStage, defaultNext, validate,
-    task, timeline, relTime, leadSummary, exportLeads, exportContacts, phoneLinks, webUrl, mapsUrl, esc };
+    task, timeline, relTime, leadSummary, exportLeads, exportContacts, phoneLinks, webUrl, mapsUrl, esc,
+    cleanAnswers, composeSummary, outcomeFromAnswers, lastCallText, WHEN, SEND };
   if (typeof window !== 'undefined') window.DanubraContacts = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

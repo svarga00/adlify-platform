@@ -153,6 +153,20 @@ const later = (days) => FU.workday(FU.addDays(FU.today(), days));
     ok(sb.db.danubra_tasks.filter(x => String(x.source_key).startsWith('lead_contact:') && x.status === 'open').length === 0, 'a otvorené úlohy z kontaktov sa uzavrú');
   }
 
+  console.log('\nDotazník po hovore');
+  {
+    const sb = reset(base());
+    const r = await call({ action: 'save', lead_id: 'l1', kind: 'call', outcome: 'interested', summary: '• Záujem: 4/5\n• Poslať: profily partií', duration_min: 6,
+      answers: { right_person: 'yes', interest: 4, send: ['profiles', 'hack'], trades: ['Maler'], headcount: 4, when: 'spring', evil: '<script>' } });
+    const c = sb.db.danubra_lead_contacts[0];
+    ok(r.code === 200 && c.ai_extracted && c.ai_extracted.answers && c.ai_extracted.answers.interest === 4 && c.ai_extracted.answers.when === 'spring',
+      'odpovede sa uložia štruktúrovane do ai_extracted.answers', JSON.stringify(c && c.ai_extracted));
+    ok(c.ai_extracted.answers.send.join() === 'profiles' && !('evil' in c.ai_extracted.answers) && !c.ai_extracted.source, 'len známe kľúče a hodnoty; bez návrhu AI nič navyše');
+    ok(c.summary.startsWith('• Záujem') && c.duration_min === 6, 'súhrn v bodoch a dĺžka hovoru');
+    await call({ action: 'save', lead_id: 'l1', kind: 'call', outcome: 'no_answer', summary: '' , answers: {} });
+    ok(sb.db.danubra_lead_contacts[1].ai_extracted === null, 'prázdny dotazník = nič');
+  }
+
   console.log('\nKategória a oprava');
   {
     const sb = reset(base({ danubra_lead_contacts: [{ id: 'c1', lead_id: 'l1', kind: 'call', summary: 'pôvodný', happened_at: '2026-10-29T10:00:00Z' }] }));

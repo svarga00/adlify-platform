@@ -442,6 +442,7 @@
           <div class="ld-id-sub">${UI.badge(st[1], st[2])}${r.score != null ? `<span class="ld-score${r.score >= 80 ? ' is-green' : r.score >= 60 ? ' is-amber' : ''}" title="Podobnosť so zadanými firmami 0–100 (odhad AI)">skóre <b>${Number(r.score)}</b></span>` : ''}${
             sub ? `<span>${UI.esc(sub)}</span>` : ''}${r.next_step_at || r.next_step_text ? `<span class="ld-next${r.next_step_at && String(r.next_step_at).slice(0, 10) <= new Date().toISOString().slice(0, 10) ? ' is-due' : ''}"
               title="Dohodnutý ďalší krok — na jeho deň je úloha v Úlohách">${Icon('flag', 12)} ${UI.esc([DanubraDataList.fmtDay(r.next_step_at), r.next_step_text].filter(Boolean).join(' · '))}</span>` : ''}</div>
+          ${this._lastCall && this._lastCall.id === r.id && this._lastCall.text ? `<div class="ld-id-call">${Icon('phone', 12)} ${UI.esc(this._lastCall.text)}</div>` : ''}
           ${sum.text ? `<p class="ld-id-desc">${UI.esc(sum.text)}</p>` : ''}</div></div>`;
     },
 
@@ -678,11 +679,19 @@
       const slot = document.getElementById('lead-contacts-slot');
       if (!slot || !(window.LeadContacts && LeadContacts.mount)) return;
       // Komponent mení riadok firmy na mieste (etapa, ďalší krok) — zoznam sa len prekreslí.
+      let h = null;
+      const head = () => {
+        // „Posledný hovor: pred 3 dňami · Má záujem · Štefan" z kontaktov, ktoré komponent už načítal.
+        this._lastCall = { id: r.id, text: h && h.lastCall ? h.lastCall() : '' };
+        const el = document.querySelector('.ld-modal .ld-id');
+        if (el && this._openId === r.id) el.outerHTML = this.idHtml(r);
+      };
+      this._lastCall = null;
       Promise.resolve(LeadContacts.mount(slot, r, { onChange: () => {
         if (Danubra.route === 'leads') DataList.refresh('leads', Lead.rows);
-        const head = document.querySelector('.ld-modal .ld-id');
-        if (head && this._openId === r.id) head.outerHTML = this.idHtml(r);
-      } })).catch(() => { slot.innerHTML = `<div class="js-empty">${Icon('info', 14)} Záznamy kontaktov sa nepodarilo načítať.</div>`; });
+        head();
+      } })).then((x) => { h = x; head(); })
+        .catch(() => { slot.innerHTML = `<div class="js-empty">${Icon('info', 14)} Záznamy kontaktov sa nepodarilo načítať.</div>`; });
     },
 
     /** Kopírovať telefón / e-mail. */

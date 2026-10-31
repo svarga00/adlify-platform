@@ -13,8 +13,11 @@
 //
 //   POST { action: 'save', lead_id, kind, direction, outcome, contact_name, contact_role,
 //          contact_phone, contact_email, our_member_id, summary, happened_at, duration_min,
-//          next_step_at, next_step_text, stage, ai_extracted, create_task }
+//          next_step_at, next_step_text, stage, ai_extracted, answers, create_task }
 //     → { ok, contact, task, lead }
+//     `answers` = dotazník po hovore (správna osoba, subdodávatelia, remeslá,
+//     počet ľudí, stavby, záujem 1–5, čo poslať…) — očistený sa uloží do
+//     ai_extracted.answers, súhrn v bodoch je v `summary`.
 //     * záznam do danubra_lead_contacts (po uložení sa nemení),
 //     * ďalší krok → úloha v Úlohách (pri firme, termín, pre toho, kto sa
 //       s firmou bavil; kľúč lead_contact:<id>) — staršie úlohy z kontaktov
@@ -181,6 +184,14 @@ function aiMeta(x, row) {
   return m;
 }
 
+/** Návrh AI + odpovede z dotazníka po hovore (ai_extracted.answers) — oboje nepovinné. */
+function extracted(b, row) {
+  const meta = aiMeta(b.ai_extracted, row);
+  const answers = C.cleanAnswers(b.answers);
+  if (!meta && !answers) return null;
+  return { ...(meta || {}), ...(answers ? { answers } : {}) };
+}
+
 async function save(b, g, now = new Date()) {
   const v = C.validate(b, { now });
   if (!v.ok) return out(400, { error: v.errors[0], errors: v.errors });
@@ -201,7 +212,7 @@ async function save(b, g, now = new Date()) {
   const id = crypto.randomUUID();
   const contact = {
     id, lead_id: lead.id, ...row, stage: undefined, our_member_id: our ? our.id || null : null, our_user_id: our ? our.user_id || null : g.user.id,
-    our_member_name: ourName || null, stage_before: before, stage_after: after, ai_extracted: aiMeta(b.ai_extracted, row), created_by: g.user.id,
+    our_member_name: ourName || null, stage_before: before, stage_after: after, ai_extracted: extracted(b, row), created_by: g.user.id,
   };
   delete contact.stage;
 
