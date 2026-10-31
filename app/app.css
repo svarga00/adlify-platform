@@ -5631,6 +5631,7 @@ label.mf-row:not(.is-off):hover { border-color: var(--brand-line); background: v
 .ld-score.is-green b { color: var(--green); } .ld-score.is-amber b { color: var(--brand-dark); }
 .ld-next { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px; border-radius: 999px; background: var(--amber-50); color: var(--amber); font-weight: 600; }
 .ld-next.is-due { background: var(--red-50); color: var(--red); }
+.ld-id-call { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 12px; color: var(--ink-sub); }
 .ld { display: grid; gap: 14px; min-width: 0; }
 
 .ld-glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border-soft);

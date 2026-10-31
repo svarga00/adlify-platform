@@ -1116,6 +1116,21 @@
           example: 'Pán Hofmann povie „melden Sie sich nach Ostern". Appka navrhne pondelok po Veľkej noci a text „Zavolať pánovi Hofmannovi" — kliknete „Použiť" a „Uložiť záznam".',
         },
         {
+          title: 'Idem volať: ťahák k hovoru a dotazník po hovore',
+          what: 'Pred telefonátom kliknite v detaile firmy (záložka „Kontakty a oslovenie") na „Idem volať". Otvorí sa ťahák: koho si pýtať, čo povedať po nemecky, časté námietky a stopky. Po hovore vyplníte klikaním krátky dotazník „Čo sme sa dozvedeli" — appka z neho poskladá záznam v bodoch.',
+          how: [
+            'Kliknite „Idem volať". Hore je, koho si pýtať (konateľ z Impressum, inak Bauleiter alebo Inhaber), telefón a s kým ste hovorili naposledy. Stopky bežia od otvorenia.',
+            'Pod tým je „Čo povedať": úvod, prečo voláme (remeslo a región firmy), ponuka (Werkvertrag, hodiny, A1 a § 48b), otázka na potrebu a záver. Nemecké vety čítajte nahlas, slovenský riadok pod nimi je pokyn pre Vás.',
+            '„Časté námietky a odpovede" rozbalíte jedným klikom: vlastní ľudia, Scheinselbständigkeit, cena, nemčina, „pošlite e-mail". Cenu do telefónu nehovorte — odpoveď je „Konditionen nennen wir Ihnen im Angebot", pokiaľ ceny nie sú zadané v Nastaveniach oslovovania.',
+            'Po hovore kliknite „Hovor skončil". Stopky zastanú a otvorí sa záznam hovoru s dĺžkou a dotazníkom: správna osoba, či berú subdodávateľov, remeslá, koľko ľudí a odkedy, kde sú stavby, či majú dosť ľudí, záujem 1 až 5, čo im poslať a kedy sa ozvať.',
+            'Odpovede sa hneď skladajú do poľa „O čom sme sa bavili" v bodoch a appka podľa nich navrhne výsledok (záujem 4 alebo 5 = Má záujem, ceny = Poslať ponuku) aj ďalší krok. Výsledok môžete zmeniť tlačidlom, odpovede ostanú.',
+            'Kto radšej píše, klikne „Radšej napíšem text". Text, ktorý upravíte ručne, dotazník už neprepíše. Uložte tlačidlom „Uložiť záznam" — odpovede sa uložia aj samostatne, aby sa dali neskôr vyhodnotiť.',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'Hovor nenahrávajte bez súhlasu druhej strany — na Slovensku aj v Nemecku je to trestné. „Idem volať" nič nenahráva; dotazník je náhrada za nahrávku.',
+          example: 'Pán Demirtas (Inhaber) povie, že na jar potrebujú štyroch maliarov okolo Augsburgu a máte poslať profily. Kliknete áno, Maler, 4, na jar, záujem 4 a profily partií — v zázname je „• Potrebujú: 4 ľudí, na jar", výsledok Má záujem a návrh ďalšieho kroku.',
+        },
+        {
           title: 'Kategórie firmy',
           what: 'Kategória hovorí, kde s firmou sme: Nová · Oslovená · Odpísala · Má záujem · Stretnutie · Ponuka · Je odberateľ · Ozvať sa neskôr · Nemá záujem · Nedostupná · Odhlásená.',
           how: [
