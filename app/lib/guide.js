@@ -1167,6 +1167,20 @@
           example: null,
         },
         {
+          title: 'Odkazy od kolegov (bojová úloha)',
+          what: 'Kolegovia zapíšu firmy, s ktorými sme spolupracovali alebo sú pre nás relevantné, do jednoduchého formulára na telefóne — bez prihlásenia. Firmy sa zbierajú v Oslovovanie → Odkazy od kolegov.',
+          how: [
+            'Administrátor v záložke Odkazy od kolegov klikne „Zapnúť zber a vytvoriť link". Link a hotovú správu skopíruje alebo pošle cez WhatsApp.',
+            'Kolega zadá svoje meno a za každú firmu názov, odkaz (web, Google Mapy, LinkedIn… — nepovinné), mesto, vzťah, čo sme spolu robili a kto bol kontakt. Naraz najviac 20 firiem.',
+            'Pri firme s webom appka sama doplní e-mail, telefón, adresu a konateľa z Impressum. Bez webu kliknite „Nájsť web", web nájdite v Google a vložte ho.',
+            '„Pridať do Nových firiem" založí firmu so zdrojom „od kolegu" a otvorí ju. Viac firiem naraz: zaškrtnite ich a kliknite „Pridať vybrané". Firmy, s ktorými sme robili, použite ako vzor na hľadanie podobných.',
+            'Rebríček ukazuje, kto poslal koľko firiem, koľko sme pridali a koľko sa stalo odberateľmi. „Vypnúť zber" formulár zastaví, „Vygenerovať nový link" urobí nový odkaz a starý prestane platiť.',
+          ],
+          open: open('outreach', 'Otvoriť Oslovovanie'),
+          tip: 'Firmu, ktorú už máme, appka označí ako Duplicita — nič sa neuloží dvakrát a kolega vidí „už ju máme".',
+          example: 'Michal zapíše Müller Bau GmbH, mueller-bau.de, „Spolupracovali sme", „sadrokartón v Ulme 2024", kontakt Hr. Müller. Appka doplní e-mail z Impressum; kliknete „Pridať do Nových firiem" a firma má palec hore.',
+        },
+        {
           title: 'Pravidlá a nastavenia oslovovania',
           what: 'V Nemecku je nevyžiadaný obchodný e-mail rizikový (§ 7 UWG). Appka preto posiela len jednotlivo, s Impressum a odhlásením v každom e-maile.',
           how: [

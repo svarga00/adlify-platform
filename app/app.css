@@ -5272,6 +5272,25 @@ label.mf-row:not(.is-off):hover { border-color: var(--brand-line); background: v
 .otl-stats .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .otl-stats small { color: var(--ink-mute); }
 
+/* ── Oslovovanie → Odkazy od kolegov (085, js/modules/lead-tips.js) ───────── */
+.lt-admin, .lt-board { margin-bottom: 14px; }
+.lt-admin .card-title .badge { margin-left: 6px; }
+.lt-link { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.lt-link input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--field, var(--bg)); color: var(--ink); }
+.lt-msg textarea { font-size: 13px; line-height: 1.45; }
+.lt-board-t td:first-child { width: 28px; color: var(--ink-mute); }
+.lt-who { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; }
+.lt-who:hover { color: var(--brand); text-decoration: underline; }
+.lt-bulk { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; border-color: var(--brand); }
+.lt-find { padding: 2px 6px; font-size: 12px; align-self: flex-start; }
+.lt-kvs { display: grid; gap: 8px; margin-bottom: 12px; }
+.lt-kv { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 13px; }
+.lt-kv span { color: var(--ink-mute); }
+.lt-kv b { font-weight: 500; overflow-wrap: anywhere; }
+.lt-web { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lt-web input { flex: 1 1 220px; min-width: 0; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+@media (max-width: 560px) { .lt-kv { grid-template-columns: 1fr; gap: 2px; } .lt-link { flex-wrap: wrap; } }
+
 /* ── Ľudia: Živnostníci, Kandidáti, Nábor, Inzeráty, Zápisy (DataList) ───── */
 /* Riadky zoznamov v menu Ľudia. Spoločné triedy DataListu (.dl-*) sú vyššie;
    tu sú len bunky, ktoré majú tieto obrazovky navyše. */

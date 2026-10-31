@@ -169,6 +169,8 @@ const FILE_MODULES = {
   'js/modules/marketing.js': ['marketing'],
   // Oslovovanie (078): šablóny oslovenia a nastavenia mení len admin (GATED nižšie).
   'js/modules/outreach.js': ['marketing'],
+  // Odkazy od kolegov (085): link pre kolegov (settings) mení len admin.
+  'js/modules/lead-tips.js': ['marketing'],
   'js/modules/members.js': ['settings'],
   'js/modules/messages.js': ['messages'],
   'js/modules/money.js': ['bank'],

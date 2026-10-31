@@ -21,6 +21,7 @@
 // z adresy firmy, keď nie sú zadané, a súradnice firiem bez lat/lng z ich
 // adresy — cez Nominatim (OpenStreetMap), najviac 1 dotaz za sekundu
 // a najviac 40 firiem na jedno spustenie. Na „ako ďaleko je to od nás".
+// Pri vybraných firmách (lead_ids) len tie vybrané, ktoré polohu nemajú.
 //
 // Appka ho spúšťa aj sama pri otvorení Nových firiem, keď sú firmy bez
 // náhľadu (najviac raz za 30 minút na používateľa). Aby dvaja ľudia
@@ -211,8 +212,13 @@ async function run(event, d) {
       } else sum.office = 'nenájdené';
       await d.sleep(1100);
     }
-    if (!Array.isArray(body.lead_ids)) {
-      for (const l of await d.db.noCoords(GEO_MAX)) {
+    // Vybrané firmy (napr. práve pridaná z odkazu od kolegu, 085) — len tie,
+    // ktoré polohu nemajú a majú mesto; ostatné firmy sa pri tom negeokódujú.
+    const geoTodo = Array.isArray(body.lead_ids)
+      ? leads.filter(l => !l.archived_at && l.lat == null && String(l.city || '').trim()).slice(0, GEO_MAX)
+      : await d.db.noCoords(GEO_MAX);
+    {
+      for (const l of geoTodo) {
         if (d.now() > deadline - 15000) break;
         const q = [l.address, [l.postal_code, l.city].filter(Boolean).join(' '), 'Deutschland'].filter(Boolean).join(', ');
         const p = await nominatim(q, d).catch(() => null);
