@@ -16,6 +16,9 @@
 //   Firmy a kontakty (081) kategória firmy, posledný kontakt, ďalší krok;
 //                    detail s rýchlymi akciami a záznamom hovoru
 //                    (components/lead-contacts.js), export do CSV
+//   Odkazy od kolegov (085) firmy z verejného formulára app/odkazy.html
+//                    (bojová úloha): link pre kolegov, rebríček, pridanie
+//                    do Nových firiem — js/modules/lead-tips.js
 //   e-mail v dizajne punds a prezentácia PDF (remeslo a región firmy):
 //                    náhľad a stiahnutie v okne Osloviť, príloha pri odoslaní
 //
@@ -560,6 +563,9 @@
         el.innerHTML = UI.loading();
         await Promise.all([this.ensure(true), window.Lead && !Lead.loaded ? Lead.load() : null]);
       }
+      // Odkazy od kolegov (085, js/modules/lead-tips.js) — vlastná záložka s počtom nových.
+      if (window.LeadTips && (!LeadTips.loaded || this.tab === 'tips')) await LeadTips.ensure(this.tab === 'tips' && !this._tipsFresh);
+      this._tipsFresh = this.tab === 'tips';
       const leads = (window.Lead && Lead.rows) || [];
       const cfg = this.cfg();
       const due = OO().followupsDue(this.rows, leads, new Date(), cfg);
@@ -593,10 +599,12 @@
           ['today', 'Dnes na rade', 'clock', due.length + Math.min(fresh.length, 99)],
           ['sent', 'Odoslané', 'mail', this.rows.length],
           ['firms', 'Firmy a kontakty', 'phone', this.firmRows(leads).length],
+          window.LeadTips && !LeadTips.missing ? ['tips', 'Odkazy od kolegov', 'link', LeadTips.newCount() || null] : null,
           ['templates', 'Šablóny', 'note', this.templates.length],
           ['settings', 'Nastavenia', 'settings', null],
         ], this.tab, k => `Outreach.setTab('${k}')`)
         + (this.tab === 'sent' ? this.sentHtml(leads) : this.tab === 'firms' ? this.firmsHtml(leads) : this.tab === 'templates' ? this.templatesHtml()
+          : this.tab === 'tips' && window.LeadTips ? LeadTips.html()
           : this.tab === 'settings' ? this.settingsHtml() : this.todayHtml(due, fresh, dnes, cfg));
     },
 

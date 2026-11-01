@@ -138,7 +138,8 @@ const call = (d, body = {}, auth = 'Bearer ok') => F.handle({ httpMethod: 'POST'
     const { d, log } = deps(db);
     const r = await call(d, { lead_ids: [ID(2), ID(5), 'nie-je-uuid'] });
     eq([r.code, log.pages], [200, ['https://keller-akustik.de']], 'len vybrané a nearchivované');
-    eq(log.geo.filter(g => !/Nové Zámky/.test(g.q)).length, 0, 'pri vybraných sa ďalšie firmy negeokódujú');
+    const geo = log.geo.filter(g => !/Nové Zámky/.test(g.q));
+    ok(geo.length === 1 && /München/.test(geo[0].q), 'pri vybraných sa geokóduje len vybraná firma bez polohy, ďalšie firmy nie', JSON.stringify(geo));
     eq((await call(d, { lead_ids: ['zle'] })).code, 400, 'neplatné id = chyba');
     eq((await call(d, { lead_ids: Array.from({ length: 51 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`) })).code, 400, 'najviac 50');
   }

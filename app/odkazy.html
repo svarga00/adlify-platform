@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0E1626">
+<title>Firmy od kolegov</title>
+<style>
+  /* Verejná stránka pre kolegov (bojová úloha): bez prihlásenia, prístup dáva
+     tajný kľúč v kotve odkazu (#t=…) — na server ide len v tele požiadavky.
+     Zapisuje funkcia danubra-lead-tip, v appke Oslovovanie → Odkazy od kolegov. */
+  @font-face { font-family: Outfit; src: url('/web/public/fonts/outfit-latin-ext.woff2') format('woff2'); font-weight: 400 800; font-display: swap; unicode-range: U+0100-024F, U+1E00-1EFF; }
+  @font-face { font-family: Outfit; src: url('/web/public/fonts/outfit-latin.woff2') format('woff2'); font-weight: 400 800; font-display: swap; unicode-range: U+0000-00FF, U+2000-206F; }
+  @font-face { font-family: Hanken; src: url('/web/public/fonts/hanken-latin-ext.woff2') format('woff2'); font-weight: 400 700; font-display: swap; unicode-range: U+0100-024F, U+1E00-1EFF; }
+  @font-face { font-family: Hanken; src: url('/web/public/fonts/hanken-latin.woff2') format('woff2'); font-weight: 400 700; font-display: swap; unicode-range: U+0000-00FF, U+2000-206F; }
+  :root { --ink: #0E1626; --sub: #45506A; --mute: #6F7C95; --line: #DDE3EE; --bg: #F4F6FA; --card: #fff;
+    --or: #F07F1A; --or-50: #FFF3E6; --green: #157A4A; --green-50: #E7F6EE; --red: #C0392B; --red-50: #FDECEA;
+    --amber: #9A5B00; --amber-50: #FFF6E0; --blue: #1E4FD8; --blue-50: #EAF0FF; --r: 14px; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Hanken, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 120px; }
+  .top { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  .top b { font: 700 19px/1 Outfit, system-ui, sans-serif; letter-spacing: -.01em; }
+  .top small { display: block; font: 600 9.5px/1 Outfit, system-ui, sans-serif; letter-spacing: .14em; color: var(--mute); margin-top: 3px; }
+  h1 { font: 700 25px/1.2 Outfit, system-ui, sans-serif; letter-spacing: -.015em; margin: 0 0 8px; }
+  .lead { color: var(--sub); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin-bottom: 12px; }
+  label.f { display: block; font-weight: 700; font-size: 14px; margin: 0 0 5px; }
+  label.f em { font-style: normal; font-weight: 400; color: var(--mute); }
+  input[type=text], input[type=url], textarea { width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: #fff;
+    border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+  textarea { min-height: 70px; resize: vertical; }
+  input:focus, textarea:focus { outline: none; border-color: var(--or); box-shadow: 0 0 0 3px rgba(240, 127, 26, .18); }
+  .fld { margin-bottom: 12px; }
+  .fld:last-child { margin-bottom: 0; }
+  .hint { font-size: 13px; color: var(--mute); margin-top: 4px; }
+  .hint.is-ok { color: var(--green); }
+  .err { font-size: 13px; color: var(--red); font-weight: 600; margin-top: 4px; }
+  .is-bad input, .is-bad textarea { border-color: var(--red); background: var(--red-50); }
+  .two { display: grid; gap: 12px; grid-template-columns: 1fr; }
+  @media (min-width: 620px) { .two { grid-template-columns: 1fr 1fr; } }
+  .firm-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .firm-h b { font: 700 16px/1.2 Outfit, system-ui, sans-serif; }
+  .x { border: 0; background: none; color: var(--mute); font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+  .x:hover { background: var(--bg); color: var(--red); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { position: relative; }
+  .chip input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .chip span { display: inline-block; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--sub); background: #fff; }
+  .chip input:checked + span { border-color: var(--or); background: var(--or-50); color: var(--ink); }
+  .chip input:focus-visible + span { box-shadow: 0 0 0 3px rgba(240, 127, 26, .25); }
+  .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--sub); }
+  .chk input { width: 18px; height: 18px; accent-color: var(--or); }
+  .add { width: 100%; border: 1.5px dashed #C3CBDA; background: transparent; color: var(--ink); font: 700 15px/1 Hanken, system-ui, sans-serif;
+    padding: 14px; border-radius: var(--r); cursor: pointer; display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 12px; }
+  .add:hover { border-color: var(--or); background: var(--or-50); }
+  .add:disabled { opacity: .5; cursor: default; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.96); border-top: 1px solid var(--line);
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); backdrop-filter: blur(6px); }
+  .bar .in { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+  .go { flex: 1; border: 0; background: var(--or); color: #fff; font: 700 16px/1 Outfit, system-ui, sans-serif; padding: 15px 18px; border-radius: 12px; cursor: pointer; }
+  .go:disabled { opacity: .6; cursor: default; }
+  .msg { border-radius: 12px; padding: 12px 14px; font-size: 14.5px; margin-bottom: 12px; }
+  .msg.bad { background: var(--red-50); color: var(--red); border: 1px solid #F5C6C0; }
+  .msg.ok { background: var(--green-50); color: var(--green); border: 1px solid #BFE5CF; }
+  .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  .hide { display: none !important; }
+  .done h1 { margin-top: 6px; }
+  .res { list-style: none; margin: 0; padding: 0; }
+  .res li { display: flex; gap: 10px; justify-content: space-between; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .res li:first-child { border-top: 0; }
+  .tag { font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+  .tag.added { background: var(--green-50); color: var(--green); }
+  .tag.duplicate { background: var(--amber-50); color: var(--amber); }
+  .tag.repeated { background: var(--bg); color: var(--mute); }
+  .stats { display: flex; gap: 10px; margin: 12px 0 0; }
+  .stat { flex: 1; background: var(--bg); border-radius: 12px; padding: 12px; text-align: center; }
+  .stat b { display: block; font: 800 26px/1.1 Outfit, system-ui, sans-serif; }
+  .stat span { font-size: 13px; color: var(--mute); }
+  .again { width: 100%; margin-top: 14px; border: 1.5px solid var(--ink); background: #fff; color: var(--ink); font: 700 16px/1 Outfit, system-ui, sans-serif; padding: 14px; border-radius: 12px; cursor: pointer; }
+  svg.i { width: 18px; height: 18px; flex: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top" aria-label="punds — Partner und Service">
+    <svg width="40" height="31" viewBox="2.25 7.25 43.5 33.5" fill="none" aria-hidden="true"><path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="#0E1626" stroke-width="7.5" stroke-linecap="round"/><path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="#F07F1A" stroke-width="7.5" stroke-linecap="round"/></svg>
+    <div><b>punds</b><small>PARTNER UND SERVICE</small></div>
+  </div>
+
+  <div id="dead" class="card hide"><h1>Odkaz je neplatný</h1>
+    <p class="lead" id="dead-msg">Tento odkaz na zber firiem už neplatí. Požiadajte prosím o nový toho, kto Vám ho poslal.</p></div>
+
+  <form id="form" novalidate autocomplete="off">
+    <h1>Firmy, s ktorými sme robili</h1>
+    <p class="lead">Ku každej firme napíšte názov, odkaz (web alebo profil) a ak viete, aj krátku poznámku, čo sme spolu robili alebo kto bol kontakt.
+      Netreba stovky — stačí každá, ktorá Vám napadne, aj keď si nie ste úplne istí.</p>
+    <div class="card fld" id="who">
+      <label class="f" for="name">Vaše meno</label>
+      <input type="text" id="name" name="name" maxlength="80" autocomplete="name" placeholder="napr. Michal" required>
+      <div class="hint">Zapamätá sa v tomto prehliadači.</div>
+    </div>
+    <div class="hp" aria-hidden="true"><label>Nevypĺňajte <input type="text" name="website" id="website" tabindex="-1" autocomplete="off"></label></div>
+    <div id="firms"></div>
+    <button type="button" class="add" id="add"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Pridať ďalšiu firmu</button>
+    <div id="msg" class="msg bad hide" role="alert"></div>
+  </form>
+
+  <div id="done" class="done hide" aria-live="polite">
+    <div class="card">
+      <h1 id="done-h">Ďakujeme</h1>
+      <ul class="res" id="done-list"></ul>
+      <div class="stats" id="done-stats"></div>
+      <button type="button" class="again" id="again">Pridať ďalšie</button>
+    </div>
+  </div>
+</div>
+<div class="bar" id="bar"><div class="in"><button type="submit" form="form" class="go" id="go">Odoslať</button></div></div>
+
+<script src="./lib/marketing/seeds.js"></script>
+<script src="./lib/marketing/leads.js"></script>
+<script src="./lib/marketing/tips.js"></script>
+<script>
+(function () {
+  const API = '/.netlify/functions/danubra-lead-tip';
+  const T = window.DanubraTips;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* súkromné okno */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* nič */ } },
+  };
+  const NAME_KEY = 'danubra_tip_name', DRAFT_KEY = 'danubra_tip_draft';
+  const t = (new URLSearchParams(String(location.hash || '').replace(/^#/, '')).get('t') || '').trim();
+  let seq = 0;
+
+  function dead(msg) {
+    $('form').classList.add('hide'); $('bar').classList.add('hide'); $('done').classList.add('hide');
+    $('dead').classList.remove('hide');
+    if (msg) $('dead-msg').textContent = msg;
+  }
+
+  function firmHtml(n, v) {
+    const id = `f${++seq}`;
+    const rel = T.RELATIONS.map(([k, l]) => `<label class="chip"><input type="radio" name="${id}-rel" value="${k}"${v.relation === k ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('');
+    return `<div class="card firm" data-firm="${id}">
+      <div class="firm-h"><b>Firma <span class="n">${n}</span></b><button type="button" class="x" data-rm="${id}" aria-label="Odobrať firmu"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Odobrať</button></div>
+      <div class="fld" data-f="company"><label class="f" for="${id}-c">Názov firmy</label>
+        <input type="text" id="${id}-c" data-k="company" maxlength="200" placeholder="napr. Müller Bau GmbH" value="${esc(v.company)}"></div>
+      <div class="fld" data-f="link"><label class="f" for="${id}-l">Odkaz <em>(web alebo profil, nepovinné)</em></label>
+        <input type="text" inputmode="url" id="${id}-l" data-k="link" maxlength="1500" placeholder="napr. mueller-bau.de, odkaz z Google Máp, LinkedIn" value="${esc(v.link)}" autocapitalize="off" spellcheck="false">
+        <div class="hint" data-hint>Web firmy, Google Mapy, LinkedIn, Facebook, northdata… Stačí doména.</div></div>
+      <div class="fld"><label class="f" for="${id}-m">Mesto <em>(nepovinné)</em></label>
+        <input type="text" id="${id}-m" data-k="city" maxlength="120" placeholder="napr. Augsburg" value="${esc(v.city)}"></div>
+      <div class="fld"><span class="f" style="display:block;font-weight:700;font-size:14px;margin-bottom:6px;">Vzťah</span><div class="chips" role="radiogroup" aria-label="Vzťah k firme">${rel}</div></div>
+      <div class="fld"><label class="f" for="${id}-w">Čo sme spolu robili <em>(nepovinné)</em></label>
+        <textarea id="${id}-w" data-k="what" maxlength="1000" rows="2" placeholder="napr. sadrokartón na bytovke v Ulme, 2024, 6 ľudí">${esc(v.what)}</textarea></div>
+      <div class="fld"><label class="f" for="${id}-k">Kto bol kontakt <em>(nepovinné)</em></label>
+        <input type="text" id="${id}-k" data-k="contact" maxlength="300" placeholder="meno, prípadne telefón alebo e-mail" value="${esc(v.contact)}"></div>
+      <label class="chk"><input type="checkbox" data-k="unsure"${v.unsure ? ' checked' : ''}> Nie som si úplne istý/á</label>
+    </div>`;
+  }
+
+  const cards = () => [...document.querySelectorAll('#firms .firm')];
+  function read(card) {
+    const g = (k) => { const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value : ''; };
+    const r = card.querySelector('input[type=radio]:checked');
+    return { company: g('company'), link: g('link'), city: g('city'), what: g('what'), contact: g('contact'),
+      relation: r ? r.value : null, unsure: !!(card.querySelector('[data-k="unsure"]') || {}).checked };
+  }
+  function renumber() {
+    const list = cards();
+    list.forEach((c, i) => { c.querySelector('.n').textContent = String(i + 1); c.querySelector('[data-rm]').classList.toggle('hide', list.length < 2); });
+    $('add').disabled = list.length >= T.MAX_URLS;
+    const filled = list.map(read).filter(f => f.company.trim()).length;
+    $('go').textContent = filled > 1 ? `Odoslať ${filled} ${T.plural(filled, 'firmu', 'firmy', 'firiem')}` : 'Odoslať';
+  }
+  function addFirm(v = {}, focus = false) {
+    $('firms').insertAdjacentHTML('beforeend', firmHtml(cards().length + 1, v));
+    renumber();
+    if (focus) { const c = cards().pop(); c.scrollIntoView({ behavior: 'smooth', block: 'start' }); c.querySelector('[data-k="company"]').focus({ preventScroll: true }); }
+  }
+  function linkHint(card) {
+    const box = card.querySelector('[data-f="link"]');
+    const v = card.querySelector('[data-k="link"]').value.trim();
+    const h = box.querySelector('[data-hint]');
+    box.classList.remove('is-bad');
+    const e = box.querySelector('.err'); if (e) e.remove();
+    if (!v) { h.className = 'hint'; h.textContent = 'Web firmy, Google Mapy, LinkedIn, Facebook, northdata… Stačí doména.'; return true; }
+    const n = T.normalize(v);
+    if (!n.ok) { h.className = 'hint'; h.textContent = ''; box.classList.add('is-bad'); box.insertAdjacentHTML('beforeend', `<div class="err">${esc(n.error)}</div>`); return false; }
+    h.className = 'hint is-ok';
+    h.textContent = n.kind === 'web' ? `Web firmy: ${n.host}` : n.kind === 'maps' ? `Google Mapy${n.name ? `: ${n.name}` : ''}` : `Profil firmy: ${n.host}`;
+    return true;
+  }
+  function saveDraft() {
+    store.set(DRAFT_KEY, JSON.stringify(cards().map(read)));
+    const nm = $('name').value.trim(); if (nm) store.set(NAME_KEY, nm);
+  }
+  function showErrors(errors) {
+    const list = cards();
+    for (const c of list) { c.querySelectorAll('.is-bad').forEach(x => x.classList.remove('is-bad')); c.querySelectorAll('.err').forEach(x => x.remove()); }
+    let first = null;
+    for (const e of errors || []) {
+      const c = list[e.i]; if (!c) continue;
+      const box = c.querySelector(`[data-f="${e.field}"]`); if (!box) continue;
+      box.classList.add('is-bad');
+      box.insertAdjacentHTML('beforeend', `<div class="err">${esc(e.error)}</div>`);
+      if (!first) first = box;
+    }
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function msg(text) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('hide', !text); if (text) m.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
+  function done(d) {
+    $('form').classList.add('hide'); $('bar').classList.add('hide'); $('done').classList.remove('hide');
+    const added = Number(d.added) || 0;
+    $('done-h').textContent = added ? `Ďakujeme, ${T.addedText(added)}` : 'Ďakujeme, tieto firmy už máme';
+    const TAG = { added: 'pridané', duplicate: 'už ju máme', repeated: 'dvakrát' };
+    $('done-list').innerHTML = (d.results || []).map(r => `<li><span>${esc(r.company)}${r.why && r.status !== 'added' ? `<br><small style="color:var(--mute)">${esc(r.why)}</small>` : ''}</span><span class="tag ${esc(r.status)}">${TAG[r.status] || ''}</span></li>`).join('');
+    const mine = d.mine || {};
+    $('done-stats').innerHTML = mine.tips ? `<div class="stat"><b>${Number(mine.tips)}</b><span>Vašich firiem spolu</span></div>${
+      d.rank ? `<div class="stat"><b>${Number(d.rank)}.</b><span>poradie v tíme${d.team ? ` z ${Number(d.team)}` : ''}</span></div>` : ''}` : '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function submit(ev) {
+    ev.preventDefault();
+    msg('');
+    const name = $('name').value.trim();
+    $('who').classList.toggle('is-bad', name.length < 2);
+    $('who').querySelectorAll('.err').forEach(x => x.remove());
+    if (name.length < 2) { $('who').insertAdjacentHTML('beforeend', '<div class="err">Napíšte prosím svoje meno.</div>'); $('name').focus(); return; }
+    const firms = cards().map(read);
+    const p = T.parseFirms(firms);
+    showErrors(p.errors);
+    if (!p.ok) { if (!p.errors.length) msg(p.error); return; }
+    saveDraft();
+    const go = $('go'); go.disabled = true; go.textContent = 'Odosielam…';
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit',
+        body: JSON.stringify({ t, name, firms, website: $('website').value }) });
+      let d = {};
+      try { d = await r.json(); } catch (e) { d = {}; }
+      if (r.status === 403) return dead(d.error);
+      if (!r.ok) { showErrors(d.errors); if (d.field === 'name') $('name').focus(); msg(d.error || `Odoslanie sa nepodarilo (${r.status}). Skúste to prosím znova — text ostal vo formulári.`); return; }
+      store.del(DRAFT_KEY);
+      done(d);
+    } catch (e) {
+      msg('Nepodarilo sa odoslať — skontrolujte pripojenie a skúste to znova. Všetko, čo ste napísali, ostalo vo formulári.');
+    } finally { go.disabled = false; renumber(); }
+  }
+
+  function start() {
+    $('firms').innerHTML = '';
+    let draft = [];
+    try { draft = JSON.parse(store.get(DRAFT_KEY) || '[]'); } catch (e) { draft = []; }
+    (Array.isArray(draft) && draft.length ? draft.slice(0, T.MAX_URLS) : [{}]).forEach(v => addFirm(v || {}));
+    cards().forEach(c => { if (c.querySelector('[data-k="link"]').value) linkHint(c); });
+  }
+
+  if (!T || !T.tokenOk(t)) return dead();
+  $('name').value = store.get(NAME_KEY) || '';
+  start();
+  $('add').onclick = () => { addFirm({}, true); saveDraft(); };
+  $('firms').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rm]'); if (!b) return;
+    const c = b.closest('.firm'); if (c && cards().length > 1) { c.remove(); renumber(); saveDraft(); }
+  });
+  $('firms').addEventListener('input', (e) => { renumber(); saveDraft(); const c = e.target.closest('.firm');
+    if (c && e.target.dataset.k === 'link' && e.target.closest('.is-bad')) linkHint(c); });
+  $('firms').addEventListener('change', (e) => { saveDraft(); });
+  $('firms').addEventListener('focusout', (e) => { if (e.target.dataset && e.target.dataset.k === 'link') linkHint(e.target.closest('.firm')); });
+  $('name').addEventListener('change', saveDraft);
+  $('form').addEventListener('submit', submit);
+  $('again').onclick = () => { $('done').classList.add('hide'); $('form').classList.remove('hide'); $('bar').classList.remove('hide'); start(); window.scrollTo({ top: 0 }); };
+  // Platí ešte odkaz? Nech kolega nevypĺňa formulár zbytočne.
+  fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit', body: JSON.stringify({ t, check: true }) })
+    .then(r => (r.status === 403 ? r.json().then(d => dead(d.error)) : null)).catch(() => null);
+})();
+</script>
+</body>
+</html>

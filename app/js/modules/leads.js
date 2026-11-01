@@ -40,6 +40,9 @@
 // web, e-mail, Google hodnotenie), krátky popis a „Čo sme zistili"
 // (lib/marketing/leadview.js), lišta akcií a záložky Prehľad / Kontakty
 // a oslovenie / Podrobnosti / Web (posledná záložka sa pamätá).
+//
+// Odkazy od kolegov (085): firma pridaná z odkazu má zdroj „od kolegu"
+// a v zozname aj v detaile „Tip od: Jano, 31. 10." (js/modules/lead-tips.js).
 // ============================================================================
 (function () {
   const LL = () => window.DanubraLeads;
@@ -47,7 +50,9 @@
   // Hľadanie podľa webov zadaných firiem (lib/marketing/seeds.js, server
   // danubra-leads-from-urls-background).
   const SD = () => window.DanubraSeeds;
-  const SOURCE = { outscraper: 'Google Mapy', urls: 'podľa webov', ai: 'AI', osm: 'mapa', manual: 'ručne' };
+  const SOURCE = { outscraper: 'Google Mapy', urls: 'podľa webov', kolega: 'od kolegu', ai: 'AI', osm: 'mapa', manual: 'ručne' };
+  /** „Tip od: Jano, 31. 10." pri firme od kolegu (085, lib/marketing/tips.js). */
+  const tipLine = (r) => (r && r.tip_by && window.DanubraTips ? DanubraTips.tipLabel(r.tip_by, (r.profile && r.profile.tip && r.profile.tip.at) || r.created_at) : '');
   const OX = () => window.DanubraOutscraper;
   const REFRESH_MAX = 50;
   const EMAIL_FROM = { impressum: 'z Impressum', web: 'z webu firmy', ai: 'neoverený', outscraper_contacts: 'z webu (Outscraper)' };
@@ -442,6 +447,7 @@
           <div class="ld-id-sub">${UI.badge(st[1], st[2])}${r.score != null ? `<span class="ld-score${r.score >= 80 ? ' is-green' : r.score >= 60 ? ' is-amber' : ''}" title="Podobnosť so zadanými firmami 0–100 (odhad AI)">skóre <b>${Number(r.score)}</b></span>` : ''}${
             sub ? `<span>${UI.esc(sub)}</span>` : ''}${r.next_step_at || r.next_step_text ? `<span class="ld-next${r.next_step_at && String(r.next_step_at).slice(0, 10) <= new Date().toISOString().slice(0, 10) ? ' is-due' : ''}"
               title="Dohodnutý ďalší krok — na jeho deň je úloha v Úlohách">${Icon('flag', 12)} ${UI.esc([DanubraDataList.fmtDay(r.next_step_at), r.next_step_text].filter(Boolean).join(' · '))}</span>` : ''}</div>
+          ${tipLine(r) ? `<div class="ld-id-call ld-id-tip">${Icon('clients', 12)} ${UI.esc(tipLine(r))}</div>` : ''}
           ${this._lastCall && this._lastCall.id === r.id && this._lastCall.text ? `<div class="ld-id-call">${Icon('phone', 12)} ${UI.esc(this._lastCall.text)}</div>` : ''}
           ${sum.text ? `<p class="ld-id-desc">${UI.esc(sum.text)}</p>` : ''}</div></div>`;
     },
@@ -958,7 +964,8 @@
             sortValue: (r) => r.last_contact_at || null, sortDir: -1, csv: (r) => (r.last_contact_at ? String(r.last_contact_at).slice(0, 10) : '') },
           { key: 'zdroj', label: 'Zdroj', width: '120px', hideBelow: 1000, mobileLabel: 'zdroj',
             render: (r) => `<span class="dl-two"><span>${SOURCE[r.source] || r.source || ''}</span>${
-              r.seed_search_id ? `<small class="dl-note is-mute">${UI.esc(this.searchLabel(r.seed_search_id))}</small>` : ''}</span>`,
+              r.seed_search_id ? `<small class="dl-note is-mute">${UI.esc(this.searchLabel(r.seed_search_id))}</small>` : ''}${
+              tipLine(r) ? `<small class="dl-note is-mute">${UI.esc(tipLine(r))}</small>` : ''}</span>`,
             sortValue: (r) => SOURCE[r.source] || r.source },
           // Oslovenie: odoslané / otvorené / klik / odpoveď / nedoručené + dátum (js/modules/outreach.js).
           ...(window.Outreach ? [Outreach.column()] : []),
@@ -1012,7 +1019,7 @@
             ['Konateľ', r => r.contact_person], ['USt-IdNr', r => r.vat_id], ['Web', r => r.website], ['Ulica', r => r.address],
             ['PSČ', r => r.postal_code], ['Mesto', r => r.city], ['Región', r => r.region], ['Remeslo', r => r.trade],
             ['Veľkosť', r => r.employees], ['Prečo', r => r.why], ['Zdroj', r => SOURCE[r.source] || r.source],
-            ['Hľadanie', r => (r.seed_search_id ? this.searchLabel(r.seed_search_id) : '')],
+            ['Hľadanie', r => (r.seed_search_id ? this.searchLabel(r.seed_search_id) : '')], ['Tip od kolegu', r => r.tip_by || ''],
             ['Hodnotenie', r => r.rating], ['Recenzie', r => r.reviews_count],
             ['Stav na Mapách', r => ((OX().stateOf(r) || [])[1] || '')], ['Overené', r => (r.verified_at ? String(r.verified_at).slice(0, 10) : '')],
             ['Web funguje', r => (r.web_ok == null ? '' : r.web_ok ? 'áno' : 'nie')], ['E-mail má MX', r => (r.email_mx_ok == null ? '' : r.email_mx_ok ? 'áno' : 'nie')],
