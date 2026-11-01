@@ -204,8 +204,13 @@ async function run(event, d) {
   try {
     const s = d.now() < deadline - 60000 ? (cfg || await d.db.settings()) : null;
     const sup = (s && s.supplier) || {};
-    if (s && !String(sup.office_coords || '').trim() && String(sup.address || '').trim()) {
-      const p = await nominatim(sup.address, d);
+    // Keď v poli „Poloha kancelárie" nie sú súradnice ani odkaz z Máp, ale
+    // adresa (napísal ju tam človek), geokóduje sa tá adresa; inak adresa firmy.
+    const oc = String(sup.office_coords || '').trim();
+    const ocIsCoords = /^\s*-?\d+(?:[.,]\d+)?\s*[,;\s]\s*-?\d+(?:[.,]\d+)?\s*$/.test(oc) || /^https?:\/\//i.test(oc);
+    const officeQuery = oc && !ocIsCoords ? oc : (!oc ? String(sup.address || '').trim() : '');
+    if (s && officeQuery) {
+      const p = await nominatim(officeQuery, d);
       if (p) {
         const { error } = await d.db.saveSupplier(s.id, { ...sup, office_coords: `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` });
         sum.office = error ? 'neuložené' : 'doplnené';
