@@ -6,7 +6,8 @@
 //
 // Z firmy (remeslo, kategórie z Google Máp, profil od AI, región, konateľ)
 // a z hľadania, z ktorého prišla (profily zadaných webov, poznámka, región)
-// sa vyberie remeslo a z neho:
+// sa vyberie remeslo (keď ho človek určil ručne — lead.trade_keys, 087 —
+// berie sa to, nie odhad z textu) a z neho:
 //   * nadpis e-mailu a prezentácie („Trockenbauer für Ihre Baustellen in Bayern"),
 //   * tri krátke body (čo robíme v tom remesle, doklady, jeden kontakt),
 //   * oslovenie „Sehr geehrter Herr Müller," / „Sehr geehrte Damen und Herren,".
@@ -261,6 +262,27 @@
   }
 
   const tradeByKey = (k) => TRADES.find(t => t.key === k) || null;
+
+  /**
+   * Kľúče danubra_trades (lead.trade_keys, lib/marketing/trades.js) → remeslá
+   * odtiaľto cez `app`: „maliar" → Maler, „betonar" → Schalungsbau. „bau"
+   * a kľúče bez remesla (pomocnik) nič nepridajú.
+   */
+  function fromKeys(keys) {
+    const out = [];
+    for (const k of Array.isArray(keys) ? keys : []) {
+      const t = TRADES.find(x => x.app.includes(String(k)));
+      if (t && !out.includes(t)) out.push(t);
+    }
+    return out;
+  }
+  /** Ručne určené remeslá firmy ako výsledok `detect` — alebo null, keď nie sú. Nič známe = všeobecne. */
+  function manualTrades(lead, offered) {
+    const keys = lead && Array.isArray(lead.trade_keys) ? lead.trade_keys.filter(k => typeof k === 'string' && k) : [];
+    if (!keys.length) return null;
+    return fromKeys(keys).filter(t => !offered || !offered.length || offered.includes(t.key)).slice(0, 3)
+      .map((t, i) => ({ trade: t, score: 100 - i, manual: true }));
+  }
   function withOverride(t, T) {
     const o = (T.trades && T.trades[t.key]) || {};
     const tasks = Array.isArray(o.tasks) && o.tasks.length ? o.tasks.map(x => clean(x, 160)).filter(Boolean).slice(0, 6) : t.tasks;
@@ -277,7 +299,9 @@
    */
   function tradeVars({ lead = {}, search = null, marketing = null, lang = 'de', trade = null } = {}) {
     const T = texts(marketing);
-    const found = detect(lead, search, { offered: T.offered });
+    // Remeslá určené ručne (lead.trade_keys, 087) majú prednosť pred odhadom z textu.
+    const hand = manualTrades(lead, T.offered);
+    const found = hand || detect(lead, search, { offered: T.offered });
     const main = withOverride((trade && tradeByKey(trade)) || (found[0] && found[0].trade) || GENERIC, T);
     const also = found.map(x => x.trade).filter(t => t.key !== main.key).slice(0, 2).map(t => withOverride(t, T));
     const en = lang === 'en';
@@ -319,7 +343,7 @@
   }
 
   const API = { TRADES, GENERIC, TEXT, fold, detect, region, germanPlace, person, salutation, texts, tradeByKey, pitch,
-    tradePhrase, tradeVars, joinList };
+    tradePhrase, tradeVars, joinList, fromKeys, manualTrades };
   if (typeof window !== 'undefined') window.DanubraPitch = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

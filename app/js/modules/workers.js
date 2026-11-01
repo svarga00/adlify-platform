@@ -312,6 +312,12 @@
         DataList.set('ludia', 'doc', [this.filters.doc]);
         this.filters.doc = '';
       }
+      // Odkaz z detailu firmy („Máme k dispozícii: 3 živnostníci", 087) — ľudia s týmto remeslom.
+      if (this._wantProfession) {
+        DataList.reset('ludia');
+        DataList.set('ludia', 'remeslo', this._wantProfession);
+        this._wantProfession = '';
+      }
     },
 
     // ── Zoznam ľudí (DataList) ────────────────────────────────────────────

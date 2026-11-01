@@ -50,6 +50,22 @@ console.log('\nRemeslo do vety (DE / EN) — nikdy slovensky');
   ok(P.pitch({ lead: { trade: 'Maler' } }).words.remeslo === 'Malerarbeiten', 'pitch() nesie tie isté slová (words)');
 }
 
+console.log('\nRemeslo určené ručne (lead.trade_keys, 087)');
+{
+  const lead = { name: 'Englhardt Malerei GmbH', trade: 'maliarstvo, omietky', trade_keys: ['elektrikar'] };
+  const v = P.tradeVars({ lead });
+  ok(v.main.key === 'elektro' && v.team === 'Elektriker' && v.remeslo === 'Elektroinstallation' && !v.also.length,
+    'ručné remeslo má prednosť pred textom firmy (e-mail hovorí o elektro)', JSON.stringify(v.remeslo));
+  ok(P.pitch({ lead }).headline.startsWith('Elektriker') && P.pitch({ lead }).trade.key === 'elektro', 'nadpis e-mailu a prezentácie podľa ručného remesla');
+  const two = P.tradeVars({ lead: { trade: 'Trockenbau', trade_keys: ['maliar', 'omietkar'] } });
+  ok(two.main.key === 'maler' && two.also.map(t => t.key).join() === 'wdvs' && two.remeslo === 'Maler-, Putz- und WDVS-Arbeiten', 'viac ručných remesiel v poradí', two.remeslo);
+  ok(P.tradeVars({ lead: { trade: 'Trockenbau', trade_keys: ['betonar'] } }).main.key === 'schalung', 'betonar → Schalungsbau (cez `app`)');
+  ok(P.tradeVars({ lead: { trade: 'Trockenbau', trade_keys: ['bau'] } }).main.key === 'bau', '„bau" = všeobecný text, aj keď text firmy hovorí inak');
+  ok(P.tradeVars({ lead: { trade: 'Trockenbau', trade_keys: null } }).main.key === 'trockenbau', 'null = automaticky ako doteraz');
+  ok(P.tradeVars({ lead: { trade_keys: ['maliar'] }, trade: 'fliesen' }).main.key === 'fliesen', 'vynútené remeslo (parameter trade) stále vyhrá');
+  ok(P.fromKeys(['maliar', 'maliar', 'pomocnik', 'tesar']).map(t => t.key).join() === 'maler,schalung', 'fromKeys: bez opakovania, kľúče bez remesla sa vynechajú');
+}
+
 console.log('\nRegión');
 ok(P.region({ region: 'Bayern', city: 'Ulm' }).phrase === 'in Bayern', 'spolková krajina z firmy');
 ok(P.region({ city: 'Augsburg' }).phrase === 'in Augsburg und Umgebung', 'inak mesto');

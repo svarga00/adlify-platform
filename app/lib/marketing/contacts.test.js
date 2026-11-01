@@ -133,6 +133,9 @@ console.log('\nDotazník po hovore: súhrn v bodoch a výsledok');
     'súhrn číta návrh ďalšieho kroku (termín „o 2 týždne" z odpovede)');
   const no = C.composeSummary({ right_person: 'no', decider_name: 'Herr Kaya', decider_role: 'Bauleiter', trades: [], trades_other: 'Estrich' });
   ok(/^• Nesprávna osoba — rozhoduje: Herr Kaya \(Bauleiter\)/.test(no) && /Remeslá: Estrich/.test(no), 'nesprávna osoba → kto rozhoduje; iné remeslo', no);
+  ok(/Remeslá: Maľovanie, Zatepľovanie a fasády, Estrich/.test(C.composeSummary({ trades: ['maliar', 'omietkar'], trades_other: 'Estrich' })),
+    'kľúče remesiel (087) → slovenské názvy, iné ostane');
+  ok(/Remeslá: Maľovanie$/m.test(C.composeSummary({ trades: ['maliar'] }, { tradesTable: [{ key: 'maliar', name_sk: 'Maliar' }] })), '…aj s tabuľkou danubra_trades druh práce');
   ok(C.composeSummary({}) === '' && C.composeSummary(null) === '' && C.cleanAnswers({ interest: 9, when: 'hack', send: ['x'] }) === null, 'prázdne a neznáme odpovede = nič');
   const c = C.cleanAnswers({ interest: '5', headcount: '1000', send: ['prices', 'hack'], trades: 'Maler', note: '  x  ' });
   ok(c.interest === 5 && C.cleanAnswers({ interest: 2.5, note: 'x' }).interest === null && c.headcount === null && c.send.join() === 'prices' && c.trades.join() === 'Maler' && c.note === 'x', 'očistenie: záujem len číslo 1–5, počet do 999, známe „poslať"', JSON.stringify(c));

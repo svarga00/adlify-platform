@@ -20,6 +20,10 @@
 //                     nemaže), Nájsť web (len Google hľadanie v novom okne —
 //                     nič platené) a vloženie webu, Použiť ako vzor na hľadanie
 //
+// Remeslá (087): stĺpec a filter Remeslo; v detaile odkazu sa dajú upraviť
+// (kým nie je pridaný, ukladajú sa k odkazu — pri pridaní sa prenesú do
+// firmy; pridaný odkaz ukazuje a mení remeslá firmy).
+//
 // Logika je v lib/marketing/tips.js (testy). Verejný príjem: danubra-lead-tip,
 // údaje z webu: danubra-lead-tips-enrich-background (zadarmo, bez AI).
 // ============================================================================
@@ -27,6 +31,7 @@
   const T = () => window.DanubraTips;
   const SD = () => window.DanubraSeeds;
   const ENRICH = '/.netlify/functions/danubra-lead-tips-enrich-background';
+  const TR = () => window.DanubraTrades;
   const COLS = 'id,batch_id,company_name,url,kind,website,domain,profile_url,city,relation,what_we_did,contact,unsure,submitted_by_name,'
     + 'status,reject_reason,lead_id,duplicate_of_lead_id,duplicate_of_partner_id,duplicate_of_tip_id,meta,checked_at,created_at,reviewed_at,reviewed_by,archived_at';
 
@@ -40,7 +45,13 @@
 
     async load() {
       try {
-        const r = await DB.list('lead_tips', { select: COLS, order: { column: 'created_at', ascending: false }, limit: 5000 });
+        // Remeslá (087); bez migrácie sa načíta to isté bez nich.
+        let r = await DB.list('lead_tips', { select: `${COLS},trade_keys`, order: { column: 'created_at', ascending: false }, limit: 5000 });
+        this.no087 = !!(r && r.error && /trade_keys/.test(String(r.error.message || '')));
+        if (this.no087) {
+          if (Array.isArray(DB.failures)) DB.failures = DB.failures.filter(f => !/lead_tips/.test(f.table));
+          r = await DB.list('lead_tips', { select: COLS, order: { column: 'created_at', ascending: false }, limit: 5000 });
+        }
         this.missing = !!(r && r.error);
         // Kým nie je migrácia 085, tabuľka nie je — nehlási sa to ako „časť údajov sa nenačítala".
         if (r && r.error && Array.isArray(DB.failures)) DB.failures = DB.failures.filter(f => !/lead_tips/.test(f.table));
@@ -176,6 +187,21 @@
       return window.Lead && Lead.logoHtml ? Lead.logoHtml(fake, 30) : '';
     },
 
+    // ── Remeslá (087) ────────────────────────────────────────────────────
+    /** Firma v Nových firmách, keď je odkaz pridaný. */
+    leadOf(t) { return t && t.lead_id ? this.leads().find(l => l.id === t.lead_id) || null : null; },
+    /** Remeslá odkazu: pridaný = remeslá firmy; inak čo zaklikol kolega, inak odhad z textu. */
+    tradeKeys(t) {
+      if (!t || !TR()) return [];
+      const l = this.leadOf(t);
+      if (l && window.Lead && Lead.tradeKeys) return Lead.tradeKeys(l);
+      if (Array.isArray(t.trade_keys) && t.trade_keys.length) return t.trade_keys;
+      const m = t.meta || {};
+      return TR().detectKeys({ name: t.company_name, trade: t.what_we_did, site_title: m.title, site_description: m.description, profile: { summary: m.description } });
+    },
+    tradeManual(t) { const l = this.leadOf(t); return l ? TR().source(l) !== 'auto' : !!(t && Array.isArray(t.trade_keys) && t.trade_keys.length); },
+    table() { return (window.Lead && Lead.trades) || []; },
+
     /** Konfigurácia zoznamu pre `DataList`. */
     config(rows) {
       const REL = T().RELATIONS;
@@ -201,6 +227,10 @@
           { key: 'firma', label: 'Firma', width: 'minmax(180px, 1.4fr)', mobile: 'title',
             render: (r) => `<span class="ld-who">${this.logo(r)}<span class="dl-title"><b>${UI.esc(r.company_name)}</b><small>${UI.esc([r.city || (r.meta && r.meta.city), host(r)].filter(Boolean).join(' · ') || '—')}</small></span></span>`,
             sortValue: (r) => r.company_name, csv: (r) => r.company_name },
+          ...(TR() ? [{ key: 'remeslo', label: 'Remeslo', width: 'minmax(120px, .8fr)', mobileLabel: 'remeslo',
+            tip: 'Čo kolega zaklikol vo formulári, inak odhad z toho, čo napísal a čo je na webe firmy. Pri pridanom odkaze remeslá firmy. Zmeníte ich v detaile odkazu.',
+            render: (r) => TR().chipsHtml(this.tradeKeys(r), { table: this.table(), manual: this.tradeManual(r) }),
+            sortValue: (r) => TR().sortValue(this.tradeKeys(r), this.table()), csv: (r) => TR().labels(this.tradeKeys(r), this.table()).join(', ') }] : []),
           { key: 'vztah', label: 'Vzťah', width: '182px', mobileLabel: 'vzťah',
             render: (r) => { const x = relOf(r.relation); return `<span class="dl-two">${x ? UI.badge(x[1], x[2]) : '<span class="dl-note is-mute">neuvedené</span>'}${r.unsure ? '<small class="dl-note is-amber">nie je si istý</small>' : ''}</span>`; },
             sortValue: (r) => (r.relation ? REL.findIndex(x => x[0] === r.relation) : 9), csv: (r) => (relOf(r.relation) || [null, ''])[1] },
@@ -222,6 +252,10 @@
             fields: ['company_name', 'city', 'domain', 'submitted_by_name', 'what_we_did', 'contact', 'url'] },
           { key: 'stav', type: 'multi', label: 'Stav', value: 'status', options: T().STATUS.map(s => [s[0], s[1]]), sortOptions: false, allLabel: 'Všetky',
             hint: 'Nový = čaká na Vás. Pridaný = je v Nových firmách. Duplicita = firmu už máme (medzi novými firmami, odberateľmi alebo ju poslal iný kolega). Zamietnutý = nechceme.' },
+          ...(TR() ? [{ key: 'remeslo', type: 'multi', label: 'Remeslo', allLabel: 'Všetky remeslá', emptyLabel: 'Neurčené',
+            value: (r) => { const k = this.tradeKeys(r); return k.length ? k : ['']; },
+            options: () => TR().options(this.table()).map(o => [o.key, o.label]),
+            hint: 'Odkazy podľa remesla firmy — aj viac naraz. Neurčené = kolega remeslo nezaklikol a z textu sa nedá zistiť.' }] : []),
           { key: 'vztah', type: 'multi', label: 'Vzťah', value: (r) => r.relation || 'none', options: [...REL.map(x => [x[0], x[1]]), ['none', 'Neuvedené']], sortOptions: false, allLabel: 'Všetky',
             hint: 'Spolupracovali sme a Robilo sa u Denisa = známe dobré firmy: pri pridaní dostanú palec hore a sú najlepší vzor na hľadanie podobných.' },
           { key: 'kolega', type: 'select', label: 'Kolega', value: 'submitted_by_name', allLabel: 'Všetci kolegovia' },
@@ -231,7 +265,8 @@
         ],
         empty: { ico: 'link', title: 'Zatiaľ žiadne firmy od kolegov', sub: Danubra.isAdmin() ? 'Pošlite kolegom link z rámika hore — firmy, ktoré zadajú, sa objavia tu.' : 'Keď kolegovia pošlú firmy cez formulár, objavia sa tu.' },
         export: { name: ['odkazy-od-kolegov'],
-          columns: [['Firma', r => r.company_name], ['Mesto', r => r.city || (r.meta && r.meta.city) || ''], ['Web', r => this.webOf(r) || ''],
+          columns: [['Firma', r => r.company_name], ['Remeslo', r => (TR() ? TR().labels(this.tradeKeys(r), this.table()).join(', ') : '')],
+            ['Mesto', r => r.city || (r.meta && r.meta.city) || ''], ['Web', r => this.webOf(r) || ''],
             ['Odkaz', r => r.url || ''], ['Vzťah', r => (relOf(r.relation) || [null, ''])[1]], ['Nie je si istý', r => (r.unsure ? 'áno' : '')],
             ['Čo sme robili', r => r.what_we_did || ''], ['Kontakt', r => r.contact || ''], ['Poslal', r => r.submitted_by_name],
             ['Kedy', r => String(r.created_at || '').slice(0, 10)], ['Stav', r => T().statusOf(r.status)[1]],
@@ -252,6 +287,7 @@
       UI.modal(t.company_name, `<div class="lt-detail">
         <div class="lt-kvs">
           ${row('Vzťah', rel ? `${UI.badge(rel[1], rel[2])}${t.unsure ? ' <small class="dl-note is-amber">kolega si nie je úplne istý</small>' : ''}` : '')}
+          ${TR() ? row('Remeslo', `${TR().chipsHtml(this.tradeKeys(t), { table: this.table(), max: 6, manual: this.tradeManual(t) })} <button type="button" class="ld-tr-btn" aria-expanded="false" onclick="LeadTips.tradePick('${t.id}')">${Icon('edit', 12)} Upraviť remeslá</button>`) : ''}
           ${row('Čo sme spolu robili', UI.esc(t.what_we_did || ''))}
           ${row('Kontakt', UI.esc(t.contact || ''))}
           ${row('Mesto', UI.esc(t.city || m.city || ''))}
@@ -261,6 +297,7 @@
           ${row('Zo stránky', UI.esc([m.company, m.email, m.phone, m.address, [m.postal_code, m.city].filter(Boolean).join(' '), m.konatel && `konateľ ${m.konatel}`].filter(Boolean).join(' · ')))}
           ${row('Stav', this.stateHtml(t))}
         </div>
+        <div id="lt-trpick" hidden></div>
         ${t.status !== 'rejected' ? `<div class="form-section">Web firmy${UI.tip('Len web firmy (nie LinkedIn ani Facebook). Z neho appka zistí e-mail, telefón, adresu a konateľa — zadarmo. „Nájsť web" otvorí hľadanie Google v novom okne; adresu skopírujte sem.')}</div>
         <form id="lt-web" class="lt-web" onsubmit="event.preventDefault();LeadTips.saveWebsite('${t.id}')">
           <input type="text" name="website" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="napr. mueller-bau.de" value="${UI.esc(web || '')}" aria-label="Web firmy">
@@ -274,6 +311,46 @@
           ${['new', 'duplicate'].includes(t.status) ? `<button type="button" class="btn btn-ghost" onclick="LeadTips.reject('${t.id}')">${Icon('x', 14)} Zamietnuť</button>` : ''}
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
         </div></div>`, { wide: true });
+    },
+
+    /** Výber remesiel v detaile odkazu. */
+    tradePick(id) {
+      const t = this.tip(id);
+      const box = document.getElementById('lt-trpick');
+      if (!t || !box || !TR()) return;
+      if (!box.hidden) { box.hidden = true; box.innerHTML = ''; return; }
+      const l = this.leadOf(t);
+      this._pick = new Set(this.tradeKeys(t));
+      box.innerHTML = `<div class="tr-pick" role="group" aria-label="Remeslá firmy">
+        <div class="tr-pick-h"><b>Remeslá firmy</b><small>${l ? 'Odkaz je v Nových firmách — mení sa remeslo firmy.' : 'Uložia sa k odkazu a pri pridaní do Nových firiem sa prenesú.'}</small></div>
+        <div class="tr-opts">${TR().options(this.table()).map(o => `<button type="button" class="tr-opt" data-tr-k="${UI.esc(o.key)}" aria-pressed="${this._pick.has(o.key)}"
+          onclick="LeadTips.tradeToggle(this)"><span class="tr-tick">${Icon('check', 12)}</span>${UI.esc(o.label)}</button>`).join('')}</div>
+        <div class="tr-pick-acts"><button type="button" class="btn btn-primary btn-sm" onclick="LeadTips.tradeSave('${t.id}')">${Icon('check', 14)} Uložiť remeslá</button>
+          ${this.tradeManual(t) ? `<button type="button" class="btn btn-ghost btn-sm" onclick="LeadTips.tradeSave('${t.id}', true)">${Icon('repeat', 14)} Vrátiť automaticky</button>` : ''}
+          <span class="sp"></span><button type="button" class="btn btn-ghost btn-sm" onclick="LeadTips.tradePick('${t.id}')">Zrušiť</button></div></div>`;
+      box.hidden = false;
+    },
+    tradeToggle(btn) {
+      const k = btn.getAttribute('data-tr-k');
+      if (!this._pick) this._pick = new Set();
+      if (this._pick.has(k)) this._pick.delete(k); else this._pick.add(k);
+      btn.setAttribute('aria-pressed', String(this._pick.has(k)));
+    },
+    async tradeSave(id, auto = false) {
+      const t = this.tip(id);
+      if (!t || !TR()) return null;
+      const order = TR().options(this.table()).map(o => o.key);
+      const keys = auto ? [] : TR().valid([...(this._pick || [])], { table: this.table() }).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      const l = this.leadOf(t);
+      if (l && window.Lead) { if (await Lead.saveTrades(l.id, keys.length ? keys : null)) { this.detail(id); this.refresh(); } return null; }
+      const trade_keys = keys.length ? keys : null;
+      const { error } = await DB.update('lead_tips', id, { trade_keys });
+      if (error) return UI.toast(/trade_keys/.test(error.message || '') ? 'Remeslá sa neuložili — v databáze chýba migrácia 087' : `Neuložené: ${error.message}`, 'err');
+      t.trade_keys = trade_keys;
+      UI.toast(trade_keys ? `Remeslá uložené: ${TR().labels(trade_keys, this.table()).join(', ')}` : 'Remeslá sa znova odhadnú z textu', 'ok');
+      this.detail(id);
+      if (DataList._reg && DataList._reg['odkazy-kolegov']) DataList.refresh('odkazy-kolegov');
+      return null;
     },
 
     findWeb(id) {
@@ -344,6 +421,8 @@
         return { dup };
       }
       let r = await DB.insert('leads', row);
+      // Databáza bez 087 (remeslá) — firma sa uloží bez nich.
+      if (r.error && row.trade_keys && /trade_keys/.test(String(r.error.message || ''))) { delete row.trade_keys; r = await DB.insert('leads', row); }
       // Databáza bez 082 (logá) — firma sa uloží bez týchto stĺpcov.
       if (r.error && window.DanubraSiteMeta && DanubraSiteMeta.missing082(r.error)) r = await DB.insert('leads', DanubraSiteMeta.without082(row));
       if (r.error) {

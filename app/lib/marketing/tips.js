@@ -41,6 +41,14 @@
   const S = node ? require('./seeds.js') : (typeof window !== 'undefined' ? window.DanubraSeeds : null);
   // Meno firmy na porovnanie: DanubraLeads.normName (verejná stránka ho nemá — vtedy to isté zo seeds.js).
   const L = node ? require('./leads.js') : (typeof window !== 'undefined' ? window.DanubraLeads : null);
+  // Remeslá firiem (087) — kolega ich môže zakliknúť; overujú sa proti vstavanému zoznamu.
+  const TR = () => (node ? require('./trades.js') : (typeof window !== 'undefined' ? window.DanubraTrades : null));
+  /** Kľúče remesiel z formulára → len známe vstavané kľúče, alebo null. */
+  const tradeKeysOf = (v) => {
+    const t = TR();
+    const k = t ? t.valid(Array.isArray(v) ? v : (typeof v === 'string' && v ? v.split(',') : [])) : [];
+    return k.length ? k : null;
+  };
 
   const MAX_URLS = 20;
   const URL_MAX = 1000;
@@ -174,7 +182,8 @@
 
   /**
    * Jedna firma z formulára → očistený záznam alebo chyby pri poliach.
-   *   { company, link, city, relation, what, contact, unsure }
+   *   { company, link, city, relation, what, contact, unsure, trades }
+   * `trades` = kľúče remesiel (087), neznáme sa ticho vynechajú.
    * Odkaz je nepovinný (niekto si pamätá len meno), ale keď je, musí byť platný.
    * @returns {{ ok: true, firm } | { ok: false, errors: { field: text } }}
    */
@@ -205,6 +214,7 @@
       what_we_did: cut(r.what, LIMITS.what) || null,
       contact: cut(r.contact, LIMITS.contact) || null,
       unsure: r.unsure === true || r.unsure === 'on' || r.unsure === 'true',
+      trade_keys: tradeKeysOf(r.trades),
       maps: kind === 'maps' ? { name: link.name || null, lat: link.lat, lng: link.lng, short: !!link.short } : null,
     } };
   }
@@ -402,6 +412,9 @@
       },
     };
     if (validLL(lat, lng)) { row.lat = lat; row.lng = lng; }
+    // Remeslá, ktoré kolega zaklikol (087) — firma ich dostane ako určené.
+    const tk = tradeKeysOf(t.trade_keys);
+    if (tk) row.trade_keys = tk;
     if (m.checked) {
       row.logo_url = m.logo || null; row.og_image = m.og_image || null; row.site_title = cut(m.title, 200) || null;
       row.site_description = cut(m.description, 400) || null; row.site_embeddable = m.embeddable == null ? null : !!m.embeddable;
@@ -452,7 +465,7 @@
   }
 
   const API = { MAX_URLS, URL_MAX, LIMITS, STATUS, KINDS, RELATIONS, KNOWN_GOOD, RELEVANCE_NOTE, TRACKING, PLATFORMS, MESSAGE,
-    normalize, parseMaps, isShortMaps, keyOf, nameKey, parseFirm, parseFirms, domainsOf, duplicateOf,
+    normalize, parseMaps, isShortMaps, keyOf, nameKey, parseFirm, parseFirms, tradeKeysOf, domainsOf, duplicateOf,
     personKey, leaderboard, rankOf, nameFromTitle, tipName, tipLabel, tipToLead, origin, relationOf, searchUrl,
     tokenOk, makeToken, linkFor, shareText, whatsappUrl, statusOf, plural, addedText, fmtDay };
   if (typeof window !== 'undefined') window.DanubraTips = API;

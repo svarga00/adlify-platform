@@ -295,6 +295,7 @@
         'Detail firmy (klik na riadok): hore kde je, ako ďaleko je od kancelárie a od najbližšej bežiacej zákazky (vzdušnou čiarou, cesta autom približne), telefón, web, e-mail a Google hodnotenie; pod tým lišta akcií a záložky Prehľad, Kontakty a oslovenie, Podrobnosti a Web.',
         'Logá: pri firme je logo z jej webu; kým nie je načítané, ikona webu (služba Google s2/favicons, posiela sa len doména), inak iniciály. „Obnoviť logá a náhľady" ich doplní všetkým firmám s webom — zadarmo, stiahne sa len úvodná stránka webu.',
         '„Stĺpce" v lište: ktoré stĺpce vidíte, ich poradie (ťahaním alebo šípkami), šírka (ťahaním za okraj hlavičky) a kompaktné riadky. Platí len pre Vás na tomto zariadení. Navyše sú tu stĺpce Ďalší krok, Od nás a Posledný kontakt.',
+        'Remeslo: stĺpec a filter „Remeslo" (aj viac naraz, s počtami). Sú to tie isté remeslá ako v Remeslá a otázky. Appka ich odhadne z remesla od AI, kategórií z Google Máp a webu firmy; v detaile firmy ich zmeníte tlačidlom „Upraviť remeslá" a „Vrátiť automaticky" vráti odhad. Podľa nich sa píše e-mail, prezentácia aj ťahák k hovoru.',
       ],
       how: [
         'Firma, ktorú už máte (medzi odberateľmi alebo tu), sa neuloží druhýkrát — aj keď sa píše trochu inak. Pri hľadaní podľa webov sa porovnáva aj doména webu a vynechajú sa firmy, ktoré sa odhlásili z e-mailov.',
@@ -308,6 +309,7 @@
         'Export dáva všetky údaje zobrazených riadkov (aj vzdialenosť, ďalší krok a popis webu). „Firmy s kontaktmi" a „Všetky kontakty" pri Exporte pridajú hovory, ďalšie kroky a e-maily; „Exportovať len zobrazené stĺpce" je v paneli Stĺpce.',
         'Navrhované hľadania v okne „Podľa webov firiem": AI (alebo pravidlá) navrhne oblasť a vzorové weby z Vašich odberateľov a firiem so záujmom; klik vyplní formulár. Pri oblasti a poznámke appka našepkáva.',
         'Keď sa server dlhšie ako 3 minúty neozve, pás napíše „Hľadanie sa zrejme prerušilo" a ponúkne „Spustiť znova". Po skončení je pri hľadaní krátke „Čo AI zistila".',
+        'Pri hľadaní podľa webov môžete vybrať remeslá — AI potom uprednostní firmy s nimi a nájdené firmy dostanú remeslo hneď pri uložení. V detaile firmy vidíte, koľko živnostníkov na to remeslo máme v Ľuďoch (klik otvorí zoznam).',
       ],
       why: ['Noví odberatelia sa hľadajú podľa tých, s ktorými to funguje — nie naslepo.',
         'Každý palec spresní ďalšie hľadanie: AI vie, ktoré firmy sa Vám osvedčili a ktoré nie, a neplatí sa za firmy, ktoré nechcete.',
@@ -322,6 +324,7 @@
         'Stavy pri e-maile: Odoslané → Otvoril (alebo „Otvorenie (možno automaticky)") → Klikol → Odpovedal. Nedoručené = server firmy e-mail vrátil. Odhlásil sa = klikol na odhlásenie a už ho neoslovíme.',
         '„Možno automaticky": obrázky v e-maile načítal program (Apple Mail, Gmail, bezpečnostný skener), nie nutne človek. Sledovanie otvorenia preto nie je 100 % — rozhoduje odpoveď.',
         'Odpoveď a nedoručenka sa spárujú samy, keď prídu do schránky, z ktorej e-mail odišiel (Správy sa sťahujú každých 10 minút). Firma potom dostane stav Odpísala.',
+        'Remeslo firmy je stĺpec a filter v Odoslaných, vo Firmách a kontaktoch aj v Odkazoch od kolegov; v Dnes na rade vyberiete remeslo nad zoznamom. Po hovore dotazník „Ktoré remeslá potrebujú" ponúkne „Uložiť ako remeslá firmy".',
       ],
       how: [
         'Keď firma do termínu neodpíše (predvolene 5 dní), vznikne úloha „Pripomenúť sa firme …". „Pripomenúť sa" pošle krátku správu v tom istom vlákne (Re: …).',

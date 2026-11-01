@@ -52,6 +52,8 @@
   .chip span { display: inline-block; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--sub); background: #fff; }
   .chip input:checked + span { border-color: var(--or); background: var(--or-50); color: var(--ink); }
   .chip input:focus-visible + span { box-shadow: 0 0 0 3px rgba(240, 127, 26, .25); }
+  .chips.sm { gap: 6px; }
+  .chips.sm .chip span { padding: 6px 11px; font-size: 13.5px; }
   .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--sub); }
   .chk input { width: 18px; height: 18px; accent-color: var(--or); }
   .add { width: 100%; border: 1.5px dashed #C3CBDA; background: transparent; color: var(--ink); font: 700 15px/1 Hanken, system-ui, sans-serif;
@@ -122,11 +124,14 @@
 
 <script src="./lib/marketing/seeds.js"></script>
 <script src="./lib/marketing/leads.js"></script>
+<script src="./lib/marketing/trades.js"></script>
 <script src="./lib/marketing/tips.js"></script>
 <script>
 (function () {
   const API = '/.netlify/functions/danubra-lead-tip';
   const T = window.DanubraTips;
+  // Remeslá (087): vstavaný zoznam z trades.js — verejná stránka databázu nečíta.
+  const TR = window.DanubraTrades;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const store = {
@@ -147,6 +152,8 @@
   function firmHtml(n, v) {
     const id = `f${++seq}`;
     const rel = T.RELATIONS.map(([k, l]) => `<label class="chip"><input type="radio" name="${id}-rel" value="${k}"${v.relation === k ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('');
+    const mine = Array.isArray(v.trades) ? v.trades : [];
+    const tr = TR ? TR.BUILTIN.map(([k, l]) => `<label class="chip"><input type="checkbox" name="${id}-tr" data-tr value="${esc(k)}"${mine.includes(k) ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('') : '';
     return `<div class="card firm" data-firm="${id}">
       <div class="firm-h"><b>Firma <span class="n">${n}</span></b><button type="button" class="x" data-rm="${id}" aria-label="Odobrať firmu"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Odobrať</button></div>
       <div class="fld" data-f="company"><label class="f" for="${id}-c">Názov firmy</label>
@@ -157,6 +164,7 @@
       <div class="fld"><label class="f" for="${id}-m">Mesto <em>(nepovinné)</em></label>
         <input type="text" id="${id}-m" data-k="city" maxlength="120" placeholder="napr. Augsburg" value="${esc(v.city)}"></div>
       <div class="fld"><span class="f" style="display:block;font-weight:700;font-size:14px;margin-bottom:6px;">Vzťah</span><div class="chips" role="radiogroup" aria-label="Vzťah k firme">${rel}</div></div>
+      ${tr ? `<div class="fld"><span class="f" style="display:block;font-weight:700;font-size:14px;margin-bottom:6px;">Remeslo <em style="font-style:normal;font-weight:400;color:var(--mute)">(nepovinné, aj viac)</em></span><div class="chips sm" role="group" aria-label="Remeslo firmy">${tr}</div></div>` : ''}
       <div class="fld"><label class="f" for="${id}-w">Čo sme spolu robili <em>(nepovinné)</em></label>
         <textarea id="${id}-w" data-k="what" maxlength="1000" rows="2" placeholder="napr. sadrokartón na bytovke v Ulme, 2024, 6 ľudí">${esc(v.what)}</textarea></div>
       <div class="fld"><label class="f" for="${id}-k">Kto bol kontakt <em>(nepovinné)</em></label>
@@ -170,7 +178,8 @@
     const g = (k) => { const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value : ''; };
     const r = card.querySelector('input[type=radio]:checked');
     return { company: g('company'), link: g('link'), city: g('city'), what: g('what'), contact: g('contact'),
-      relation: r ? r.value : null, unsure: !!(card.querySelector('[data-k="unsure"]') || {}).checked };
+      relation: r ? r.value : null, unsure: !!(card.querySelector('[data-k="unsure"]') || {}).checked,
+      trades: [...card.querySelectorAll('input[data-tr]:checked')].map(i => i.value) };
   }
   function renumber() {
     const list = cards();

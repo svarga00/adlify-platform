@@ -24,6 +24,15 @@
 (function () {
   const F = (typeof require === 'function' && typeof module !== 'undefined')
     ? require('./followup.js') : (typeof window !== 'undefined' ? window.DanubraFollowup : null);
+  // Remeslá firiem (087): kľúče z dotazníka → slovenské názvy. Načíta sa až pri použití (v prehliadači je trades.js za týmto súborom).
+  const TR = () => ((typeof require === 'function' && typeof module !== 'undefined')
+    ? require('./trades.js') : (typeof window !== 'undefined' ? window.DanubraTrades : null));
+  /** Kľúč remesla („maliar") → názov („Maľovanie" / name_sk z tabuľky); starý text („Maler") ostane, ako je. */
+  const tradeName = (v, table) => {
+    const t = TR();
+    const known = t && (t.KEYS.includes(v) || (Array.isArray(table) && table.some(x => x && x.key === v)));
+    return known ? t.labelSk(v, table) : v;
+  };
 
   /** [kľúč, názov, farba, poradie v procese] — kľúče sú hodnoty danubra_leads.status. */
   const STAGES = [
@@ -156,7 +165,7 @@
   }
 
   /** Súhrn v bodoch po slovensky — ide do `summary` a číta ho návrh ďalšieho kroku (pravidlá aj AI). */
-  function composeSummary(answers, { contactName = '', contactRole = '' } = {}) {
+  function composeSummary(answers, { contactName = '', contactRole = '', tradesTable = null } = {}) {
     const a = cleanAnswers(answers);
     if (!a) return '';
     const L = [];
@@ -164,7 +173,7 @@
     if (a.right_person === 'yes') L.push(`Správna osoba: ${who(one(contactName, 160), one(contactRole, 120)) || 'áno'}`);
     else if (a.right_person === 'no') L.push(`Nesprávna osoba — rozhoduje: ${who(a.decider_name, a.decider_role) || 'nevieme kto'}`);
     if (a.subcontractors) L.push(`Subdodávateľov berú: ${YNU[a.subcontractors]}`);
-    const trades = [...a.trades, a.trades_other].filter(Boolean);
+    const trades = [...a.trades.map(v => tradeName(v, tradesTable)), a.trades_other].filter(Boolean);
     if (trades.length) L.push(`Remeslá: ${trades.join(', ')}`);
     if (a.headcount || a.when) L.push(`Potrebujú: ${[a.headcount ? `${a.headcount} ${a.headcount === 1 ? 'človeka' : 'ľudí'}` : '', a.when ? WHEN[a.when] : ''].filter(Boolean).join(', ')}`);
     if (a.sites) L.push(`Stavby: ${a.sites}`);

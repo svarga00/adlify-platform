@@ -5,7 +5,8 @@
 // firmy, a v appke sa to zbiera…" — stránka app/odkazy.html#t=<kľúč>.
 //
 //   POST { t, check: true }  → 200 { ok } alebo 403 — platí odkaz? (pri otvorení stránky)
-//   POST { t, name, firms: [{ company, link, city, relation, what, contact, unsure }], website }
+//   POST { t, name, firms: [{ company, link, city, relation, what, contact, unsure, trades }], website }
+//     trades = kľúče remesiel (087, lib/marketing/trades.js) — neznáme sa vynechajú
 //     → 200 { ok, added, duplicates, results: [{ i, company, status, why }], mine, rank, team }
 //     → 400 { error, field? , errors: [{ i, field, error }] }   nič sa neuloží
 //     → 403 odkaz neplatí (zlý kľúč alebo vypnutý zber — tá istá veta)
@@ -98,6 +99,9 @@ function originOk(event) {
 }
 
 // ── Databáza ────────────────────────────────────────────────────────────────
+/** Chyba „stĺpec trade_keys ešte nie je" — migrácia 087 nie je spustená. */
+const missing087 = (e) => !!e && /trade_keys/.test(String(e.message || '')) && (['PGRST204', '42703'].includes(e.code) || /schema cache|column|does not exist/i.test(String(e.message || '')));
+
 function supabaseDb() {
   let sb = null;
   const c = () => {
@@ -132,7 +136,11 @@ function supabaseDb() {
       return { leads: l.data || [], partners: p.data || [], tips: t.data || [] };
     },
     async insertTips(rows) {
-      const { data, error } = await c().from('danubra_lead_tips').insert(rows).select('id,company_name,website,status');
+      let { data, error } = await c().from('danubra_lead_tips').insert(rows).select('id,company_name,website,status');
+      // Bez migrácie 087 stĺpec trade_keys nie je — odkazy sa uložia bez remesiel.
+      if (error && missing087(error)) {
+        ({ data, error } = await c().from('danubra_lead_tips').insert(rows.map(({ trade_keys, ...r }) => r)).select('id,company_name,website,status'));
+      }
       if (error) throw error;
       return data || [];
     },
@@ -220,6 +228,7 @@ async function handle(event, deps = {}) {
       batch_id: batch, company_name: f.company_name, url: f.url, kind: f.kind, website: f.website, domain: f.domain,
       profile_url: f.profile_url, city: f.city, relation: f.relation, what_we_did: f.what_we_did, contact: f.contact,
       unsure: f.unsure, submitted_by_name: name, status: dup ? 'duplicate' : 'new',
+      ...(f.trade_keys ? { trade_keys: f.trade_keys } : {}),
       duplicate_of_lead_id: dup ? (dup.kind === 'lead' ? dup.id : dup.lead_id || null) : null,
       duplicate_of_partner_id: dup ? (dup.kind === 'partner' ? dup.id : dup.partner_id || null) : null,
       duplicate_of_tip_id: dup && dup.kind === 'tip' ? dup.id : null,
@@ -261,3 +270,4 @@ exports.sign = sign;
 exports.signOk = signOk;
 exports.sameToken = sameToken;
 exports.LIMITS = { WINDOW_MS, PER_WINDOW, MAX_BODY };
+exports.missing087 = missing087;

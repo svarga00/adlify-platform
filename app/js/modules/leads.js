@@ -43,6 +43,11 @@
 //
 // Odkazy od kolegov (085): firma pridaná z odkazu má zdroj „od kolegu"
 // a v zozname aj v detaile „Tip od: Jano, 31. 10." (js/modules/lead-tips.js).
+//
+// Remeslá firiem (087, lib/marketing/trades.js): stĺpec a filter „Remeslo"
+// (kľúče danubra_trades so slovenským názvom), čipy v hlavičke detailu,
+// „Upraviť remeslá" (lead.trade_keys; „Vrátiť automaticky" = null), koľko
+// ľudí na to remeslo máme v kartotéke a voliteľné remeslá pri hľadaní.
 // ============================================================================
 (function () {
   const LL = () => window.DanubraLeads;
@@ -70,6 +75,9 @@
   /** Bežiace zákazky — na „ako ďaleko je to k najbližšej zákazke". */
   const SITE_ACTIVE = ['active'];
   const TABS = [['prehlad', 'Prehľad'], ['kontakty', 'Kontakty a oslovenie'], ['podrobnosti', 'Podrobnosti'], ['web', 'Web']];
+  const TR = () => window.DanubraTrades;
+  /** Chyba „stĺpec trade_keys ešte nie je" — migrácia 087 nie je spustená. */
+  const missing087 = (e) => !!e && /trade_keys/.test(String(e.message || '')) && (['PGRST204', '42703'].includes(e.code) || /schema cache|column|does not exist/i.test(String(e.message || '')));
 
   async function token() {
     try { const { data } = await DB.client.auth.getSession(); return (data && data.session && data.session.access_token) || ''; }
@@ -100,15 +108,158 @@
     },
 
     async load() {
-      const [l, p, s, ls] = await Promise.all([
+      const [l, p, s, ls, tr] = await Promise.all([
         DB.list('leads', { order: { column: 'created_at', ascending: false }, limit: 3000 }),
         DB.list('partners', { select: 'id,name,city,country,email,status,website', limit: 1000 }),
         DB.list('subcontracts', { select: 'id,partner_id,trade,title,status,site_city,lat,lng', limit: 1000 }),
         DB.list('lead_searches', { order: { column: 'created_at', ascending: false }, limit: 50 }),
+        // Remeslá a otázky (danubra_trades) — slovenské názvy remesiel firiem (087).
+        DB.list('trades', { select: 'key,name_sk,name_de,active,sort_order', order: { column: 'sort_order', ascending: true }, limit: 100 }),
       ]);
       this.rows = (l.data || []).filter(x => !x.archived_at);
       this.partners = p.data || []; this.subcontracts = s.data || []; this.searches = ls.data || [];
+      // Kto Remeslá nevidí (práva), má vstavané názvy — nie je to chyba načítania.
+      this.trades = (tr && !tr.error && tr.data) || [];
+      if (tr && tr.error && Array.isArray(DB.failures)) DB.failures = DB.failures.filter(f => !/danubra_trades/.test(f.table));
+      this._tk = new Map();
       this.loaded = true;
+    },
+
+    // ── Remeslá firiem (087) ─────────────────────────────────────────────
+    searchOf(r) { return (r && r.seed_search_id && this.searches.find(s => s.id === r.seed_search_id)) || null; },
+    /** Remeslá firmy (ručné, inak zistené) — zapamätané, kým sa údaje firmy nezmenia. */
+    tradeKeys(r) {
+      if (!r || !TR()) return [];
+      if (!this._tk) this._tk = new Map();
+      const sig = [(r.trade_keys || []).join(','), r.trade, (r.categories || []).join(','), r.name, r.site_title, r.site_description,
+        r.profile && r.profile.summary, r.why, r.seed_search_id].join('|');
+      const hit = this._tk.get(r.id);
+      if (hit && hit.sig === sig) return hit.keys;
+      const keys = TR().keysOf(r, this.searchOf(r));
+      this._tk.set(r.id, { sig, keys });
+      return keys;
+    },
+    tradeLabels(r) { return TR() ? TR().labels(this.tradeKeys(r), this.trades) : []; },
+    tradeChips(r, max = 2) { return TR() ? TR().chipsHtml(this.tradeKeys(r), { table: this.trades, max, source: TR().source(r) }) : ''; },
+    /** Stĺpec „Remeslo" — ten istý v Nových firmách aj v Oslovovaní (`get` = riadok → firma). */
+    tradeColumn(get = (r) => r) {
+      return { key: 'remeslo', label: 'Remeslo', width: 'minmax(130px, .9fr)', mobileLabel: 'remeslo',
+        tip: 'Remeslá firmy (tie isté ako v Remeslá a otázky). Appka ich odhadne z toho, čo o firme vieme (remeslo od AI, kategórie z Google Máp, web); oranžové určil človek. Zmeníte ich v detaile firmy — „Upraviť remeslá". Podľa nich sa píše e-mail a prezentácia.',
+        render: (r) => this.tradeChips(get(r)), sortValue: (r) => (TR() ? TR().sortValue(this.tradeKeys(get(r)), this.trades) : null),
+        csv: (r) => this.tradeLabels(get(r)).join(', ') };
+    },
+    /** Filter „Remeslo" (viac naraz, s počtami; „Neurčené" = firmy bez remesla). */
+    tradeFilter(get = (r) => r) {
+      return { key: 'remeslo', type: 'multi', label: 'Remeslo', allLabel: 'Všetky remeslá', emptyLabel: 'Neurčené',
+        value: (r) => { const k = this.tradeKeys(get(r)); return k.length ? k : ['']; },
+        options: () => (TR() ? TR().options(this.trades).map(o => [o.key, o.label]) : []),
+        hint: 'Firmy podľa remesla — aj viac naraz. Neurčené = remeslo sa z údajov firmy nedá zistiť; doplňte ho v detaile firmy.' };
+    },
+    /**
+     * Uloží remeslá firmy. `keys` = zoznam kľúčov, null = automaticky.
+     * @returns {Promise<boolean>}
+     */
+    async saveTrades(id, keys) {
+      const r = this.rows.find(x => x.id === id) || (window.Outreach && Outreach.lead ? Outreach.lead(id) : null);
+      const list = keys == null ? [] : TR().valid(keys, { table: this.trades });
+      const trade_keys = list.length ? list : null;
+      const patch = { trade_keys };
+      // Remeslá z hľadania (profile.trades_from) sa ručnou zmenou stanú ručnými.
+      if (r && r.profile && typeof r.profile === 'object' && r.profile.trades_from) patch.profile = { ...r.profile, trades_from: null };
+      const { error } = await DB.update('leads', id, patch);
+      if (error) {
+        UI.toast(missing087(error) ? 'Remeslá sa neuložili — v databáze chýba migrácia 087' : `Chyba: ${error.message}`, 'err');
+        return false;
+      }
+      if (r) Object.assign(r, patch);
+      UI.toast(trade_keys ? `Remeslá uložené: ${TR().labels(trade_keys, this.trades).join(', ')}` : 'Remeslá sa znova určujú automaticky', 'ok');
+      this.repaintTrades(id);
+      return true;
+    },
+    /** Po zmene remesiel: zoznamy (Nové firmy, Oslovovanie) a otvorená hlavička firmy. */
+    repaintTrades(id) {
+      for (const k of ['leads', 'odoslane', 'firmy-kontakty']) if (DataList._reg && DataList._reg[k]) { try { DataList.refresh(k); } catch (e) { /* zoznam nie je na obrazovke */ } }
+      if (window.Outreach && Outreach.tab === 'today' && Danubra.route === 'outreach') Danubra.renderRoute();
+      const r = this.rows.find(x => x.id === id);
+      const el = document.querySelector('.ld-modal .ld-id');
+      if (r && el && this._openId === id) el.outerHTML = this.idHtml(r);
+      const pick = document.querySelector('[data-ld-trpick]');
+      if (pick) { pick.hidden = true; pick.innerHTML = ''; }
+    },
+
+    // ── Ľudia na remeslo (kartotéka, danubra_workers.profession) ─────────
+    async loadWorkers() {
+      if (this._wk) return this._wk;
+      if (!this._wkP) {
+        this._wkP = DB.list('workers', { select: 'id,profession,status', limit: 3000 }).then((w) => {
+          if (w && w.error && Array.isArray(DB.failures)) DB.failures = DB.failures.filter(f => !/danubra_workers/.test(f.table));
+          this._wk = w && !w.error ? (w.data || []) : [];
+          return this._wk;
+        }).catch(() => { this._wk = []; return this._wk; });
+      }
+      return this._wkP;
+    },
+    /** „Máme k dispozícii: 3 živnostníci na toto remeslo" (odkaz na Ľudí s filtrom). */
+    availHtml(r) {
+      if (!this._wk || !TR()) return '';
+      const keys = this.tradeKeys(r).filter(k => k !== TR().GENERIC_KEY);
+      if (!keys.length) return '';
+      const n = (k) => TR().workerCount(this._wk, k);
+      const zv = (c) => `${c} ${Shell.plural(c, 'živnostník', 'živnostníci', 'živnostníkov')}`;
+      const link = (k, text) => `<a href="#/workers" onclick="event.preventDefault();Lead.showWorkers('${UI.esc(k)}')" title="Otvoriť Ľudí s remeslom ${UI.esc(TR().labelSk(k, this.trades))}">${text}</a>`;
+      const tip = UI.tip('Ľudia v kartotéke (Ľudia) s touto profesiou, okrem neaktívnych a tých, s ktorými nespolupracujeme. Klik otvorí zoznam Ľudí s týmto remeslom.');
+      if (keys.length === 1) {
+        const c = n(keys[0]);
+        return `<div class="ld-avail">${Icon('workers', 12)} ${c ? `Máme k dispozícii: ${link(keys[0], zv(c))} na toto remeslo` : 'Na toto remeslo zatiaľ nemáme v kartotéke nikoho'}${tip}</div>`;
+      }
+      const sum = keys.reduce((a, k) => a + n(k), 0);
+      return `<div class="ld-avail">${Icon('workers', 12)} ${sum ? `Máme k dispozícii: ${zv(sum)} —` : 'Na tieto remeslá zatiaľ nemáme v kartotéke nikoho:'} ${
+        keys.map(k => (n(k) ? link(k, `${UI.esc(TR().labelSk(k, this.trades))} ${n(k)}`) : `<span>${UI.esc(TR().labelSk(k, this.trades))} 0</span>`)).join(' · ')}${tip}</div>`;
+    },
+    showWorkers(key) {
+      UI.closeModal();
+      if (window.Wrk) Wrk._wantProfession = key;
+      Danubra.go('workers');
+    },
+
+    // ── Výber remesiel (detail firmy) ────────────────────────────────────
+    tradePick(id) {
+      const r = this.rows.find(x => x.id === id);
+      const box = document.querySelector('[data-ld-trpick]');
+      if (!r || !box || !TR()) return;
+      if (!box.hidden) { box.hidden = true; box.innerHTML = ''; this.syncTrBtn(false); return; }
+      this._pick = new Set(this.tradeKeys(r));
+      const auto = TR().detectKeys(r, this.searchOf(r));
+      const src = TR().source(r);
+      const man = src !== 'auto';
+      box.innerHTML = `<div class="tr-pick" role="group" aria-label="Remeslá firmy">
+        <div class="tr-pick-h"><b>Remeslá firmy</b><small>${src === 'hand' ? 'Teraz určené ručne.' : src === 'search' ? 'Teraz určené pri hľadaní.' : 'Teraz automaticky z údajov firmy.'} Vyberte jedno alebo viac — podľa nich sa píše e-mail, prezentácia a ťahák k hovoru.</small></div>
+        <div class="tr-opts">${TR().options(this.trades).map(o => `<button type="button" class="tr-opt" data-tr-k="${UI.esc(o.key)}" aria-pressed="${this._pick.has(o.key)}"
+          onclick="Lead.tradeToggle(this)"><span class="tr-tick">${Icon('check', 12)}</span>${UI.esc(o.label)}</button>`).join('')}</div>
+        <div class="tr-pick-acts">
+          <button type="button" class="btn btn-primary btn-sm" onclick="Lead.tradeSave('${UI.esc(id)}')">${Icon('check', 14)} Uložiť remeslá</button>
+          ${man ? `<button type="button" class="btn btn-ghost btn-sm" onclick="Lead.saveTrades('${UI.esc(id)}', null)" title="Zmaže ručný výber — remeslá sa znova odhadnú z údajov firmy">${Icon('repeat', 14)} Vrátiť automaticky</button>` : ''}
+          <span class="sp"></span>
+          <small class="ld-tr-mode">Automaticky by bolo: ${UI.esc(auto.length ? TR().labels(auto, this.trades).join(', ') : TR().NONE)}</small>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="Lead.tradePick('${UI.esc(id)}')">Zrušiť</button>
+        </div></div>`;
+      box.hidden = false;
+      this.syncTrBtn(true);
+      const first = box.querySelector('.tr-opt');
+      if (first) first.focus();
+    },
+    syncTrBtn(open) { document.querySelectorAll('.ld-tr-btn').forEach(b => b.setAttribute('aria-expanded', String(!!open))); },
+    tradeToggle(btn) {
+      const k = btn.getAttribute('data-tr-k');
+      if (!this._pick) this._pick = new Set();
+      if (this._pick.has(k)) this._pick.delete(k); else this._pick.add(k);
+      btn.setAttribute('aria-pressed', String(this._pick.has(k)));
+    },
+    async tradeSave(id) {
+      // Poradie ako vo výbere (hlavné remeslo prvé).
+      const order = TR().options(this.trades).map(o => o.key);
+      const keys = [...(this._pick || [])].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      return this.saveTrades(id, keys.length ? keys : null);
     },
 
     partnerName(id) { return (this.partners.find(p => p.id === id) || {}).name || ''; },
@@ -435,18 +586,30 @@
       if (h) h.outerHTML = this.idHtml(r);
       this.mountContacts(r);
       this.tab(this.lastTab(), { save: false });
+      // Koľko ľudí na remeslo firmy máme — načíta sa raz, potom sa hlavička doplní.
+      if (!this._wk) {
+        this.loadWorkers().then(() => {
+          const h2 = document.querySelector('.ld-modal .ld-id');
+          if (h2 && this._openId === id) h2.outerHTML = this.idHtml(r);
+        });
+      }
     },
 
     /** Hlavička okna: logo, meno, krátky popis, etapa, skóre, palec. */
     idHtml(r) {
       const st = statusOf(r.status);
       const sum = LV() ? LV().summary(r) : { text: '' };
-      const sub = [[r.postal_code, r.city].filter(Boolean).join(' '), r.trade].filter(Boolean).join(' · ');
+      const sub = [r.postal_code, r.city].filter(Boolean).join(' ');
+      const src = TR() ? TR().source(r) : 'auto';
+      const trades = TR() ? `<span class="ld-trades" title="${src === 'hand' ? 'Remeslá určené ručne' : src === 'search' ? 'Remeslá určené pri hľadaní' : 'Remeslá odhadnuté z údajov firmy'}">${this.tradeChips(r, 4)}
+          <button type="button" class="ld-tr-btn" aria-expanded="false" aria-controls="ld-trpick" onclick="Lead.tradePick('${UI.esc(r.id)}')">${Icon('edit', 12)} Upraviť remeslá</button>${
+          this.tradeKeys(r).length ? `<span class="ld-tr-mode">${TR().SOURCE_LABEL[src]}</span>` : ''}</span>` : '';
       return `<div class="ld-id">${this.logoHtml(r, 44)}
         <div class="ld-id-t"><h3>${UI.esc(r.name)}</h3>
           <div class="ld-id-sub">${UI.badge(st[1], st[2])}${r.score != null ? `<span class="ld-score${r.score >= 80 ? ' is-green' : r.score >= 60 ? ' is-amber' : ''}" title="Podobnosť so zadanými firmami 0–100 (odhad AI)">skóre <b>${Number(r.score)}</b></span>` : ''}${
-            sub ? `<span>${UI.esc(sub)}</span>` : ''}${r.next_step_at || r.next_step_text ? `<span class="ld-next${r.next_step_at && String(r.next_step_at).slice(0, 10) <= new Date().toISOString().slice(0, 10) ? ' is-due' : ''}"
+            trades}${sub ? `<span>${UI.esc(sub)}</span>` : ''}${r.next_step_at || r.next_step_text ? `<span class="ld-next${r.next_step_at && String(r.next_step_at).slice(0, 10) <= new Date().toISOString().slice(0, 10) ? ' is-due' : ''}"
               title="Dohodnutý ďalší krok — na jeho deň je úloha v Úlohách">${Icon('flag', 12)} ${UI.esc([DanubraDataList.fmtDay(r.next_step_at), r.next_step_text].filter(Boolean).join(' · '))}</span>` : ''}</div>
+          ${this.availHtml(r)}
           ${tipLine(r) ? `<div class="ld-id-call ld-id-tip">${Icon('clients', 12)} ${UI.esc(tipLine(r))}</div>` : ''}
           ${this._lastCall && this._lastCall.id === r.id && this._lastCall.text ? `<div class="ld-id-call">${Icon('phone', 12)} ${UI.esc(this._lastCall.text)}</div>` : ''}
           ${sum.text ? `<p class="ld-id-desc">${UI.esc(sum.text)}</p>` : ''}</div></div>`;
@@ -455,6 +618,7 @@
     detailHtml(r) {
       const id = UI.esc(r.id);
       return `<div class="ld" data-ld="${id}">
+        <div id="ld-trpick" data-ld-trpick hidden></div>
         ${this.glanceHtml(r)}
         ${this.barHtml(r)}
         <div class="ld-tabs" role="tablist" aria-label="Údaje o firme">${TABS.map(([k, l]) => `<button type="button" role="tab" class="ld-tab" id="ld-tab-${k}"
@@ -543,6 +707,7 @@
           <dl class="ld-kv">
             ${kv('Adresa', UI.esc(LV() ? LV().addressLine(r) : r.address || ''))}
             ${kv('Región', UI.esc(r.region || ''))}
+            ${kv('Remeslo', UI.esc(this.tradeLabels(r).join(', ')))}
             ${kv('Čím sa zaoberá', UI.esc(r.trade || ''))}
             ${kv('Kategórie', kat)}
             ${kv('Zamestnanci', r.employees ? `${UI.esc(r.employees)} (odhad)` : '')}
@@ -922,9 +1087,10 @@
           { ico: 'chevron', label: 'Otvoriť firmu', run: (r) => Lead.detail(r.id) }],
         columns: [
           { key: 'firma', label: 'Firma', width: 'minmax(220px, 2fr)', mobile: 'title',
-            render: (r) => `<span class="ld-who">${this.logoHtml(r, 30)}<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([[r.postal_code, r.city].filter(Boolean).join(' '),
-              r.trade].filter(Boolean).join(' · ') || '—')}</small></span></span>`,
+            render: (r) => `<span class="ld-who">${this.logoHtml(r, 30)}<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([r.postal_code, r.city].filter(Boolean).join(' ') || '—')}</small></span></span>`,
             sortValue: (r) => r.name, sortLabel: 'Názov', csv: (r) => r.name },
+          // Remeslo (087): čipy so slovenskými názvami, hneď za firmou.
+          this.tradeColumn(),
           { key: 'stav', label: 'Stav', width: '104px', mobile: 'badge',
             render: (r) => { const st = statusOf(r.status); return UI.badge(st[1], st[2]); }, sortValue: (r) => statusIdx(r.status) },
           { key: 'skore', label: 'Skóre', width: '64px', align: 'right', mobileLabel: 'skóre',
@@ -972,11 +1138,14 @@
         ],
         sort: { key: 'skore', dir: -1 },
         sorts: [{ key: 'pridana', label: 'Pridaná', value: (r) => r.created_at, dir: -1 }],
+        // Remeslo je v lište vedľa Stavu (nie v Ďalších filtroch).
+        maxPrimary: 5,
         filters: [
           { key: 'q', type: 'search', placeholder: 'Hľadať meno, mesto, remeslo…', label: 'Hľadať meno, mesto, remeslo, e-mail alebo konateľa',
-            fields: ['name', 'city', 'trade', 'email', 'contact_person', 'region', 'website'] },
+            fields: ['name', 'city', 'trade', 'email', 'contact_person', 'region', 'website', (r) => this.tradeLabels(r).join(' ')] },
           { key: 'stav', type: 'multi', label: 'Stav', value: 'status', options: LL().STATUS.map(s => [s[0], s[1]]), sortOptions: false,
             allLabel: 'Všetky', hint: 'Nová = ešte sme jej nepísali. Oslovená = odišiel jej e-mail (prepne sa samo po odoslaní). Odpísala, Má záujem a Nemá záujem nastavujete Vy. Odhlásená = v e-maile klikla na odhlásenie a už jej nič nepôjde.' },
+          this.tradeFilter(),
           { key: 'hladanie', type: 'select', label: 'Hľadanie', value: 'seed_search_id', allLabel: 'Všetky hľadania',
             optionLabel: (id) => this.searchLabel(id), emptyLabel: 'Bez hľadania podľa webov' },
           { key: 'mail', type: 'toggle', label: 'Má e-mail', test: (r) => LL().emailOk(r.email),
@@ -989,7 +1158,8 @@
             hint: 'Hodnotenie na Google Mapách, napr. od 4 — firmy, s ktorými sú zákazníci spokojní.' },
           { key: 'recenzie', type: 'range-number', label: 'Recenzie od', value: 'reviews_count', more: true,
             hint: 'Počet recenzií na Google Mapách, napr. od 10 — väčšie a aktívne firmy.' },
-          { key: 'remeslo', type: 'select', label: 'Remeslo', value: 'trade', allLabel: 'Všetky remeslá', emptyLabel: 'Nezadané', more: true },
+          { key: 'odai', type: 'select', label: 'Čím sa zaoberá (text od AI)', value: 'trade', allLabel: 'Všetko', emptyLabel: 'Nezadané', more: true,
+            hint: 'Pôvodný text od AI alebo z formulára (po slovensky). Na výber firiem podľa remesla je filter Remeslo v lište.' },
           { key: 'mesto', type: 'select', label: 'Mesto / región', value: (r) => r.region || r.city, allLabel: 'Všetky', emptyLabel: 'Nezadané', more: true },
           { key: 'zdroj', type: 'select', label: 'Zdroj', value: 'source', allLabel: 'Všetky zdroje', more: true,
             options: Object.entries(SOURCE).map(([k, l]) => [k, l]) },
@@ -1017,7 +1187,11 @@
             ['Firma', r => r.name], ['Stav', r => statusOf(r.status)[1]], ['Skóre', r => r.score], ['E-mail', r => r.email],
             ['E-mail odkiaľ', r => EMAIL_FROM[r.profile && r.profile.email_source] || ''], ['Telefón', r => r.phone],
             ['Konateľ', r => r.contact_person], ['USt-IdNr', r => r.vat_id], ['Web', r => r.website], ['Ulica', r => r.address],
-            ['PSČ', r => r.postal_code], ['Mesto', r => r.city], ['Región', r => r.region], ['Remeslo', r => r.trade],
+            ['PSČ', r => r.postal_code], ['Mesto', r => r.city], ['Región', r => r.region],
+            ['Remeslo', r => this.tradeLabels(r).join(', ')],
+            ['Remeslo (DE)', r => (TR() ? this.tradeKeys(r).map(k => TR().labelDe(k, this.trades)).filter(Boolean).join(', ') : '')],
+            ['Remeslo určené', r => (!this.tradeKeys(r).length || !TR() ? '' : TR().SOURCE_LABEL[TR().source(r)])],
+            ['Čím sa zaoberá (AI)', r => r.trade],
             ['Veľkosť', r => r.employees], ['Prečo', r => r.why], ['Zdroj', r => SOURCE[r.source] || r.source],
             ['Hľadanie', r => (r.seed_search_id ? this.searchLabel(r.seed_search_id) : '')], ['Tip od kolegu', r => r.tip_by || ''],
             ['Hodnotenie', r => r.rating], ['Recenzie', r => r.reviews_count],
@@ -1092,7 +1266,7 @@
       return `<div class="acc-card card">
         <div class="acc-card-head">
           <div style="min-width:0;"><div class="acc-name">${UI.esc(r.name)}</div>
-            <div class="acc-loc">${UI.esc([r.postal_code, r.city].filter(Boolean).join(' ') || '—')}${r.trade ? ` · ${UI.esc(r.trade)}` : ''}</div></div>
+            <div class="acc-loc">${UI.esc([r.postal_code, r.city].filter(Boolean).join(' ') || '—')}${this.tradeLabels(r).length ? ` · ${UI.esc(this.tradeLabels(r).join(', '))}` : ''}</div></div>
           <span style="display:inline-flex;align-items:center;flex:none;">${UI.badge(st[1], st[2])}</span>
         </div>
         ${r.why ? `<div style="font-size:12.5px;color:var(--ink-sub);margin:0 0 8px;">${UI.esc(r.why)}${UI.tip(r.source === 'urls'
@@ -1308,6 +1482,8 @@
           <div class="fld-full">${UI.field('u_note', 'Poznámka (nepovinné)', { placeholder: 'napr. len firmy so suchou výstavbou, nad 20 zamestnancov',
             tip: 'Vlastnými slovami, aké firmy chcete. AI to zoberie do úvahy. Môžete písať po slovensky.' })}</div>
           <div class="fld-full ls-chips" id="find-cats"></div>
+          <div class="fld-full"><div class="form-section">Remeslá (nepovinné)${UI.tip('Na aké remeslá hľadáte firmy. AI potom pri dotazoch a skóre uprednostní firmy s týmito remeslami a nájdené firmy dostanú remeslo hneď pri uložení. Keď nič nevyberiete, hľadá sa ako doteraz — podľa toho, čo robia zadané firmy.')}</div>
+            <div class="tr-opts" id="find-trades" role="group" aria-label="Remeslá pri hľadaní">${this.findTradesHtml()}</div></div>
         </div>
         <div id="find-urls-os" aria-live="polite">${this.osBoxHtml()}</div>
         <p class="card-note">Pri každej nájdenej firme appka stiahne jej Impressum a vezme z neho e-mail, telefón, adresu, USt-IdNr a konateľa.
@@ -1317,6 +1493,20 @@
           <button type="submit" class="btn btn-primary" id="find-urls-go">${Icon('search', 14)} Hľadať</button>
         </div>
       </form>`;
+    },
+
+    /** Čipy remesiel v okne hľadania (výber sa pamätá, kým je appka otvorená). */
+    findTradesHtml() {
+      if (!TR()) return '';
+      if (!this._findTrades) this._findTrades = new Set();
+      return TR().options(this.trades).filter(o => o.key !== TR().GENERIC_KEY).map(o => `<button type="button" class="tr-opt" data-tr-k="${UI.esc(o.key)}"
+        aria-pressed="${this._findTrades.has(o.key)}" onclick="Lead.findTradeToggle(this)"><span class="tr-tick">${Icon('check', 12)}</span>${UI.esc(o.label)}</button>`).join('');
+    },
+    findTradeToggle(btn) {
+      const k = btn.getAttribute('data-tr-k');
+      if (!this._findTrades) this._findTrades = new Set();
+      if (this._findTrades.has(k)) this._findTrades.delete(k); else this._findTrades.add(k);
+      btn.setAttribute('aria-pressed', String(this._findTrades.has(k)));
     },
 
     /** Rámik v okne hľadania: je Outscraper zapnutý a koľko záznamov prehľadá. */
@@ -1552,6 +1742,8 @@
       const params = { urls: r.seeds.map(s => s.url), region: String(d.u_region || '').trim().slice(0, 80),
         count: SD().clampCount(d.u_count), note: String(d.u_note || '').trim().slice(0, 500),
         min_score: OX().minScore(d.u_min), without_web: d.u_noweb === true,
+        // Remeslá (087): AI ich uprednostní; prázdne = ako doteraz.
+        trades: TR() ? TR().valid([...(this._findTrades || [])], { table: this.trades }) : [],
         // Len na zobrazenie počas behu — o zdroji rozhoduje server (kľúč v env).
         outscraper: !!(this.osStatus && this.osStatus.on) };
       this._urlsDraft = '';

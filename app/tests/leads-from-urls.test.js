@@ -215,8 +215,11 @@ console.log('Nové firmy podľa webov — serverová funkcia');
       'https://maier-innenausbau.de/impressum.html'], 'údaje z Impressum (regex), nie od AI');
   eq([m.source, m.status, m.seed_search_id, m.score, m.website, m.country], ['urls', 'new', 's1', 94, 'https://maier-innenausbau.de', 'DE'],
     'zdroj „urls", stav Nová, z ktorého hľadania, skóre');
-  eq(m.profile, { summary: 'Trockenbau.', similar_to_url: 'https://www.huber-trockenbau.de/', email_source: 'impressum', email_kind: 'generic' },
-    'profil: ktorej zadanej sa podobá, e-mail z Impressum');
+  eq(m.profile, { summary: 'Trockenbau.', similar_to_url: 'https://www.huber-trockenbau.de/', email_source: 'impressum', email_kind: 'generic', trades_from: 'search' },
+    'profil: ktorej zadanej sa podobá, e-mail z Impressum, remeslá z hľadania (087)');
+  eq(m.trade_keys, ['trockenbau'], 'uložená firma dostane remeslo (trades.js detectKeys)');
+  ok(ins.every(x => !x.trade_keys || (Array.isArray(x.trade_keys) && x.trade_keys.length && x.profile.trades_from === 'search')), 'remeslá len známe kľúče, so značkou „pri hľadaní"');
+  ok(!/Remeslá, ktoré hľadáme/.test(t2), 'bez zvolených remesiel sa hľadá ako doteraz (nič navyše v zadaní)');
   const k = ins[0];
   eq([k.email, k.score, k.contact_person, k.profile.similar_to_url], [null, 100, 'Paul Keller', 'https://schmidt-ausbau.de/'],
     'e-mail od AI, ktorý na ich webe nie je, sa neuloží; skóre najviac 100');
@@ -230,6 +233,29 @@ console.log('Nové firmy podľa webov — serverová funkcia');
   eq(fin.seeds.map(s => [s.domain, s.fetched, s.trade]), [['huber-trockenbau.de', true, 'suchá výstavba'],
     ['schmidt-ausbau.de', true, 'akustické podhľady'], ['weber-bau.de', false, 'stavebná firma']], 'seeds: zadané weby a ich profil');
   ok(db.updates.some(u => u.seeds && !u.status), 'profily sa uložia hneď po prvom kroku');
+
+  // ── Remeslá z okna hľadania (087) ─────────────────────────────────────────
+  {
+    const dbt = mkDb({ ...SEARCH, params: { ...SEARCH.params, trades: ['maliar', 'omietkar', '<x>'] } });
+    const { d: dt, calls: ct } = deps({ db: dbt });
+    await F.handle(ev({ search_id: 's1' }), dt);
+    const tt = ct[1].body.messages[0].content;
+    ok(/Remeslá, ktoré hľadáme .*Maľovanie \(Maler- und Lackierarbeiten\), Zatepľovanie a fasády \(WDVS und Fassade\)\. Uprednostni firmy/.test(tt) && !/<x>/.test(tt),
+      'zvolené remeslá idú do zadania pre AI (slovensky aj nemecky), neznáme nie', (tt.match(/Remeslá, ktoré hľadáme[^\n]*/) || [''])[0]);
+    const sp = F.prompts.scorePrompt({ profiles: [], firms: [], trades: ['zvarac'] });
+    const qp = F.prompts.queriesPrompt({ profiles: [], count: 10, trades: ['zvarac'] });
+    ok(/Zváranie \(Schweißarbeiten\)/.test(sp) && /vyššie skóre/.test(sp) && /Kategórie na Google Mapách vyber prednostne/.test(qp), 'aj do plánu dotazov (Mapy) a do skóre');
+    ok(dbt.inserted.length && dbt.inserted.every(x => JSON.stringify(x.trade_keys) === '["trockenbau"]'), 'text firmy (suchá výstavba) má prednosť pred zvolenými remeslami',
+      JSON.stringify(dbt.inserted.map(x => x.trade_keys)));
+    eq(F.withTrades({ name: 'Bau GmbH', profile: {} }, { trades: ['zvarac'] }).trade_keys, ['zvarac'], 'withTrades: bez textu zvolené remeslá');
+    ok(!('trade_keys' in F.withTrades({ name: 'Bau GmbH' }, {})), 'withTrades: nič sa nedá určiť → bez trade_keys');
+    // Bez migrácie 087 sa firma uloží bez remesiel.
+    const calls = [];
+    const fake = { from: () => ({ insert: async (row) => { calls.push(row);
+      return { error: 'trade_keys' in row ? { code: 'PGRST204', message: "Could not find the 'trade_keys' column of 'danubra_leads' in the schema cache" } : null }; } }) };
+    const r87 = await F.supabaseDb(() => fake).insertLead({ name: 'X', source: 'urls', trade_keys: ['maliar'], profile: { a: 1, trades_from: 'search' } });
+    ok(!r87.error && calls.length === 2 && !('trade_keys' in calls[1]) && JSON.stringify(calls[1].profile) === '{"a":1}', 'bez 087: uloží sa bez trade_keys aj bez značky', JSON.stringify(calls));
+  }
 
   // ── Model a chyby ─────────────────────────────────────────────────────────
   {
