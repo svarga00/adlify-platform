@@ -111,6 +111,14 @@ const call = (d, body = {}, auth = 'Bearer ok') => F.handle({ httpMethod: 'POST'
     await call(d, {});
     ok(!db.supplier && !log.geo.some(g => g.q === 'X'), 'zadané súradnice kancelárie sa neprepisujú');
   }
+  {
+    // Do poľa „Poloha kancelárie" niekto napísal adresu namiesto súradníc.
+    const db = mkDb({ settings: { id: 'cfg', supplier: { address: 'Y', office_coords: 'Podzámska 9468/4A, 940 71 Nové Zámky' } } });
+    const { d, log } = deps(db);
+    await call(d, {});
+    ok(log.geo.some(g => /Podzámska/.test(g.q)), 'adresa v poli polohy sa geokóduje');
+    ok(db.supplier && /^-?\d+\.\d{5}, -?\d+\.\d{5}$/.test(db.supplier.supplier.office_coords), 'a nahradí sa súradnicami');
+  }
 
   console.log('\nJeden beh naraz (zámok v settings.marketing.sitemeta_run)');
   {
