@@ -644,7 +644,7 @@
     rulesView() {
       const row = (r) => {
         const d = DanubraTasks.describeRule(r);
-        const mine = this.items.filter(t => t.rule_id === r.id && t.status !== 'done').length;
+        const mine = this.items.filter(t => t.rule_id === r.id && t.status !== 'done' && t.status !== 'cancelled').length;
         return `<div class="list-row" style="align-items:flex-start;">
           <button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${r.active ? 'var(--green)' : 'var(--ink-mute)'};"
             onclick="Tsk.toggleRule('${r.id}', ${!r.active})"
