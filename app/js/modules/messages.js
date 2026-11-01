@@ -108,8 +108,15 @@
               t.preview ? `<small title="${UI.esc(t.preview)}">${UI.esc(t.preview)}</small>` : ''}</span>`,
             sortValue: (t) => t.subject || t.party_name || '', sortLabel: 'Predmet', csv: (t) => t.subject || '' },
           { key: 'komu', label: 'S kým', width: 'minmax(150px, 1.3fr)', mobileLabel: '',
-            render: (t) => (t.party_name || t.to_email || t.to_phone ? `<span class="dl-two"><b>${UI.esc(t.party_name || '—')}</b>${
-              t.to_email || t.to_phone ? `<small>${UI.esc(t.to_email || t.to_phone)}</small>` : ''}</span>` : ''),
+            render: (t) => {
+              if (!(t.party_name || t.to_email || t.to_phone)) return '';
+              const two = `<span class="dl-two"><b>${UI.esc(t.party_name || '—')}</b>${
+                t.to_email || t.to_phone ? `<small>${UI.esc(t.to_email || t.to_phone)}</small>` : ''}</span>`;
+              // Firma (odberateľ, klient) má svoje logo; človek nie (components/company-logo.js).
+              if (!['partner', 'client'].includes(t.party_type) || !window.CompanyLogo) return two;
+              const firm = (t.party_id && CompanyLogo.find(t.party_type, t.party_id)) || { name: t.party_name, email: t.to_email };
+              return CompanyLogo.who(firm, two, { size: 24 });
+            },
             sortValue: (t) => t.party_name || null, csv: (t) => [t.party_name, t.to_email, t.to_phone].filter(Boolean).join(' · ') },
           { key: 'kanal', label: 'Kanál', width: '104px', mobile: 'badge',
             render: (t) => UI.badge(channelLabel(t.channel), t.channel === 'internal' ? 'gray' : 'blue'),

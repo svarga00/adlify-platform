@@ -346,9 +346,11 @@
       if (this._names) return this._names;
       const [w, p, s] = await Promise.all([
         DB.list('workers', { select: 'id,full_name', limit: 2000 }),
-        DB.list('partners', { select: 'id,name', limit: 1000 }),
+        DB.list('partners', { select: 'id,name,website,email', limit: 1000 }),
         DB.list('subcontracts', { select: 'id,title', limit: 1000 }),
       ]);
+      // Firma pri dokumente má v čipe svoje logo (components/company-logo.js).
+      if (window.CompanyLogo) CompanyLogo.remember('partner', p.data || []);
       const n = {};
       for (const x of (w.data || [])) n[`worker:${x.id}`] = x.full_name;
       for (const x of (p.data || [])) n[`partner:${x.id}`] = x.name;

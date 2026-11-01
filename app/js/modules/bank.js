@@ -20,15 +20,19 @@
     pending: null,          // rozparsovaný výpis pred uložením
 
     async load() {
-      const [t, cf, i, b] = await Promise.all([
+      const [t, cf, i, b, , p] = await Promise.all([
         DB.list('bank_transactions', { order: { column: 'booked_at', ascending: false }, limit: 1000 }),
         DB.list('v_cashflow', { limit: 1000 }),
         DB.list('invoices', { select: 'id,invoice_number,total,amount_net,status,due_date,partner_id', limit: 500 }),
         DB.list('bills', { select: 'id,bill_number,amount,status,worker_id,due_date', limit: 500 }),
         Enums.load(),
+        // Odberatelia len kvôli logu pri spárovanej platbe (jeden dopyt, nie na riadok).
+        DB.list('partners', { select: 'id,name,website,email', limit: 1000 }),
       ]);
       this.txs = t.data || []; this.cashflow = cf.data || [];
       this.invoices = i.data || []; this.bills = b.data || [];
+      this.partners = (p && p.data) || [];
+      if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners);
       this.loaded = true;
       if (!Cfg.loaded) await Cfg.load();
     },
@@ -187,7 +191,7 @@
         let link = null;
         if (t.matched_invoice_id) {
           const i = inv.get(t.matched_invoice_id);
-          link = { type: 'invoice', id: t.matched_invoice_id, label: `Faktúra ${(i && i.invoice_number) || ''}`.trim(), kind: 'vydaná faktúra' };
+          link = { type: 'invoice', id: t.matched_invoice_id, label: `Faktúra ${(i && i.invoice_number) || ''}`.trim(), kind: 'vydaná faktúra', partnerId: (i && i.partner_id) || null };
         } else if (t.matched_bill_id) {
           const b = bil.get(t.matched_bill_id);
           link = { type: 'bill', id: t.matched_bill_id, label: `Faktúra ${(b && b.bill_number) || ''}`.trim(), kind: 'prijatá faktúra' };
@@ -198,6 +202,8 @@
           id: t.id, t, cents, link,
           dir: cents >= 0 ? 'in' : 'out',
           who: t.counterparty_name || t.counterparty || '',
+          // Platba od odberateľa (spárovaná s jeho faktúrou) má jeho logo.
+          firm: link && link.partnerId && window.CompanyLogo ? CompanyLogo.find('partner', link.partnerId) : null,
           ms: t.match_status || 'unmatched',
         };
       });
@@ -221,8 +227,11 @@
             render: (r) => (r.t.booked_at ? `<span class="dl-num">${DL.fmtDay(r.t.booked_at)}</span>` : ''),
             sortValue: (r) => r.t.booked_at || null, sortDir: -1 },
           { key: 'protiucet', label: 'Protiúčet', width: 'minmax(170px, 1.5fr)', mobile: 'title',
-            render: (r) => `<span class="dl-title"><b>${UI.esc(r.who || '—')}</b>${
-              r.t.counterparty_iban ? `<small class="mono">${UI.esc(r.t.counterparty_iban)}</small>` : ''}</span>`,
+            render: (r) => {
+              const t = `<span class="dl-title"><b>${UI.esc(r.who || '—')}</b>${
+                r.t.counterparty_iban ? `<small class="mono">${UI.esc(r.t.counterparty_iban)}</small>` : ''}</span>`;
+              return r.firm ? CompanyLogo.who(r.firm, t, { size: 24 }) : t;
+            },
             sortValue: (r) => r.who || null },
           { key: 'vs', label: 'VS', width: '96px', mobileLabel: 'VS',
             tip: 'Variabilný symbol, ktorý platiteľ zadal k platbe. Pri našich faktúrach je to číslo faktúry — podľa neho sa platba spáruje.',
@@ -350,7 +359,8 @@
             ${candidates.length ? `<button class="btn btn-primary" onclick="Bank.matchManual('${t.id}', ${income})">Spárovať</button>${
               UI.tip('Platba sa priradí k vybranej faktúre a faktúra sa tým označí ako uhradená.')}` : ''}` : ''}
         </div>`;
-      UI.modal('Pohyb na účte', body, { wide: true });
+      const inv = t.matched_invoice_id ? this.invoices.find(i => i.id === t.matched_invoice_id) : null;
+      UI.modal('Pohyb na účte', body, { wide: true, logo: inv && inv.partner_id && window.CompanyLogo ? CompanyLogo.of('partner', inv.partner_id, { size: 32 }) : '' });
     },
 
     async matchManual(id, income) {

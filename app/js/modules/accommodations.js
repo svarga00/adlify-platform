@@ -134,8 +134,12 @@
         rowActions: [{ ico: 'chevron', label: 'Otvoriť ubytovanie', run: (r) => Acc.detail(r.id) }],
         columns: [
           { key: 'nazov', label: 'Ubytovanie', width: 'minmax(170px, 1.6fr)', mobile: 'title',
-            render: (r) => `<span class="dl-title"><b>${UI.esc(r.a.name || '—')}</b><small>${
-              UI.esc([r.a.type ? this.typeLabel(r.a.type) : '', extras(r.a)].filter(Boolean).join(' · '))}</small></span>`,
+            render: (r) => {
+              const t = `<span class="dl-title"><b>${UI.esc(r.a.name || '—')}</b><small>${
+                UI.esc([r.a.type ? this.typeLabel(r.a.type) : '', extras(r.a)].filter(Boolean).join(' · '))}</small></span>`;
+              // Logo ubytovateľa: favicon podľa domény jeho e-mailu (nie gmail), inak iniciály.
+              return window.CompanyLogo ? CompanyLogo.who({ name: r.a.name, email: r.a.owner_email }, t, { size: 28 }) : t;
+            },
             sortValue: (r) => r.a.name, sortLabel: 'Názov' },
           { key: 'mesto', label: 'Mesto', width: 'minmax(110px, 1fr)',
             render: (r) => (r.city ? `<span class="dl-two"><b>${UI.esc(r.city)}${r.a.country ? `, ${UI.esc(r.a.country)}` : ''}</b>${
@@ -235,7 +239,7 @@
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" onclick="Acc.form('${a.id}')">Upraviť</button>
         </div>`;
-      UI.modal(a.name, body, { wide: true });
+      UI.modal(a.name, body, { wide: true, logo: window.CompanyLogo ? CompanyLogo.html({ name: a.name, email: a.owner_email }, { size: 32 }) : '' });
     },
 
     async setVerif(id, status) {

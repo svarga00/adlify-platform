@@ -256,7 +256,10 @@
           { key: 'kto', label: 'Od koho', width: 'minmax(140px, 1.3fr)', mobile: 'title',
             render: (r) => {
               const sub = [r.b.worker_id ? DRUH[r.druh] : this.catLabel(r.b.category), r.ico ? `IČO ${r.ico}` : ''].filter(Boolean).join(' · ');
-              return `<span class="dl-title"><b>${UI.esc(r.who || '—')}</b>${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
+              const t = `<span class="dl-title"><b>${UI.esc(r.who || '—')}</b>${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
+              // Dodávateľ — firma (nie živnostník): jej štvorček. Prijatá faktúra nemá web
+              // ani e-mail, takže len iniciály a farba — nikam sa nevolá.
+              return !r.b.worker_id && r.who && window.CompanyLogo ? CompanyLogo.who({ name: r.who }, t, { size: 24 }) : t;
             },
             sortValue: (r) => r.who, sortLabel: 'Dodávateľ' },
           { key: 'cislo', label: 'Číslo', width: '112px', mobileLabel: 'č.',

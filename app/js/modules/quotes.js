@@ -19,14 +19,14 @@
         DB.list('quotes', { order: { column: 'created_at', ascending: false }, limit: 300 }),
         DB.list('partners', { select: 'id,name,payment_terms_days,default_charge_rate,'
           // Do dokumentu treba aj nemecké IČ DPH a kontaktnú osobu.
-          + 'is_construction,ust_idnr,country,contact_person,address,city', limit: 300 }),
+          + 'is_construction,ust_idnr,country,contact_person,address,city,website,email', limit: 300 }),
         // Dopyty len kvôli názvu pri odkaze „Z dopytu" (migrácia 074).
         Danubra.can('opportunities')
           ? DB.list('opportunities', { select: 'id,title,company_name', limit: 1000 })
           : Promise.resolve({ data: [] }),
         Enums.load(),
       ]);
-      this.items = q.data || []; this.partners = p.data || [];
+      this.items = q.data || []; this.partners = p.data || []; if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners);
       this.opportunities = (o && o.data) || [];
       this.loaded = true;
       if (!Cfg.loaded) await Cfg.load();
@@ -329,7 +329,7 @@
             <button class="btn btn-primary" onclick="Quo.toContract('${q.id}')">
               ${Icon('note', 14)} Spraviť zmluvu</button>` : ''}
         </div>`;
-      UI.modal(q.title, body, { wide: true });
+      UI.modal(q.title, body, { wide: true, logo: q.partner_id && window.CompanyLogo ? CompanyLogo.of('partner', q.partner_id, { size: 32 }) : '' });
     },
 
     /**

@@ -29,10 +29,10 @@
       const [c, a, p] = await Promise.all([
         DB.list('contracts', { order: { column: 'created_at', ascending: false }, limit: 300 }),
         DB.list('contract_amendments', { limit: 1000 }),
-        DB.list('partners', { select: 'id,name,payment_terms_days', limit: 300 }),
+        DB.list('partners', { select: 'id,name,payment_terms_days,website,email', limit: 300 }),
         Enums.load(),
       ]);
-      this.items = c.data || []; this.amendments = a.data || []; this.partners = p.data || [];
+      this.items = c.data || []; this.amendments = a.data || []; this.partners = p.data || []; if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners);
       this.loaded = true;
       if (!Cfg.loaded) await Cfg.load();
     },
@@ -388,7 +388,7 @@
             ${Icon('doc', 14)} Zmluva ako dokument</button>
           <button class="btn btn-primary" onclick="Con.form('${c.id}')">Upraviť</button>
         </div>`;
-      UI.modal(c.title, body, { wide: true });
+      UI.modal(c.title, body, { wide: true, logo: c.partner_id && window.CompanyLogo ? CompanyLogo.of('partner', c.partner_id, { size: 32 }) : '' });
     },
 
     // ── Sken podpísanej zmluvy ────────────────────────────────────────────

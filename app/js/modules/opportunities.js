@@ -142,7 +142,11 @@
             : st === 'unavailable' ? '<span class="dl-note is-amber">register neodpovedal</span>'
               : r.x.company_vat ? '<span class="dl-note is-mute">nepreverená</span>'
                 : '<span class="dl-note is-mute">bez USt-IdNr</span>';
-        return `<span class="dl-two" title="${esc(r.v.label)}">${name}${note}</span>`;
+        const two = `<span class="dl-two" title="${esc(r.v.label)}">${name}${note}</span>`;
+        // Logo firmy (components/company-logo.js): odberateľ, inak e-mail firmy z dopytu.
+        if (!r.company || !window.CompanyLogo) return two;
+        const firm = (r.x.partner_id && CompanyLogo.find('partner', r.x.partner_id)) || { name: r.company, email: r.x.contact_email };
+        return CompanyLogo.who(firm, two, { size: 24 });
       };
       const sadzbyCell = (r) => {
         const c = r.x.rate_client, w = r.x.rate_worker;
@@ -749,8 +753,10 @@
       const TONE = { valid: 'green', invalid: 'red', unavailable: 'amber', unchecked: 'gray' };
       const quotes = await this.quotesOf(x.id);
 
+      const firmLogo = x.company_name && window.CompanyLogo
+        ? CompanyLogo.html((x.partner_id && CompanyLogo.find('partner', x.partner_id)) || { name: x.company_name, email: x.contact_email }, { size: 40 }) : '';
       el.innerHTML = Danubra.header(x.title,
-        [x.company_name, x.city].filter(Boolean).map(UI.esc).join(' · '), '', [x.title]) + `
+        [x.company_name, x.city].filter(Boolean).map(UI.esc).join(' · '), '', [x.title], firmLogo) + `
         <div class="detail-head">
           ${this.badge(x.status)}
           <select class="verif-sel" onchange="Opp.setStatus('${x.id}',this.value)">

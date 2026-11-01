@@ -43,7 +43,7 @@
       const [o, p, w, wd, sc, c, a] = await Promise.all([
         DB.list('work_orders', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('partners', {
-          select: 'id,name,address,postal_code,city,country,registration_no,ust_idnr,contact_person',
+          select: 'id,name,address,postal_code,city,country,registration_no,ust_idnr,contact_person,website,email',
           limit: 300 }),
         // Na objednávke musí byť zhotoviteľ identifikovateľný — meno nestačí.
         DB.list('workers', {
@@ -59,7 +59,7 @@
         DB.list('assignments', {
           select: 'id,subcontract_id,worker_id,status,date_from,date_to,worker_rate', limit: 2000 }),
       ]);
-      this.rows = o.data || []; this.partners = p.data || []; this.workers = w.data || [];
+      this.rows = o.data || []; this.partners = p.data || []; if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners); this.workers = w.data || [];
       this.workerDocs = wd.data || [];
       this.subcontracts = sc.data || []; this.contracts = c.data || [];
       this.assignments = a.data || [];
@@ -487,7 +487,7 @@
               ${Icon('doc', 14)} Objednávka SK/DE</button>` : ''}
           <button class="btn btn-primary" onclick="Ord.document('${o.id}')">
             ${Icon('doc', 14)} ${o.kind === 'customer' ? 'Potvrdenie objednávky' : 'Objednávka'}</button>
-        </div>`, { wide: true });
+        </div>`, { wide: true, logo: o.kind === 'customer' && o.partner_id && window.CompanyLogo ? CompanyLogo.of('partner', o.partner_id, { size: 32 }) : '' });
     },
 
     /**

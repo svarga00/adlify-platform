@@ -72,12 +72,13 @@
         DB.list('invoice_items', { limit: 3000 }),
         DB.list('clients', { select: 'id,name,country,vat_id,company_id,contact_person,phone,email,whatsapp', limit: 500 }),
         DB.list('orders', { select: 'id,order_number,client_id,service_fee,urgent_surcharge,date_from,date_to,persons,ongoing_service_enabled,ongoing_service_rate,status', limit: 500 }),
-        DB.list('partners', { select: 'id,name,city,country,ust_idnr', limit: 300 }),
+        DB.list('partners', { select: 'id,name,city,country,ust_idnr,website,email', limit: 300 }),
         DB.list('overrides', { limit: 1000 }),
       ]);
       this.items = i.data || []; this.lines = l.data || [];
       this.clients = c.data || []; this.orders = o.data || [];
-      this.partners = p.data || [];
+      this.partners = p.data || []; if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners);
+      if (window.CompanyLogo) CompanyLogo.remember('client', this.clients);
       this.overrides = ovr.data || [];
       this.loaded = true;
       await this._markOverdue();
@@ -387,6 +388,12 @@
 
     /** Komu sa fakturuje: v2 nemeckému odberateľovi, v1 klientovi z ubytovania. */
     partnerOf(id) { return (this.partners || []).find(p => p.id === id) || null; },
+    /** Logo odberateľa (alebo klienta) do hlavičky faktúry (components/company-logo.js). */
+    whoLogo(x) {
+      const w = this.counterparty(x);
+      return w && window.CompanyLogo ? CompanyLogo.of(w.type, w.id, { size: 32, title: w.name }) : '';
+    },
+
     counterparty(x) {
       const p = this.partnerOf(x.partner_id);
       if (p) return { type: 'partner', id: p.id, name: p.name };
@@ -475,7 +482,7 @@
                      + 'Keď platbu spárujete v Banke, stane sa to samo.')}`
                  : ''}`}
         </div>`;
-      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true, logo: this.whoLogo(x) });
     },
 
     /** Riadok položky v detaile faktúry (len na čítanie). */
@@ -1011,7 +1018,7 @@
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${kroky.map(act).join('')}
         </div>`;
-      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true, logo: this.whoLogo(x) });
     },
 
     /**

@@ -1310,16 +1310,18 @@ if (sandbox.Wrk && sandbox.Prt) {
     W.avatarColor({ id: 'w1' }) === W.avatarColor({ id: 'w1' })
     && W.avatarColor({ id: 'w1' }) !== W.avatarColor({ id: 'w2' }));
 
-  // Logo sa ťahá z webu firmy, nie z cudzej služby.
+  // Logo je ten istý štvorček ako všade (components/company-logo.js).
   t('doména sa vytiahne z holej adresy', P.domainOf({ website: 'vogel-bau.de' }) === 'vogel-bau.de');
   t('aj z plnej adresy s cestou',
     P.domainOf({ website: 'https://www.hartmann-bau.de/kontakt' }) === 'hartmann-bau.de');
   t('bez webu niet domény', P.domainOf({}) === null && P.domainOf({ website: '  ' }) === null);
   t('nezmysel nespadne', P.domainOf({ website: 'http://' }) === null);
-  t('logo ide z webu firmy, nie z cudzej služby',
-    /vogel-bau\.de\/favicon\.ico/.test(P.logo({ name: 'Vogel', website: 'vogel-bau.de' })));
-  t('a bez webu zostanú iniciály',
-    /VG/.test(P.logo({ name: 'Vogel GmbH' })) && !/<img/.test(P.logo({ name: 'Vogel GmbH' })));
+  t('logo odberateľa: ikona webu podľa domény (služba dostane len doménu)',
+    /s2\/favicons\?domain=vogel-bau\.de/.test(P.logo({ name: 'Vogel', website: 'vogel-bau.de' })));
+  t('a bez webu zostanú iniciály, nikam sa nevolá',
+    /VO/.test(P.logo({ name: 'Vogel GmbH' })) && !/<img/.test(P.logo({ name: 'Vogel GmbH' })));
+  t('e-mail na gmaile logo nedá',
+    !/<img/.test(P.logo({ name: 'Vogel GmbH', email: 'vogel.bau@gmail.com' })));
 }
 
 // Čísla po slovensky. JavaScript píše `27.48`, čo v slovenskom texte vyzerá

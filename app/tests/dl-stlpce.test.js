@@ -174,8 +174,8 @@ const DATA = {
   console.log('\nLogo firmy');
   await page.waitForTimeout(400);
   const logo = await page.evaluate(() => {
-    const l = document.querySelector('#dl-leads .dl-row[data-dl-row="l1"] .ld-logo');
-    return { ini: (l.querySelector('.ld-ini') || {}).textContent, img: !!l.querySelector('img'), broken: [...document.querySelectorAll('.ld-logo img')].filter(i => i.complete && !i.naturalWidth && i.classList.contains('is-ok')).length };
+    const l = document.querySelector('#dl-leads .dl-row[data-dl-row="l1"] .co-logo');
+    return { ini: (l.querySelector('.co-ini') || {}).textContent, img: !!l.querySelector('img'), broken: [...document.querySelectorAll('.co-logo img')].filter(i => i.complete && !i.naturalWidth && i.classList.contains('is-ok')).length };
   });
   ok(logo.ini === 'MI' && !logo.img && logo.broken === 0, 'logo sa nenačítalo (ani favicon) → iniciály, žiadny rozbitý obrázok', JSON.stringify(logo));
 

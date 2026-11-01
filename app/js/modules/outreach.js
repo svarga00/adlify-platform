@@ -321,7 +321,7 @@
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary" id="oc-go">${Icon('mail', 14)} Odoslať</button>
           </div>
-        </form>`, { wide: true });
+        </form>`, { wide: true, logo: this.logo(lead, 32) });
       // Prehliadač by mohol do nového <select> vrátiť starú hodnotu — nemčina natvrdo.
       const langSel = document.querySelector('#oc-form [name=lang]');
       if (langSel) langSel.value = 'de';
@@ -667,7 +667,7 @@
       const bar = this.todayTradeBar([...due.map(x => x.lead), ...fresh]);
       due = due.filter(x => trOk(x.lead));
       fresh = fresh.filter(trOk);
-      const riadok = (l, extra, step) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">
+      const riadok = (l, extra, step) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">${this.logo(l, 28)}
         <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(l.name)}</strong>
           <span style="color:var(--ink-mute);"> · ${UI.esc(l.city || '—')}</span>${trChips(l)}
           <span style="color:var(--ink-mute);display:block;font-size:12px;">${extra}</span></span>
@@ -677,7 +677,7 @@
       const dnesD = window.DanubraFollowup ? DanubraFollowup.today() : new Date().toISOString().slice(0, 10);
       const kroky = ((window.Lead && Lead.rows) || []).filter(l => !l.archived_at && l.next_step_at && String(l.next_step_at).slice(0, 10) <= dnesD && trOk(l))
         .sort((a, b) => String(a.next_step_at).localeCompare(String(b.next_step_at)));
-      const krokRiadok = (l) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">
+      const krokRiadok = (l) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">${this.logo(l, 28)}
         <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(l.name)}</strong>
           <span style="color:var(--ink-mute);"> · ${UI.esc([l.city, l.contact_person].filter(Boolean).join(' · ') || '—')}</span>
           <span style="color:var(--amber);display:block;font-size:12px;font-weight:600;">${UI.esc(UI.date(l.next_step_at))}${l.next_step_text ? ` — ${UI.esc(l.next_step_text)}` : ''}</span></span>
@@ -741,7 +741,7 @@
         ],
         columns: [
           { key: 'firma', label: 'Firma', width: 'minmax(160px, 1.4fr)', mobile: 'title',
-            render: (r) => `<span class="dl-title"><b>${UI.esc(r.firm)}</b><small>${UI.esc(r.o.to_email || '')}</small></span>`,
+            render: (r) => this.who2(r.lead && r.lead.id ? r.lead : { name: r.firm, email: r.o.to_email }, `<span class="dl-title"><b>${UI.esc(r.firm)}</b><small>${UI.esc(r.o.to_email || '')}</small></span>`),
             sortValue: (r) => r.firm, csv: (r) => r.firm },
           ...trCol((r) => r.lead),
           { key: 'predmet', label: 'Predmet', width: 'minmax(180px, 2fr)', mobile: 'line',
@@ -860,7 +860,7 @@
         ],
         columns: [
           { key: 'firma', label: 'Firma', width: 'minmax(170px, 1.4fr)', mobile: 'title',
-            render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([r.l.city, r.l.contact_person].filter(Boolean).join(' · '))}</small></span>`,
+            render: (r) => this.who2(r.l, `<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([r.l.city, r.l.contact_person].filter(Boolean).join(' · '))}</small></span>`),
             sortValue: (r) => r.name, csv: (r) => r.name },
           ...trCol((r) => r.l),
           { key: 'kategoria', label: 'Kategória', width: '130px', mobile: 'badge',
@@ -900,6 +900,11 @@
       };
     },
 
+    // ── Logo firmy (components/company-logo.js) ─────────────────────────
+    logo(l, size = 28) { return window.CompanyLogo && l ? CompanyLogo.html(l, { size }) : ''; },
+    /** Bunka zoznamu: logo vedľa mena (aj v karte na telefóne). */
+    who2(l, inner) { return window.CompanyLogo ? CompanyLogo.who(l || {}, inner, { size: 28 }) : inner; },
+
     /** Detail firmy v Oslovovaní: rýchle akcie, záznam hovoru, ďalší krok, os (components/lead-contacts.js). */
     async detail(leadId) {
       if (window.Lead && !Lead.loaded) await Lead.load();
@@ -910,7 +915,7 @@
       UI.modal(l.name, `<div style="font-size:12.5px;color:var(--ink-sub);margin:-4px 0 10px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;">${UI.esc(meta || '—')}${
         window.Lead && Lead.tradeChips ? ` ${Lead.tradeChips(l, 4)} <button type="button" class="ld-tr-btn" onclick="Lead.detail('${UI.esc(l.id)}');setTimeout(()=>Lead.tradePick('${UI.esc(l.id)}'),50)">${Icon('edit', 12)} Upraviť remeslá</button>` : ''}</div>
         <div id="oc-lc"></div>
-        <div class="modal-actions">${this.button(l)}<button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
+        <div class="modal-actions">${this.button(l)}<button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true, logo: this.logo(l, 32) });
       const el = document.getElementById('oc-lc');
       if (el && window.LeadContacts) {
         await LeadContacts.mount(el, l, { onChange: () => {
