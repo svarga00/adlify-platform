@@ -28,6 +28,8 @@
       this.items = p.data || []; this.subcontracts = s.data || []; this.invoices = i.data || [];
       // Ručne nahraté logo má prednosť pred faviconom z webu.
       this.logos = await DB.signedDocUrls(this.items.map(x => x.logo_path));
+      // Logo odberateľa uvidia aj čipy na faktúrach, zákazkách a v pošte.
+      if (window.CompanyLogo) CompanyLogo.remember('partner', this.items, (x) => this.uploadedLogo(x));
       this.loaded = true;
     },
 
@@ -215,41 +217,26 @@
     },
 
     // ── Logo firmy ────────────────────────────────────────────────────────
-    // Ťahá sa z **jej vlastného webu**, nie z cudzej služby: príliš veľa
-    // takých služieb raz prestane fungovať alebo si začne pýtať kľúč,
-    // a zbytočne by vedeli, ktoré firmy si pozeráme.
-    //
-    // Keď sa favicon nenačíta, `onerror` obrázok odstráni a zostanú
-    // iniciály. Nikdy prázdny štvorec.
+    // Ten istý štvorček ako všade v appke (components/company-logo.js):
+    // ručne nahraté logo → ikona webu (služba dostane len doménu) →
+    // iniciály. Bez webu a s e-mailom na gmaile sa nikam nevolá.
     domainOf(p) {
-      const raw = String((p && p.website) || '').trim();
-      if (!raw) return null;
-      try {
-        const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-        return u.hostname.replace(/^www\./i, '') || null;
-      } catch { return null; }
+      const d = window.DanubraLogo ? DanubraLogo.domainOf(p && p.website) : '';
+      return d || null;
     },
 
-    logoUrl(p) {
-      if (p && p.logo_path && this.logos.get(p.logo_path)) return this.logos.get(p.logo_path);
-      const d = this.domainOf(p);
-      return d ? `https://${d}/favicon.ico` : null;
+    uploadedLogo(p) {
+      return (p && p.logo_path && this.logos && this.logos.get(p.logo_path)) || null;
     },
 
-    initials(name) {
-      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-      if (!parts.length) return '?';
-      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+    /** Odberateľ ako firma pre logo (nahraté logo má prednosť). */
+    firm(p) {
+      const x = p || {};
+      return { name: x.name, website: x.website, email: x.email, logo_url: this.uploadedLogo(x) };
     },
 
     logo(p, size) {
-      const url = this.logoUrl(p);
-      const px = size || 36;
-      return `<span class="p-logo" style="width:${px}px;height:${px}px;">
-        ${UI.esc(this.initials(p.name))}
-        ${url ? `<img src="${UI.esc(url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-      </span>`;
+      return window.CompanyLogo ? CompanyLogo.html(this.firm(p), { size: size || 36 }) : '';
     },
 
     /**
@@ -367,7 +354,7 @@
             ${Icon('doc', 14)} Rámcová zmluva SK/DE</button>
           <button class="btn btn-primary" onclick="Prt.form('${p.id}')">Upraviť</button>
         </div>`;
-      UI.modal(p.name, body, { wide: true });
+      UI.modal(p.name, body, { wide: true, logo: this.logo(p, 32) });
       if (window.Docs) Docs.fill(document.getElementById('ui-modal'));
       if (window.Mail) Mail.fill(document.getElementById('ui-modal'));
       if (window.Tsk && Tsk.fill) Tsk.fill(document.getElementById('ui-modal'));

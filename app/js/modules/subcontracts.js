@@ -54,7 +54,7 @@
         // ju povoľoval znova.
         DB.list('overrides', { limit: 1000 }),
       ]);
-      this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
+      this.items = s.data || []; this.partners = p.data || []; if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners); this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
       this.overrides = ovr.data || [];
       const [ch, sa, accs, per, ts, cr, occ, st, inv] = await Promise.all([
@@ -546,7 +546,7 @@
 
       el.innerHTML = Danubra.header(sc.title,
         [p?.name, sc.site_city].filter(Boolean).map(UI.esc).join(' · '),
-        '', [sc.title]) + body;
+        '', [sc.title], p && window.CompanyLogo ? CompanyLogo.of('partner', p.id, { size: 40, title: p.name }) : '') + body;
 
       // Mapa sa kreslí až po vložení HTML — Leaflet potrebuje prvok v strome.
       this.renderMap(sc);

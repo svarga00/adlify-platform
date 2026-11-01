@@ -36,7 +36,7 @@
         DB.list('costs', {
           select: 'id,description,category,amount,cost_date,rebillable,rebilled_invoice_id,subcontract_id',
           limit: 1000 }),
-        DB.list('partners', { select: 'id,name', limit: 300 }),
+        DB.list('partners', { select: 'id,name,website,email', limit: 300 }),
         DB.list('v_cashflow', { limit: 1000 }),
         DB.list('bank_transactions', { select: 'amount', limit: 2000 }),
         DB.list('bills', {
@@ -49,6 +49,7 @@
       this.timesheets = ts.data || []; this.periods = per.data || [];
       this.invoices = inv.data || []; this.costs = c.data || [];
       this.partners = prt.data || []; this.cashflow = cf.data || [];
+      if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners);
       this.balance = Money.sum((tx.data || []).map(t => Money.toCents(t.amount)));
       if (window.Cfg && !Cfg.loaded) { try { await Cfg.load(); } catch {} }
       this.loaded = true;

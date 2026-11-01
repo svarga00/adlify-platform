@@ -174,14 +174,30 @@
 
     go(box, folder) { this.box = box; this.folder = folder; this.openId = null; Danubra.renderRoute(); },
 
+    /**
+     * Protistrana e-mailu ako firma pre logo (components/company-logo.js):
+     * priradený odberateľ alebo nová firma, inak doména odosielateľa
+     * (pri odoslanom prvého adresáta). Gmail, GMX, web.de … logo nedajú —
+     * vtedy iniciály mena a nikam sa nevolá.
+     */
+    firmOf(m, out) {
+      const L = window.CompanyLogo;
+      const known = L && ((m.partner_id && L.find('partner', m.partner_id)) || (m.lead_id && L.find('lead', m.lead_id)));
+      if (known) return known;
+      const a = out ? (m.to_list || [])[0] || {} : { name: m.from_name, address: m.from_email };
+      return { name: a.name || '', email: a.address || '' };
+    },
+
     rowHtml(m) {
+      const out = m.direction === 'out';
       const kto = this.folder === 'out'
         ? `Komu: ${(m.to_list || []).map(a => a.name || a.address).join(', ')}` : (m.from_name || m.from_email || '—');
       const pril = (m.attachments || []).length;
-      return `<button class="mail-row${m.seen ? '' : ' unread'}${m.id === this.openId ? ' on' : ''}" onclick="Mail.open('${m.id}')">
+      const logo = window.CompanyLogo ? CompanyLogo.html(this.firmOf(m, out), { size: 32 }) : '';
+      return `<button class="mail-row${logo ? ' has-logo' : ''}${m.seen ? '' : ' unread'}${m.id === this.openId ? ' on' : ''}" onclick="Mail.open('${m.id}')">${logo}<span class="mail-row-main">
         <span class="mail-row-top"><b>${UI.esc(kto)}</b><time>${UI.esc(this.shortDate(m.sent_at))}</time></span>
         <span class="mail-row-subj">${pril ? Icon('doc', 12) : ''}${UI.esc(m.subject || '(bez predmetu)')}</span>
-        <span class="mail-row-snip">${UI.esc(m.snippet || '')}</span>
+        <span class="mail-row-snip">${UI.esc(m.snippet || '')}</span></span>
       </button>`;
     },
 
@@ -233,8 +249,13 @@
         </div>
         <h2 class="mail-subj">${UI.esc(m.subject || '(bez predmetu)')}</h2>
         <div class="mail-meta">
-          <div><b>${UI.esc(m.from_name || m.from_email || '')}</b> ${m.from_name ? `<span>&lt;${UI.esc(m.from_email)}&gt;</span>` : ''}</div>
-          <div>Komu: ${adr(m.to_list)}${(m.cc_list || []).length ? ` · Kópia: ${adr(m.cc_list)}` : ''}</div>
+          ${(() => {
+            // Logo protistrany: pri prijatom pri odosielateľovi, pri odoslanom pri adresátovi.
+            const lg = window.CompanyLogo ? CompanyLogo.html(this.firmOf(m, m.direction === 'out'), { size: 40 }) : '';
+            const od = `<div class="mail-txt"><b>${UI.esc(m.from_name || m.from_email || '')}</b> ${m.from_name ? `<span>&lt;${UI.esc(m.from_email)}&gt;</span>` : ''}</div>`;
+            const komu = `<div class="mail-txt">Komu: ${adr(m.to_list)}${(m.cc_list || []).length ? ` · Kópia: ${adr(m.cc_list)}` : ''}</div>`;
+            return m.direction === 'out' ? `${od}<div class="mail-from">${lg}${komu}</div>` : `<div class="mail-from">${lg}${od}</div>${komu}`;
+          })()}
           <div>${UI.esc(MM().fmtDate(m.sent_at))}</div>
           ${ent ? `<div class="link-row" style="margin-top:6px;">${ent}</div>` : ''}
         </div>

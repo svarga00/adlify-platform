@@ -181,10 +181,13 @@
         : t.status === 'added' && t.reviewed_by ? `pridal(a) ${this.who(t.reviewed_by)}` : '';
       return `<span class="dl-two">${UI.badge(st[1], st[2])}${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
     },
-    logo(t) {
+    /** Logo firmy z odkazu: logo z webu → favicon (web, doména, e-mail firmy) → iniciály. */
+    firm(t) {
       const m = t.meta || {};
-      const fake = { name: T().tipName(t) || t.company_name, website: this.webOf(t), logo_url: m.logo || null };
-      return window.Lead && Lead.logoHtml ? Lead.logoHtml(fake, 30) : '';
+      return { name: T().tipName(t) || t.company_name, website: this.webOf(t), domain: t.domain, email: m.email, logo_url: m.logo || null };
+    },
+    logo(t, size = 30) {
+      return window.CompanyLogo ? CompanyLogo.html(this.firm(t), { size }) : '';
     },
 
     // ── Remeslá (087) ────────────────────────────────────────────────────
@@ -310,7 +313,7 @@
           ${web ? `<button type="button" class="btn btn-outline" onclick="LeadTips.useAsSeeds(['${t.id}'])">${Icon('star', 14)} Použiť ako vzor na hľadanie</button>` : ''}
           ${['new', 'duplicate'].includes(t.status) ? `<button type="button" class="btn btn-ghost" onclick="LeadTips.reject('${t.id}')">${Icon('x', 14)} Zamietnuť</button>` : ''}
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-        </div></div>`, { wide: true });
+        </div></div>`, { wide: true, logo: this.logo(t, 32) });
     },
 
     /** Výber remesiel v detaile odkazu. */

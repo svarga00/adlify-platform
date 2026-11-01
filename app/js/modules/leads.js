@@ -118,6 +118,7 @@
       ]);
       this.rows = (l.data || []).filter(x => !x.archived_at);
       this.partners = p.data || []; this.subcontracts = s.data || []; this.searches = ls.data || [];
+      if (window.CompanyLogo) CompanyLogo.remember('partner', this.partners);
       // Kto Remeslá nevidí (práva), má vstavané názvy — nie je to chyba načítania.
       this.trades = (tr && !tr.error && tr.data) || [];
       if (tr && tr.error && Array.isArray(DB.failures)) DB.failures = DB.failures.filter(f => !/danubra_trades/.test(f.table));
@@ -545,23 +546,9 @@
     },
 
     // ── Logo firmy (082) ───────────────────────────────────────────────────
-    /** Logo: uložené z webu → ikona webu (Google s2) → iniciály. Nikdy rozbitý obrázok. */
+    /** Logo: uložené z webu → ikona webu (Google s2) → iniciály. Nikdy rozbitý obrázok (components/company-logo.js). */
     logoHtml(r, size = 30) {
-      const s = LV() ? LV().logoSources(r) : { src: '', fallback: '', initials: '?', hue: 215 };
-      const img = s.src ? `<img src="${UI.esc(s.src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"${
-        s.fallback ? ` data-fb="${UI.esc(s.fallback)}"` : ''} onload="Lead.logoOk(this)" onerror="Lead.logoErr(this)">` : '';
-      return `<span class="ld-logo" style="--ld-h:${Number(s.hue) || 0};--ld-z:${Number(size) || 30}px" aria-hidden="true"><span class="ld-ini">${UI.esc(s.initials)}</span>${img}</span>`;
-    },
-    logoOk(img) {
-      // Google pri neznámej doméne vráti 16 px glóbus — vtedy radšej iniciály.
-      if (/google\.com\/s2\/favicons/.test(img.currentSrc || img.src) && img.naturalWidth > 0 && img.naturalWidth <= 16) return this.logoErr(img);
-      img.classList.add('is-ok');
-      return null;
-    },
-    logoErr(img) {
-      const fb = img.getAttribute('data-fb');
-      if (fb) { img.removeAttribute('data-fb'); img.src = fb; return; }
-      img.remove();
+      return window.CompanyLogo ? CompanyLogo.html(r, { size }) : '';
     },
 
     // ── Ako ďaleko je to od nás ────────────────────────────────────────────

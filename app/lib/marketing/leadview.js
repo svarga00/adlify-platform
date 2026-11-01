@@ -24,50 +24,22 @@
 (function () {
   const ROAD = 1.3;          // cesta autom býva o tretinu dlhšia než vzdušná čiara
   const SPEED = 75;          // km/h priemer (diaľnica + okresky)
-  const LEGAL = /\b(gmbh|mbh|co|kg|ag|ug|ohg|gbr|e\s?\.?\s?k|e\s?\.?\s?v|haftungsbeschränkt|inh|inhaber|und|&)\b\.?/gi;
 
   const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
   const validLL = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
 
-  /** „Maier Innenausbau GmbH" → „MI", „Trockenbau Huber & Söhne" → „TH". */
-  function initials(name) {
-    const words = String(name || '').replace(LEGAL, ' ').replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/[\s-]+/).filter(Boolean);
-    if (!words.length) return '?';
-    const a = words[0][0] || '';
-    const b = words.length > 1 ? words[1][0] : (words[0][1] || '');
-    return `${a}${b}`.toUpperCase();
-  }
-
-  /** Farba (odtieň 0–359) podľa mena — tá istá firma má vždy tú istú. */
-  function hue(name) {
-    let h = 0;
-    for (const ch of String(name || '').toLowerCase()) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-    return h % 360;
-  }
-
-  /** Doména webu bez www.: „https://www.maier-ausbau.de/kontakt" → „maier-ausbau.de". */
-  function domainOf(website) {
-    const w = String(website || '').trim();
-    if (!w) return '';
-    try {
-      const u = new URL(/^https?:\/\//i.test(w) ? w : `https://${w}`);
-      return u.hostname.replace(/^www\./i, '').toLowerCase();
-    } catch (e) { return ''; }
-  }
-
-  /** Ikona webu cez Google (bez kľúča, len doména). */
-  function faviconUrl(domain, size = 64) {
-    const d = String(domain || '').trim().toLowerCase();
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) return '';
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=${size}`;
-  }
+  // Logo a iniciály sú spoločné pre celú appku (lib/logo.js) — tá istá
+  // firma má tú istú farbu a ten istý štvorček všade.
+  const LG = (typeof window !== 'undefined' && window.DanubraLogo) || (typeof require === 'function' ? require('../logo.js') : null);
+  const initials = (name) => LG.initials(name);
+  const hue = (name) => LG.hue(name);
+  const domainOf = (website) => LG.domainOf(website);
+  const faviconUrl = (domain, size = 64) => LG.faviconUrl(domain, size);
 
   /** Uložené logo (082) → favicon služby → iniciály. */
   function logoSources(lead) {
-    const l = lead || {};
-    const fav = faviconUrl(domainOf(l.website));
-    const own = /^https:\/\//i.test(String(l.logo_url || '')) ? String(l.logo_url) : '';
-    return { src: own || fav, fallback: own && fav && own !== fav ? fav : '', initials: initials(l.name), hue: hue(l.name) };
+    const s = LG.sources(lead);
+    return { src: s.src, fallback: s.fallback, initials: s.initials, hue: s.hue };
   }
 
   /** Súradnice kancelárie z Nastavení (supplier.office_coords „48.1, 17.1" alebo office_lat/lng). */

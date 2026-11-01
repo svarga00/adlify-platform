@@ -110,7 +110,8 @@ window.UI = {
   },
 
   // ── Modal ─────────────────────────────────────────────────────────────────
-  modal(title, bodyHtml, { wide = false } = {}) {
+  /** `logo` = hotové HTML loga firmy (CompanyLogo.html) pred nadpisom okna. */
+  modal(title, bodyHtml, { wide = false, logo = '' } = {}) {
     this.closeModal();
     const el = document.createElement('div');
     el.className = 'modal-backdrop';
@@ -118,7 +119,7 @@ window.UI = {
     el.innerHTML = `
       <div class="modal-card${wide ? ' modal-wide' : ''}">
         <div class="modal-head">
-          <h3>${this.esc(title)}</h3>
+          ${logo || ''}<h3>${this.esc(title)}</h3>
           <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">${window.Icon ? Icon("x", 17) : ""}</button>
         </div>
         <div class="modal-body">${bodyHtml}</div>

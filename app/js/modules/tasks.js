@@ -56,7 +56,18 @@
       ]);
       this.items = t.data || [];
       this.rules = r.data || [];
+      await this.loadFirms();
       this.loaded = true;
+    },
+
+    /**
+     * Logo firmy pri úlohe, ktorá sa týka odberateľa alebo novej firmy
+     * (components/company-logo.js). Jeden dopyt na typ, len pre firmy
+     * z úloh — nie dopyt na riadok.
+     */
+    async loadFirms() {
+      if (!window.CompanyLogo) return;
+      await CompanyLogo.ensure(this.items.map(t => ({ type: t.entity_type, id: t.entity_id })));
     },
 
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },

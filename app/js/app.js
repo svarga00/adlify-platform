@@ -292,10 +292,15 @@ window.Danubra = {
     // Keď sa na záznam kliknúť nedá, vyzerá to ako štítok — nie ako odkaz,
     // ktorý nič nespraví. (`.chip` sa nepoužíva zámerne: to je iná vec
     // z náborového modulu a má vlastnú veľkosť.)
-    if (!this.canOpen(type, id)) return `<span class="link-chip is-static">${text}</span>`;
+    // Odkaz na firmu (odberateľ, nová firma) má namiesto ikonky jej logo —
+    // keď ju už niektorý modul načítal (components/company-logo.js).
+    // `opts.firm` = { type, id } firmy, ktorej sa záznam týka (faktúra → odberateľ).
+    const logo = opts.inline || opts.ico || !window.CompanyLogo ? ''
+      : (opts.firm ? CompanyLogo.chip(opts.firm.type, opts.firm.id) : CompanyLogo.chip(type, id));
+    if (!this.canOpen(type, id)) return `<span class="link-chip is-static">${logo}${logo ? `<span>${text}</span>` : text}</span>`;
     const e = this.entities[type];
     const cls = opts.inline ? 'link-inline' : 'link-chip';
-    const ico = opts.inline ? '' : Icon(opts.ico || e.ico, 13);
+    const ico = opts.inline ? '' : (logo || Icon(opts.ico || e.ico, 13));
     return `<button class="${cls}" title="${UI.esc(e.what)}: ${text}"
       onclick="event.stopPropagation();Danubra.open('${type}','${id}')">${ico}<span>${text}</span></button>`;
   },
@@ -1190,22 +1195,25 @@ window.Danubra = {
       fields: ['full_name', 'phone', 'city'], phone: 'phone',
       main: r => r.full_name, sub: r => [r.phone, r.city] },
     { type: 'partner', group: 'Odberatelia', table: 'partners', ico: 'clients',
-      select: 'id,name,ust_idnr,city',
+      select: 'id,name,ust_idnr,city,website,email',
       fields: ['name', 'ust_idnr', 'city'],
-      main: r => r.name, sub: r => [r.ust_idnr && `USt-IdNr ${r.ust_idnr}`, r.city] },
+      main: r => r.name, sub: r => [r.ust_idnr && `USt-IdNr ${r.ust_idnr}`, r.city],
+      firm: r => r },
     // Dopyt nie je v `entities` zámerne: `Opp.detail` si kartu otvára sám
     // (cez `openId`) a router by mu ju pri prepnutí na `#/opportunities`
     // hneď zavrel (`_closeOpenRecord`). Preto vlastné otvorenie.
     { type: 'opportunity', group: 'Dopyty', table: 'opportunities', ico: 'offers',
       route: 'opportunities', open: (id) => Opp.detail(id), avail: () => !!window.Opp,
-      select: 'id,title,company_name,city',
+      select: 'id,title,company_name,city,contact_email',
       fields: ['title', 'company_name', 'city'],
-      main: r => r.title || r.company_name, sub: r => [r.company_name, r.city] },
+      main: r => r.title || r.company_name, sub: r => [r.company_name, r.city],
+      firm: r => (r.company_name ? { name: r.company_name, email: r.contact_email } : null) },
     { type: 'invoice', group: 'Faktúry', table: 'invoices', ico: 'invoices',
       select: 'id,invoice_number,partner_id,total',
       fields: ['invoice_number'],
       main: r => r.invoice_number,
-      sub: (r, x) => [x.partnerName(r.partner_id), r.total != null ? UI.money(r.total) : ''] },
+      sub: (r, x) => [x.partnerName(r.partner_id), r.total != null ? UI.money(r.total) : ''],
+      firm: (r, x) => (r.partner_id && x.partner ? x.partner(r.partner_id) : null) },
     { type: 'order', group: 'Objednávky', table: 'work_orders', ico: 'orders',
       select: 'id,order_number,their_ref,title,kind',
       fields: ['order_number', 'their_ref'],
@@ -1265,12 +1273,15 @@ window.Danubra = {
       const needNames = src.some(s => s.type === 'invoice');
       const [rows, prt] = await Promise.all([
         Promise.all(src.map(s => get(s.table, s.select))),
-        needNames ? get('partners', 'id,name') : Promise.resolve([]),
+        needNames ? get('partners', 'id,name,website,email') : Promise.resolve([]),
       ]);
-      const names = new Map(prt.map(p => [p.id, p.name]));
+      const names = new Map(prt.map(p => [p.id, p]));
+      // Logo odberateľa uvidia aj čipy na iných obrazovkách (components/company-logo.js).
+      if (window.CompanyLogo) CompanyLogo.remember('partner', prt);
       this._sIdx = {
         src, rows,
-        partnerName: (id) => names.get(id) || '',
+        partnerName: (id) => (names.get(id) || {}).name || '',
+        partner: (id) => names.get(id) || null,
       };
       this._sAt = Date.now();
       return this._sIdx;
@@ -1306,6 +1317,7 @@ window.Danubra = {
         // Čo sa začína hľadaným textom, ide prvé — „Ko" chce Košice, nie Bratislavu-Koliba.
         const score = Shell.norm(main).startsWith(nq) ? 0 : 1;
         return { type: s.type, id: r.id, group: s.group, ico: s.ico, score, open: s.open || null,
+          firm: s.firm ? s.firm(r, idx) || null : null,
           main: main || '—',
           sub: (s.sub(r, idx) || []).filter(Boolean).join(' · ') };
       }).sort((a, b) => a.score - b.score || a.main.localeCompare(b.main, 'sk'));
@@ -1343,7 +1355,7 @@ window.Danubra = {
       return `${head}<button type="button" class="gs-row${i === this._sActive ? ' is-active' : ''}"
         id="gs-o-${i}" role="option" aria-selected="${i === this._sActive}"
         onmousedown="event.preventDefault()" onclick="Danubra.searchOpen(${i})">
-        <span class="gs-ico">${Icon(h.ico, 16)}</span>
+        <span class="gs-ico${h.firm && window.CompanyLogo ? ' is-logo' : ''}">${h.firm && window.CompanyLogo ? CompanyLogo.html(h.firm, { size: 32 }) : Icon(h.ico, 16)}</span>
         <span class="gs-txt"><b>${UI.esc(h.main)}</b>${h.sub ? `<em>${UI.esc(h.sub)}</em>` : ''}</span>
       </button>`;
     }).join('');
@@ -2016,7 +2028,7 @@ window.Danubra = {
       // Mená. Bez nich by upozornenie povedalo „1 doklad je po platnosti"
       // a človek by musel hádať, čí. Sú to dva malé dotazy.
       DB.list('workers', { select: 'id,full_name', limit: 500 }),
-      DB.list('partners', { select: 'id,name', limit: 200 }),
+      DB.list('partners', { select: 'id,name,website,email', limit: 200 }),
       // Podklad pre „čo máme v objednávkach" a „nevyfakturované".
       DB.list('subcontracts', {
         select: 'id,title,status,charge_rate,date_from,date_to,partner_id,site_city', limit: 300 }),
@@ -2038,6 +2050,12 @@ window.Danubra = {
     const d = this._dayISO();
     const S = (r) => r.data || [];
     const openInv = (i) => !['paid', 'cancelled', 'draft'].includes(i.status);
+    // Logo firmy pri faktúrach v upozorneniach a pri úlohách na dnes (odberateľ,
+    // nová firma) — odberatelia sú už načítaní, chýbajúce nové firmy jedným dopytom.
+    if (window.CompanyLogo) {
+      if (prt && prt.data) CompanyLogo.remember('partner', prt.data);
+      await CompanyLogo.ensure(S(today).map(t => ({ type: t.entity_type, id: t.entity_id })));
+    }
 
     const subsAll = S(subs);
     const sites = subsAll.filter(s => s.status === 'active');
@@ -2305,12 +2323,12 @@ window.Danubra = {
     push('amber', x.invApprove,
       `${x.invApprove.length} ${Shell.plural(x.invApprove.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} na schválenie`,
       'Bez schválenia sa nevystaví ani neodošle.', 'invoices',
-      (r) => ({ type: 'invoice', id: r.id, label: r.invoice_number || x.partnerName(r.partner_id) }));
+      (r) => ({ type: 'invoice', id: r.id, label: r.invoice_number || x.partnerName(r.partner_id), firm: r.partner_id ? { type: 'partner', id: r.partner_id } : null }));
     push('red', x.invOverdue,
       `${x.invOverdue.length} ${Shell.plural(x.invOverdue.length, 'faktúra je', 'faktúry sú', 'faktúr je')} po splatnosti`,
       'Zavolať skôr, než sa to natiahne na ďalší mesiac.', 'invoices',
       (r) => ({ type: 'invoice', id: r.id,
-        label: [r.invoice_number, x.partnerName(r.partner_id)].filter(Boolean).join(' · ') }));
+        label: [r.invoice_number, x.partnerName(r.partner_id)].filter(Boolean).join(' · '), firm: r.partner_id ? { type: 'partner', id: r.partner_id } : null }));
     push('red', x.billsDisputed,
       `${x.billsDisputed.length} ${Shell.plural(x.billsDisputed.length, 'prijatá faktúra je', 'prijaté faktúry sú', 'prijatých faktúr je')} sporná`,
       'Rozdiel oproti hodinám treba dohodnúť so živnostníkom.', 'costs',
@@ -3540,7 +3558,7 @@ window.Danubra = {
               onclick="Danubra.go('${r.go}')">${UI.esc(r.label)}</button>
             <span style="color:var(--ink-mute);font-size:12.5px;display:block;">${UI.esc(r.why)}</span>
             ${r.items.length ? `<span class="link-row" style="margin-top:7px;">
-              ${r.items.map(i => Danubra.link(i.type, i.id, i.label)).join('')}
+              ${r.items.map(i => Danubra.link(i.type, i.id, i.label, i.firm ? { firm: i.firm } : {})).join('')}
               ${r.more ? `<span class="link-chip is-static">+${r.more} ďalších</span>` : ''}
             </span>` : ''}
           </span>
@@ -3555,7 +3573,7 @@ window.Danubra = {
                 onclick="Danubra.go('${r.go}')">${UI.esc(r.label)}</button>
               <span style="color:var(--ink-mute);font-size:12.5px;display:block;">${UI.esc(r.why)}</span>
               ${r.items.length ? `<span class="link-row" style="margin-top:7px;">
-                ${r.items.map(i => Danubra.link(i.type, i.id, i.label)).join('')}
+                ${r.items.map(i => Danubra.link(i.type, i.id, i.label, i.firm ? { firm: i.firm } : {})).join('')}
                 ${r.more ? `<span class="link-chip is-static">+${r.more} ďalších</span>` : ''}
               </span>` : ''}
             </span>
