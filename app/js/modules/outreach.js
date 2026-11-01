@@ -21,6 +21,9 @@
 //                    do Nových firiem — js/modules/lead-tips.js
 //   e-mail v dizajne punds a prezentácia PDF (remeslo a región firmy):
 //                    náhľad a stiahnutie v okne Osloviť, príloha pri odoslaní
+//   remeslo firmy    (087) stĺpec a filter Remeslo v Odoslaných a vo Firmách
+//                    a kontaktoch, v Dnes na rade čipy a výber remesla
+//                    (Lead.tradeColumn / tradeFilter, lib/marketing/trades.js)
 //
 // Pravidlá sú v lib/marketing/outreach.js (testy). Posiela, sleduje a páruje
 // odpovede server (danubra-outreach-send, danubra-track, synchronizácia
@@ -32,6 +35,10 @@
   const COLS = 'id,lead_id,partner_id,mailbox_id,mail_message_id,step,lang,to_email,subject,status,error,sent_at,sent_by,'
     + 'message_id,opened_at,open_count,last_opened_at,auto_opened_at,auto_open_count,clicked_at,click_count,last_clicked_at,'
     + 'auto_click_count,replied_at,reply_message_id,bounced_at,unsubscribed_at,next_followup_at,created_at,archived_at';
+
+  /** Stĺpec a filter Remeslo (087) z Nových firiem — `get` = riadok zoznamu → firma. */
+  const trCol = (get) => (window.Lead && Lead.tradeColumn ? [Lead.tradeColumn(get)] : []);
+  const trFilter = (get) => (window.Lead && Lead.tradeFilter ? [Lead.tradeFilter(get)] : []);
 
   const LEGAL = 'V Nemecku je nevyžiadaný obchodný e-mail rizikový (§ 7 UWG): bez súhlasu sa smie poslať len tam, kde sa dá rozumne '
     + 'predpokladať záujem firmy o našu službu. Oslovujte po jednom, firmy, ktoré robia to, na čo dodávame ľudí, vecne a bez nátlaku — '
@@ -625,23 +632,57 @@
         </tbody></table></div>`;
     },
 
+    /** Vybrané remeslá v Dnes na rade (prázdne = všetky). */
+    todayTradeOk(l) {
+      const sel = this._todayTr;
+      if (!sel || !sel.size || !window.Lead || !Lead.tradeKeys) return true;
+      const k = Lead.tradeKeys(l);
+      return k.length ? k.some(x => sel.has(x)) : sel.has('');
+    },
+    /** Výber remesla nad Dnes na rade — len remeslá, ktoré tam sú, s počtom firiem. */
+    todayTradeBar(leads) {
+      if (!window.Lead || !Lead.tradeKeys || !window.DanubraTrades) return '';
+      const sel = this._todayTr || new Set();
+      const cnt = new Map();
+      for (const l of new Set(leads)) { const k = Lead.tradeKeys(l); for (const x of (k.length ? k : [''])) cnt.set(x, (cnt.get(x) || 0) + 1); }
+      if (!cnt.size) return '';
+      const opts = DanubraTrades.options(Lead.trades).filter(o => cnt.has(o.key)).map(o => [o.key, o.label]);
+      if (cnt.has('')) opts.push(['', 'Neurčené']);
+      const b = (k, l, n) => `<button type="button" class="tr-opt" aria-pressed="${sel.has(k)}" onclick="Outreach.todayTrade('${UI.esc(k)}')"><span class="tr-tick">${Icon('check', 12)}</span>${UI.esc(l)} <em>${n}</em></button>`;
+      return `<div class="tr-bar" role="group" aria-label="Remeslo"><span>Remeslo:</span>
+        <button type="button" class="tr-opt" aria-pressed="${!sel.size}" onclick="Outreach.todayTrade(null)">Všetky</button>
+        ${opts.map(([k, l]) => b(k, l, cnt.get(k))).join('')}${UI.tip('Ukáže len firmy s vybraným remeslom — napríklad keď máte voľných maliarov. Neurčené = firmy, ktorým remeslo ešte nikto neurčil a z údajov sa nedá zistiť.')}</div>`;
+    },
+    todayTrade(k) {
+      if (!this._todayTr) this._todayTr = new Set();
+      if (k == null) this._todayTr.clear();
+      else if (this._todayTr.has(k)) this._todayTr.delete(k); else this._todayTr.add(k);
+      Danubra.renderRoute();
+    },
+
     todayHtml(due, fresh, dnes, cfg) {
+      // Remeslo (087): čipy v riadku a výber remesla nad zoznamami.
+      const trOk = (l) => this.todayTradeOk(l);
+      const trChips = (l) => (window.Lead && Lead.tradeChips ? ` ${Lead.tradeChips(l)}` : '');
+      const bar = this.todayTradeBar([...due.map(x => x.lead), ...fresh]);
+      due = due.filter(x => trOk(x.lead));
+      fresh = fresh.filter(trOk);
       const riadok = (l, extra, step) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">
         <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(l.name)}</strong>
-          <span style="color:var(--ink-mute);"> · ${UI.esc([l.city, l.trade].filter(Boolean).join(' · ') || '—')}</span>
+          <span style="color:var(--ink-mute);"> · ${UI.esc(l.city || '—')}</span>${trChips(l)}
           <span style="color:var(--ink-mute);display:block;font-size:12px;">${extra}</span></span>
         <button class="btn ${step > 1 ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="event.stopPropagation();Outreach.compose('${l.id}', ${step})">${Icon('mail', 14)} ${step > 1 ? 'Pripomenúť sa' : 'Osloviť'}</button>
       </div>`;
       const zostava = Math.max(0, cfg.daily_limit - dnes);
       const dnesD = window.DanubraFollowup ? DanubraFollowup.today() : new Date().toISOString().slice(0, 10);
-      const kroky = ((window.Lead && Lead.rows) || []).filter(l => !l.archived_at && l.next_step_at && String(l.next_step_at).slice(0, 10) <= dnesD)
+      const kroky = ((window.Lead && Lead.rows) || []).filter(l => !l.archived_at && l.next_step_at && String(l.next_step_at).slice(0, 10) <= dnesD && trOk(l))
         .sort((a, b) => String(a.next_step_at).localeCompare(String(b.next_step_at)));
       const krokRiadok = (l) => `<div class="list-row" role="button" tabindex="0" onclick="Outreach.detail('${l.id}')">
         <span style="flex:1;min-width:0;font-size:13px;"><strong>${UI.esc(l.name)}</strong>
           <span style="color:var(--ink-mute);"> · ${UI.esc([l.city, l.contact_person].filter(Boolean).join(' · ') || '—')}</span>
           <span style="color:var(--amber);display:block;font-size:12px;font-weight:600;">${UI.esc(UI.date(l.next_step_at))}${l.next_step_text ? ` — ${UI.esc(l.next_step_text)}` : ''}</span></span>
         <span class="btn btn-outline btn-sm" aria-hidden="true">${Icon('phone', 14)} Kontakt</span></div>`;
-      return `${kroky.length ? `<div class="form-section">Ďalšie kroky na dnes (${kroky.length})${UI.tip('Firmy, s ktorými je na dnes alebo skôr dohodnutý ďalší krok (z kontaktu). Úloha k nim je aj v Úlohách. Otvorte firmu, zavolajte a zapíšte, ako to dopadlo.')}</div>
+      return `${bar}${kroky.length ? `<div class="form-section">Ďalšie kroky na dnes (${kroky.length})${UI.tip('Firmy, s ktorými je na dnes alebo skôr dohodnutý ďalší krok (z kontaktu). Úloha k nim je aj v Úlohách. Otvorte firmu, zavolajte a zapíšte, ako to dopadlo.')}</div>
         ${kroky.slice(0, 30).map(krokRiadok).join('')}` : ''}${zostava ? '' : `<div class="warnbox">${Icon('alert', 14)} Dnešný limit ${cfg.daily_limit} e-mailov je vyčerpaný. Ďalšie firmy oslovte zajtra.${UI.tip('Denný limit chráni Vašu schránku pred spamovými filtrami a firmy pred hromadným rozosielaním. Mení ho administrátor v záložke Nastavenia.')}</div>`}
         <div class="form-section">Pripomenúť sa (${due.length})${UI.tip('Firmy, ktorým odišiel e-mail, neodpísali, neodhlásili sa a nadišiel termín pripomenutia. K nim vzniká aj úloha v Úlohách.')}</div>
         ${due.length ? due.map(({ outreach: o, lead: l }) => riadok(l, `${o.step > 1 ? `${o.step}. e-mail` : 'prvý e-mail'} ${UI.date(o.sent_at)} · „${UI.esc(o.subject || '')}"`,
@@ -702,6 +743,7 @@
           { key: 'firma', label: 'Firma', width: 'minmax(160px, 1.4fr)', mobile: 'title',
             render: (r) => `<span class="dl-title"><b>${UI.esc(r.firm)}</b><small>${UI.esc(r.o.to_email || '')}</small></span>`,
             sortValue: (r) => r.firm, csv: (r) => r.firm },
+          ...trCol((r) => r.lead),
           { key: 'predmet', label: 'Predmet', width: 'minmax(180px, 2fr)', mobile: 'line',
             render: (r) => `<span class="dl-two is-wrap"><b title="${UI.esc(r.o.subject || '')}">${UI.esc(r.o.subject || '—')}</b>${
               r.o.status === 'failed' && r.o.error ? `<small class="dl-note is-red">${UI.esc(r.o.error)}</small>` : ''}</span>`,
@@ -724,6 +766,7 @@
             sortValue: (r) => order.indexOf(r.state), csv: (r) => stLabel(r.state) },
         ],
         sort: { key: 'kedy', dir: -1 },
+        maxPrimary: 5,
         filters: [
           { key: 'q', type: 'search', placeholder: 'Hľadať firmu, predmet, e-mail…', label: 'Hľadať firmu, predmet alebo e-mail',
             fields: ['firm', 'o.subject', 'o.to_email', 'lead.city'] },
@@ -731,6 +774,7 @@
             options: [['sent', 'Odoslané'], ['auto', 'Otvorenie (možno automaticky)'], ['opened', 'Otvoril'], ['clicked', 'Klikol'],
               ['replied', 'Odpovedal'], ['bounced', 'Nedoručené'], ['unsubscribed', 'Odhlásený'], ['failed', 'Neodišlo']],
             hint: 'Najďalší stav e-mailu: odpoveď je viac ako klik, klik viac ako otvorenie. Neodišlo = server e-mail neodoslal (dôvod je pod predmetom).' },
+          ...trFilter((r) => r.lead),
           { key: 'otvoril', type: 'toggle', label: 'Otvoril', test: (r) => !!(r.o.opened_at || r.o.auto_opened_at),
             hint: 'E-maily, ktoré firma otvorila — aj otvorenie „možno automaticky" (Apple Mail, Gmail predčítajú obrázky).' },
           { key: 'odpovedal', type: 'toggle', label: 'Odpovedal', test: (r) => !!r.o.replied_at,
@@ -750,7 +794,8 @@
         export: {
           name: ['oslovovanie-odoslane'],
           columns: [
-            ['Firma', r => r.firm], ['E-mail', r => r.o.to_email], ['Predmet', r => r.o.subject], ['Krok', r => krok(r.o)],
+            ['Firma', r => r.firm], ['Remeslo', r => (window.Lead && Lead.tradeLabels ? Lead.tradeLabels(r.lead).join(', ') : '')],
+            ['E-mail', r => r.o.to_email], ['Predmet', r => r.o.subject], ['Krok', r => krok(r.o)],
             ['Jazyk', r => (r.o.lang === 'en' ? 'EN' : 'DE')], ['Poslal(a)', r => r.who], ['Odoslané', r => r.o.sent_at || ''],
             ['Stav', r => stLabel(r.state)], ['Otvorené', r => r.o.opened_at || ''], ['Otvorení', r => r.o.open_count || ''],
             ['Otvorenie možno automaticky', r => r.o.auto_opened_at || ''], ['Klik', r => r.o.clicked_at || ''],
@@ -817,6 +862,7 @@
           { key: 'firma', label: 'Firma', width: 'minmax(170px, 1.4fr)', mobile: 'title',
             render: (r) => `<span class="dl-title"><b>${UI.esc(r.name)}</b><small>${UI.esc([r.l.city, r.l.contact_person].filter(Boolean).join(' · '))}</small></span>`,
             sortValue: (r) => r.name, csv: (r) => r.name },
+          ...trCol((r) => r.l),
           { key: 'kategoria', label: 'Kategória', width: '130px', mobile: 'badge',
             render: (r) => { const st = CC.stageOf(r.stage); return UI.badge(st[1], st[2]); },
             sortValue: (r) => CC.STAGE_KEYS.indexOf(r.stage), csv: (r) => CC.stageOf(r.stage)[1] },
@@ -834,6 +880,7 @@
         filters: [
           { key: 'q', type: 'search', placeholder: 'Hľadať firmu, mesto, osobu…', label: 'Hľadať firmu', fields: ['name', 'l.city', 'l.contact_person', 'last.summary', 'next.text'] },
           { key: 'kategoria', type: 'multi', label: 'Kategória', value: 'stage', options: CC.STAGES.map(s => [s[0], s[1]]), sortOptions: false, allLabel: 'Všetky' },
+          ...trFilter((r) => r.l),
           { key: 'nadnes', type: 'toggle', label: 'Ďalší krok dnes alebo skôr', test: (r) => due(r),
             hint: 'Firmy, s ktorými je dohodnutý ďalší krok na dnes alebo už mal byť.' },
           { key: 'bezkroku', type: 'toggle', label: 'Bez ďalšieho kroku', test: (r) => !r.next && !['rejected', 'unsubscribed', 'won'].includes(r.stage), more: true,
@@ -843,7 +890,8 @@
         empty: { ico: 'phone', title: 'Zatiaľ žiadne kontakty', sub: 'Firmu otvorte a kliknite, ako dopadol hovor — alebo jej pošlite e-mail cez Osloviť.' },
         export: {
           name: ['firmy-kontakty'],
-          columns: [['Firma', r => r.name], ['Mesto', r => r.l.city], ['Kategória', r => CC.stageOf(r.stage)[1]], ['Kontaktná osoba', r => r.l.contact_person],
+          columns: [['Firma', r => r.name], ['Mesto', r => r.l.city], ['Remeslo', r => (window.Lead && Lead.tradeLabels ? Lead.tradeLabels(r.l).join(', ') : '')],
+            ['Kategória', r => CC.stageOf(r.stage)[1]], ['Kontaktná osoba', r => r.l.contact_person],
             ['Telefón', r => r.l.phone], ['E-mail', r => r.l.email], ['Posledný kontakt', r => r.lastAt || ''],
             ['Výsledok', r => (r.last && CC.outcomeOf(r.last.outcome) ? CC.outcomeOf(r.last.outcome)[1] : '')], ['Kto od nás', r => (r.last && r.last.our_member_name) || ''],
             ['O čom', r => (r.last && r.last.summary) || ''], ['Ďalší krok (dátum)', r => (r.next ? r.next.date : '')], ['Ďalší krok', r => (r.next ? r.next.text : '')],
@@ -858,8 +906,9 @@
       await this.ensure();
       const l = this.lead(leadId);
       if (!l) return UI.toast('Firma sa nenašla', 'err');
-      const meta = [[l.postal_code, l.city].filter(Boolean).join(' '), l.region, l.trade, l.contact_person].filter(Boolean).join(' · ');
-      UI.modal(l.name, `<div style="font-size:12.5px;color:var(--ink-sub);margin:-4px 0 10px;">${UI.esc(meta || '—')}</div>
+      const meta = [[l.postal_code, l.city].filter(Boolean).join(' '), l.region, l.contact_person].filter(Boolean).join(' · ');
+      UI.modal(l.name, `<div style="font-size:12.5px;color:var(--ink-sub);margin:-4px 0 10px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;">${UI.esc(meta || '—')}${
+        window.Lead && Lead.tradeChips ? ` ${Lead.tradeChips(l, 4)} <button type="button" class="ld-tr-btn" onclick="Lead.detail('${UI.esc(l.id)}');setTimeout(()=>Lead.tradePick('${UI.esc(l.id)}'),50)">${Icon('edit', 12)} Upraviť remeslá</button>` : ''}</div>
         <div id="oc-lc"></div>
         <div class="modal-actions">${this.button(l)}<button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
       const el = document.getElementById('oc-lc');

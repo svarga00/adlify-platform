@@ -1027,6 +1027,19 @@
           example: null,
         },
         {
+          title: 'Remeslo firmy',
+          what: 'Každá firma má jedno alebo viac remesiel — tých istých ako v Remeslá a otázky. Podľa nich firmy filtrujete a podľa nich sa firme píše e-mail, prezentácia aj ťahák k hovoru.',
+          how: [
+            'V zozname Nové firmy je hneď za firmou stĺpec „Remeslo" a v lište filter „Remeslo" (aj viac naraz). „neurčené" = z údajov firmy sa remeslo nedá zistiť.',
+            'Klik na firmu: remeslá sú v hlavičke okna. „Upraviť remeslá" otvorí výber — zakliknite remeslá a „Uložiť remeslá". „Vrátiť automaticky" vráti odhad appky.',
+            'Pod remeslami appka ukáže, koľko živnostníkov na to remeslo máme v Ľuďoch. Klik otvorí zoznam Ľudí s týmto remeslom.',
+            'V okne „Hľadať podobné firmy" môžete vybrať remeslá, ktoré hľadáte. Kolegovia ich môžu zakliknúť aj vo formulári Odkazy od kolegov.',
+          ],
+          open: open('leads', 'Otvoriť Nové firmy'),
+          tip: 'Remeslo určené ručne (oranžový čip) má prednosť pred odhadom — e-mail potom hovorí o tomto remesle, aj keď AI pri hľadaní napísala niečo iné.',
+          example: 'AI pri firme napísala „suchá výstavba", no firma robí hlavne maľovanie. V hlavičke kliknete „Upraviť remeslá", vyberiete Maliar a e-mail jej ponúkne maliarov.',
+        },
+        {
           title: 'Logá a náhľady webov',
           what: 'Pri firme v zozname je jej logo z webu, v detaile náhľad webu (obrázok, titulok, popis). Kým logo nie je načítané, ukáže sa ikona webu; keď nie je ani tá, iniciály firmy na farbe.',
           how: [

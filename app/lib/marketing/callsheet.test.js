@@ -63,7 +63,11 @@ console.log('\nDotazník po hovore');
   const keys = CS.QUESTIONS.map(q => q.key);
   ok(['right_person', 'subcontractors', 'trades', 'headcount', 'sites', 'staffed', 'interest', 'send', 'note'].every(k => keys.includes(k)), 'všetky otázky', keys.join(','));
   const tr = CS.QUESTIONS.find(q => q.key === 'trades');
-  ok(tr.options.length === P.TRADES.length && tr.options.some(o => o[0] === 'Trockenbau') && tr.other, 'remeslá z pitch.js (nemecké názvy) + iné');
+  const TR = require('./trades.js');
+  ok(tr.options.some(o => o[0] === 'trockenbau' && o[1] === 'Sadrokartón') && tr.options.some(o => o[0] === 'omietkar') && !tr.options.some(o => o[0] === 'bau') && tr.other,
+    'remeslá: kľúče danubra_trades so slovenským názvom (trades.js) + iné', JSON.stringify(tr.options.slice(0, 3)));
+  ok(tr.options.every(o => TR.KEYS.includes(o[0])), 'každá možnosť je známy kľúč — dá sa uložiť ako remeslo firmy');
+  ok(CS.tradeOptions([{ key: 'trockenbau', name_sk: 'Sadrokartonár' }])[0][1] === 'Sadrokartón', 'pri firme druh práce aj s tabuľkou danubra_trades');
   ok(CS.QUESTIONS.find(q => q.key === 'interest').options.length === 5, 'záujem 1–5');
   ok(CS.QUESTIONS.find(q => q.key === 'headcount').with.options.map(o => o[1]).join() === 'hneď,o mesiac,na jar,po lete,budúci rok', 'odkedy: hneď, o mesiac, na jar, po lete, budúci rok');
 }

@@ -140,6 +140,30 @@ const firm = (company, link, extra = {}) => ({ company, link, ...extra });
     ok(r.added === 1 && r.duplicates === 3, 'počty pre úspešnú obrazovku');
   }
 
+  console.log('\nRemeslá od kolegu (087)');
+  {
+    const db = mkDb();
+    const r = await call(db, { t: TOKEN, name: 'Jano', firms: [
+      firm('Maler Huber GmbH', 'maler-huber.de', { trades: ['maliar', 'omietkar', 'maliar'] }),
+      firm('Zlé Remeslá GmbH', 'zle-remesla.de', { trades: ['<script>', 'drop table', 'neznamy', 'ELEKTRIKAR'] }),
+      firm('Bez remesla GmbH', 'bez-remesla.de'),
+      firm('Text GmbH', 'text-gmbh.de', { trades: 'zvarac,zamocnik' }),
+    ] });
+    ok(r.code === 200 && db.inserts.length === 4, 'firmy s remeslami sa uložia', JSON.stringify(r));
+    const by = (n) => db.inserts.find(x => x.company_name === n) || {};
+    ok(JSON.stringify(by('Maler Huber GmbH').trade_keys) === '["maliar","omietkar"]', 'známe kľúče bez opakovania', JSON.stringify(by('Maler Huber GmbH').trade_keys));
+    ok(JSON.stringify(by('Zlé Remeslá GmbH').trade_keys) === '["elektrikar"]', 'neznáme a podvrhnuté kľúče sa zahodia (len vstavaný zoznam)', JSON.stringify(by('Zlé Remeslá GmbH').trade_keys));
+    ok(!('trade_keys' in by('Bez remesla GmbH')), 'bez remesla sa stĺpec neposiela (funguje aj bez migrácie 087)');
+    ok(JSON.stringify(by('Text GmbH').trade_keys) === '["zvarac","zamocnik"]', 'aj ako text oddelený čiarkou');
+    const many = await call(mkDb(), { t: TOKEN, name: 'Jano', firms: [firm('Veľa GmbH', 'vela.de', { trades: ['trockenbau', 'obkladac', 'maliar', 'omietkar', 'elektrikar', 'tesar', 'betonar', 'murar'] })] });
+    ok(many.code === 200, 'priveľa remesiel nie je chyba');
+    const T = require(path.join(__dirname, '..', 'lib', 'marketing', 'tips.js'));
+    const lead = T.tipToLead({ id: 't1', company_name: 'Maler Huber GmbH', submitted_by_name: 'Jano', trade_keys: ['maliar', 'hack'] });
+    ok(JSON.stringify(lead.trade_keys) === '["maliar"]' && !('trade_keys' in T.tipToLead({ id: 't2', company_name: 'Iná GmbH' })), 'pri pridaní do Nových firiem sa remeslá prenesú (overené)');
+    ok(Tip.missing087({ code: 'PGRST204', message: "Could not find the 'trade_keys' column of 'danubra_lead_tips' in the schema cache" }) && !Tip.missing087({ code: '23505', message: 'duplicate' }),
+      'chýbajúca migrácia 087 sa spozná (uloží sa bez remesiel)');
+  }
+
   console.log('\nÚdaje z webu (na pozadí)');
   {
     const tips = [

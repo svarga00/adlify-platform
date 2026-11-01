@@ -219,6 +219,7 @@
           </select></label>${tip('Kategória firmy — kde s ňou sme. Zmena sa zapíše do histórie. Nemá záujem a Ozvať sa neskôr zastavia pripomínanie e-mailom.')}
           ${next}
         </div>
+        ${this.tradeOfferHtml()}
         ${quick ? `<div class="lc-quick">${quick}</div>` : '<div class="lc-empty">Firma nemá telefón, e-mail ani web.</div>'}
         <div class="lc-callwrap">${this.callHtml()}</div>
         ${this.missing ? `<div class="notebox">${ico('alert', 14)} Záznamy kontaktov ešte nie sú pripravené v databáze (migrácia 081). Rýchle akcie a e-maily fungujú.</div>` : `
@@ -310,7 +311,10 @@
       const on = (k, v) => (Array.isArray(a[k]) ? a[k].includes(v) : a[k] != null && String(a[k]) === String(v));
       const chip = (q, [v, lbl], extra = '') => `<button type="button" class="lc-chip${extra}${on(q.key, v) ? ' is-on' : ''}" data-lc-a="q" data-k="${esc(q.key)}" data-t="${esc(q.type)}" data-v="${esc(v)}">${esc(lbl)}</button>`;
       const inp = (k, ph, cls = '', val = a[k]) => `<input type="text" data-lc-q="${esc(k)}" class="${cls}" value="${esc(val == null ? '' : val)}" placeholder="${esc(ph)}" autocomplete="off">`;
+      // Remeslá (087): kľúče danubra_trades, názvy z Remeslá a otázky, keď sú načítané.
+      const trTable = (window.Lead && Lead.trades) || null;
       const rows = Q.map(q => {
+        if (q.key === 'trades' && CS().tradeOptions) q = { ...q, options: CS().tradeOptions(trTable) };
         let body = '';
         if (q.type === 'one' || q.type === 'scale') {
           body = `<div class="lc-chips">${q.options.map(o => chip(q, o, q.type === 'scale' ? ' is-scale' : '')).join('')}${q.free ? inp(q.key, q.placeholder, 'lc-free') : ''}</div>`;
@@ -514,6 +518,8 @@
       if (a === 'accept') return this.accept();
       if (a === 'dismiss') { this.sug = null; this.sugState = ''; return this.rerenderSug(); }
       if (a === 'fix') return this.fix(b.dataset.v);
+      if (a === 'trsave') return this.saveTradeOffer();
+      if (a === 'trno') { this.tradeOffer = null; return this.render(); }
     }
     onChange(e) {
       const t = e.target;
@@ -562,7 +568,8 @@
     }
     composed() {
       const f = this.form;
-      return this.quizFilled() ? C().composeSummary(this.answers, { contactName: f.contact_name, contactRole: f.contact_role }) : '';
+      return this.quizFilled() ? C().composeSummary(this.answers, { contactName: f.contact_name, contactRole: f.contact_role,
+        tradesTable: (window.Lead && Lead.trades) || null }) : '';
     }
 
     /** Klik na Zavolať: po chvíli sa otvorí záznam (hovor je na telefóne, nie v appke). Pri otvorenom „Idem volať" nie — ešte sa volá. */
@@ -624,6 +631,8 @@
           create_task: !!f.create_task, ai_extracted: f.accepted || this.sug || null, answers });
         Object.assign(this.lead, r.lead || {});
         if (r.contact) this.contacts.unshift(r.contact);
+        // „Ktoré remeslá potrebujú" → ponuka uložiť ich ako remeslá firmy (087).
+        this.tradeOffer = this.offerTrades(answers);
         this.form = null; this.sug = null; this.answers = null;
         if (this.sheet && this.sheet.done) this.sheet = null;
         this.render();
@@ -633,6 +642,34 @@
         if (btn && document.body.contains(btn)) { btn.disabled = false; btn.innerHTML = `${ico('check', 14)} Uložiť záznam`; }
         UI.toast(err.message, 'err');
       }
+    }
+
+    /** Remeslá z dotazníka, ktoré firma ešte nemá určené (len známe kľúče), alebo null. */
+    offerTrades(answers) {
+      const TR = window.DanubraTrades;
+      if (!TR || !answers || !Array.isArray(answers.trades)) return null;
+      const keys = TR.valid(answers.trades, { table: (window.Lead && Lead.trades) || null });
+      if (!keys.length) return null;
+      const cur = TR.isManual(this.lead) ? this.lead.trade_keys : [];
+      return keys.every(k => cur.includes(k)) && cur.length === keys.length ? null : keys;
+    }
+    tradeOfferHtml() {
+      const TR = window.DanubraTrades;
+      if (!this.tradeOffer || !TR) return '';
+      const names = TR.labels(this.tradeOffer, (window.Lead && Lead.trades) || null).join(', ');
+      return `<div class="lc-trsave" role="status">${ico('wrench', 14)} <span>Z hovoru: potrebujú <b>${esc(names)}</b>.</span>
+        <button type="button" class="btn btn-primary btn-sm" data-lc-a="trsave">${ico('check', 13)} Uložiť ako remeslá firmy</button>
+        <button type="button" class="lc-lnk" data-lc-a="trno">Nie</button>${window.UI ? UI.tip('Remeslá firmy sa nastavia na tieto (ručne). Podľa nich sa firma filtruje v zoznamoch a píše sa jej e-mail a prezentácia. Zmeniť ich môžete kedykoľvek v hlavičke firmy — „Upraviť remeslá".') : ''}</div>`;
+    }
+    async saveTradeOffer() {
+      const keys = this.tradeOffer;
+      if (!keys) return;
+      // Ukladá modul Nových firiem (js/modules/leads.js) — jedno miesto pre zápis remesiel.
+      if (!(window.Lead && Lead.saveTrades) || !(await Lead.saveTrades(this.lead.id, keys))) return;
+      this.lead.trade_keys = keys;
+      this.tradeOffer = null;
+      this.render();
+      if (typeof this.opts.onChange === 'function') this.opts.onChange(this.lead, { trades: keys });
     }
 
     async setStage(stage, sel) {

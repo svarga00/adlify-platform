@@ -18,7 +18,8 @@
 //   objections  [{ q, a, sk }] — časté námietky a vecné odpovede. Ceny sa
 //                 nevymýšľajú: „Konditionen nennen wir Ihnen im Angebot".
 //   questions   čo po hovore zistiť (dotazník „Čo sme sa dozvedeli") —
-//                 otázky, možnosti a kľúče odpovedí; remeslá z pitch.js.
+//                 otázky, možnosti a kľúče odpovedí; remeslá sú kľúče
+//                 danubra_trades z trades.js (dajú sa uložiť ako remeslá firmy).
 //
 // Texty o nás berie z pitch.js (prevzaté z punds.eu a z Nastavení), takže
 // hovor, e-mail a prezentácia hovoria to isté. Nič tu nenahráva ani nevolá.
@@ -29,6 +30,8 @@
   const isNode = typeof require === 'function' && typeof module !== 'undefined';
   const P = isNode ? require('./pitch.js') : (typeof window !== 'undefined' ? window.DanubraPitch : null);
   const C = isNode ? require('./contacts.js') : (typeof window !== 'undefined' ? window.DanubraContacts : null);
+  // Remeslá firiem (087) — ten istý zoznam a názvy ako v zozname firiem a pri hľadaní.
+  const TR = isNode ? require('./trades.js') : (typeof window !== 'undefined' ? window.DanubraTrades : null);
 
   const clean = (v, n = 200) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -36,6 +39,8 @@
   const SHORT = { trockenbau: 'Trockenbau', fliesen: 'Fliesen', maler: 'Maler', wdvs: 'WDVS / Putz', elektro: 'Elektro', schalung: 'Schalung',
     bewehrung: 'Bewehrung', maurer: 'Maurer', schweissen: 'Schweißen', metallbau: 'Metallbau', fenster: 'Fenster / Türen' };
   const tradeChips = () => (P ? P.TRADES : []).map(t => ({ key: t.key, label: SHORT[t.key] || t.label }));
+  /** Čipy „Ktoré remeslá potrebujú?" — kľúče danubra_trades so slovenským názvom (bez všeobecného „bau"). */
+  const tradeOptions = (table = null) => (TR ? TR.options(table) : []).filter(o => o.key !== TR.GENERIC_KEY).map(o => [o.key, o.label]);
 
   /**
    * Dotazník po hovore — otázky, na ktoré sa odpovedá klikaním (do 30 sekúnd).
@@ -45,7 +50,7 @@
     { key: 'right_person', label: 'Dovolali ste sa správnej osobe?', type: 'one', options: [['yes', 'áno'], ['no', 'nie']],
       sub: { when: 'no', fields: [['decider_name', 'Kto rozhoduje (meno)'], ['decider_role', 'Funkcia (Inhaber, Bauleiter…)']] } },
     { key: 'subcontractors', label: 'Berú subdodávateľov / cudzie partie?', type: 'one', options: [['yes', 'áno'], ['no', 'nie'], ['unknown', 'neviem']] },
-    { key: 'trades', label: 'Ktoré remeslá potrebujú?', type: 'many', options: tradeChips().map(t => [t.label, t.label]), other: 'trades_other' },
+    { key: 'trades', label: 'Ktoré remeslá potrebujú?', type: 'many', options: tradeOptions(), other: 'trades_other' },
     { key: 'headcount', label: 'Koľko ľudí a odkedy?', type: 'number', min: 1, max: 200, placeholder: 'počet',
       with: { key: 'when', options: [['now', 'hneď'], ['month', 'o mesiac'], ['spring', 'na jar'], ['after_summer', 'po lete'], ['next_year', 'budúci rok']] } },
     { key: 'sites', label: 'Kde sú stavby?', type: 'text', placeholder: 'mesto, región' },
@@ -120,7 +125,7 @@
     return { askFor: ask, script, objections, questions: QUESTIONS, trade: pitch ? pitch.trade.key : 'bau', team, firma };
   }
 
-  const API = { callsheet, askFor, QUESTIONS, tradeChips, SHORT };
+  const API = { callsheet, askFor, QUESTIONS, tradeChips, tradeOptions, SHORT };
   if (typeof window !== 'undefined') window.DanubraCallsheet = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

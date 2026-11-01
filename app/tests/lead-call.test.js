@@ -163,8 +163,8 @@ const DATA = {
   const q = (k, v) => page.click(`[data-lc-a="q"][data-k="${k}"][data-v="${v}"]`);
   await q('right_person', 'yes');
   await q('subcontractors', 'yes');
-  await q('trades', 'Maler');
-  await q('trades', 'WDVS / Putz');
+  await q('trades', 'maliar');
+  await q('trades', 'omietkar');
   await page.fill('[data-lc-q="headcount"]', '4');
   await q('when', 'spring');
   await q('staffed', 'seasonal');
@@ -176,7 +176,7 @@ const DATA = {
     head: document.querySelector('[data-lc-form] > b').textContent, auto: document.querySelector('.lc-autoout').textContent.replace(/\s+/g, ' '),
     sug: (document.querySelector('.lc-sug') || {}).textContent || '', chips: document.querySelectorAll('.lc-chip.is-on').length }));
   const lines = filled.summary.split('\n');
-  ok(lines[0] === '• Správna osoba: Ali Demirtas' && lines.includes('• Subdodávateľov berú: áno') && lines.includes('• Remeslá: Maler, WDVS / Putz'), 'súhrn v bodoch: správna osoba, subdodávatelia, remeslá', filled.summary);
+  ok(lines[0] === '• Správna osoba: Ali Demirtas' && lines.includes('• Subdodávateľov berú: áno') && lines.includes('• Remeslá: Maľovanie, Zatepľovanie a fasády'), 'súhrn v bodoch: správna osoba, subdodávatelia, remeslá (slovenské názvy z trades.js)', filled.summary);
   ok(lines.includes('• Potrebujú: 4 ľudí, na jar') && lines.includes('• Stavby: Augsburg, Bayern a okolie') && lines.includes('• Záujem: 4/5') && lines.includes('• Poslať: profily partií') && lines.includes('• Ozvať sa: o 2 týždne'),
     'počet a odkedy, stavby, záujem, čo poslať, kedy sa ozvať', filled.summary);
   ok(filled.on && filled.on.v === 'interested' && /Má záujem/.test(filled.head) && /vychádza výsledok Má záujem/.test(filled.auto), 'záujem 4/5 → výsledok Má záujem', JSON.stringify(filled.on) + filled.auto);
@@ -204,12 +204,24 @@ const DATA = {
   await page.waitForTimeout(300);
   const saved = await page.evaluate(() => window.__saved[0]);
   ok(saved && saved.outcome === 'interested' && saved.duration_min === 1 && /^• Správna osoba/.test(saved.summary) && saved.next_step_at, 'uloží výsledok, dĺžku, súhrn a ďalší krok', JSON.stringify(saved));
-  ok(saved && saved.answers && saved.answers.interest === 4 && saved.answers.trades.join() === 'Maler,WDVS / Putz' && saved.answers.headcount === 4 && saved.answers.when === 'spring'
+  ok(saved && saved.answers && saved.answers.interest === 4 && saved.answers.trades.join() === 'maliar,omietkar' && saved.answers.headcount === 4 && saved.answers.when === 'spring'
     && saved.answers.send.join() === 'profiles', 'odpovede idú na server štruktúrovane', JSON.stringify(saved && saved.answers));
   const after = await page.evaluate(() => ({ form: !!document.querySelector('[data-lc-form]'), sheet: !!document.querySelector('.lc-sheet'), tl: document.querySelector('.lc-tl').textContent,
     head: (document.querySelector('.ld-modal .ld-id-call') || {}).textContent || '' }));
   ok(!after.form && !after.sheet && /Má záujem/.test(after.tl) && /Záujem: 4\/5/.test(after.tl), 'po uložení: záznam v histórii, panel aj formulár zavreté');
   ok(/Posledný hovor: práve teraz · Má záujem · Štefan/.test(after.head), 'hlavička ukáže nový posledný hovor', after.head);
+
+  // „Ktoré remeslá potrebujú" → „Uložiť ako remeslá firmy" (087).
+  const offer = await page.evaluate(() => (document.querySelector('.lc-trsave') || {}).textContent || '');
+  ok(/potrebujú Maľovanie, Zatepľovanie a fasády/.test(offer.replace(/\s+/g, ' ')) && /Uložiť ako remeslá firmy/.test(offer), 'po uložení ponuka „Uložiť ako remeslá firmy"', offer);
+  await page.evaluate(() => { window.__upd = []; DB.update = async (t, id, patch) => { window.__upd.push({ t, id, patch }); return { data: null, error: null }; }; });
+  await page.click('[data-lc-a="trsave"]');
+  await page.waitForTimeout(200);
+  const trs = await page.evaluate(() => ({ upd: window.__upd, offer: !!document.querySelector('.lc-trsave'), lead: Lead.rows.find(x => x.id === 'l1').trade_keys,
+    head: (document.querySelector('.ld-modal .ld-trades') || {}).textContent || '' }));
+  ok(trs.upd.length === 1 && trs.upd[0].t === 'leads' && JSON.stringify(trs.upd[0].patch) === '{"trade_keys":["maliar","omietkar"]}' && !trs.offer,
+    'uloží trade_keys firmy a ponuka zmizne', JSON.stringify(trs));
+  ok(JSON.stringify(trs.lead) === '["maliar","omietkar"]' && /Maľovanie/.test(trs.head) && /Zatepľovanie/.test(trs.head) && /ručne/.test(trs.head), 'hlavička firmy ukáže nové remeslá (ručne)', trs.head);
 
   console.log('\nVoľný text bez dotazníka');
   await page.click('.lc-oc[data-v="callback"]');

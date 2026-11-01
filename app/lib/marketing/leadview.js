@@ -173,7 +173,7 @@
     const text = cut(l.site_description || p.summary || l.why || '', 280);
     const found = [];
     const cats = Array.isArray(l.categories) ? l.categories.filter(Boolean).slice(0, 3) : [];
-    const what = [cats.length ? `Na Google Mapách: ${cats.join(', ')}` : (l.trade ? `Remeslo: ${l.trade}` : ''),
+    const what = [cats.length ? `Na Google Mapách: ${cats.join(', ')}` : (l.trade ? `Čím sa zaoberá (podľa AI): ${l.trade}` : ''),
       l.employees ? `cca ${l.employees} zamestnancov (odhad)` : ''].filter(Boolean);
     if (what.length) found.push(`${what.join('; ')}.`);
     const r = num(l.rating), n = num(l.reviews_count);
