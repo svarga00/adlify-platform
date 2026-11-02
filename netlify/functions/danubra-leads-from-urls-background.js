@@ -27,14 +27,15 @@
 // súkromné siete a metadáta cloudu sú zakázané. Len http/https, najviac
 // 3 presmerovania, časový limit a limit veľkosti na každú stránku.
 //
-// Limity: najviac 10 adries, najviac 50 firiem, celé hľadanie najviac
-// ~13 minút (Netlify zastaví funkciu na pozadí po 15).
+// Limity: najviac 10 adries, najviac 50 firiem v jednom behu (s Google
+// Mapami po kolách až 300, pozri nižšie), jeden beh najviac ~13 minút
+// (Netlify zastaví funkciu na pozadí po 15).
 //
 // Outscraper (Google Mapy) — keď je OUTSCRAPER_API_KEY (079), krok b) ide inak:
 //   b1) Claude z profilov navrhne dotazy „Trockenbau, München" (kategórie
 //       po nemecky × lokality z regiónu alebo z miest zadaných firiem),
 //       najviac 10, limit na dotaz tak, aby spolu nepresiahli počet × 3
-//       a OUTSCRAPER_MAX_RECORDS (predvolene 200) — účtuje sa za záznam,
+//       a OUTSCRAPER_MAX_RECORDS (predvolene 1000) — účtuje sa za záznam,
 //   b2) Outscraper GET /maps/search-v3 (sync, alebo async + /requests/<id>),
 //   b3) vyradia sa zatvorené (dočasne zatvorené sa len označia), bez webu
 //       (ak nie je „aj bez webu"), mimo Nemecka, duplicity (place_id,
@@ -75,12 +76,41 @@
 // web smie ukázať v okne appky (app/lib/marketing/sitemeta.js). Bez 082 sa
 // firma uloží bez týchto stĺpcov.
 //
+// Po kolách (088) — „hľadať naraz viac ako 50": s Outscraperom 100, 200 alebo
+// 300 firiem. Funkcia na pozadí smie bežať 15 minút, preto:
+//   kolo 1   weby zadaných firiem → profil → plán dotazov (pri väčšom
+//            rozpočte až 30 dotazov po ~50 firmách) → Google Mapy: dotazy
+//            po 10 v požiadavke, všetky async (mapsStart); čaká sa najviac
+//            do ~10. minúty kola (mapsCollect) — čo nie je hotové, dočká
+//            ďalšie kolo → vyradenie (raz, nad celým výsledkom) → fronta
+//            firiem na overenie,
+//   každé    ~150 firiem z fronty: Impressum (do ~6,5 min kola), skóre AI po
+//   kolo     dávkach 40 (do ~9,5 min), najlepšie nad prahom do zvyšku počtu,
+//            kontakty Outscraperu len pre ne (po 100 doménach), MX, uloženie
+//            hneď (firmy sú v zozname už počas hľadania). Čo kolo nestihlo,
+//            ide späť na začiatok fronty.
+//   koniec   uložený počet, prázdna fronta, „Zastaviť", 8 kôl alebo dve
+//   kola     kolá bez pokroku → stav done/cancelled, súhrn za všetky kolá.
+// Medzi kolami: stav do danubra_lead_search_state (088, len server), v hľadaní
+// stats.round / rounds / multi / handoff_at (appka: „Kolo 2 z ~4", dlhšie
+// čakanie pred „prerušilo sa"), a POST na seba s { search_id, round, token }.
+// Token = HMAC-SHA256 (IP_HASH_SECRET, inak MAIL_SECRET, inak service-role
+// kľúč) nad id hľadania, číslom kola a platnosťou (30 min) — nie JWT
+// používateľa, ktorý by medzitým vypršal. Kolo sa „zaberie" podmieneným
+// zápisom (round = n len keď je n − 1), takže dvakrát nebeží. Keď sa ďalšie
+// kolo nespustí, appka ponúkne „Pokračovať" (POST s prihlásením a resume).
+// Bez 088 alebo bez tajomstva → najviac 50 firiem v jednom behu ako doteraz.
+// Do 50 firiem sa hľadá v jednom behu presne ako doteraz.
+//
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY,
 //      CLAUDE_MODEL_LEADS (voliteľné), OUTSCRAPER_API_KEY (voliteľné),
-//      OUTSCRAPER_MAX_RECORDS (voliteľné, predvolene 200)
+//      OUTSCRAPER_MAX_RECORDS (voliteľné, predvolene 1000),
+//      IP_HASH_SECRET / MAIL_SECRET (podpis ďalšieho kola; inak service-role
+//      kľúč), URL (Netlify — adresa, na ktorej sa spustí ďalšie kolo)
 // ============================================================================
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const zlib = require('zlib');
 const dns = require('dns');
 const AI = require('../../app/lib/ai.js');
@@ -101,6 +131,14 @@ const UA = 'Mozilla/5.0 (compatible; DanubraHub/1.0; +https://punds.eu) Firmenre
 const PAGE_CHARS = 7000;
 const MAX_RESULTS = 50;
 const BEAT_MS = 20000;
+// Po kolách (088): časy od začiatku kola, kedy prestať začínať ďalšiu prácu.
+const ROUND_MS = { maps: 10 * 60e3, imp: 6.5 * 60e3, score: 9.5 * 60e3, contacts: 11.5 * 60e3, hard: 12.5 * 60e3 };
+const ROUND = O.ROUND;
+/** Koľko kôl smie čakať na Google Mapy. */
+const MAX_MAPS_ROUNDS = 3;
+const SELF_FN = '/.netlify/functions/danubra-leads-from-urls-background';
+const TOKEN_TTL_MS = 30 * 60e3;
+const CHAIN_MS = 10000;
 
 // ── Nástroje pre model ──────────────────────────────────────────────────────
 const nullStr = (description) => (description ? { type: ['string', 'null'], description } : { type: ['string', 'null'] });
@@ -187,6 +225,16 @@ const QUERIES = {
     },
   },
 };
+
+/** Väčšie hľadanie: viac dotazov a lokalít (inak rovnaký nástroj). */
+function queriesTool(maxQ) {
+  if (!(maxQ > 10)) return QUERIES;
+  const p = QUERIES.input_schema.properties;
+  return { ...QUERIES, input_schema: { ...QUERIES.input_schema, properties: { ...p,
+    locations: { ...p.locations, description: 'Mestá, PSČ alebo regióny v Nemecku (napr. München, 80331, Augsburg), 2–10 — aj susedné mestá' },
+    queries: { ...p.queries, description: `Hotové dotazy v tvare „Kategorie, Ort" (napr. „Trockenbau, München"), najviac ${maxQ}, od najsľubnejšieho` },
+  } } };
+}
 
 /** Outscraper: skóre podobnosti nájdených firiem — jedno volanie na dávku. */
 const SCORES = {
@@ -459,7 +507,7 @@ const tradesAsk = (trades, what) => (Array.isArray(trades) && trades.length
 const slimProfiles = (seeds) => seeds.map(({ url, name, trade, typical_jobs, region: r, size, keywords, summary }) =>
   ({ url, name, trade, typical_jobs, region: r, size, keywords, summary }));
 
-function queriesPrompt({ profiles, region, count, note, examples = '', trades = [] }) {
+function queriesPrompt({ profiles, region, count, note, examples = '', trades = [], maxQueries = 10 }) {
   return [
     'Sme slovenská firma (punds), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
     '(Werkvertrag): suchá výstavba (Trockenbau), obklady (Fliesen), maliari, zvárači (Metallbau), elektro, murári.',
@@ -480,7 +528,8 @@ function queriesPrompt({ profiles, region, count, note, examples = '', trades = 
     'Pravidlá:',
     '- Kategórie po nemecky, ako ich píše Google Mapy (Trockenbauunternehmen, Bauunternehmen, Fliesenleger, Malerbetrieb…).',
     '- Nie obchody so stavebninami, hobby markety, personálne agentúry ani portály — tie daj do avoid.',
-    '- queries: najviac 10, v tvare „Kategorie, Ort", od najsľubnejšieho.',
+    `- queries: najviac ${maxQueries}, v tvare „Kategorie, Ort", od najsľubnejšieho.`,
+    maxQueries > 10 ? '- Hľadanie je veľké: použi viac lokalít (aj susedné mestá a okresy) a príbuzné kategórie, nech sa dotazy neopakujú.' : '',
   ].filter(x => x !== '').join('\n');
 }
 
@@ -602,6 +651,34 @@ function supabaseDb(make) {
       const leads = l.data || [];
       return { leads, partners: p.data || [], optouts: o.data || [], placeIds: leads.map(x => x.google_place_id).filter(Boolean) };
     },
+    // ── Po kolách (088): stav medzi kolami, len server ──────────────────
+    /** Založí stav (kolo 1). Bez migrácie 088 { ok: false } — hľadá sa v jednom behu. */
+    async initState(id, state) {
+      const { error } = await c().from('danubra_lead_search_state')
+        .upsert({ search_id: id, round: 1, state, updated_at: new Date().toISOString() }, { onConflict: 'search_id' });
+      return { ok: !error, error: error || null };
+    },
+    async saveState(id, round, state) {
+      const { error } = await c().from('danubra_lead_search_state')
+        .update({ round, state, updated_at: new Date().toISOString() }).eq('search_id', id);
+      return { ok: !error, error: error || null };
+    },
+    async loadState(id) {
+      const { data, error } = await c().from('danubra_lead_search_state').select('round,state').eq('search_id', id).maybeSingle();
+      return error ? null : data || null;
+    },
+    /** Zaberie kolo `round`: zapíše ho len vtedy, keď je uložené kolo round − 1. Vráti { round, state } alebo null. */
+    async claimRound(id, round) {
+      const { data, error } = await c().from('danubra_lead_search_state')
+        .update({ round, updated_at: new Date().toISOString() })
+        .eq('search_id', id).eq('round', round - 1).not('state', 'is', null).select('round,state');
+      if (error || !Array.isArray(data) || data.length !== 1) return null;
+      return data[0];
+    },
+    /** Hľadanie skončilo — stav sa vyprázdni (riadok ostane). */
+    async clearState(id) {
+      await c().from('danubra_lead_search_state').update({ state: null, updated_at: new Date().toISOString() }).eq('search_id', id);
+    },
     /** Bez 079 sa firma z Máp uloží ako „podľa webov", údaje z Máp ostanú v profile. Bez 082 bez loga a náhľadu. */
     async insertLead(row) {
       let r = row;
@@ -628,6 +705,9 @@ const defaults = {
   // Outscraper: undefined = podľa OUTSCRAPER_API_KEY, null = vypnutý, alebo hotový klient.
   outscraper: undefined,
   fetch: (...a) => fetch(...a),
+  // Po kolách (088): env (tajomstvo, URL) a spustenie ďalšieho kola.
+  env: null,
+  chain: null,
   sleep: (ms) => new Promise(r => setTimeout(r, ms)),
   resolveMx: (domain) => dns.promises.resolveMx(domain),
   setInterval: (fn, ms) => { const t = setInterval(fn, ms); if (t && t.unref) t.unref(); return t; },
@@ -674,11 +754,126 @@ async function loadExamples(d) {
   } catch (e) { return L.pickExamples({}); }
 }
 
+// ── Po kolách (088): podpis ďalšieho kola, adresa, spustenie ──────────────
+/** Tajomstvo servera na podpis (rovnaké poradie ako danubra-lead-tip). */
+const secretOf = (env = process.env) => [env.IP_HASH_SECRET, env.MAIL_SECRET, env.SUPABASE_SERVICE_ROLE_KEY, env.SUPABASE_SERVICE_KEY]
+  .map((x) => String(x || '').trim()).find(Boolean) || null;
+
+function roundSig(searchId, round, exp, secret) {
+  return crypto.createHmac('sha256', secret).update(`danubra-leads-round:${searchId}:${round}:${exp}`).digest('hex');
+}
+/** Kľúč na ďalšie kolo: „platnosť.podpis" — platí 30 min, len pre toto hľadanie a toto kolo. */
+function makeToken(searchId, round, now, secret) {
+  if (!secret || !searchId || !(round > 1)) return null;
+  const exp = Math.floor(Number(now) + TOKEN_TTL_MS);
+  return `${exp}.${roundSig(searchId, round, exp, secret)}`;
+}
+function tokenOk(token, { searchId, round, now = Date.now(), secret } = {}) {
+  const m = /^(\d{1,16})\.([a-f0-9]{64})$/.exec(String(token || ''));
+  if (!m || !secret || !searchId || !(round > 1)) return false;
+  const exp = Number(m[1]);
+  if (!(exp > now) || exp > now + TOKEN_TTL_MS + 60000) return false;
+  const good = Buffer.from(roundSig(searchId, round, exp, secret), 'hex');
+  const got = Buffer.from(m[2], 'hex');
+  return good.length === got.length && crypto.timingSafeEqual(good, got);
+}
+/** Adresa tejto funkcie: URL z Netlify, inak adresa, na ktorú prišla požiadavka. */
+function selfUrl(event, env = process.env) {
+  const h = (event && event.headers) || {};
+  const host = String(h.host || h.Host || '').replace(/[^a-z0-9.:-]/gi, '');
+  const base = String(env.URL || env.DEPLOY_PRIME_URL || (host ? `https://${host}` : '')).replace(/\/+$/, '');
+  return base ? `${base}${SELF_FN}` : null;
+}
+/** Spustí ďalšie kolo (POST na seba, Netlify odpovie 202). Tri pokusy. */
+async function chainNext(url, body, d) {
+  if (!url) return false;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await d.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        signal: AbortSignal.timeout(CHAIN_MS) });
+      if (r && (r.ok || r.status === 202)) return true;
+    } catch (e) { /* skúsi znova */ }
+    if (i < 2) await d.sleep(2000 * (i + 1));
+  }
+  return false;
+}
+
+/** Kedy v behu prestať začínať ďalšiu prácu — jeden beh (do 50) ako doteraz. */
+const singleCut = (deadline) => ({ imp: deadline - 150000, score: deadline - 60000, contactsStart: deadline - 60000, contacts: deadline - 30000, ask: deadline });
+/** …a v kole hľadania po kolách (od začiatku kola). */
+const roundCut = (start) => ({ imp: start + ROUND_MS.imp, score: start + ROUND_MS.score, contactsStart: start + ROUND_MS.contacts - 60000,
+  contacts: start + ROUND_MS.contacts, ask: start + ROUND_MS.hard, maps: start + ROUND_MS.maps, hard: start + ROUND_MS.hard });
+
+/** Kľúče uloženej firmy na duplicity medzi kolami: place_id a doména webu. */
+const keysOf = (row) => [row && row.google_place_id ? `p:${row.google_place_id}` : null, row && row.website ? `d:${S.baseDomain(row.website)}` : null].filter(Boolean);
+/** …a tie isté kľúče pre firmu z Máp (ešte neuloženú). */
+const placeKeys = (p) => [p && (p.place_id || p.google_id) ? `p:${p.place_id || p.google_id}` : null, p && p.domain ? `d:${p.domain}` : null].filter(Boolean);
+/** Firma do fronty (stav medzi kolami) — bez dočasných značiek. */
+const queueItem = (c) => ({ id: c.id, place: c.place, ...(c.site ? { site: c.site } : {}), ...(c.text ? { text: c.text } : {}), ...(c.imp ? { imp: c.imp } : {}) });
+/** Uložená firma na „Čo AI zistila" na konci (len to, čo insights potrebuje). */
+const slimRow = (r) => ({ score: r.score, categories: Array.isArray(r.categories) ? r.categories.slice(0, 2) : null, trade: r.trade || null, city: r.city || null, region: r.region || null });
+
+/** Odhad počtu kôl: zvyšok fronty po ~150, pri známej výťažnosti len toľko, koľko treba. */
+function roundsLeft(state, count) {
+  let rest = state.queue.length;
+  if (state.processed > 0 && state.added > 0) rest = Math.min(rest, Math.ceil(((count - state.added) * state.processed / state.added) * 1.1));
+  return Math.max(0, Math.ceil(Math.max(0, rest) / ROUND.CHUNK));
+}
+
+/** Koniec hľadania: stav, počty, priebeh; pri hľadaní po kolách vyprázdni stav (088). */
+function enders(d, id, rep, isMulti) {
+  const clear = async () => { if (isMulti() && d.db.clearState) { try { await d.db.clearState(id); } catch (e) { /* nič */ } } };
+  return {
+    async fail(e) {
+      const msg = String((e && e.message) || e).slice(0, 500);
+      await d.db.updateSearch(id, { status: 'error', error: msg, finished_at: new Date().toISOString() });
+      await rep.finish('error', `Chyba: ${msg}`.slice(0, 240));
+      await clear();
+      return out(200, { status: 'error', error: msg });
+    },
+    async cancelled(partial = {}) {
+      const added = Number(partial.added) || 0;
+      await d.db.updateSearch(id, { status: 'cancelled', found: partial.found != null ? partial.found : null, added,
+        ...(partial.seeds ? { seeds: partial.seeds } : {}), ...(partial.stats ? { stats: { ...partial.stats, cancelled: true } } : {}),
+        error: null, finished_at: new Date().toISOString() });
+      await rep.finish('cancelled', `Zastavené – ${saved(added)}`);
+      await clear();
+      return out(200, { status: 'cancelled', found: partial.found || 0, added });
+    },
+    async done(r, seeds) {
+      await d.db.updateSearch(id, { status: 'done', found: r.found, added: r.added, seeds, source: r.source, stats: r.stats,
+        error: null, finished_at: new Date().toISOString() });
+      await rep.finish('done', `Hotovo – ${saved(r.added)}`);
+      await clear();
+      return out(200, { status: 'done', found: r.found, added: r.added, source: r.source });
+    },
+  };
+}
+
+/** Priebeh (080): zápis s obmedzením, heartbeat každých 20 s, „Zastaviť" preruší aj volanie modelu. */
+function startReporter(d, id, source) {
+  const rep = P.reporter({
+    write: (patch) => (d.db.progress ? d.db.progress(id, patch) : null),
+    readCancel: () => (d.db.isCancelled ? d.db.isCancelled(id) : false),
+    now: d.now, source,
+  });
+  const stop = new AbortController();
+  const beat = d.setInterval ? d.setInterval(() => {
+    rep.beat();
+    rep.checkCancel().then((c) => { if (c) stop.abort(); }).catch(() => {});
+  }, BEAT_MS) : null;
+  const done = () => { if (beat != null && d.clearInterval) d.clearInterval(beat); };
+  return { rep, stop, done };
+}
+
 async function run(event, d) {
   let body = {};
   try { body = JSON.parse(event.body || '{}') || {}; } catch (e) { return out(400, { error: 'Neplatné telo požiadavky.' }); }
   const id = body.search_id;
   if (!id || typeof id !== 'string') return out(400, { error: 'Chýba search_id.' });
+
+  // Ďalšie kolo (088): podpísaný kľúč od predošlého kola, alebo „Pokračovať" s prihlásením.
+  if (body.round != null || body.resume === true) return continueRound(event, body, d);
 
   // Len člen appky s právom na Marketing — samotné prihlásenie nestačí.
   const g = await d.guard(event);
@@ -694,33 +889,9 @@ async function run(event, d) {
   // Outscraper (Google Mapy), keď je kľúč; inak AI s web search ako doteraz.
   const os = d.outscraper !== undefined ? d.outscraper
     : OS.fromEnv(process.env, { fetch: d.fetch, sleep: d.sleep, now: d.now });
-  // Priebeh (080): zápis s obmedzením, heartbeat, „Zastaviť".
-  const rep = P.reporter({
-    write: (patch) => (d.db.progress ? d.db.progress(id, patch) : null),
-    readCancel: () => (d.db.isCancelled ? d.db.isCancelled(id) : false),
-    now: d.now, source: os ? 'outscraper' : 'ai',
-  });
-  const stop = new AbortController();
-  const beat = d.setInterval ? d.setInterval(() => {
-    rep.beat();
-    rep.checkCancel().then((c) => { if (c) stop.abort(); }).catch(() => {});
-  }, BEAT_MS) : null;
-  const done = () => { if (beat != null && d.clearInterval) d.clearInterval(beat); };
-
-  const fail = async (e) => {
-    const msg = String((e && e.message) || e).slice(0, 500);
-    await d.db.updateSearch(id, { status: 'error', error: msg, finished_at: new Date().toISOString() });
-    await rep.finish('error', `Chyba: ${msg}`.slice(0, 240));
-    return out(200, { status: 'error', error: msg });
-  };
-  const cancelled = async (partial = {}) => {
-    const added = Number(partial.added) || 0;
-    await d.db.updateSearch(id, { status: 'cancelled', found: partial.found != null ? partial.found : null, added,
-      ...(partial.seeds ? { seeds: partial.seeds } : {}), ...(partial.stats ? { stats: { ...partial.stats, cancelled: true } } : {}),
-      error: null, finished_at: new Date().toISOString() });
-    await rep.finish('cancelled', `Zastavené – ${saved(added)}`);
-    return out(200, { status: 'cancelled', found: partial.found || 0, added });
-  };
+  const { rep, stop, done } = startReporter(d, id, os ? 'outscraper' : 'ai');
+  let multi = false;
+  const E = enders(d, id, rep, () => multi);
 
   let seeds = null;
   try {
@@ -733,7 +904,8 @@ async function run(event, d) {
     }
     const pick = (k) => (body[k] != null ? body[k] : p[k]);
     const region = cleanText(pick('region'), 80);
-    const count = Math.min(S.clampCount(pick('count')), MAX_RESULTS);
+    // Bez Outscraperu (AI na webe) najviac 50; s Google Mapami po kolách až 300.
+    let count = S.clampCount(pick('count'), os ? S.MAX_COUNT : MAX_RESULTS);
     const note = cleanText(pick('note'), 500);
     const min = O.minScore(pick('min_score'));
     const withoutWeb = pick('without_web') === true || pick('without_web') === 'true';
@@ -742,7 +914,7 @@ async function run(event, d) {
 
     // a) Zadané weby → text → profil.
     const n = parsed.seeds.length;
-    await rep.start(`Začínam: ${n} ${P.plural(n, 'zadaná firma', 'zadané firmy', 'zadaných firiem')}${os ? ', Google Mapy' : ', AI na webe'}`);
+    await rep.start(`Začínam: ${n} ${P.plural(n, 'zadaná firma', 'zadané firmy', 'zadaných firiem')}${os ? ', Google Mapy' : ', AI na webe'}${count > ROUND.SINGLE_MAX ? `, ${count} firiem po kolách` : ''}`);
     let read = 0;
     const sites = await pool(parsed.seeds, 4, async (seed) => {
       const site = await readSite(seed.url, d, { deadline });
@@ -769,17 +941,102 @@ async function run(event, d) {
       await rep.note(`Príklady z Vašich hodnotení: ${ex.counts.positive} ${P.plural(ex.counts.positive, 'dobrý', 'dobré', 'dobrých')}, ${ex.counts.negative} ${P.plural(ex.counts.negative, 'zlý', 'zlé', 'zlých')}`);
     }
 
-    const ctx = { d, id, os, seeds, parsed, region, count, note, min, withoutWeb, deadline, rep, ex, cancel: stop.signal, trades };
+    // Po kolách (088): viac ako 50 firiem — treba stav medzi kolami a tajomstvo na podpis.
+    if (os && count > ROUND.SINGLE_MAX) {
+      const secret = secretOf(d.env || process.env);
+      let st = { ok: false };
+      if (secret && d.db.initState) { try { st = await d.db.initState(id, { v: 1, phase: 'plan', count }); } catch (e) { st = { ok: false }; } }
+      if (st && st.ok) multi = true;
+      else {
+        await rep.note(`Viac ako ${ROUND.SINGLE_MAX} firiem naraz potrebuje migráciu 088 (hľadanie po kolách) — hľadá sa ${ROUND.SINGLE_MAX}`, { force: true });
+        count = ROUND.SINGLE_MAX;
+      }
+    }
+
+    const ctx = { d, id, os, seeds, parsed, region, count, note, min, withoutWeb, deadline, rep, ex, cancel: stop.signal, trades,
+      multi, round: 1, roundStart: started, event };
     const r = os ? await viaOutscraper(ctx) : await viaAi(ctx);
-    if (r.stopped) return await cancelled({ ...r, seeds });
-    await d.db.updateSearch(id, { status: 'done', found: r.found, added: r.added, seeds, source: r.source, stats: r.stats,
-      error: null, finished_at: new Date().toISOString() });
-    await rep.finish('done', `Hotovo – ${saved(r.added)}`);
-    return out(200, { status: 'done', found: r.found, added: r.added, source: r.source });
+    if (r.handoff) return r.handoff;
+    if (r.stopped) return await E.cancelled({ ...r, seeds });
+    return await E.done(r, seeds);
   } catch (e) {
     // „Zastaviť" počas volania modelu ho preruší (AbortError) — to nie je chyba.
-    if ((e && e.cancelled) || rep.stopped) return cancelled({ ...((e && e.partial) || {}), seeds: (e && e.partial && e.partial.seeds) || seeds || undefined });
-    return fail(e);
+    if ((e && e.cancelled) || rep.stopped) return E.cancelled({ ...((e && e.partial) || {}), seeds: (e && e.partial && e.partial.seeds) || seeds || undefined });
+    return E.fail(e);
+  } finally {
+    done();
+  }
+}
+
+/**
+ * Ďalšie kolo hľadania po kolách (088). Volá ho predošlé kolo s podpísaným
+ * kľúčom { search_id, round, token }, alebo človek „Pokračovať" (prihlásenie,
+ * { search_id, resume: true }), keď sa ďalšie kolo samo nespustilo.
+ */
+async function continueRound(event, body, d) {
+  const id = body.search_id;
+  const env = d.env || process.env;
+  let round;
+  if (body.resume === true) {
+    const g = await d.guard(event);
+    if (!g || !g.ok) return out((g && g.status) || 403, { error: (g && g.error) || 'Na túto akciu nemáte oprávnenie.' });
+    const cur = d.db.loadState ? await d.db.loadState(id) : null;
+    if (!cur || !cur.state) return out(409, { error: 'Hľadanie sa nedá dokončiť — nemá uložený stav. Spustite ho znova.' });
+    round = Math.trunc(Number(cur.round)) + 1;
+  } else {
+    round = Math.trunc(Number(body.round));
+    if (!tokenOk(body.token, { searchId: id, round, now: d.now(), secret: secretOf(env) })) {
+      return out(403, { error: 'Neplatný alebo starý kľúč kola hľadania.' });
+    }
+  }
+  const s = await d.db.getSearch(id);
+  if (!s) return out(404, { error: 'Hľadanie sa nenašlo.' });
+  if (s.status !== 'running') return out(409, { error: 'Hľadanie už skončilo.' });
+  // Kolo si „zaberie" číslo — to isté kolo nikdy nebeží dvakrát.
+  const claim = d.db.claimRound ? await d.db.claimRound(id, round) : null;
+  if (!claim || !claim.state) return out(409, { error: 'Toto kolo hľadania už beží alebo skončilo.' });
+  const state = claim.state;
+  state.stats = state.stats || {};
+
+  const roundStart = d.now();
+  const os = d.outscraper !== undefined ? d.outscraper
+    : OS.fromEnv(process.env, { fetch: d.fetch, sleep: d.sleep, now: d.now });
+  const { rep, stop, done } = startReporter(d, id, 'outscraper');
+  const E = enders(d, id, rep, () => true);
+  const partial = () => ({ found: state.found || null, added: state.added || 0, stats: finalStats(state, round) });
+  try {
+    if (!os) throw new Error('Outscraper nie je zapnutý (chýba OUTSCRAPER_API_KEY) — hľadanie po kolách sa nedá dokončiť.');
+    const rounds = Math.max(round, Number(state.stats.rounds) || 0);
+    Object.assign(state.stats, { round, rounds, multi: true });
+    delete state.stats.handoff_at;
+    delete state.stats.chain_failed;
+    await rep.resume(s, `Kolo ${round} z ~${rounds}: pokračujem${body.resume ? ' (Pokračovať)' : ''}`);
+    await d.db.updateSearch(id, { stats: { ...state.stats, ...(state.dropped ? { dropped: state.dropped } : {}), phase: state.phase } });
+    // „Zastaviť" medzi kolami: hneď koniec, uložené firmy ostanú.
+    if (await rep.checkCancel(true)) throw new Cancelled(partial());
+
+    const p = s.params || {};
+    const parsed = S.parseSeeds((Array.isArray(p.urls) ? p.urls : []).slice(0, 40).map(u => String(u).slice(0, 500)).join('\n'));
+    const seedList = parsed.seeds.length ? parsed.seeds
+      : (Array.isArray(s.seeds) ? s.seeds : []).filter(x => x && x.url).map(x => ({ url: x.url, domain: x.domain || S.hostOf(x.url) }));
+    const ctx = { d, id, os, seeds: Array.isArray(s.seeds) ? s.seeds : [], parsed: { seeds: seedList },
+      region: cleanText(p.region, 80), count: Number(state.count) || S.clampCount(p.count), note: cleanText(p.note, 500),
+      min: O.minScore(p.min_score), withoutWeb: p.without_web === true || p.without_web === 'true', trades: TR.valid(p.trades),
+      deadline: roundStart + TOTAL_MS, rep, ex: await loadExamples(d), cancel: stop.signal, multi: true, round, roundStart, event };
+    const tm = roundCut(roundStart);
+    let r;
+    if (state.phase === 'maps') {
+      state.maps_rounds = (Number(state.maps_rounds) || 1) + 1;
+      r = await mapsPhase(ctx, state, tm);
+    } else {
+      r = await workRound(ctx, state, tm, { known: await d.db.known() });
+    }
+    if (r.handoff) return r.handoff;
+    if (r.stopped) return await E.cancelled({ ...r, seeds: s.seeds || undefined });
+    return await E.done(r, s.seeds || null);
+  } catch (e) {
+    if ((e && e.cancelled) || rep.stopped) return E.cancelled({ ...partial(), ...((e && e.partial) || {}), seeds: s.seeds || undefined });
+    return E.fail(e);
   } finally {
     done();
   }
@@ -788,18 +1045,22 @@ async function run(event, d) {
 /**
  * Hľadanie cez Outscraper: AI navrhne dotazy → Google Mapy → vyradenie →
  * Impressum → skóre po dávkach → kontakty z Outscraperu (len chýbajúce
- * e-maily vybraných) → MX → uloženie.
+ * e-maily vybraných) → MX → uloženie. Do 50 firiem v jednom behu; viac
+ * (multi) po kolách — vráti { handoff } a pokračuje ďalšie kolo.
  */
-async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, min, withoutWeb, deadline, rep, ex, cancel, trades = [] }) {
+async function viaOutscraper(ctx) {
+  const { d, id, os, seeds, region, count, note, deadline, rep, ex, cancel, trades = [], multi, min, withoutWeb } = ctx;
   const max = O.maxRecords(process.env.OUTSCRAPER_MAX_RECORDS);
   const profiles = slimProfiles(seeds);
   const stats = { source: 'outscraper', min_score: min, without_web: withoutWeb, max_records: max, learning: ex.counts };
+  if (multi) Object.assign(stats, { multi: true, round: 1, rounds: O.costEstimate({ count, max }).rounds, count });
   const stopIf = async (partial) => { if (await rep.checkCancel(true)) throw new Cancelled({ stats: { ...stats }, ...partial }); };
 
-  // a) Dotazy na Mapy.
+  // a) Dotazy na Mapy (pri väčšom rozpočte viac dotazov).
+  const maxQ = O.queryLimit(O.budget({ count, max }));
   await rep.step('plan', { label: 'AI pripravuje hľadanie (dotazy na Google Mapy)', log: true });
-  const qr = await ask(d, { prompt: queriesPrompt({ profiles, region, count, note, trades, examples: L.promptBlock(ex, { purpose: 'plan' }) }),
-    tool: QUERIES, webSearches: 0, maxTokens: 4000, deadline, cancel });
+  const qr = await ask(d, { prompt: queriesPrompt({ profiles, region, count, note, trades, maxQueries: maxQ, examples: L.promptBlock(ex, { purpose: 'plan' }) }),
+    tool: queriesTool(maxQ), webSearches: 0, maxTokens: 4000, deadline, cancel });
   const plan = O.planQueries({ queries: qr.queries, categories: qr.categories, locations: qr.locations, count, max });
   if (!plan.queries.length) throw new Error('AI nenavrhla žiadne dotazy na Google Mapy. Skúste zadať región alebo iné weby.');
   Object.assign(stats, { queries: plan.queries, per_query: plan.perQuery, budget: plan.budget,
@@ -812,35 +1073,208 @@ async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, mi
   // b) Google Mapy. Na Impressum a skóre ostanú aspoň 4 minúty.
   const nq = plan.queries.length;
   await rep.step('maps', { frac: 0.05, label: `Google Mapy: ${nq} ${P.plural(nq, 'dotaz', 'dotazy', 'dotazov')} – ${plan.queries[0]}${nq > 1 ? ' …' : ''}`, log: true });
-  const maps = await os.mapsSearch(plan.queries, { limit: plan.perQuery, language: 'de', region: 'DE',
-    async: plan.estimate > ASYNC_OVER, deadline: deadline - 4 * 60 * 1000,
-    onPoll: (k) => rep.step('maps', { frac: Math.min(0.9, 0.05 + k * 0.08), label: `Google Mapy: Outscraper ešte hľadá (kontrola ${k})` }) });
-  const places = maps.places.slice(0, max).map(O.normPlace);
-  Object.assign(stats, { returned: maps.places.length, records_estimate: maps.places.length, async: !!maps.async, polls: maps.polls || 0 });
-  (maps.groups || []).slice(0, nq).forEach((gr, i) => {
-    rep.note(`Dotaz ${i + 1} z ${nq} – ${plan.queries[i]}: ${firms(gr.length)}`);
-  });
-  await rep.step('maps', { frac: 1, label: `Google Mapy vrátili ${firms(maps.places.length)}`, log: true });
-  await stopIf({ found: maps.places.length });
+  if (!multi) {
+    const maps = await os.mapsSearch(plan.queries, { limit: plan.perQuery, language: 'de', region: 'DE',
+      async: plan.estimate > ASYNC_OVER, deadline: deadline - 4 * 60 * 1000,
+      onPoll: (k) => rep.step('maps', { frac: Math.min(0.9, 0.05 + k * 0.08), label: `Google Mapy: Outscraper ešte hľadá (kontrola ${k})` }) });
+    const places = maps.places.slice(0, max).map(O.normPlace);
+    Object.assign(stats, { returned: maps.places.length, records_estimate: maps.places.length, async: !!maps.async, polls: maps.polls || 0 });
+    (maps.groups || []).slice(0, nq).forEach((gr, i) => {
+      rep.note(`Dotaz ${i + 1} z ${nq} – ${plan.queries[i]}: ${firms(gr.length)}`);
+    });
+    await rep.step('maps', { frac: 1, label: `Google Mapy vrátili ${firms(maps.places.length)}`, log: true });
+    await stopIf({ found: maps.places.length });
+    return afterMaps(ctx, { stats, places, found: maps.places.length, max });
+  }
+  // Po kolách: dotazy po 10 v požiadavke, všetky async; čo nedobehne, dočká ďalšie kolo.
+  const tm = roundCut(ctx.roundStart);
+  const jobs = await os.mapsStart(plan.queries, { limit: plan.perQuery, language: 'de', region: 'DE', deadline: tm.hard });
+  const state = { v: 1, phase: 'maps', count, maps_rounds: 1, queries: plan.queries, jobs: [], places: [], groups: [],
+    stats, dropped: null, queue: [], total: 0, processed: 0, added: 0, found: 0, saved_keys: [], saved_rows: [], idle: 0 };
+  ingestJobs(state, jobs);
+  await rep.note(`Google Mapy: ${jobs.length} ${P.plural(jobs.length, 'požiadavka', 'požiadavky', 'požiadaviek')} po najviac ${O.QUERIES_PER_REQUEST} dotazov`);
+  return mapsPhase(ctx, state, tm);
+}
 
-  // c) Vyradenie.
+/** Hotové úlohy Máp → firmy do stavu (raz), počty na dotaz do logu. */
+function ingestJobs(state, jobs) {
+  state.jobs = (jobs || []).map((j) => {
+    if (j.done && !j.ingested && j.data) {
+      const gr = O.groups(j.data, j.queries);
+      j.queries.forEach((q, i) => state.groups.push([q, (gr[i] || []).length]));
+      const list = O.flatten(j.data, j.queries);
+      state.found = (Number(state.found) || 0) + list.length;
+      for (const p of list) state.places.push(O.normPlace(p));
+      return { id: j.id || null, queries: j.queries, done: true, ingested: true };
+    }
+    return { id: j.id || null, queries: j.queries, done: !!j.done, ingested: !!j.ingested };
+  });
+}
+
+/** Google Mapy po kolách: dočkať úlohy najviac do ~10. minúty kola, inak ďalšie kolo. */
+async function mapsPhase(ctx, state, tm) {
+  const { os, rep } = ctx;
+  const max = O.maxRecords(process.env.OUTSCRAPER_MAX_RECORDS);
+  const stats = state.stats;
+  if (state.jobs.some(j => !j.done)) {
+    const r = await os.mapsCollect(state.jobs, { stopAt: tm.maps,
+      onPoll: (k, hot, spolu) => rep.step('maps', { frac: Math.min(0.9, 0.05 + (0.85 * hot) / Math.max(1, spolu) + Math.min(0.1, k * 0.01)),
+        label: `Google Mapy: Outscraper ešte hľadá (${hot} z ${spolu} ${P.plural(spolu, 'časť', 'časti', 'častí')} hotové, kontrola ${k})` }) });
+    stats.polls = (Number(stats.polls) || 0) + (r.polls || 0);
+    ingestJobs(state, r.jobs);
+  }
+  if (await rep.checkCancel(true)) throw new Cancelled({ found: state.found || null, added: 0, stats: { ...stats } });
+  const open = state.jobs.filter(j => !j.done).length;
+  if (open) {
+    if ((Number(state.maps_rounds) || 1) >= MAX_MAPS_ROUNDS) throw new Error('Outscraper hľadá na Google Mapách priveľmi dlho. Skúste menší počet firiem alebo menšiu oblasť.');
+    return { handoff: await handoff(ctx, state, `Google Mapy ešte hľadajú (${state.jobs.length - open} z ${state.jobs.length} častí hotové) – pokračujem v ďalšom kole`) };
+  }
+  const found = Number(state.found) || 0;
+  Object.assign(stats, { returned: found, records_estimate: found, async: true });
+  const nq = state.groups.length;
+  state.groups.forEach(([q, n], i) => { rep.note(`Dotaz ${i + 1} z ${nq} – ${q}: ${firms(n)}`); });
+  await rep.step('maps', { frac: 1, label: `Google Mapy vrátili ${firms(found)}`, log: true });
+  const places = state.places.slice(0, max);
+  state.places = [];
+  state.groups = [];
+  return afterMaps(ctx, { stats, places, found, max, state, tm });
+}
+
+/** c) Vyradenie nad celým výsledkom Máp; potom práca (jeden beh alebo prvé kolo). */
+async function afterMaps(ctx, { stats, places, found, state = null, tm = null }) {
+  const { d, id, parsed, withoutWeb, rep, multi, count, deadline } = ctx;
+  const stopIf = async (partial) => { if (await rep.checkCancel(true)) throw new Cancelled({ stats: { ...stats }, ...partial }); };
   const known = await d.db.known();
   const f = O.filterPlaces(places, { ...known, seeds: parsed.seeds, withoutWeb });
   const dropped = { ...f.stats };
   stats.temp_closed = f.tempClosed;
-  const cands = f.kept.slice(0, MAX_CANDIDATES).map((place, i) => ({ id: `f${i + 1}`, place }));
-  dropped.over_count += f.kept.length - cands.length;
-  await rep.step('filter', { frac: 1, label: `${P.filterLine(dropped)} – ostáva ${firms(cands.length)}`, log: true });
+  const all = f.kept.map((place, i) => ({ id: `f${i + 1}`, place }));
+  const cands = multi ? [] : all.slice(0, MAX_CANDIDATES);
+  if (!multi) dropped.over_count += all.length - cands.length;
+  await rep.step('filter', { frac: 1, label: `${P.filterLine(dropped)} – ostáva ${firms(multi ? all.length : cands.length)}`, log: true });
   await d.db.updateSearch(id, { stats: { ...stats, dropped, phase: 'impressum' } });
-  await stopIf({ found: maps.places.length, stats: { ...stats, dropped } });
+  await stopIf({ found, stats: { ...stats, dropped } });
+
+  if (multi) {
+    Object.assign(state, { phase: 'work', queue: all, total: all.length, dropped, found, stats });
+    return workRound(ctx, state, tm || roundCut(ctx.roundStart), { known });
+  }
+
+  // Jeden beh (do 50 firiem) — ako doteraz.
+  const w = await work(ctx, { cands, need: count, multi: false, cut: singleCut(deadline), known, dropped, stats, found });
+  Object.assign(stats, { dropped, saved: w.added });
+  stats.insights = L.insights({ stats, rows: w.ok, learning: ctx.ex.counts });
+  delete stats.phase;
+  return { found, added: w.added, source: 'outscraper', stats, stopped: w.stopped };
+}
+
+/** Súhrnné stats na konci hľadania po kolách (za všetky kolá). */
+function finalStats(state, round) {
+  const stats = { ...(state.stats || {}) };
+  if (state.dropped) stats.dropped = { ...state.dropped };
+  stats.saved = Number(state.added) || 0;
+  stats.insights = L.insights({ stats, rows: state.saved_rows || [], learning: stats.learning || null });
+  Object.assign(stats, { multi: true, round, rounds: round, rounds_final: true });
+  delete stats.phase;
+  delete stats.handoff_at;
+  delete stats.chain_failed;
+  return stats;
+}
+
+/**
+ * Jedno kolo práce hľadania po kolách: ~150 firiem z fronty → Impressum →
+ * skóre → kontakty → uloženie. Potom koniec alebo ďalšie kolo.
+ */
+async function workRound(ctx, state, tm, { known }) {
+  const { d, id, rep, round: k, count } = ctx;
+  // Kolo, ktoré už nestihne ani Impressum (napr. Mapy trvali dlho), rovno odovzdá ďalšiemu.
+  if (d.now() > tm.imp - 60000 && state.queue.length) {
+    return { handoff: await handoff(ctx, state, `Kolo ${k}: na overenie firiem už nezostal čas – pokračujem v ďalšom kole`) };
+  }
+  const rounds = Math.max(k, k - 1 + Math.max(1, roundsLeft(state, count)));
+  Object.assign(state.stats, { round: k, rounds, multi: true });
+  const savedKeys = new Set(state.saved_keys || []);
+  // Duplicity medzi kolami: firma, ktorá sa už uložila (place_id alebo doména), sa znova neoveruje ani neplatí.
+  const taken = state.queue.splice(0, ROUND.CHUNK);
+  const chunk = taken.filter(c => !placeKeys(c.place).some(x => savedKeys.has(x)));
+  if (taken.length > chunk.length) state.dropped.duplicate += taken.length - chunk.length;
+  const before = (Number(state.processed) || 0) + (taken.length - chunk.length);
+  const planned = Math.max(1, before + chunk.length + state.queue.length);
+  // Percentá za celé hľadanie: práca (Impressum…Uloženie, 60–100 %) podľa podielu spracovaných firiem.
+  rep.setScale((raw) => (raw < 60 ? raw : 60 + 40 * Math.min(1, (before + chunk.length * ((raw - 60) / 40)) / planned)));
+  rep.rewind('filter');
+  await d.db.updateSearch(id, { stats: { ...state.stats, dropped: state.dropped, phase: 'impressum' }, found: state.found || null, added: state.added });
+  await rep.note(`Kolo ${k} z ~${rounds}: ${firms(chunk.length)} na overenie (uložených ${state.added} z ${count})`, { force: true });
+
+  const w = await work({ ...ctx, prevAdded: state.added }, { cands: chunk, need: count - state.added, multi: true, cut: tm, known,
+    dropped: state.dropped, stats: state.stats, savedKeys, found: state.found });
+  state.added += w.added;
+  state.saved_keys = [...savedKeys];
+  state.saved_rows = [...(state.saved_rows || []), ...w.ok.map(slimRow)];
+  state.queue = [...w.leftover.map(queueItem), ...state.queue];
+  const progressed = chunk.length - w.leftover.length;
+  state.processed = before + progressed;
+  state.idle = progressed ? 0 : (Number(state.idle) || 0) + 1;
+  if (w.stopped) return { stopped: true, found: state.found, added: state.added, stats: finalStats(state, k) };
+  const enough = state.added >= count;
+  if (enough || !state.queue.length || k >= ROUND.MAX_ROUNDS || state.idle >= 2) {
+    // Čo ostalo vo fronte, sa už neoverovalo — „nad zvolený počet" (ako pri jednom behu nad 150 firiem).
+    state.dropped.over_count += state.queue.length;
+    if (!enough && state.queue.length) {
+      await rep.note(k >= ROUND.MAX_ROUNDS ? `Najviac ${ROUND.MAX_ROUNDS} kôl – hľadanie končí s tým, čo sa uložilo` : 'Dve kolá bez pokroku – hľadanie končí s tým, čo sa uložilo', { force: true });
+    }
+    state.queue = [];
+    return { found: state.found, added: state.added, source: 'outscraper', stats: finalStats(state, k), stopped: false };
+  }
+  return { handoff: await handoff(ctx, state, `Kolo ${k} hotové: uložených ${state.added} z ${count}, vo fronte ${firms(state.queue.length)}`) };
+}
+
+/** Koniec kola: uloží stav (088), zapíše „medzi kolami" a spustí ďalšie kolo podpísaným volaním. */
+async function handoff(ctx, state, text) {
+  const { d, id, rep, round: k } = ctx;
+  const next = k + 1;
+  const stats = state.stats;
+  stats.rounds = Math.max(next, Number(stats.rounds) || 0, state.phase === 'work' ? k + roundsLeft(state, ctx.count) : next);
+  const saveRes = await d.db.saveState(id, k, { ...state, queue: (state.queue || []).map(queueItem) });
+  if (!saveRes || !saveRes.ok) throw new Error('Stav hľadania sa nedá uložiť na ďalšie kolo (migrácia 088).');
+  // „Zastaviť" počas kola: koniec teraz, ďalšie kolo sa nespúšťa.
+  if (await rep.checkCancel(true)) throw new Cancelled({ found: state.found || null, added: state.added || 0, stats: finalStats(state, k) });
+  const now = d.now();
+  stats.handoff_at = new Date(now).toISOString();
+  await d.db.updateSearch(id, { stats: { ...stats, ...(state.dropped ? { dropped: state.dropped } : {}), phase: state.phase },
+    found: state.found || null, added: state.added || 0 });
+  await rep.step(rep.state.stage, { label: `Kolo ${k} z ~${stats.rounds} hotové – spúšťam kolo ${next}`, log: text, force: true });
+  await rep.idle();
+  const token = makeToken(id, next, now, secretOf(d.env || process.env));
+  const ok = token ? await d.chain({ search_id: id, round: next, token }, ctx.event) : false;
+  if (!ok) {
+    stats.chain_failed = true;
+    await d.db.updateSearch(id, { stats: { ...stats, ...(state.dropped ? { dropped: state.dropped } : {}), phase: state.phase } });
+    await rep.note('Ďalšie kolo sa nespustilo – kliknite „Pokračovať"', { force: true });
+    await rep.idle();
+  }
+  return out(202, { status: 'running', round: k, next, chained: ok });
+}
+
+/**
+ * Práca nad firmami: d) Impressum → e) skóre po dávkach → kontakty → MX →
+ * f) uloženie. Jeden beh (multi = false) presne ako doteraz; v kole hľadania
+ * po kolách sa čo nestihne (čas), vráti v `leftover` späť do fronty.
+ */
+async function work(ctx, { cands, need, multi, cut, known, dropped, stats, savedKeys = null, found }) {
+  const { d, id, os, seeds, parsed, note, min, rep, ex, cancel, trades = [] } = ctx;
+  const profiles = slimProfiles(seeds);
+  const prevAdded = Number(ctx.prevAdded) || 0;
+  const stopIf = async () => { if (await rep.checkCancel(true)) throw new Cancelled({ found, added: prevAdded, stats: { ...stats, dropped } }); };
 
   // d) Impressum každej (vlastné stiahnutie, regex).
-  const withWeb = cands.filter(c => c.place.website).length;
+  const withWeb = cands.filter(c => c.place.website && !c.site).length;
   let imp = 0;
   await rep.step('impressum', { label: `Overujem Impressum 0 z ${withWeb}`, log: true });
   await pool(cands, 5, async (c) => {
-    if (!c.place.website || d.now() > deadline - 150000 || rep.stopped) return;
-    const site = await readSite(c.place.website, d, { deadline: deadline - 150000 });
+    if (!c.place.website || c.site || rep.stopped) return;
+    if (d.now() > cut.imp) { if (multi) c.later = true; return; }
+    const site = await readSite(c.place.website, d, { deadline: cut.imp });
     c.site = { ok: !!site.ok, impressumUrl: site.impressumUrl || null, meta: site.meta || null };
     c.text = String(site.homeText || '').slice(0, 600);
     if (site.impressumText) c.imp = S.parseImpressum(site.impressumText, { website: c.place.website });
@@ -848,21 +1282,22 @@ async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, mi
     await rep.step('impressum', { frac: [imp, withWeb], label: `Overujem Impressum ${imp} z ${withWeb}` });
     await rep.checkCancel();
   });
-  await rep.step('impressum', { frac: 1, label: `Impressum sa našlo pri ${cands.filter(c => c.imp).length} z ${withWeb} webov, e-mail pri ${cands.filter(c => c.imp && c.imp.email).length}`, log: true });
-  await stopIf({ found: maps.places.length, stats: { ...stats, dropped } });
+  await rep.step('impressum', { frac: 1, label: `Impressum sa našlo pri ${cands.filter(c => c.imp).length} z ${cands.filter(c => c.place.website).length} webov, e-mail pri ${cands.filter(c => c.imp && c.imp.email).length}`, log: true });
+  await stopIf();
 
   // e) Skóre — jedno volanie na dávku firiem.
+  const ready = multi ? cands.filter(c => !c.later) : cands;
   const scores = [];
   let lastErr = null;
-  let scoredUpTo = 0;
-  const batches = Math.ceil(cands.length / SCORE_BATCH);
+  let scoredUpTo = 0, triedUpTo = 0;
+  const batches = Math.ceil(ready.length / SCORE_BATCH);
   const scoreBlock = L.promptBlock(ex, { purpose: 'score' });
-  for (let i = 0; i < cands.length; i += SCORE_BATCH) {
-    if (d.now() > deadline - 60000) break;
+  for (let i = 0; i < ready.length; i += SCORE_BATCH) {
+    if (d.now() > cut.score) break;
     if (await rep.checkCancel(i > 0)) break;
     const b = i / SCORE_BATCH;
     await rep.step('score', { frac: [b, batches], label: `AI hodnotí podobnosť (dávka ${b + 1} z ${batches})`, log: true });
-    const firmsIn = cands.slice(i, i + SCORE_BATCH).map(c => ({
+    const firmsIn = ready.slice(i, i + SCORE_BATCH).map(c => ({
       id: c.id, name: c.place.name, categories: c.place.categories, city: c.place.city, region: c.place.region,
       rating: c.place.rating, reviews: c.place.reviews_count, web: c.place.domain, popis: c.place.description,
       dočasne_zatvorená: c.place.business_status === 'CLOSED_TEMPORARILY' || undefined,
@@ -870,34 +1305,38 @@ async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, mi
     }));
     try {
       const r = await ask(d, { prompt: scorePrompt({ profiles, firms: firmsIn, note, trades, examples: scoreBlock }), tool: SCORES, webSearches: 0,
-        maxTokens: 12000, deadline, cancel });
+        maxTokens: 12000, deadline: cut.ask, cancel });
       scores.push(...(Array.isArray(r.scores) ? r.scores : []));
-      scoredUpTo = Math.min(cands.length, i + SCORE_BATCH);
+      scoredUpTo = Math.min(ready.length, i + SCORE_BATCH);
     } catch (e) { lastErr = e; if (rep.stopped) break; }
+    triedUpTo = Math.min(ready.length, i + SCORE_BATCH);
   }
   const stopped = rep.stopped || await rep.checkCancel(true);
-  if (stopped && !scores.length) throw new Cancelled({ found: maps.places.length, stats: { ...stats, dropped } });
-  if (cands.length && !scores.length && lastErr) throw lastErr;
+  if (stopped && !scores.length) throw new Cancelled({ found, added: prevAdded, stats: { ...stats, dropped } });
+  if (ready.length && !scores.length && lastErr && !(multi && prevAdded)) throw lastErr;
   // Po zastavení sa berú len ohodnotené dávky — neohodnotené nie sú „nízke skóre".
-  const sel = O.selectScored(stopped ? cands.slice(0, scoredUpTo) : cands, scores, { min, count });
+  // V kole: čo sa nestihlo ohodnotiť (čas), ide do ďalšieho kola.
+  const pool2 = stopped ? ready.slice(0, scoredUpTo) : multi ? ready.slice(0, triedUpTo) : cands;
+  const leftover = multi && !stopped ? [...cands.filter(c => c.later), ...ready.slice(triedUpTo)] : [];
+  const sel = O.selectScored(pool2, scores, { min, count: Math.max(0, need) });
   dropped.low_score += sel.low.length;
   dropped.over_count += sel.over.length;
-  stats.scored = scores.length;
+  stats.scored = (Number(stats.scored) || 0) + scores.length;
   await rep.step('score', { frac: 1, label: `AI ohodnotila ${firms(scores.length)}, nad prahom ${min}: ${sel.selected.length}`, log: true });
 
-  // E-mail: z Impressum; keď tam nie je, kontakty z Outscraperu (len pre vybrané).
+  // E-mail: z Impressum; keď tam nie je, kontakty z Outscraperu (len pre vybrané — rozpočet rastie s počtom).
   for (const c of sel.selected) {
     if (c.imp && c.imp.email) c.email = { email: c.imp.email, kind: c.imp.email_kind, source: 'impressum' };
   }
-  const need = sel.selected.filter(c => !c.email && c.place.domain);
-  stats.contacts_lookups = 0;
+  const needC = sel.selected.filter(c => !c.email && c.place.domain);
+  let lookups = 0;
   if (!stopped) {
-    await rep.step('contacts', { label: need.length ? `Hľadám e-maily pre ${firms(need.length)} bez e-mailu v Impressum` : 'Kontakty: všetky vybrané majú e-mail z Impressum', log: true });
-    if (need.length && d.now() < deadline - 60000) {
+    await rep.step('contacts', { label: needC.length ? `Hľadám e-maily pre ${firms(needC.length)} bez e-mailu v Impressum` : 'Kontakty: všetky vybrané majú e-mail z Impressum', log: true });
+    if (needC.length && d.now() < cut.contactsStart) {
       try {
-        const map = await os.contacts(need.map(c => c.place.domain), { deadline: deadline - 30000 });
-        stats.contacts_lookups = need.length;
-        for (const c of need) {
+        const map = await os.contacts(needC.map(c => c.place.domain), { deadline: cut.contacts, max: needC.length });
+        lookups = needC.length;
+        for (const c of needC) {
           const x = map.get(c.place.domain);
           const e = x && O.pickContactEmail(x.emails, c.place.website);
           if (e) c.email = { ...e, source: 'outscraper_contacts' };
@@ -915,33 +1354,39 @@ async function viaOutscraper({ d, id, os, seeds, parsed, region, count, note, mi
       await rep.step('contacts', { frac: 0.5 + 0.5 * (mx / Math.max(1, withMail.length)), label: `Overujem poštové servery e-mailov (${mx} z ${withMail.length})` });
     });
   }
+  stats.contacts_lookups = (Number(stats.contacts_lookups) || 0) + lookups;
 
   // f) Uložiť (znova bez duplicít — e-mail mohol prezradiť doménu, ktorú už máme).
   const rows = sel.selected.map(c => withTrades({ ...O.toLead(c, { searchId: id, seeds: parsed.seeds, now: new Date() }),
     ...(c.site && c.site.meta ? SM.leadPatch(c.site.meta, new Date()) : {}) }, { seeds, trades, note }));
   const again = S.dedupe(rows, { ...known, seeds: parsed.seeds });
   for (const k of again.known) dropped[dropCode(k.why)]++;
+  // Medzi kolami: firma uložená v predošlom kole (place_id alebo doména) druhýkrát nie.
+  let fresh = again.fresh;
+  if (savedKeys) {
+    const dup = fresh.filter(r => keysOf(r).some(x => savedKeys.has(x)));
+    if (dup.length) { dropped.duplicate += dup.length; fresh = fresh.filter(r => !dup.includes(r)); }
+  }
   let added = 0, failedInsert = 0;
   const ok = [];
-  await rep.step('save', { label: `Ukladám ${firms(again.fresh.length)}`, log: true });
-  for (const row of again.fresh) {
+  await rep.step('save', { label: `Ukladám ${firms(fresh.length)}`, log: true });
+  for (const row of fresh) {
     const { error } = await d.db.insertLead(row);
-    if (error) failedInsert++; else { added++; ok.push(row); }
-    await rep.step('save', { frac: [added + failedInsert, again.fresh.length], label: `Ukladám firmy ${added + failedInsert} z ${again.fresh.length}` });
+    if (error) failedInsert++;
+    else { added++; ok.push(row); if (savedKeys) keysOf(row).forEach(x => savedKeys.add(x)); }
+    await rep.step('save', { frac: [added + failedInsert, fresh.length], label: `Ukladám firmy ${added + failedInsert} z ${fresh.length}` });
   }
   if (failedInsert) dropped.duplicate += failedInsert;
-  Object.assign(stats, {
-    dropped, saved: added, with_email: again.fresh.filter(r => r.email).length,
-    contacts_found: again.fresh.filter(r => r.data_source && r.data_source.email === 'outscraper_contacts').length,
-    mx_missing: again.fresh.filter(r => r.email_mx_ok === false).length,
-  });
-  stats.insights = L.insights({ stats, rows: ok, learning: ex.counts });
-  delete stats.phase;
-  return { found: maps.places.length, added, source: 'outscraper', stats, stopped };
+  stats.with_email = (Number(stats.with_email) || 0) + fresh.filter(r => r.email).length;
+  stats.contacts_found = (Number(stats.contacts_found) || 0) + fresh.filter(r => r.data_source && r.data_source.email === 'outscraper_contacts').length;
+  stats.mx_missing = (Number(stats.mx_missing) || 0) + fresh.filter(r => r.email_mx_ok === false).length;
+  cands.forEach(c => { delete c.later; });
+  return { added, ok, stopped, leftover };
 }
 
 /** Hľadanie cez AI s web search (bez kľúča Outscraperu) — ako doteraz. */
 async function viaAi({ d, id, seeds, parsed, region, count, note, deadline, rep, ex, cancel, trades = [] }) {
+  count = Math.min(count, MAX_RESULTS);
   {
     // b) Podobné firmy.
     const known = await d.db.known();
@@ -1008,6 +1453,7 @@ async function handle(event, deps = {}) {
     const guard = require('../../app/lib/server-guard.js')(d.db.client());
     d.guard = (ev) => guard.check(ev, { key: 'marketing' });
   }
+  if (!d.chain) d.chain = (body, ev) => chainNext(selfUrl(ev, d.env || process.env), body, d);
   return run(event || {}, d);
 }
 
@@ -1023,3 +1469,4 @@ exports.missing080 = missing080;
 exports.missing087 = missing087;
 exports.withTrades = withTrades;
 exports.prompts = { leadsPrompt, queriesPrompt, scorePrompt };
+exports.rounds = { makeToken, tokenOk, secretOf, selfUrl, chainNext, ROUND_MS, TOKEN_TTL_MS };

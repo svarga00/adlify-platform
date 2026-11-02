@@ -152,6 +152,46 @@ console.log('Priebeh hľadania');
     ok(pend.stages.every(s => s.state === 'todo') && /Čakám/.test(pend.label), 'čaká na server: všetky kroky sivé');
   }
 
+  // ── Kolá (088) ────────────────────────────────────────────────────────────
+  {
+    const now = Date.parse('2026-11-02T10:00:00Z');
+    const iso = (min) => new Date(now - min * 60e3).toISOString();
+    let t = 0;
+    const w = [];
+    const r = P.reporter({ write: async (p) => { w.push(p); }, now: () => (t += 2000), source: 'outscraper', minMs: 0 });
+    // Kolo 1 z 3: práca (Impressum…Uloženie) = 60–100 % surovo → 60–73 % celkovo.
+    r.setScale((raw) => (raw < 60 ? raw : 60 + (raw - 60) * (1 / 3)));
+    await r.step('impressum', { frac: 1 });
+    await r.step('save', { frac: 1 });
+    const po1 = r.state.progress;
+    // Kolo 2: krok sa vráti na Impressum, percentá nie.
+    r.setScale((raw) => (raw < 60 ? raw : 73 + (raw - 60) * (1 / 3)));
+    r.rewind('impressum');
+    await r.step('impressum', { frac: 0.5, label: 'Kolo 2: Impressum' });
+    await r.idle();
+    eq([po1, r.state.stage, r.state.progress > po1], [73, 'impressum', true], 'kolá: krok sa vráti na Impressum, percentá idú ďalej (nie späť na 60 %)');
+    ok(w.every((x, i) => i === 0 || x.progress >= w[i - 1].progress), 'percentá cez kolá nikdy neklesnú', w.map(x => x.progress).join(','));
+    for (let i = 0; i < 30; i++) r.beat();
+    ok(r.state.progress < 99 && r.state.progress <= 73 + Math.round(20 / 3), 'heartbeat v kole nepresiahne koniec kroku v tomto kole', String(r.state.progress));
+
+    // Pokračovanie: ďalšie kolo nadviaže na percentá a log, started_at neprepíše.
+    const w2 = [];
+    const r2 = P.reporter({ write: async (p) => { w2.push(p); }, now: () => now, source: 'outscraper' });
+    await r2.resume({ progress: 74, stage: 'save', log: [{ at: iso(1), text: 'Kolo 1 hotové' }] }, 'Kolo 2 z ~3: pokračujem');
+    eq([w2[0].progress, w2[0].log.map(x => x.text), 'started_at' in w2[0]], [74, ['Kolo 1 hotové', 'Kolo 2 z ~3: pokračujem'], false], 'resume: percentá a log z hľadania, bez started_at');
+
+    // Medzi kolami sa čaká dlhšie (6 min), potom „prerušilo sa".
+    const ho = { id: 'h', status: 'running', heartbeat_at: iso(4), stats: { handoff_at: iso(4), round: 1, rounds: 3, multi: true } };
+    eq([P.isStale(ho, now), P.isStale({ ...ho, heartbeat_at: iso(4), stats: {} }, now)], [false, true], 'medzi kolami 4 min ticha nie je prerušenie (bez kôl áno)');
+    eq(P.isStale({ ...ho, heartbeat_at: iso(7), stats: { ...ho.stats, handoff_at: iso(7) } }, now), true, 'medzi kolami po 6 min → prerušilo sa');
+    eq(P.isStale({ ...ho, heartbeat_at: iso(4), stats: { ...ho.stats, handoff_at: iso(10) } }, now), true, 'ďalšie kolo sa ozvalo (heartbeat po handoff) → platí bežný limit 3 min');
+    const m = P.model({ ...ho, progress: 40, stage: 'save' }, now);
+    eq([m.rounds && m.rounds.label, m.stale, m.resumable], ['Kolo 1 z ~3', false, false], 'model: „Kolo 1 z ~3"');
+    const st = P.model({ ...ho, heartbeat_at: iso(8), stats: { ...ho.stats, handoff_at: iso(8), round: 2 } }, now);
+    eq([st.stale, st.resumable, st.rounds.label], [true, true, 'Kolo 2 z ~3'], 'prerušené hľadanie po kolách sa dá dokončiť (Pokračovať)');
+    eq(P.roundInfo({ stats: { round: 1, rounds: 1 } }), null, 'jedno kolo → bez „Kolo"');
+  }
+
   console.log(`\n${passed} prešlo, ${failed} padlo\n`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.log('  ✗ Error', e); process.exit(1); });

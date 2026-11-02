@@ -289,7 +289,9 @@
       const n = bezi
         ? (bezi.kind === 'urls' && (bezi.source === 'outscraper' || (bezi.params && bezi.params.outscraper))
           ? { key: 'run', hot: false, title: 'Hľadám podobné firmy na Google Mapách…',
-              what: `${bezi.stage_label ? 'Priebeh krok po kroku vidíte nižšie.' : this.phaseText(bezi)} Celé hľadanie trvá 3–10 minút — výsledky sa objavia samy.`,
+              what: `${bezi.stage_label ? 'Priebeh krok po kroku vidíte nižšie.' : this.phaseText(bezi)} ${Number(bezi.params && bezi.params.count) > OX().ROUND.SINGLE_MAX
+                ? `Hľadanie ${Number(bezi.params.count)} firiem beží po kolách (${OX().costEstimate({ count: bezi.params.count, max: (this.osStatus && this.osStatus.max) || undefined }).timeLabel}) — firmy pribúdajú v zozname po každom kole.`
+                : 'Celé hľadanie trvá 3–10 minút — výsledky sa objavia samy.'}`,
               why: 'Okno môžete zavrieť aj odísť z obrazovky, hľadá sa na serveri (Outscraper prehľadá Google Mapy, appka stiahne Impressum, AI ohodnotí podobnosť).' }
           : bezi.kind === 'urls'
           ? { key: 'run', hot: false, title: 'Hľadám firmy podobné zadaným webom…',
@@ -332,9 +334,9 @@
       const odkial = s.source === 'outscraper' ? ' (Google Mapy cez Outscraper)' : s.kind === 'urls' && s.source === 'ai' ? ` (${st.note || 'bez Outscraperu'})` : '';
       if (s.status === 'error') return `<div class="warnbox">${Icon('alert', 14)} ${co}${UI.esc(odkial)} zlyhalo: ${UI.esc(s.error || '')}</div>`;
       if (!['done', 'cancelled'].includes(s.status) || !s.finished_at || Date.now() - Date.parse(s.finished_at) >= 3600e3) return '';
-      // Pás s výsledkom: vľavo veta (zalamuje sa), vpravo tlačidlo — nič sa neorezáva.
+      // Pás s výsledkom: vľavo veta (zalamuje sa), vpravo tlačidlá — nič sa neorezáva.
       const ukaz = s.kind === 'urls' && s.added
-        ? `<button type="button" class="btn btn-outline btn-sm" onclick="Lead.showSearch('${s.id}')">${Icon('search', 14)} Ukázať nájdené</button>` : '';
+        ? `<button type="button" class="btn btn-outline btn-sm" onclick="Lead.showSearch('${s.id}')">${Icon('search', 14)} Ukázať nájdené</button>${this.exportBtnsHtml(s.id)}` : '';
       const band = (ico, text) => `<div class="ls-note card"><div class="ls-note-row"><span class="ls-note-ico">${Icon(ico, 16)}</span>
         <div class="ls-note-txt">${text}</div>${ukaz ? `<div class="ls-note-acts">${ukaz}</div>` : ''}</div>${this.insightsHtml(s)}</div>`;
       if (s.status === 'cancelled') {
@@ -351,8 +353,87 @@
       const tip = s.source === 'outscraper'
         ? 'Našlo = koľko firiem vrátili Google Mapy (za toľko záznamov účtuje Outscraper). Vyradené: natrvalo zatvorené, bez webu, mimo Nemecka, duplicity, firmy, ktoré už máte, odhlásené, zadané firmy, nízke skóre (pod prahom z okna hľadania) a nad zvolený počet. Uložené = nové firmy v zozname.'
         : 'Nájdené = koľko firiem vrátila AI. Nové = koľko sa uložilo; ostatné ste už mali (meno, mesto alebo doména webu sa zhodujú), boli to zadané firmy alebo sa odhlásili z e-mailov.';
-      return band('check', `<b>${co}${UI.esc(odkial)} našlo ${s.found || 0} firiem, uložených ${s.added || 0}.</b>${s.kind === 'urls' ? UI.tip(tip) : ''}${
+      return band('check', `<b>${co}${UI.esc(odkial)} našlo ${s.found || 0} firiem, uložených ${s.added || 0}.</b>${s.kind === 'urls' ? UI.tip(`${tip} Staršie hľadania a ich export: Export → Ďalšie exporty → Nájdené z jedného hľadania.`) : ''}${
         detail || spotreba ? `<small>${detail.trim()}${spotreba}</small>` : ''}`);
+    },
+
+    // ── Export nájdených firiem (lib/marketing/found-export.js) ──────────
+    /** Tlačidlá „Exportovať nájdené (Excel)" a „Kopírovať e-maily" k jednému hľadaniu. */
+    exportBtnsHtml(id) {
+      if (!window.DanubraFoundExport) return '';
+      const sid = UI.esc(id);
+      return `<button type="button" class="btn btn-outline btn-sm" data-ls-exp="${sid}" onclick="Lead.exportSearch('${sid}')"
+          title="CSV pre Excel: firmy uložené týmto hľadaním s kontaktmi, remeslom, hodnotením na Google, skóre a odkazom na Mapy">${Icon('download', 14)} Exportovať nájdené (Excel)</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-ls-mails="${sid}" onclick="Lead.copyEmails('${sid}')"
+          title="Všetky e-maily firiem z tohto hľadania, oddelené čiarkou (bez odhlásených)">${Icon('copy', 14)} Kopírovať e-maily</button>`;
+    },
+
+    /** Kontext exportu: remeslá, hľadania, oslovenie (rovnaké ako v zozname). */
+    exportCtx() {
+      return { trades: this.trades, searches: this.searches, tradeKeys: (r) => this.tradeKeys(r),
+        outreach: (r) => (window.Outreach && Outreach.loaded ? Outreach.column().csv(r) : '') };
+    },
+
+    /** CSV firiem jedného hľadania (rovnaký formát ako Export zoznamu: UTF-8 s BOM, bodkočiarka). */
+    async exportSearch(id) {
+      const FE = window.DanubraFoundExport;
+      if (!FE) return null;
+      if (!this.loaded) await this.load();
+      if (window.Outreach && !Outreach.loaded) { try { await Outreach.ensure(); } catch (e) { /* bez oslovenia */ } }
+      const list = FE.leadsOf(this.rows, id);
+      if (!list.length) { UI.toast('Toto hľadanie nemá v zozname žiadne uložené firmy', 'err'); return null; }
+      const s = this.searches.find(x => x.id === id) || { id };
+      const name = DanubraExport.download(FE.build(list, this.exportCtx()), FE.fileParts(s));
+      UI.toast(`Uložené: ${name} (${list.length} ${Shell.plural(list.length, 'firma', 'firmy', 'firiem')})`, 'ok');
+      return name;
+    },
+
+    /** Všetky e-maily firiem hľadania do schránky, oddelené čiarkou. */
+    async copyEmails(id) {
+      const FE = window.DanubraFoundExport;
+      if (!FE) return '';
+      if (!this.loaded) await this.load();
+      const list = FE.emails(FE.leadsOf(this.rows, id));
+      if (!list.length) { UI.toast('Firmy z tohto hľadania nemajú e-mail', 'err'); return ''; }
+      const text = list.join(', ');
+      let ok = false;
+      try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
+        try {
+          const t = Object.assign(document.createElement('textarea'), { value: text });
+          t.style.position = 'fixed'; t.style.opacity = '0';
+          document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove();
+        } catch (e2) { ok = false; }
+      }
+      if (ok) UI.toast(`Skopírovaných ${list.length} ${Shell.plural(list.length, 'e-mail', 'e-maily', 'e-mailov')}`, 'ok');
+      else {
+        UI.modal('E-maily z hľadania', `<p class="card-note">Kopírovanie sa nepodarilo — označte text a skopírujte ho ručne (Ctrl+C).</p>
+          <textarea class="ls-mails" readonly rows="8" onfocus="this.select()">${UI.esc(text)}</textarea>
+          <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`);
+      }
+      return text;
+    },
+
+    /** História hľadaní: každé hľadanie s počtami a akciami Ukázať, Export, Kopírovať e-maily. */
+    searchHistory() {
+      const list = this.searches.filter(s => s && s.kind === 'urls').slice(0, 50);
+      const st = { done: ['Hotovo', 'green'], cancelled: ['Zastavené', 'amber'], error: ['Chyba', 'red'], running: ['Beží', 'blue'], pending: ['Čaká', 'gray'] };
+      const rows = list.map((s) => {
+        const n = this.rows.filter(r => r.seed_search_id === s.id).length;
+        const b = st[s.status] || [s.status || '', 'gray'];
+        const r = PG().roundInfo(s);
+        return `<div class="ls-hist-row" data-ls-hist="${UI.esc(s.id)}">
+          <div class="ls-hist-t"><b>${UI.esc(SD().searchLabel(s))}</b>
+            <small>${UI.badge(b[0], b[1])} ${s.params && s.params.count ? `chcené ${Number(s.params.count)} · ` : ''}našlo ${Number(s.found) || 0} · uložených ${Number(s.added) || 0}${
+              n !== (Number(s.added) || 0) ? ` · v zozname ${n}` : ''}${r && r.rounds > 1 && ['done', 'cancelled'].includes(s.status) ? ` · ${r.round} ${Shell.plural(r.round, 'kolo', 'kolá', 'kôl')}` : ''}</small></div>
+          <div class="ls-hist-acts">${n ? `<button type="button" class="btn btn-ghost btn-sm" onclick="UI.closeModal();Lead.showSearch('${UI.esc(s.id)}')">${Icon('search', 14)} Ukázať</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="Lead.exportSearch('${UI.esc(s.id)}')">${Icon('download', 14)} Export</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="Lead.copyEmails('${UI.esc(s.id)}')" title="Kopírovať e-maily">${Icon('copy', 14)}<span class="sr-only">Kopírovať e-maily</span></button>` : '<small class="is-mute">bez uložených firiem</small>'}</div>
+        </div>`;
+      }).join('');
+      UI.modal('História hľadaní', `<p class="card-note">Hľadania podľa webov firiem, najnovšie hore. Export = CSV pre Excel s firmami, ktoré hľadanie uložilo (kontakty, remeslo, hodnotenie na Google, skóre, odkaz na Mapy).${
+        UI.tip('Rovnaké firmy dostanete aj v zozname: filter Hľadanie → vyberte hľadanie → Export. Export berie vždy len vyfiltrované firmy.')}</p>
+        <div class="ls-hist">${rows || '<div class="ls-empty">Zatiaľ žiadne hľadanie podľa webov firiem.</div>'}</div>
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
     },
 
     /** „Čo AI zistila" — 2–3 vety zo stats hľadania (stats.insights). */
@@ -377,6 +458,15 @@
       if (m.finished) return this.finishedHtml(s, m);
       const id = UI.esc(s.id);
       const co = UI.esc(SD().searchLabel(s));
+      if (m.stale && m.resumable) {
+        const st = s.stats || {};
+        return `<div class="lp-head" data-lp-mode="stale"><div class="lp-title is-warn">${Icon('alert', 16)}<span>${st.chain_failed ? 'Ďalšie kolo hľadania sa nespustilo' : 'Hľadanie sa zrejme prerušilo'}</span> <small>${co}${m.rounds ? ` · ${UI.esc(m.rounds.label)}` : ''}</small></div></div>
+          <p class="lp-text">${st.chain_failed ? 'Kolo skončilo, ale server ďalšie kolo nespustil.' : `Server sa neozval${m.label ? ` (naposledy: ${UI.esc(m.label)})` : ''}.`}
+            Uložených je zatiaľ ${Number(s.added) || 0} ${Shell.plural(Number(s.added) || 0, 'firma', 'firmy', 'firiem')} — sú v zozname. Hľadanie si pamätá, kde skončilo: Pokračovať ho dokončí bez nového hľadania na Google Mapách.</p>
+          <div class="lp-acts"><button type="button" class="btn btn-primary btn-sm" onclick="Lead.resumeSearch('${id}')">${Icon('repeat', 14)} Pokračovať</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="Lead.abandon('${id}')">Ukončiť</button>${
+            UI.tip('Väčšie hľadanie beží po kolách (funkcia na serveri smie bežať najviac 15 minút). Pokračovať = ďalšie kolo od miesta, kde skončilo — firmy z Google Máp sa znova neplatia. Ukončiť = hľadanie sa označí ako prerušené, uložené firmy ostanú.')}</div>`;
+      }
       if (m.stale) {
         return `<div class="lp-head" data-lp-mode="stale"><div class="lp-title is-warn">${Icon('alert', 16)}<span>Hľadanie sa zrejme prerušilo</span> <small>${co}</small></div></div>
           <p class="lp-text">Server sa neozval viac ako 3 minúty${m.label ? ` (naposledy: ${UI.esc(m.label)})` : ''}. Firmy, ktoré už uložil, sú v zozname.
@@ -390,13 +480,39 @@
         : `<div class="lp-bar" role="progressbar" aria-label="Priebeh hľadania" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${m.pct}" data-lp-el="barbox"><i data-lp-el="bar" style="width:${m.pct}%"></i></div>`;
       const label = m.label || (m.hasProgress ? '' : this.phaseText(s));
       return `<div class="lp-head" data-lp-mode="${this.progressMode(m)}">
-          <div class="lp-title"><span class="lp-spin" aria-hidden="true"></span><span>Hľadanie beží</span> <small>${co}</small></div>
+          <div class="lp-title"><span class="lp-spin" aria-hidden="true"></span><span>Hľadanie beží</span> <small>${co}</small><span class="lp-round" data-lp-el="round"${this.roundText(s, m) ? '' : ' hidden'}>${UI.esc(this.roundText(s, m))}</span></div>
           <div class="lp-meta"><span data-lp-el="elapsed">${UI.esc(m.elapsed)}</span><span data-lp-el="cancel">${this.cancelBtnHtml(s, m)}</span></div>
         </div>
         ${bar}
         <div class="lp-now">${m.pct == null ? '' : `<b data-lp-el="pct">${UI.pct(m.pct)}</b>`}<span data-lp-el="label">${UI.esc(label)}</span></div>
         <ol class="lp-steps" data-lp-el="steps">${this.stepsHtml(m)}</ol>
         <div class="lp-log" data-lp-el="log"${m.log.length ? '' : ' hidden'}>${this.logHtml(m)}</div>`;
+    },
+
+    /** „Kolo 2 z ~4 · uložených 75 z 200" pri hľadaní po kolách (088), inak ''. */
+    roundText(s, m) {
+      if (!m.rounds) return '';
+      const want = Number((s.stats && s.stats.count) || (s.params && s.params.count)) || 0;
+      const added = Number(s.added) || 0;
+      return `${m.rounds.label}${m.rounds.waiting ? ' (spúšťa sa ďalšie)' : ''}${want ? ` · uložených ${added} z ${want}` : ''}`;
+    },
+
+    /** Prerušené hľadanie po kolách: ďalšie kolo od miesta, kde skončilo (server overí prihlásenie). */
+    async resumeSearch(id) {
+      const s = this.searches.find(x => x.id === id);
+      if (!s) return;
+      const t = await token();
+      try {
+        const x = await fetch('/.netlify/functions/danubra-leads-from-urls-background', { method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ search_id: id, resume: true }) });
+        if (!x.ok && x.status !== 202) { UI.toast(`Server pokračovanie odmietol (${x.status})`, 'err'); return; }
+      } catch (e) { UI.toast('Server na pokračovanie neodpovedá — skúste to znova', 'err'); return; }
+      // Kým sa nové kolo ozve, pás ukáže „beží" (nie „prerušilo sa").
+      s.heartbeat_at = new Date().toISOString();
+      s.stats = { ...(s.stats || {}), chain_failed: false, handoff_at: new Date().toISOString() };
+      document.querySelectorAll(`[data-lp="${sel(id)}"]`).forEach(el => this.paintProgress(el, s));
+      UI.toast('Pokračujem v hľadaní — ďalšie kolo sa spúšťa', 'ok');
+      this.watch(id);
     },
 
     stepsHtml(m) {
@@ -429,7 +545,7 @@
           <div class="lp-meta"><span>${UI.esc(m.elapsed)}</span></div></div>
         <div class="lp-bar ${s.status === 'done' ? 'is-done' : 'is-stopped'}" aria-hidden="true"><i style="width:${m.pct == null ? 100 : m.pct}%"></i></div>
         ${nums}${this.insightsHtml(s)}
-        <div class="lp-acts">${x.saved ? `<button type="button" class="btn btn-primary btn-sm" onclick="Lead.showFound('${id}')">${Icon('search', 14)} Ukázať nájdené</button>` : ''}${
+        <div class="lp-acts">${x.saved ? `<button type="button" class="btn btn-primary btn-sm" onclick="Lead.showFound('${id}')">${Icon('search', 14)} Ukázať nájdené</button>${this.exportBtnsHtml(s.id)}` : ''}${
           s.status !== 'error' && x.saved ? `<span class="lp-hint">${Icon('thumbs-up', 13)} Ohodnoťte nájdené firmy palcom — ďalšie hľadanie sa podľa toho spresní.</span>` : ''}</div>`;
     },
 
@@ -447,6 +563,7 @@
       if (q('pct') && m.pct != null) q('pct').textContent = UI.pct(m.pct);
       if (q('label')) q('label').textContent = m.label || (m.hasProgress ? '' : this.phaseText(s));
       if (q('elapsed')) q('elapsed').textContent = m.elapsed;
+      if (q('round')) { const t = this.roundText(s, m); q('round').textContent = t; q('round').hidden = !t; }
       if (q('steps')) q('steps').innerHTML = this.stepsHtml(m);
       if (q('log')) { q('log').innerHTML = this.logHtml(m); q('log').hidden = !m.log.length; }
       if (q('cancel')) q('cancel').innerHTML = this.cancelBtnHtml(s, m);
@@ -1164,35 +1281,32 @@
         export: {
           name: ['nove-firmy'],
           // Kontakty s firmami (lead-contacts.js): firmy s posledným kontaktom a ďalším krokom, všetky hovory a e-maily.
-          more: window.LeadContacts && LeadContacts.exportLeads ? [
-            { label: 'Firmy s kontaktmi (CSV)', ico: 'clients', title: 'Zobrazené firmy s kategóriou, posledným kontaktom, ďalším krokom a e-mailmi',
-              run: (rows) => LeadContacts.exportLeads(rows, { searches: Lead.searches }) },
-            { label: 'Všetky kontakty (CSV)', ico: 'phone', title: 'Každý hovor, e-mail, stretnutie a oprava pri všetkých firmách',
-              run: () => LeadContacts.exportContacts(Lead.rows) },
-          ] : [],
+          more: [
+            // História hľadaní: pri každom hľadaní Export (CSV nájdených kontaktov) a Kopírovať e-maily.
+            { label: 'Nájdené z jedného hľadania…', ico: 'clock', title: 'História hľadaní: pri každom hľadaní Ukázať, Export do Excelu a Kopírovať e-maily',
+              run: () => Lead.searchHistory() },
+            ...(window.LeadContacts && LeadContacts.exportLeads ? [
+              { label: 'Firmy s kontaktmi (CSV)', ico: 'clients', title: 'Zobrazené firmy s kategóriou, posledným kontaktom, ďalším krokom a e-mailmi',
+                run: (rows) => LeadContacts.exportLeads(rows, { searches: Lead.searches }) },
+              { label: 'Všetky kontakty (CSV)', ico: 'phone', title: 'Každý hovor, e-mail, stretnutie a oprava pri všetkých firmách',
+                run: () => LeadContacts.exportContacts(Lead.rows) },
+            ] : []),
+          ],
+          // Export berie len vyfiltrované riadky (aj filter Hľadanie). Prvé stĺpce sú tie isté kontakty ako
+          // „Exportovať nájdené" po hľadaní (lib/marketing/found-export.js), za nimi ďalšie údaje zoznamu.
           columns: [
-            ['Firma', r => r.name], ['Stav', r => statusOf(r.status)[1]], ['Skóre', r => r.score], ['E-mail', r => r.email],
-            ['E-mail odkiaľ', r => EMAIL_FROM[r.profile && r.profile.email_source] || ''], ['Telefón', r => r.phone],
-            ['Konateľ', r => r.contact_person], ['USt-IdNr', r => r.vat_id], ['Web', r => r.website], ['Ulica', r => r.address],
-            ['PSČ', r => r.postal_code], ['Mesto', r => r.city], ['Región', r => r.region],
-            ['Remeslo', r => this.tradeLabels(r).join(', ')],
-            ['Remeslo (DE)', r => (TR() ? this.tradeKeys(r).map(k => TR().labelDe(k, this.trades)).filter(Boolean).join(', ') : '')],
+            ...(window.DanubraFoundExport ? DanubraFoundExport.columns(this.exportCtx()) : [
+              ['Firma', r => r.name], ['Remeslo', r => this.tradeLabels(r).join(', ')], ['E-mail', r => r.email], ['Telefón', r => r.phone]]),
+            ['Región', r => r.region],
             ['Remeslo určené', r => (!this.tradeKeys(r).length || !TR() ? '' : TR().SOURCE_LABEL[TR().source(r)])],
             ['Čím sa zaoberá (AI)', r => r.trade],
-            ['Veľkosť', r => r.employees], ['Prečo', r => r.why], ['Zdroj', r => SOURCE[r.source] || r.source],
-            ['Hľadanie', r => (r.seed_search_id ? this.searchLabel(r.seed_search_id) : '')], ['Tip od kolegu', r => r.tip_by || ''],
-            ['Hodnotenie', r => r.rating], ['Recenzie', r => r.reviews_count],
-            ['Stav na Mapách', r => ((OX().stateOf(r) || [])[1] || '')], ['Overené', r => (r.verified_at ? String(r.verified_at).slice(0, 10) : '')],
+            ['Veľkosť', r => r.employees], ['Prečo', r => r.why], ['Tip od kolegu', r => r.tip_by || ''],
+            ['Overené', r => (r.verified_at ? String(r.verified_at).slice(0, 10) : '')],
             ['Web funguje', r => (r.web_ok == null ? '' : r.web_ok ? 'áno' : 'nie')], ['E-mail má MX', r => (r.email_mx_ok == null ? '' : r.email_mx_ok ? 'áno' : 'nie')],
             ['Kategórie (Mapy)', r => (Array.isArray(r.categories) ? r.categories.join(', ') : '')],
-            ['Hodnotenie palcom', r => (Number(r.relevance) === 1 ? 'relevantná' : Number(r.relevance) === -1 ? 'nerelevantná' : '')],
-            ['Dôvod (palec dole)', r => r.relevance_note || ''],
             ['Posledný kontakt', r => (r.last_contact_at ? String(r.last_contact_at).slice(0, 10) : '')],
-            ['Ďalší krok', r => [r.next_step_at ? String(r.next_step_at).slice(0, 10) : '', r.next_step_text || ''].filter(Boolean).join(' ')],
-            ['Oslovenie', r => { try { return window.Outreach ? Outreach.column().csv(r) : ''; } catch (e) { return ''; } }],
             ['Od kancelárie (km)', r => { const d = this.dist(r); return d && d.office ? d.office.km : ''; }],
             ['Najbližšia zákazka (km)', r => { const d = this.dist(r); return d && d.site ? `${d.site.km} (${d.site.title})` : ''; }],
-            ['Google Mapy', r => LV().mapsUrl(r)],
             ['Popis webu', r => r.site_description || ''],
           ],
         },
@@ -1460,8 +1574,8 @@
         <div class="form-grid">
           ${UI.field('u_region', 'Región / oblasť (nepovinné)', { placeholder: 'napr. München, 86150 Augsburg, Bayern, okolie Stuttgartu',
             tip: 'Mestá, PSČ alebo spolková krajina, kde hľadať — aj viac naraz, oddelené čiarkou. Na Google Mapách sa hľadá v nich a v ich okolí (susedné mestá). Keď je prázdne, hľadá sa v mestách zadaných firiem a v ich okolí.' })}
-          ${UI.field('u_count', 'Koľko firiem uložiť', { value: '20', options: SDx.COUNTS.map(c => [String(c), String(c)]), onchange: 'Lead.urlEstimate()',
-            tip: 'Koľko firiem sa najviac uloží. Prehľadá sa ich asi trikrát viac, lebo časť sa vyradí (zatvorené, už ich máte, nízke skóre). Viac firiem = dlhšie hľadanie (až 10 minút) a vyššia cena. Firmy, ktoré už máte, sa neuložia znova.' })}
+          ${UI.field('u_count', 'Koľko firiem uložiť', { value: '20', options: this.countOptions(), onchange: 'Lead.urlEstimate()',
+            tip: `Koľko firiem sa najviac uloží. Prehľadá sa ich asi trikrát viac, lebo časť sa vyradí (zatvorené, už ich máte, nízke skóre). Do ${OX().ROUND.SINGLE_MAX} firiem trvá hľadanie 3–10 minút. Viac (100, 200, 300) sa hľadá len na Google Mapách a beží po kolách — každé kolo spracuje asi ${OX().ROUND.CHUNK} firiem, firmy pribúdajú v zozname priebežne; trvá to 20–60 minút a stojí viac (odhad je pod formulárom). Firmy, ktoré už máte, sa neuložia znova.` })}
           ${UI.field('u_min', 'Prah skóre', { value: String(OX().DEFAULT_MIN_SCORE), options: OX().MIN_SCORES.map(c => [String(c), `od ${c}`]),
             tip: 'AI dá každej nájdenej firme skóre 0–100 podľa toho, ako sa podobá zadaným firmám (druh prác, veľkosť, typ zákaziek). Uložia sa len firmy so skóre aspoň takýmto. Vyšší prah = menej firiem, ale presnejších.' })}
           ${UI.field('u_noweb', 'Aj firmy bez webu', { type: 'checkbox', value: false,
@@ -1496,23 +1610,49 @@
       btn.setAttribute('aria-pressed', String(this._findTrades.has(k)));
     },
 
-    /** Rámik v okne hľadania: je Outscraper zapnutý a koľko záznamov prehľadá. */
+    /** Počty do okna: 10–50 v jednom behu, 100–300 po kolách (len s Google Mapami). */
+    countOptions() {
+      const off = this.osStatus && !this.osStatus.on;
+      return SD().COUNTS.filter(c => !off || c <= SD().MAX_COUNT_AI)
+        .map(c => [String(c), c > OX().ROUND.SINGLE_MAX ? `${c} — po kolách` : String(c)]);
+    },
+
+    /** Zvolený počet firiem v okne (bez Google Máp najviac 50). */
+    urlCount() {
+      const f = document.getElementById('find-urls');
+      const v = f ? (f.querySelector('[name=u_count]') || {}).value : 20;
+      return SD().clampCount(v, this.osStatus && this.osStatus.on ? SD().MAX_COUNT : SD().MAX_COUNT_AI);
+    },
+
+    /** Odhad hľadania pre zvolený počet: záznamy, kontakty, USD, čas, kolá (outscraper.js costEstimate). */
+    urlCost(count = this.urlCount()) {
+      return OX().costEstimate({ count, max: (this.osStatus && this.osStatus.max) || undefined });
+    },
+
+    /** Rámik v okne hľadania: je Outscraper zapnutý, koľko záznamov prehľadá, cena a čas. */
     osBoxHtml() {
       const st = this.osStatus;
       if (!st) return '<div class="notebox">Zisťujem, či je zapnuté hľadanie na Google Mapách…</div>';
       if (!st.on) {
-        return `<div class="notebox">${Icon('info', 14)} Hľadanie na Google Mapách (Outscraper) nie je zapnuté — chýba kľúč OUTSCRAPER_API_KEY v Netlify. Firmy nájde AI na webe ako doteraz.${
-          UI.tip('S Outscraperom appka berie firmy priamo z Google Máp: aktuálne adresy, telefóny, weby, hodnotenie, počet recenzií a či firma ešte funguje. Kľúč sa zadáva v Netlify (Site configuration → Environment variables), nikdy nie v appke.')}</div>`;
+        return `<div class="notebox">${Icon('info', 14)} Hľadanie na Google Mapách (Outscraper) nie je zapnuté — chýba kľúč OUTSCRAPER_API_KEY v Netlify. Firmy nájde AI na webe ako doteraz, najviac ${SD().MAX_COUNT_AI} naraz.${
+          UI.tip('S Outscraperom appka berie firmy priamo z Google Máp: aktuálne adresy, telefóny, weby, hodnotenie, počet recenzií a či firma ešte funguje, a dá sa hľadať naraz až 300 firiem (po kolách). Kľúč sa zadáva v Netlify (Site configuration → Environment variables), nikdy nie v appke.')}</div>`;
       }
-      const f = document.getElementById('find-urls');
-      const count = f ? SD().clampCount((f.querySelector('[name=u_count]') || {}).value) : 20;
-      const x = OX().estimate({ count, max: st.max });
-      return `<div class="regimebox">${Icon('check', 14)} Hľadá sa na Google Mapách cez Outscraper. Outscraper prehľadá najviac cca <b>${x}</b> ${Shell.plural(x, 'záznam', 'záznamy', 'záznamov')}.${
-        UI.tip(`Outscraper účtuje za každý vrátený záznam (firmu z Google Máp). Prehľadá sa asi trikrát viac firiem, než chcete uložiť, lebo časť sa vyradí; strop jedného hľadania je ${st.max} záznamov (OUTSCRAPER_MAX_RECORDS). Kontakty (e-maily z webu) sa dopytujú len pri vybraných firmách, ktoré nemajú e-mail v Impressum, a účtujú sa zvlášť. Podľa cenníka Outscraperu je prvých 500 záznamov z Máp mesačne zadarmo, potom asi 3 USD za 1 000 — aktuálnu cenu si overte na outscraper.com.`)}</div>`;
+      const count = this.urlCount();
+      const e = this.urlCost(count);
+      const x = e.records;
+      return `<div class="regimebox ls-cost" data-ls-cost="${count}">${Icon('check', 14)} <span>Hľadá sa na Google Mapách cez Outscraper. Outscraper prehľadá najviac cca <b>${x}</b> ${Shell.plural(x, 'záznam', 'záznamy', 'záznamov')}, kontakty približne pre <b>${e.contacts}</b> ${Shell.plural(e.contacts, 'web', 'weby', 'webov')}.
+        Odhad: <b>približne ${UI.esc(OX().usdLabel(e.usd))}</b> · čas <b>${UI.esc(e.timeLabel)}</b>${e.multi ? ` · po kolách (~${e.rounds})` : ''}.</span>${
+        UI.tip(`Outscraper účtuje za každý vrátený záznam (firmu z Google Máp). Prehľadá sa asi trikrát viac firiem, než chcete uložiť, lebo časť sa vyradí; strop jedného hľadania je ${st.max} záznamov (OUTSCRAPER_MAX_RECORDS). Kontakty (e-maily z webu) sa dopytujú len pri vybraných firmách, ktoré nemajú e-mail v Impressum, a účtujú sa zvlášť. Podľa cenníka Outscraperu je prvých 500 záznamov z Máp mesačne zadarmo, potom asi 3 USD za 1 000 — odhad počíta bez bezplatných záznamov, cena AI (hodnotenie firiem) v ňom nie je; aktuálnu cenu si overte na outscraper.com. Nad ${OX().ROUND.SINGLE_MAX} firiem beží hľadanie po kolách (každé kolo do ~12 minút, ~${OX().ROUND.CHUNK} firiem), okno môžete zavrieť.${
+          count > SD().MAX_COUNT_AI && st.max < count * OX().RESERVE ? ` Pri strope ${st.max} záznamov sa ${count} firiem asi nenájde — zvýšte OUTSCRAPER_MAX_RECORDS v Netlify.` : ''}`)}</div>`;
     },
 
-    /** Prepočíta odhad po zmene počtu firiem. */
+    /** Prepočíta odhad po zmene počtu firiem (a bez Google Máp skryje počty nad 50). */
     urlEstimate() {
+      const sel2 = document.querySelector('#find-urls [name=u_count]');
+      if (sel2 && this.osStatus && !this.osStatus.on && [...sel2.options].some(o => Number(o.value) > SD().MAX_COUNT_AI)) {
+        const v = Math.min(Number(sel2.value) || 20, SD().MAX_COUNT_AI);
+        sel2.innerHTML = this.countOptions().map(([k, l]) => `<option value="${k}"${Number(k) === v ? ' selected' : ''}>${UI.esc(l)}</option>`).join('');
+      }
       const box = document.getElementById('find-urls-os');
       if (box) box.innerHTML = this.osBoxHtml();
     },
@@ -1726,8 +1866,17 @@
       const r = this.urlPreview();
       if (!r || !r.ok) return UI.toast((r && r.error) || 'Zadajte weby firiem', 'err');
       const d = UI.formData(f);
+      const osOn = !!(this.osStatus && this.osStatus.on);
+      const count = SD().clampCount(d.u_count, osOn ? SD().MAX_COUNT : SD().MAX_COUNT_AI);
+      // Veľké hľadanie (nad 600 záznamov): najprv odhad ceny a potvrdenie.
+      if (osOn) {
+        const e = this.urlCost(count);
+        if (e.confirm && !await UI.confirm(`Toto hľadanie môže stáť približne ${OX().usdLabel(e.usd)} — pokračovať?`, {
+          hint: `${count} firiem: Outscraper prehľadá cca ${e.records} záznamov z Google Máp a kontakty pre ~${e.contacts} webov (asi ${OX().USD_PER_1000} USD za 1 000, bez mesačných bezplatných záznamov). Hľadanie beží po kolách, ${e.timeLabel}; okno môžete zavrieť a kedykoľvek ho zastaviť.`,
+          ok: 'Hľadať', cancel: 'Späť', danger: false })) return null;
+      }
       const params = { urls: r.seeds.map(s => s.url), region: String(d.u_region || '').trim().slice(0, 80),
-        count: SD().clampCount(d.u_count), note: String(d.u_note || '').trim().slice(0, 500),
+        count, note: String(d.u_note || '').trim().slice(0, 500),
         min_score: OX().minScore(d.u_min), without_web: d.u_noweb === true,
         // Remeslá (087): AI ich uprednostní; prázdne = ako doteraz.
         trades: TR() ? TR().valid([...(this._findTrades || [])], { table: this.trades }) : [],
@@ -1750,7 +1899,9 @@
         body: JSON.stringify({ search_id: data.id, ...params }) })
         .then(x => { if (!x.ok && x.status !== 202) UI.toast(`Server hľadanie odmietol (${x.status}) — skúste to znova`, 'err'); })
         .catch(() => UI.toast('Server na hľadanie neodpovedá — skúste to znova', 'err'));
-      UI.toast(params.outscraper ? 'Hľadám podobné firmy na Google Mapách — potrvá to 3–10 minút' : 'Hľadám podobné firmy — potrvá to 3–10 minút', 'ok');
+      const big = params.outscraper && Number(params.count) > OX().ROUND.SINGLE_MAX;
+      UI.toast(big ? `Hľadám ${params.count} firiem na Google Mapách po kolách — ${this.urlCost(params.count).timeLabel}`
+        : params.outscraper ? 'Hľadám podobné firmy na Google Mapách — potrvá to 3–10 minút' : 'Hľadám podobné firmy — potrvá to 3–10 minút', 'ok');
       const s = { status: 'pending', kind: 'urls', params, created_at: new Date().toISOString(), ...data };
       this.searches.unshift(s);
       UI.modal('Hľadanie podobných firiem', `${this.progressHtml(s, { modal: true })}

@@ -613,6 +613,235 @@ console.log('Nové firmy podľa webov — serverová funkcia');
     ok(x5.e && x5.e.code === 'EBLOCKED', 'IPv6 localhost sa zablokuje');
   }
 
+  // ── Po kolách (088): 100 firiem, Google Mapy cez dve kolá, práca cez dve ─────
+  {
+    const R = F.rounds;
+    const SECRET = 'tajne-test-088';
+    const clone = (x) => JSON.parse(JSON.stringify(x));
+    const N = 220;
+    const BIG = Array.from({ length: N }, (_, i) => ({ query: `Trockenbau, Ort ${Math.floor(i / 22) + 1}`, name: `Firma ${i + 1} Bau GmbH`,
+      site: `https://firma-${i + 1}.de`, place_id: `pl-${i + 1}`, city: 'Augsburg', postal_code: String(86000 + i), country_code: 'DE',
+      business_status: 'OPERATIONAL', state: 'Bayern', category: 'Trockenbauunternehmen' }));
+    const DATA10 = Array.from({ length: 10 }, (_, g) => BIG.slice(g * 22, g * 22 + 22));
+    const Q12 = Array.from({ length: 12 }, (_, i) => `Trockenbau, Ort ${i + 1}`);
+
+    const mkMulti = (search, { dupOk = false } = {}) => {
+      const db = mkDb(search);
+      Object.assign(db, { stateRow: null, saves: [], claims: [], cleared: 0 });
+      db.progress = async (id, patch) => { db.prog.push(patch); Object.assign(db.search, patch); };
+      db.initState = async (id, state) => { db.stateRow = { round: 1, state: clone(state) }; return { ok: true }; };
+      db.saveState = async (id, round, state) => { db.stateRow = { round, state: clone(state) }; db.saves.push(round); return { ok: true }; };
+      db.loadState = async () => (db.stateRow ? clone(db.stateRow) : null);
+      db.claimRound = async (id, round) => {
+        db.claims.push(round);
+        if (!db.stateRow || db.stateRow.round !== round - 1 || !db.stateRow.state) return null;
+        db.stateRow.round = round;
+        return clone(db.stateRow);
+      };
+      db.clearState = async () => { if (db.stateRow) db.stateRow.state = null; db.cleared++; };
+      if (dupOk) db.insertLead = async (row) => { db.inserted.push(row); return { error: null }; };
+      db.known = async () => ({ leads: [], partners: [], optouts: [] });
+      return db;
+    };
+
+    const setup = ({ count = 100, dupOk = false } = {}) => {
+      process.env.OUTSCRAPER_API_KEY = 'test-kluc-088';
+      process.env.OUTSCRAPER_MAX_RECORDS = '1000';
+      const db = mkMulti({ ...SEARCH, params: { urls: SEARCH.params.urls, region: 'Augsburg', count, min_score: 50 } }, { dupOk });
+      const os = { maps: [], requests: 0, contacts: [] };
+      const env = { mapsReady: false };
+      const mkRes = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+      let t = 1000;
+      const chained = [];
+      const { d } = deps({ db, now: () => (t += 10) });
+      Object.assign(d, {
+        env: { IP_HASH_SECRET: SECRET },
+        chain: async (body) => { chained.push(body); return true; },
+        sleep: async (ms) => { t += ms; },
+        resolveMx: async () => [{ exchange: 'mx.x.de', priority: 10 }],
+        fetch: async (u) => {
+          const url = new URL(u);
+          if (url.pathname === '/maps/search-v3') { os.maps.push(url); return mkRes(202, { id: 'req-big-088', status: 'Pending' }); }
+          if (url.pathname.startsWith('/requests/')) {
+            os.requests++;
+            return mkRes(200, env.mapsReady ? { id: 'req-big-088', status: 'Success', data: DATA10 } : { id: 'req-big-088', status: 'Pending' });
+          }
+          if (url.pathname === '/emails-and-contacts') {
+            const qs = url.searchParams.getAll('query');
+            os.contacts.push(qs);
+            return mkRes(200, { status: 'Success', data: qs.map(q => ({ query: q, emails: [{ value: `info@${q}` }] })) });
+          }
+          return mkRes(404, {});
+        },
+        fetchPage: async (url) => ({ ok: false, url, error: 'Stránka vrátila chybu 404.' }),
+      });
+      d.callModel = async (b) => {
+        const name = b.tools[b.tools.length - 1].name;
+        if (name === 'report_profiles') return PROFILES;
+        if (name === 'report_maps_queries') return tool('report_maps_queries', { categories: ['Trockenbauunternehmen'], locations: ['Augsburg'], queries: Q12, avoid: [] });
+        const fl = JSON.parse(b.messages[0].content.match(/<firmy>\n([\s\S]*?)\n<\/firmy>/)[1]);
+        return tool('report_scores', { scores: fl.map(f => ({ id: f.id, score: Number(f.name.match(/\d+/)[0]) % 2 ? 80 : 20, why: 'Podobná.',
+          similar_to_url: 'https://www.huber-trockenbau.de/', trade: 'suchá výstavba' })) });
+      };
+      return { db, d, os, env, chained, time: () => t };
+    };
+    const evRound = (body) => ({ httpMethod: 'POST', headers: { host: 'adlify-app.netlify.app' }, body: JSON.stringify(body) });
+
+    // Kolo 1: profil, plán, Mapy sa nestihnú → stav sa uloží a spustí sa kolo 2 (podpísaný kľúč).
+    const X = setup();
+    const r1 = parse(await F.handle(ev({ search_id: 's1' }), X.d));
+    eq([r1.code, r1.status, r1.round, r1.next, r1.chained], [202, 'running', 1, 2, true], 'kolo 1: Mapy ešte hľadajú → ďalšie kolo (202, beží)');
+    eq([X.db.search.status, X.db.stateRow.round, X.db.stateRow.state.phase, X.db.stateRow.state.jobs.length, X.db.stateRow.state.jobs[0].done],
+      ['running', 1, 'maps', 1, false], 'stav po kole 1: fáza Mapy, úloha Outscraperu čaká (088)');
+    eq([X.os.maps.length, X.os.maps[0].searchParams.getAll('query').length, X.os.maps[0].searchParams.get('async'), X.os.maps[0].searchParams.get('limit')],
+      [1, 10, 'true', '30'], 'Mapy: 100 firiem → 300 záznamov, 10 dotazov po 30, async');
+    eq(X.chained.length, 1, 'ďalšie kolo sa spustí raz');
+    const c1 = X.chained[0];
+    ok(c1.search_id === 's1' && c1.round === 2 && /^\d+\.[a-f0-9]{64}$/.test(c1.token) && !JSON.stringify(c1).includes('Bearer'),
+      'pokračovanie: search_id, kolo 2 a podpísaný kľúč (nie JWT používateľa)', JSON.stringify(c1));
+    ok(R.tokenOk(c1.token, { searchId: 's1', round: 2, now: X.time(), secret: SECRET }), 'kľúč sa dá overiť tajomstvom servera');
+    ok(!R.tokenOk(c1.token, { searchId: 's1', round: 3, now: X.time(), secret: SECRET }) && !R.tokenOk(c1.token, { searchId: 's2', round: 2, now: X.time(), secret: SECRET })
+      && !R.tokenOk(c1.token, { searchId: 's1', round: 2, now: X.time(), secret: 'ine' }), 'kľúč platí len pre toto hľadanie, toto kolo a toto tajomstvo');
+    ok(!R.tokenOk(c1.token, { searchId: 's1', round: 2, now: X.time() + R.TOKEN_TTL_MS + 1000, secret: SECRET }), 'kľúč po 30 min neplatí');
+    const st1 = X.db.search.stats;
+    ok(st1.multi === true && st1.round === 1 && st1.rounds >= 2 && !!st1.handoff_at, 'v hľadaní: multi, kolo 1, odhad kôl, handoff_at (medzi kolami)', JSON.stringify(st1).slice(0, 200));
+    ok(require(path.join(__dirname, '..', 'lib', 'marketing', 'progress.js')).isStale(X.db.search, X.time() + 4 * 60e3) === false, 'medzi kolami sa 4 min ticha neberie ako prerušenie');
+    eq(R.selfUrl({ headers: { host: 'adlify-app.netlify.app' } }, { URL: 'https://danubra.netlify.app' }), 'https://danubra.netlify.app/.netlify/functions/danubra-leads-from-urls-background',
+      'ďalšie kolo ide na URL z Netlify (inak host požiadavky)');
+
+    // Zlý alebo cudzí kľúč → 403, nič sa nezaberie ani nezapíše.
+    {
+      const u0 = X.db.updates.length;
+      const bad = parse(await F.handle(evRound({ search_id: 's1', round: 2, token: c1.token.replace(/.$/, (ch) => (ch === 'a' ? 'b' : 'a')) }), X.d));
+      const bad2 = parse(await F.handle(evRound({ search_id: 's1', round: 2 }), X.d));
+      const bad3 = parse(await F.handle(evRound({ search_id: 's1', round: 3, token: c1.token }), X.d));
+      eq([bad.code, bad2.code, bad3.code], [403, 403, 403], 'zlý podpis, chýbajúci kľúč, kľúč iného kola → 403');
+      ok(X.db.updates.length === u0 && !X.db.claims.length, 'a nič sa nezaberie ani nezapíše');
+    }
+
+    // Kolo 2: Mapy hotové → vyradenie → 150 firiem: Impressum, skóre, kontakty, uloženie → kolo 3.
+    X.env.mapsReady = true;
+    const r2 = parse(await F.handle(evRound(c1), X.d));
+    eq([r2.code, r2.round, r2.next], [202, 2, 3], 'kolo 2: Mapy dobehli, spracovalo sa 150 firiem → kolo 3');
+    eq([X.db.inserted.length, X.db.stateRow.state.added, X.db.stateRow.state.queue.length, X.db.stateRow.state.phase], [75, 75, 70, 'work'],
+      'kolo 2: uložených 75 (nepárne skóre 80), vo fronte ostáva 70');
+    ok(X.db.prog.some(p => /Kolo 2 z ~/.test(p.stage_label || '')), 'priebeh: „Kolo 2 z ~N: pokračujem"', '');
+    eq(X.os.contacts.map(q => q.length), [75], 'kontakty z Outscraperu len pre vybrané (75), jedna požiadavka');
+    const replay = parse(await F.handle(evRound(c1), X.d));
+    eq(replay.code, 409, 'ten istý kľúč druhýkrát → 409 (kolo sa nezaberie dvakrát)');
+    // Duplicita medzi kolami: firma uložená v kole 2 sa objaví vo fronte znova.
+    const st2 = X.db.stateRow.state;
+    const dupPlace = { ...st2.queue[0].place, place_id: 'pl-1', domain: 'firma-1.de', website: 'https://firma-1.de', name: 'Firma 1 Bau GmbH', reviews_count: 99 };
+    st2.queue.unshift({ id: 'fdup', place: dupPlace });
+    X.db.stateRow.state = st2;
+
+    // Kolo 3: zvyšok fronty → 25 do počtu 100 → hotovo.
+    const c2 = X.chained[1];
+    eq([X.chained.length, c2.round], [2, 3], 'kolo 2 spustí kolo 3');
+    const r3 = parse(await F.handle(evRound(c2), X.d));
+    eq([r3.code, r3.status, r3.added], [200, 'done', 100], 'kolo 3: hotovo, uložených 100');
+    const names = X.db.inserted.map(x => x.name);
+    eq([names.length, new Set(names).size, names.filter(n => n === 'Firma 1 Bau GmbH').length], [100, 100, 1], 'duplicita medzi kolami sa neuloží druhýkrát');
+    const fin = X.db.search;
+    eq([fin.status, fin.added, fin.found, fin.stats.round, fin.stats.rounds, fin.stats.rounds_final, fin.stats.saved],
+      ['done', 100, 220, 3, 3, true, 100], 'koniec: stav done, našlo 220, uložených 100, 3 kolá');
+    eq([fin.stats.scored, fin.stats.contacts_lookups, fin.stats.dropped.low_score, fin.stats.dropped.over_count, fin.stats.dropped.duplicate],
+      [220, 100, 110, 10, 1], 'súhrn za všetky kolá: ohodnotené, kontakty, nízke skóre, nad počet, duplicita');
+    ok(!fin.stats.handoff_at && Array.isArray(fin.stats.insights) && fin.stats.insights.length >= 2, 'bez handoff_at, „Čo AI zistila" za celé hľadanie');
+    eq([X.db.stateRow.state, X.db.cleared, X.chained.length], [null, 1, 2], 'stav sa po skončení vyprázdni, ďalšie kolo sa už nespúšťa');
+    const pr = X.db.prog;
+    ok(pr.every((x, i) => i === 0 || x.progress >= pr[i - 1].progress), 'percentá cez všetky kolá nikdy neklesnú', pr.map(x => x.progress).join(','));
+    eq([pr[pr.length - 1].progress, pr[pr.length - 1].stage_label], [100, 'Hotovo – uložených 100 firiem'], 'koniec: 100 %');
+    ok(fin.log.some(l => /Kolo 3 z ~\d: 71 firiem na overenie/.test(l.text)) || fin.log.some(l => /Kolo 3 z ~\d/.test(l.text)), 'log: „Kolo 3 z ~N"', fin.log.map(l => l.text).slice(-8).join(' | '));
+    delete process.env.OUTSCRAPER_API_KEY; delete process.env.OUTSCRAPER_MAX_RECORDS;
+  }
+
+  // ── Po kolách: Zastaviť medzi kolami, Pokračovať, bez 088 ────────────────
+  {
+    const clone = (x) => JSON.parse(JSON.stringify(x));
+    const mkRes = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+    const PL = Array.from({ length: 30 }, (_, i) => ({ query: 'Trockenbau, Ulm', name: `Ulm ${i + 1} GmbH`, site: `https://ulm-${i + 1}.de`, place_id: `u-${i + 1}`,
+      postal_code: String(89000 + i), country_code: 'DE', business_status: 'OPERATIONAL' }));
+    const base = ({ withState = true, cancelAt = null } = {}) => {
+      process.env.OUTSCRAPER_API_KEY = 'k-088';
+      const db = mkDb({ ...SEARCH, params: { urls: SEARCH.params.urls, count: 200, min_score: 50 } });
+      db.progress = async (id, patch) => { db.prog.push(patch); Object.assign(db.search, patch); };
+      db.known = async () => ({ leads: [], partners: [], optouts: [] });
+      if (withState) {
+        Object.assign(db, { stateRow: null, cleared: 0 });
+        db.initState = async (id, state) => { db.stateRow = { round: 1, state: clone(state) }; return { ok: true }; };
+        db.saveState = async (id, round, state) => { db.stateRow = { round, state: clone(state) }; return { ok: true }; };
+        db.loadState = async () => (db.stateRow ? clone(db.stateRow) : null);
+        db.claimRound = async (id, round) => { if (!db.stateRow || db.stateRow.round !== round - 1 || !db.stateRow.state) return null; db.stateRow.round = round; return clone(db.stateRow); };
+        db.clearState = async () => { if (db.stateRow) db.stateRow.state = null; db.cleared++; };
+      }
+      let t = 1000; const chained = []; const maps = [];
+      const { d } = deps({ db, now: () => (t += 10) });
+      Object.assign(d, {
+        env: { MAIL_SECRET: 'm-secret' },
+        chain: async (body) => { chained.push(body); return !cancelAt; },
+        sleep: async (ms) => { t += ms; },
+        resolveMx: async () => [{ exchange: 'mx', priority: 1 }],
+        fetchPage: async (url) => ({ ok: false, url, error: '404' }),
+        fetch: async (u) => {
+          const url = new URL(u);
+          if (url.pathname === '/maps/search-v3') { maps.push(url); return url.searchParams.get('async') === 'true' ? mkRes(202, { id: 'req-u-1', status: 'Pending' }) : mkRes(200, { status: 'Success', data: [PL] }); }
+          if (url.pathname.startsWith('/requests/')) return mkRes(200, withState ? { id: 'req-u-1', status: 'Pending' } : { id: 'req-u-1', status: 'Success', data: [PL] });
+          return mkRes(200, { status: 'Success', data: [] });
+        },
+      });
+      d.callModel = async (b) => {
+        const name = b.tools[b.tools.length - 1].name;
+        if (name === 'report_profiles') return PROFILES;
+        if (name === 'report_maps_queries') return tool('report_maps_queries', { categories: ['Trockenbau'], locations: ['Ulm'], queries: ['Trockenbau, Ulm', 'Ausbau, Ulm', 'Bau, Ulm'], avoid: [] });
+        const fl = JSON.parse(b.messages[0].content.match(/<firmy>\n([\s\S]*?)\n<\/firmy>/)[1]);
+        return tool('report_scores', { scores: fl.map(f => ({ id: f.id, score: 90, why: 'x', similar_to_url: null, trade: null })) });
+      };
+      return { db, d, chained, maps };
+    };
+    const evRound = (body, auth) => ({ httpMethod: 'POST', headers: auth ? { authorization: 'Bearer x' } : {}, body: JSON.stringify(body) });
+
+    // Zastaviť medzi kolami: ďalšie kolo hneď skončí ako „cancelled", uložené firmy ostanú, stav sa vyprázdni.
+    {
+      const Y = base();
+      const r1 = parse(await F.handle(ev({ search_id: 's1' }), Y.d));
+      eq([r1.code, Y.chained.length], [202, 1], 'kolo 1 (200 firiem) odovzdá ďalšiemu');
+      ok(/kolo 2/i.test(Y.db.search.stage_label || ''), 'priebeh: „Kolo 1 z ~N hotové – spúšťam kolo 2"', Y.db.search.stage_label);
+      Y.db.search.cancel_requested = true;
+      const r2 = parse(await F.handle(evRound(Y.chained[0]), Y.d));
+      eq([r2.status, Y.db.search.status, Y.chained.length, Y.db.stateRow.state, Y.db.cleared], ['cancelled', 'cancelled', 1, null, 1],
+        'Zastaviť medzi kolami: kolo 2 skončí (cancelled), ďalšie sa nespúšťa, stav sa vyprázdni');
+      eq(Y.db.prog[Y.db.prog.length - 1].stage_label, 'Zastavené – uložených 0 firiem', 'priebeh: „Zastavené – uložených 0 firiem"');
+      delete process.env.OUTSCRAPER_API_KEY;
+    }
+    // Ďalšie kolo sa nespustilo → appka ponúkne Pokračovať (prihlásenie + resume).
+    {
+      const Y = base({ cancelAt: 'chain-fails' });
+      await F.handle(ev({ search_id: 's1' }), Y.d);
+      const pm = require(path.join(__dirname, '..', 'lib', 'marketing', 'progress.js'));
+      const hbt = Date.parse(Y.db.search.heartbeat_at) + 10000;
+      ok(Y.db.search.stats.chain_failed === true && pm.model(Y.db.search, hbt).stale === true && pm.model(Y.db.search, hbt).resumable === true,
+        'ďalšie kolo sa nespustilo: hľadanie je hneď (o 10 s) „prerušené" a dá sa Pokračovať');
+      ok(pm.isStale({ ...Y.db.search, stats: { ...Y.db.search.stats, chain_failed: false } }, hbt) === false, 'bez chyby spustenia by sa ešte čakalo');
+      const noAuth = parse(await F.handle(evRound({ search_id: 's1', resume: true }), { ...Y.d, guard: async () => ({ ok: false, status: 401, error: 'Neprihlásený používateľ.' }) }));
+      eq(noAuth.code, 401, 'Pokračovať bez prihlásenia → 401');
+      Y.d.chain = async (body) => { Y.chained.push(body); return true; };
+      const rr = parse(await F.handle(evRound({ search_id: 's1', resume: true }, true), Y.d));
+      eq([rr.code, Y.db.stateRow.round], [202, 2], 'Pokračovať: zaberie kolo 2 a pokračuje');
+      ok(Y.db.prog.some(p => /Kolo 2 z ~\d+: pokračujem \(Pokračovať\)/.test(p.stage_label || '')) && !Y.db.search.stats.chain_failed, 'priebeh: „Kolo 2 … (Pokračovať)", chain_failed zmizne');
+      delete process.env.OUTSCRAPER_API_KEY;
+    }
+    // Bez migrácie 088: najviac 50 firiem v jednom behu, a povie sa to.
+    {
+      const Y = base({ withState: false });
+      const r = parse(await F.handle(ev({ search_id: 's1' }), Y.d));
+      eq([r.code, r.status, Y.chained.length], [200, 'done', 0], 'bez 088: jeden beh, žiadne ďalšie kolo');
+      eq([Y.maps.length, Y.maps[0].searchParams.get('limit'), Y.maps[0].searchParams.get('async')], [1, '50', 'true'], 'bez 088: hľadá sa 50 firiem (150 záznamov)');
+      ok(Y.db.search.log.some(l => /migráciu 088/.test(l.text)), 'v logu: viac ako 50 firiem potrebuje migráciu 088');
+      delete process.env.OUTSCRAPER_API_KEY;
+    }
+  }
+
   // ── Skutočné stiahnutie (lokálny server, len requestOnce — fetchPage by
   //    127.0.0.1 správne nepustil) ───────────────────────────────────────────
   {

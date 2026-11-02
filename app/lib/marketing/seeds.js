@@ -23,7 +23,12 @@
 (function () {
   const MIN_SEEDS = 3;
   const MAX_SEEDS = 10;
-  const COUNTS = [10, 20, 30, 50];
+  // Viac ako 50 len s Google Mapami (Outscraper) — server hľadá po kolách
+  // (danubra-leads-from-urls-background, migrácia 088). AI na webe najviac 50.
+  const COUNTS = [10, 20, 30, 50, 100, 200, 300];
+  const MAX_COUNT = 300;
+  /** Najviac firiem bez Outscraperu (AI s web search) a v jednom kole. */
+  const MAX_COUNT_AI = 50;
 
   const clean = (v) => (v == null ? '' : String(v)).replace(/\s+/g, ' ').trim();
 
@@ -225,11 +230,11 @@
     return { ok: !error, seeds, invalid, duplicates, error };
   }
 
-  /** Počet hľadaných firiem: 10 až 50, predvolene 20. */
-  function clampCount(n) {
+  /** Počet hľadaných firiem: 10 až 300 (bez Outscraperu najviac 50 — `max`), predvolene 20. */
+  function clampCount(n, max = MAX_COUNT) {
     const v = Math.round(Number(n));
     if (!Number.isFinite(v) || v <= 0) return 20;
-    return Math.min(Math.max(v, 10), 50);
+    return Math.min(Math.max(v, 10), Math.max(10, Number(max) || MAX_COUNT));
   }
 
   // ── HTML → text ─────────────────────────────────────────────────────────
@@ -767,7 +772,7 @@
   }
 
   const API = {
-    MIN_SEEDS, MAX_SEEDS, COUNTS, FREEMAIL,
+    MIN_SEEDS, MAX_SEEDS, COUNTS, MAX_COUNT, MAX_COUNT_AI, FREEMAIL,
     hostOf, baseDomain, isFreemail, parseIPv4, parseIPv6, isPrivateIp, checkUrl,
     normUrl, parseSeeds, clampCount,
     decodeEntities, htmlToText, links, impressumLinks, guessPages, looksLikeImpressum,
