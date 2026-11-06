@@ -455,6 +455,8 @@
           attachments: this._draft.attachments, links: this._draft.links || {} });
         UI.closeModal();
         UI.toast('E-mail odoslaný', 'ok');
+        // Kto e-mail otvoril s úlohou (napr. faktúra zo SuperFaktúry), dozvie sa, že odišiel.
+        if (typeof this._draft.onSent === 'function') { try { await this._draft.onSent(to); } catch (e) { /* e-mail už odišiel */ } }
         this.loaded = false;
         if (Danubra.route === 'mail') Danubra.renderRoute(); else if (window.Docs) Docs.fill(document);
       } catch (e) {

@@ -31,6 +31,8 @@
     auftrag:      { label: 'Auftragsbestätigung',    group: 'objednavky' },
     angebot:      { label: 'Angebot',                group: 'ponuky' },
     rechnung:     { label: 'Rechnung',               group: 'faktury' },
+    // Dobropis zo SuperFaktúry (doklad typu cancel k pôvodnej faktúre).
+    storno:       { label: 'Stornorechnung',         group: 'faktury' },
     self_invoice: { label: 'Faktúra',                group: 'faktury' },
     mahnung:      { label: 'Upomienka',              group: 'faktury' },
     list:         { label: 'List',                   group: 'ine' },

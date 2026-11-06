@@ -348,6 +348,39 @@
         'Dohodnutý ďalší krok s termínom je to, čo z hovoru robí obchod — preto vzniká ako úloha pre konkrétneho človeka a nedá sa naň zabudnúť.'],
       links: [['leads', 'Nové firmy'], ['mail', 'Správy'], ['tasks', 'Úlohy']],
     },
+
+    'screen.vedenie': {
+      title: 'Prehľad pre vedenie',
+      lead: 'Oslovovanie firiem v číslach: koľko sme našli a oslovili, kto reagoval, kde je záujem, stretnutia, ponuky a noví odberatelia — za obdobie a v porovnaní s predošlým.',
+      what: [
+        'Hore vyberiete obdobie: Tento KW, Minulý KW, Posledné 4 KW, Tento mesiac, Posledné 3 mesiace alebo Vlastné (od–do). Voľba sa pamätá v tomto prehliadači.',
+        'Dlaždice: Nové firmy, Oslovené, Hovory (počet a minúty), E-maily (odoslané a percentá otvorení, klikov, odpovedí, nedoručených), Reagovali, Záujem, Stretnutia, Ponuky, Noví odberatelia, Nemá záujem a Ďalšie kroky po termíne. Pod číslom je šípka a rozdiel oproti predošlému obdobiu. Klik na číslo ukáže firmy, ktoré sa doň zarátali.',
+        'Lievik: Nájdené → Oslovené → Reagovali → Záujem → Stretnutie → Ponuka → Odberateľ, s počtom firiem a percentom z predošlého kroku. Klik na krok ukáže firmy.',
+        'Trend po KW: posledných 12 kalendárnych týždňov — oslovené, reakcie a stretnutia; presné čísla sú v tabuľke „Čísla po týždňoch".',
+        'Tabuľky Po kolegoch, Po remeslách, Po regiónoch (spolková krajina alebo mesto), Podľa zdroja a Najlepšie hľadania — každá s exportom. Zelený riadok „najlepšie" je skupina s najvyšším podielom záujmu.',
+        '„Čo treba riešiť": ďalšie kroky po termíne, firmy so záujmom bez ďalšieho kroku, stretnutia tento týždeň a firmy, ktoré odpísali a odvtedy sme sa neozvali. Klik otvorí detail firmy.',
+      ],
+      how: [
+        'Oslovená = prvý doručený e-mail oslovenia alebo prvý zapísaný hovor, e-mail, stretnutie či LinkedIn s firmou. Pripomenutie a ďalší hovor tej istej firme sa nerátajú znova; nedoručený e-mail nie je oslovenie.',
+        'Reagovali, Záujem, Stretnutia, Ponuky, Odberatelia = firmy, ktoré sa v období prvýkrát dostali do tohto kroku alebo ďalej — podľa odpovede na e-mail, výsledku hovoru (Zavolať neskôr a Nemá záujem sú tiež reakcia, Má záujem, Stretnutie dohodnuté, Poslať ponuku), histórie kategórie a stretnutí v kalendári.',
+        'E-maily: odoslané v období a čo sa s nimi doteraz stalo. Otvorené počíta len otvorenie človekom — keď obrázky načíta program (Apple Mail, Gmail, skener), nepočíta sa. Percentá sú z odoslaných.',
+        'Lievik je jedna skupina: firmy prvýkrát oslovené v období a kam sa doteraz dostali (aj po konci obdobia). Nájdené nad ním je počet firiem pridaných v období a percento, koľko z nich je už oslovených. Prepínač „Nájdené v období" urobí skupinu z firiem pridaných v období.',
+        'Kolegovia: e-mail patrí tomu, kto ho poslal, hovor tomu, kto je pri ňom „kto od nás", zmena kategórie tomu, kto ju zmenil; odpoveď na e-mail tomu, kto e-mail poslal. Tipy sú odkazy od kolegov podľa mena vo formulári.',
+        'Obdobie sa ráta do dneška a porovnáva sa s rovnako dlhým začiatkom predošlého obdobia (pondelok až piatok s pondelkom až piatkom). Dátumy sú podľa času v Bratislave, KW podľa ISO ako na Stundennachweis.',
+        'Export CSV stiahne celý prehľad do jedného súboru pre Excel (sekcie pod sebou). „Tlačiť / PDF" vytlačí prehľad na A4 — v dialógu tlače vyberte „Uložiť ako PDF".',
+      ],
+      why: [
+        'Vedenie potrebuje vidieť, či oslovovanie prináša odberateľov, a nie počty e-mailov. Preto sa počíta cesta firmy krok po kroku a porovnáva sa s minulým obdobím.',
+        'Rovnako dlhé porovnanie: bežiaci týždeň porovnaný s celým minulým by vždy vyzeral horšie, aj keď ide lepšie.',
+        'Otvorenie e-mailu programom nie je záujem človeka — keby sa rátalo, percentá otvorení by klamali a rozhodovalo by sa podľa nich zle.',
+      ],
+      watch: [
+        'Pri malom počte oslovených (napr. 2) je 100 % záujmu náhoda — „najlepšie" sa preto označí len pri aspoň 3 oslovených firmách.',
+        'Hovor, ktorý sa nezapísal, appka nevidí. Ak kolega volá a nezapíše to, v prehľade chýba.',
+        'Región bez vyplneného regiónu firmy je odhad podľa PSČ — hranice PSČ a spolkových krajín sa úplne nekryjú.',
+      ],
+      links: [['leads', 'Nové firmy'], ['outreach', 'Oslovovanie'], ['kalendar', 'Kalendár'], ['tasks', 'Úlohy']],
+    },
     'screen.campaigns': {
       title: 'E-maily firmám',
       lead: 'Jeden text po nemecky, ktorý odíde každej vybranej firme zvlášť — z Vašej schránky.',
@@ -395,6 +428,53 @@
       ],
       why: ['Heslá schránok nesmú byť v prehliadači — appka sa k serveru pripája len zo servera.'],
       links: [['mail', 'Správy'], ['members', 'Používatelia']],
+    },
+    'card.settings.sf': {
+      title: 'SuperFaktúra',
+      lead: 'Fakturačný program, v ktorom vydané faktúry vznikajú ako doklady, odchádzajú odberateľom a kde sa zapisujú úhrady.',
+      what: [
+        'Appka volá SuperFaktúru len cez server. API kľúč je v Netlify, nikdy nie v prehliadači ani v histórii faktúry.',
+        'Odznak **SANDBOX** znamená skúšobný účet — doklady nie sú ostré. **PRODUKCIA** je ostrý účet. Prepína sa jedine premennou SF_ENV=production v Netlify, a to až po odsúhlasení majiteľom.',
+        'Číslo faktúry je vždy to z appky (zákonné číslo z Číselných radov). Do SuperFaktúry ide ako číslo dokladu; variabilný symbol sú jeho číslice.',
+        'Nemeckému odberateľovi ide doklad bez DPH s prenesením daňovej povinnosti a vetou „Steuerschuldnerschaft des Leistungsempfängers (§13b UStG)." Odberateľovi z inej krajiny EÚ veta podľa článku 196 smernice o DPH.',
+      ],
+      how: [
+        'Kliknite **Otestovať spojenie**. Keď appka vypíše názov firmy, kľúče sú správne. Nič sa pri tom nevystaví ani neodošle.',
+        '**Jazyk dokladu** platí pre odberateľov, ktorí jazyk na karte nemajú. Nemeckým firmám nechajte „nemecky".',
+        '**IBAN na doklade** — prázdne znamená IBAN z Fakturačných údajov. **Id bankového účtu v SuperFaktúre** vyplňte, len ak chcete, aby SuperFaktúra dala na doklad svoj účet.',
+        '**Denná synchronizácia**: každé ráno sa načítajú úhrady. Plne uhradenú faktúru (ktorú Banka ešte nespárovala) appka označí ako zaplatenú, ostatné rozdiely len zapíše do histórie faktúry.',
+      ],
+      why: ['Faktúra je doklad pre úrad aj pre odberateľa. Preto vzniká len zo schválenej faktúry, s naším číslom, a kým sa to neodsúhlasí, len na skúšobnom účte.'],
+      links: [['invoices', 'Vydané faktúry']],
+    },
+    'card.inv.sf': {
+      title: 'Faktúra v SuperFaktúre',
+      lead: 'Či doklad v SuperFaktúre je, či odišiel a či je uhradený — a čo sa s ním dá spraviť.',
+      what: [
+        '**V SuperFaktúre: vystavená / odoslaná / uhradená** — stav dokladu podľa SuperFaktúry. **čiastočne uhradená**: prišla len časť sumy; o tom rozhoduje človek, appka stav faktúry nemení.',
+        '**nesúhlasí so SuperFaktúrou** (červené): suma alebo číslo dokladu v SuperFaktúre je iné než v appke. Faktúra sa neodošle, kým to niekto neskontroluje. Pribudne aj úloha.',
+        '**História v SuperFaktúre** — každý krok (vystavenie, odoslanie, úhrada, synchronizácia, chyba) s dátumom. Kľúče ani token dokladu sa nezapisujú.',
+      ],
+      how: [
+        '**Vystaviť v SuperFaktúre** — len administrátor a len schválená faktúra. Server schválenie overí v databáze.',
+        '**Odoslať odberateľovi** — **Cez SuperFaktúru** (e-mail po nemecky s PDF) alebo **Z našej schránky** (otvorí sa e-mail v Správach s PDF zo SuperFaktúry).',
+        '**Stiahnuť PDF zo SuperFaktúry** — PDF presne ako v SuperFaktúre; uloží sa aj do Dokumentov k odberateľovi.',
+        '**Synchronizovať** — načíta úhrady zo SuperFaktúry teraz, nie až ráno. **Zapísať úhradu do SuperFaktúry** — keď je faktúra zaplatená len v appke.',
+        '**Stornovať dobropisom** — dobropis na celú sumu s dôvodom; admin ho schváli ako každú faktúru, potom sa vystaví a pôvodná faktúra sa stornuje. Nič sa nemaže.',
+      ],
+      why: ['Appka a SuperFaktúra musia mať rovnaký doklad. Keď sa rozídu, faktúra radšej zastane, než by odišla odberateľovi s inou sumou.'],
+      links: [['invoices', 'Vydané faktúry']],
+    },
+    'card.inv.sfbar': {
+      title: 'SuperFaktúra nad zoznamom',
+      lead: 'Koľko dokladov je v SuperFaktúre, koľko schválených čaká na vystavenie a či niečo nesúhlasí.',
+      what: ['Pás ukazuje prostredie (SANDBOX alebo PRODUKCIA), počet schválených faktúr na vystavenie a doklady, ktoré so SuperFaktúrou nesúhlasia.'],
+      how: [
+        '**Vystaviť schválené v SuperFaktúre (n)** — len administrátor. Ponúkne iba faktúry, ktoré admin schválil; každú server overí znova. Odberateľom pri tom nič neodíde — odosiela sa zvlášť.',
+        '**Synchronizovať so SuperFaktúrou** — všetky vystavené faktúry naraz (to isté robí appka každé ráno).',
+      ],
+      why: ['Pri mesačnej fakturácii je faktúr veľa naraz; vystaviť ich jedným klikom šetrí čas, no schválenie ostáva pri každej zvlášť.'],
+      links: [['invoices', 'Vydané faktúry']],
     },
     'card.worker.emails': {
       title: 'E-maily',

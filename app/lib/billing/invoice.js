@@ -236,7 +236,18 @@
         detail: 'Nie je komu fakturovať.', severity: 'block',
       });
     }
-    if (w.gross <= 0) {
+    // Dobropis má zápornú sumu a pôvodnú faktúru (rovnaké pravidlo drží
+    // databáza, migrácia 092).
+    if (isCreditNote(inv)) {
+      if (w.gross >= 0) {
+        reasons.push({ rule: 'credit_note_sign', label: 'Dobropis musí mať zápornú sumu',
+          detail: 'Dobropis vracia peniaze — suma je so znamienkom mínus.', severity: 'block' });
+      }
+      if (!inv.parent_invoice_id) {
+        reasons.push({ rule: 'credit_note_parent', label: 'Dobropis nemá pôvodnú faktúru',
+          detail: 'Dobropis sa robí k vystavenej faktúre (Stornovať dobropisom v jej detaile).', severity: 'block' });
+      }
+    } else if (w.gross <= 0) {
       reasons.push({
         rule: 'invoice_zero', label: 'Faktúra je na nulu',
         detail: 'Skontrolujte podklad — z uzavretého obdobia nevyšli žiadne peniaze.',
@@ -309,6 +320,8 @@
     }
 
     // §48b — nie je to prekážka, ale musí to byť vidieť pred kliknutím.
+    // Dobropis zrážku nerieši: vracia celú pôvodnú sumu.
+    if (isCreditNote(inv)) return { ok: reasons.length === 0, reasons, warnings, withholding: w };
     if (withholdingApplies(sub, o.freistellung) && !w.withheld) {
       warnings.push({
         rule: 'invoice_missing_withholding',
@@ -337,7 +350,7 @@
       });
     }
 
-    if (!partner.email) {
+    if (!partner.email && !isCreditNote(inv)) {
       warnings.push({
         rule: 'invoice_no_email', label: 'Odberateľ nemá e-mail',
         detail: 'Faktúru sa nebude dať odoslať z appky.', severity: 'warn',
@@ -509,8 +522,12 @@
   /** Návrh sa dá upraviť, kým ho nikto neschválil. Vystavený doklad sa nemení. */
   const UPRAVITELNA = ['draft', 'pending_approval', 'draft_pending_approval'];
   function editable(inv = {}) {
-    return UPRAVITELNA.includes(inv.status) && !inv.approved_at && !inv.sf_invoice_id;
+    // Dobropis kopíruje pôvodnú faktúru — neupravuje sa, len schváli alebo zahodí.
+    return UPRAVITELNA.includes(inv.status) && !inv.approved_at && !inv.sf_invoice_id && !isCreditNote(inv);
   }
+
+  /** Dobropis (opravná faktúra so zápornou sumou, migrácia 092). */
+  function isCreditNote(inv) { return !!inv && inv.kind === 'credit_note'; }
 
   /**
    * Voľná faktúra nemeckej firme — vlastné položky, bez podkladu z hodín.
@@ -551,8 +568,8 @@
     withholding, withholdingApplies, sumLines,
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe, TAX,
-    liveItems, itemsTotal, docItems, editable, freeInvoice,
+    liveItems, itemsTotal, docItems, editable, freeInvoice, isCreditNote,
   };
-  window.DanubraInvoice = API;
+  if (typeof window !== 'undefined') window.DanubraInvoice = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

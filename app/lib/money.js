@@ -180,6 +180,7 @@
     cmp, isZero, max, min,
     divRound,
   };
-  window.Money = API;
+  // Na serveri (Netlify funkcie) `window` nie je — knižnica sa tam len vyžiada.
+  if (typeof window !== 'undefined') window.Money = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
