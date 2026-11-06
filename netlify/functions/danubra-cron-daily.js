@@ -12,6 +12,7 @@
 //   - oslovené firmy bez odpovede po termíne → úloha „Pripomenúť sa firme X"
 //   - v pondelok: overenie najdlhšie neoverených nových firiem na Google
 //     Mapách (danubra-leads-refresh-background, 079) — len s OUTSCRAPER_API_KEY
+//   - stav úhrad vystavených faktúr zo SuperFaktúry (092) — len s SF_API_KEY
 //
 // Idempotentné — opakované spustenie v ten istý deň nesmie duplikovať záznamy
 // (upozornenia sa píšu s dennou značkou a pred zápisom sa kontrolujú).
@@ -24,6 +25,8 @@ const Outreach = require('../../app/lib/marketing/outreach.js');
 // Týždenné overenie firiem (079): kedy a podpísaný kľúč pre funkciu na pozadí.
 const Outscraper = require('../../app/lib/marketing/outscraper.js');
 const Secret = require('../../app/lib/mail/secret.js');
+// Stav úhrad zo SuperFaktúry (092) — tá istá služba ako tlačidlo „Synchronizovať".
+const SfService = require('../../app/lib/billing/sf-service.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -398,6 +401,24 @@ exports.handler = async (event) => {
         });
         s.leadsRefresh = 'spustené';
       } catch (e) { s.errors.push(`leads refresh: ${e.message}`); }
+    }
+
+    // ── 10. SuperFaktúra: stav úhrad (092) ──────────────────────────────
+    // Len keď sú kľúče nastavené a nastavenie to nevyplo. Nič sa neprepisuje
+    // naslepo: „zaplatená" len pri úplnej úhrade v SuperFaktúre a len keď
+    // platbu ešte nespárovala Banka; ostatné rozdiely idú do histórie faktúry.
+    if (process.env.SF_EMAIL && process.env.SF_API_KEY) {
+      try {
+        const { data: cfg } = await supabase.from('danubra_settings').select('superfaktura').limit(1);
+        const sfCfg = ((cfg || [])[0] || {}).superfaktura || {};
+        if (sfCfg.sync_daily === false) s.sfSync = 'vypnuté v nastaveniach';
+        else {
+          const r = await SfService.createService({ supabase, env: process.env }).syncAll({});
+          const b = r.body || {};
+          s.sfSync = { checked: b.checked, paid: b.paid, partial: b.partial, mismatch: b.mismatch, env: b.environment };
+          for (const e of (b.errors || []).slice(0, 5)) s.errors.push(`superfaktura: ${e}`);
+        }
+      } catch (e) { s.errors.push(`superfaktura: ${e.message}`); }
     }
 
     // ── Úlohy z pravidiel ───────────────────────────────────────────────

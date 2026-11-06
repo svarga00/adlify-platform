@@ -1,8 +1,8 @@
 // ============================================================================
-// DANUBRA — vystavenie a odoslanie faktúry cez SuperFaktúru
+// DANUBRA — SuperFaktúra: vystavenie, PDF, odoslanie, úhrada, synchronizácia
 // ============================================================================
 // Frontend volá túto funkciu, nie SuperFaktúru. API kľúč nikdy neopustí
-// server.
+// server — ani v odpovedi, ani v histórii faktúry.
 //
 // Dve veci, na ktorých táto funkcia stojí:
 //
@@ -10,74 +10,46 @@
 //      Keby stačilo poslať `{action:'issue'}`, dalo by sa schvaľovanie obísť
 //      jedným requestom z konzoly.
 //   2. **Nikdy sa nesmie stať, že doklad vznikol v SuperFaktúre a appka
-//      o tom nevie.** Preto sa `sf_invoice_id` zapisuje hneď po odpovedi
-//      a pri akejkoľvek neistote sa radšej nevystaví druhýkrát.
+//      o tom nevie.** `sf_invoice_id` sa zapisuje hneď po odpovedi a pri
+//      akejkoľvek neistote sa doklad najprv hľadá — nevystaví sa druhýkrát.
+//
+// Akcie (POST { action, invoice_id?, … }):
+//   status      stav pripojenia (bez kľúčov)            člen s Vydanými faktúrami
+//   ping        overí prihlásenie, vráti názov firmy     admin
+//   issue       vystaví schválenú faktúru / dobropis     admin + schválenie v DB
+//   send        odošle e-mailom cez SuperFaktúru         admin
+//   mark_sent   zapíše „odoslaná" po odoslaní z našej schránky   admin
+//   cancel      pripraví dobropis (čaká na schválenie)   admin, dôvod povinný
+//   pdf         PDF zo SuperFaktúry do Dokumentov        člen s Vydanými faktúrami
+//   pay         zapíše úhradu (aj do SuperFaktúry)       člen s Vydanými faktúrami
+//   sync        stav úhrady zo SuperFaktúry (invoice_id alebo všetky)
 //
 // Premenné prostredia:
 //   SF_EMAIL      e-mail účtu v SuperFaktúre
-//   SF_API_KEY    API token  — bez neho funkcia ticho skončí a povie to
+//   SF_API_KEY    API token  — bez neho funkcia povie, čo chýba, a skončí
 //   SF_COMPANY_ID voliteľné, keď je pod účtom viac firiem
-//   SF_ENV        sandbox | production   (predvolene sandbox)
-//
-// F6 aj F7 sa robia výhradne proti sandboxu. Na produkciu sa prepína jedinou
-// premennou a až po odsúhlasení.
+//   SF_ENV        sandbox | production   (predvolene sandbox; ostrý účet len
+//                 pri presnom „production" a až po odsúhlasení majiteľom)
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
+const { createService } = require('../../app/lib/billing/sf-service.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
-// Vystaviť / odoslať / označiť úhradu smie len člen s právom na Vydané faktúry.
-// Bez toho by stačilo poznať id faktúry a poslať požiadavku z hocikade.
+// Všetko smie len člen s právom na Vydané faktúry. Bez toho by stačilo poznať
+// id faktúry a poslať požiadavku z hocikade.
 const guard = require('../../app/lib/server-guard.js')(supabase);
 
-const SF_ENV = (process.env.SF_ENV || 'sandbox').toLowerCase();
-const SF_BASE = SF_ENV === 'production'
-  ? 'https://moja.superfaktura.sk'
-  : 'https://sandbox.superfaktura.sk';
-
-/** Hlavička podľa dokumentácie SuperFaktúry. Všetko URL-enkódované. */
-function authHeader() {
-  const parts = [
-    `email=${encodeURIComponent(process.env.SF_EMAIL || '')}`,
-    `apikey=${encodeURIComponent(process.env.SF_API_KEY || '')}`,
-    `module=${encodeURIComponent('DANUBRA')}`,
-  ];
-  if (process.env.SF_COMPANY_ID) {
-    parts.push(`company_id=${encodeURIComponent(process.env.SF_COMPANY_ID)}`);
-  }
-  return `SFAPI ${parts.join('&')}`;
-}
-
-async function sfCall(path, body) {
-  const res = await fetch(SF_BASE + path, {
-    method: body ? 'POST' : 'GET',
-    headers: {
-      Authorization: authHeader(),
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* SuperFaktúra občas vráti HTML */ }
-  if (!res.ok) {
-    throw new Error(`SuperFaktúra ${res.status}: ${text.slice(0, 500)}`);
-  }
-  if (json && json.error && json.error !== 0) {
-    const msg = Array.isArray(json.error_message)
-      ? json.error_message.join('; ')
-      : (json.error_message || JSON.stringify(json).slice(0, 500));
-    throw new Error(`SuperFaktúra: ${msg}`);
-  }
-  return json;
-}
+const ACTIONS = ['status', 'ping', 'issue', 'send', 'mark_sent', 'cancel', 'pdf', 'pay', 'sync'];
+// Doklad vzniká, odchádza alebo sa ruší — to smie len administrátor.
+const ADMIN = ['ping', 'issue', 'send', 'mark_sent', 'cancel'];
+const NEEDS_INVOICE = ['issue', 'send', 'mark_sent', 'cancel', 'pdf', 'pay'];
 
 const reply = (code, obj) => ({
   statusCode: code,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   body: JSON.stringify(obj),
 });
 
@@ -87,307 +59,60 @@ exports.handler = async (event) => {
   }
   const g = await guard.check(event, { key: 'invoices' });
   if (!g.ok) return reply(g.status, { error: g.error });
-  if (!process.env.SF_API_KEY || !process.env.SF_EMAIL) {
-    // Bez kľúča sa nič nerozbije — funkcia povie, čo chýba, a skončí.
-    return reply(200, {
-      skipped: true,
-      reason: 'no_sf_credentials',
-      message: 'SF_EMAIL a SF_API_KEY nie sú nastavené. Faktúra zostala '
-        + 'v stave „schválená" a dá sa vystaviť, keď kľúče pribudnú.',
-    });
-  }
 
   let body;
   try { body = JSON.parse(event.body || '{}'); }
   catch { return reply(400, { error: 'Neplatné telo požiadavky.' }); }
 
-  const { invoice_id, action } = body;
-  if (!invoice_id) return reply(400, { error: 'Chýba invoice_id.' });
-  if (!['issue', 'send', 'pay'].includes(action)) {
-    return reply(400, { error: 'Neznáma akcia. Povolené: issue, send, pay.' });
+  const action = body.action;
+  if (!ACTIONS.includes(action)) {
+    return reply(400, { error: `Neznáma akcia. Povolené: ${ACTIONS.join(', ')}.` });
+  }
+  if (ADMIN.includes(action)) {
+    const a = await guard.check(event, { key: 'invoices', admin: true });
+    if (!a.ok) return reply(a.status, { error: a.error });
   }
 
-  // ── Stav sa číta z databázy, nie z požiadavky ─────────────────────────────
-  const { data: inv, error } = await supabase
-    .from('danubra_invoices')
-    .select('*, partner:danubra_partners(*), subcontract:danubra_subcontracts(*), period:danubra_periods(*), items:danubra_invoice_items(*)')
-    .eq('id', invoice_id)
-    .maybeSingle();
+  // Služba sa skladá pri každej požiadavke — SF_ENV a kľúče sa čítajú vždy čerstvé.
+  const sf = createService({ supabase, env: process.env });
+  if (action === 'status') return reply(200, { ok: true, ...sf.config() });
 
-  if (error) return reply(500, { error: 'Databáza: ' + error.message });
-  if (!inv) return reply(404, { error: 'Faktúra neexistuje.' });
+  if (!process.env.SF_API_KEY || !process.env.SF_EMAIL) {
+    // Bez kľúča sa nič nerozbije — funkcia povie, čo chýba, a skončí.
+    return reply(200, {
+      skipped: true,
+      reason: 'no_sf_credentials',
+      environment: sf.env,
+      message: 'SF_EMAIL a SF_API_KEY nie sú nastavené. Faktúra zostala '
+        + 'v stave „schválená" a dá sa vystaviť, keď kľúče pribudnú.',
+      hint: 'Administrátor ich nastaví v Netlify → Site configuration → Environment variables a stránku nasadí znova.',
+    });
+  }
+
+  const id = body.invoice_id;
+  if (NEEDS_INVOICE.includes(action) && !id) return reply(400, { error: 'Chýba invoice_id.' });
+  const actor = g.user && g.user.id;
 
   try {
-    if (action === 'issue') return await issue(inv);
-    if (action === 'send') return await send(inv);
-    if (action === 'pay') return await pay(inv);
+    let r;
+    if (action === 'ping') r = await sf.ping();
+    else if (action === 'issue') r = await sf.issue(id, { actor });
+    else if (action === 'send') r = await sf.send(id, { cc: body.cc, actor });
+    else if (action === 'mark_sent') r = await sf.markSent(id, { to: body.to, actor });
+    else if (action === 'cancel') r = await sf.cancel(id, { reason: body.reason, actor });
+    else if (action === 'pdf') r = await sf.pdf(id, { force: !!body.force, actor });
+    else if (action === 'pay') r = await sf.pay(id, { actor });
+    else if (action === 'sync') r = id ? await sf.sync(id, { actor }) : await sf.syncAll({ actor });
+    return reply(r.status, r.body);
   } catch (e) {
     // Chyba sa zapíše k faktúre celá. Stav sa nemení — faktúra zostane
     // schválená a dá sa skúsiť znova.
-    await supabase.from('danubra_invoices')
-      .update({ sf_error: String(e.message).slice(0, 2000) })
-      .eq('id', invoice_id);
-    return reply(502, { error: String(e.message) });
+    if (id) {
+      await supabase.from('danubra_invoices')
+        .update({ sf_error: String(e.message).slice(0, 2000) })
+        .eq('id', id);
+    }
+    return reply(502, { error: String(e.message), code: e.code || undefined,
+      hint: e.hint || 'Skúste to znova. Ak to trvá, pozrite históriu faktúry.' });
   }
 };
-
-// ── Vystavenie ──────────────────────────────────────────────────────────────
-async function issue(inv) {
-  // Toto je to miesto, kde by sa dalo obísť schvaľovanie. Nedá sa.
-  if (inv.status !== 'approved') {
-    return reply(409, {
-      error: `Vystaviť sa dá len schválená faktúra. Táto je „${inv.status}".`,
-    });
-  }
-  if (!inv.approved_by || !inv.approved_at) {
-    return reply(409, { error: 'Faktúra nemá zapísané, kto a kedy ju schválil.' });
-  }
-  if (inv.sf_invoice_id) {
-    return reply(409, {
-      error: `Faktúra už je vystavená v SuperFaktúre (id ${inv.sf_invoice_id}). `
-        + 'Druhé vystavenie sa odmieta.',
-    });
-  }
-
-  // ── Zámok: dve kliknutia nesmú vystaviť dva doklady ───────────────────────
-  // Dve požiadavky naraz (dvojklik, dve okná) by obe prečítali „schválená,
-  // bez sf_invoice_id" a obe by v SuperFaktúre založili doklad s tým istým
-  // číslom. Preto si funkcia faktúru najprv atomicky „zaberie": zapíše
-  // značku do sf_error, ale len ak sa riadok medzitým nezmenil. Druhá
-  // požiadavka už nič nezaberie a odíde s 409.
-  if (issuingNow(inv.sf_error)) {
-    return reply(409, {
-      error: 'Faktúra sa práve vystavuje (začaté pred chvíľou). Počkajte a obnovte stránku — '
-        + 'druhé vystavenie by v SuperFaktúre založilo ten istý doklad dvakrát.',
-    });
-  }
-  let claim = supabase.from('danubra_invoices')
-    .update({ sf_error: `${ISSUING} ${new Date().toISOString()}` })
-    .eq('id', inv.id).eq('status', 'approved').is('sf_invoice_id', null);
-  claim = inv.sf_error == null ? claim.is('sf_error', null) : claim.eq('sf_error', inv.sf_error);
-  const { data: claimed, error: claimErr } = await claim.select('id');
-  if (claimErr) throw new Error('Faktúru sa nepodarilo zamknúť na vystavenie: ' + claimErr.message);
-  if (!Array.isArray(claimed) || !claimed.length) {
-    return reply(409, {
-      error: 'Faktúru medzitým vystavuje alebo zmenil niekto iný. Obnovte stránku a skontrolujte jej stav.',
-    });
-  }
-
-  // Platná Freistellung §48b (register compliance) — na faktúru ide veta,
-  // že sa zrážka neuplatňuje.
-  const { data: fsRows } = await supabase.from('danubra_compliance')
-    .select('reference,valid_from,valid_to,status').eq('kind', 'freistellung_48b').eq('scope', 'company')
-    .is('archived_at', null);   // service role — archivovaná Freistellung na faktúru nejde
-  const dnes = todaySk();
-  const fs = (fsRows || []).find(f => !['pending', 'expired', 'not_required'].includes(f.status)
-    && (!f.valid_from || f.valid_from <= dnes) && (!f.valid_to || f.valid_to >= dnes)) || null;
-  const payload = buildPayload(inv, fs);
-  const res = await sfCall('/invoices/create', payload);
-
-  const sfId = res && res.data && res.data.Invoice && res.data.Invoice.id;
-  const sfToken = res && res.data && res.data.Invoice && res.data.Invoice.token;
-  if (!sfId) {
-    // Doklad možno vznikol, ale nevieme jeho id — to je presne situácia,
-    // ktorá sa nesmie zamlčať.
-    throw new Error('SuperFaktúra nevrátila id faktúry. Skontroluj ju v SuperFaktúre '
-      + 'PREDTÝM, než to skúsiš znova — mohol vzniknúť doklad.');
-  }
-
-  // Id a stav sa zapisujú naraz.
-  const { error } = await supabase.from('danubra_invoices').update({
-    status: 'issued',
-    sf_invoice_id: sfId,
-    sf_token: sfToken || null,
-    sf_environment: SF_ENV,
-    sf_synced_at: new Date().toISOString(),
-    sf_error: null,
-  }).eq('id', inv.id);
-
-  if (error) {
-    throw new Error(`Faktúra vznikla v SuperFaktúre (id ${sfId}), ale nepodarilo sa `
-      + `to zapísať: ${error.message}. Doplň sf_invoice_id ručne.`);
-  }
-
-  return reply(200, { ok: true, sf_invoice_id: sfId, environment: SF_ENV });
-}
-
-// ── Odoslanie ───────────────────────────────────────────────────────────────
-// Samostatné rozhodnutie. Schválená faktúra sa neodošle sama.
-async function send(inv) {
-  if (inv.status !== 'issued') {
-    return reply(409, {
-      error: `Odoslať sa dá len vystavená faktúra. Táto je „${inv.status}".`,
-    });
-  }
-  if (!inv.sf_invoice_id) {
-    return reply(409, { error: 'Faktúra nemá id v SuperFaktúre.' });
-  }
-  const to = inv.partner && inv.partner.email;
-  if (!to) return reply(409, { error: 'Odberateľ nemá e-mail.' });
-
-  await sfCall('/invoices/send', {
-    Email: {
-      invoice_id: inv.sf_invoice_id,
-      to,
-      cc: [],
-      subject: `Rechnung ${inv.invoice_number}`,
-      // Dokumenty pre partnerov sú po nemecky.
-      message: 'Sehr geehrte Damen und Herren,\n\n'
-        + 'anbei senden wir Ihnen unsere Rechnung.\n\n'
-        + 'Mit freundlichen Grüßen',
-    },
-  });
-
-  const { error } = await supabase.from('danubra_invoices').update({
-    status: 'sent',
-    sent_at: new Date().toISOString(),
-    sf_synced_at: new Date().toISOString(),
-    sf_error: null,
-  }).eq('id', inv.id);
-  if (error) throw new Error('Faktúra odišla, ale stav sa nezapísal: ' + error.message);
-
-  return reply(200, { ok: true, sent_to: to });
-}
-
-// ── Úhrada ──────────────────────────────────────────────────────────────────
-async function pay(inv) {
-  if (!['issued', 'sent', 'overdue'].includes(inv.status)) {
-    return reply(409, { error: `Uhradiť sa dá vystavená faktúra, nie „${inv.status}".` });
-  }
-  if (inv.sf_invoice_id) {
-    await sfCall('/invoices/pay', {
-      InvoicePayment: {
-        invoice_id: inv.sf_invoice_id,
-        payment_type: 'transfer',
-        amount: Number(inv.total),
-        currency: inv.currency || 'EUR',
-        created: todaySk(),
-      },
-    });
-  }
-  const { error } = await supabase.from('danubra_invoices').update({
-    status: 'paid',
-    paid_at: new Date().toISOString(),
-    sf_synced_at: new Date().toISOString(),
-    sf_error: null,
-  }).eq('id', inv.id);
-  if (error) throw new Error(error.message);
-  return reply(200, { ok: true });
-}
-
-// ── Payload ─────────────────────────────────────────────────────────────────
-// Rovnaké pravidlá ako `DanubraInvoice.sfPayload()` v prehliadači. Držať to
-// na dvoch miestach nie je pekné, ale funkcia nesmie spoliehať na to, čo jej
-// pošle frontend — payload si musí poskladať sama z toho, čo je v databáze.
-const COUNTRY_ID = { SK: 191, CZ: 57, DE: 63, AT: 15, PL: 168, HU: 97 };
-
-function buildPayload(inv, fs = null) {
-  const partner = inv.partner || {};
-  const sub = inv.subcontract || {};
-  const period = inv.period || {};
-  const reverse = inv.vat_regime === 'reverse_charge';
-  const gross = Math.round(Number(inv.total || 0) * 100);
-  const withheld = Math.round(Number(inv.withholding_amount || 0) * 100);
-
-  const comments = [];
-  if (reverse) comments.push('Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).');
-  if (withheld > 0) {
-    comments.push(`Bauabzugsteuer gemäß §48b EStG: ${de(withheld)} EUR `
-      + `(${Number(inv.withholding_pct)} %). Auszahlungsbetrag: ${de(gross - withheld)} EUR.`);
-  } else if (fs && sub.work_type === 'construction') {
-    const d = (x) => { const m = String(x || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : ''; };
-    comments.push('Freistellungsbescheinigung gemäß §48b EStG liegt vor'
-      + (fs.reference ? ` (Nr. ${fs.reference}${fs.valid_to ? `, gültig bis ${d(fs.valid_to)}` : ''})`
-        : (fs.valid_to ? ` (gültig bis ${d(fs.valid_to)})` : ''))
-      + ' — kein Steuerabzug.');
-  }
-
-  const hours = round2(Number(period.hours_construction || 0)
-    + Number(period.hours_workshop || 0) + Number(period.hours_travel || 0));
-  const total = round2(gross / 100);
-  const name = period.period_from
-    ? `${sub.title || 'Subdodávateľské práce'} — `
-      + `${String(period.period_from).slice(5, 7)}/${String(period.period_from).slice(0, 4)}`
-    : (sub.title || 'Subdodávateľské práce');
-  // Nie sme platiteľ DPH a Nemcom fakturujeme v režime reverse charge §13b:
-  // sadzba je vždy nula. S 20 % by doklad v SuperFaktúre vyšiel na iné
-  // číslo, než s akým rátajú appka, banka a upomienky.
-  const tax = 0;
-
-  // Voľná faktúra má vlastné položky — vyhodené z návrhu (`removed_at`) nie.
-  const vlastne = (inv.items || []).filter(i => i && !i.removed_at);
-  let item;
-  if (vlastne.length) {
-    item = null;
-  } else if (hours > 0) {
-    const unitPrice = round2(total / hours);
-    item = Math.round(unitPrice * hours * 100) === gross
-      ? { name, description: 'Podľa výkazu hodín, príloha',
-          quantity: hours, unit: 'h', unit_price: unitPrice, tax }
-      : { name, description: `${hours} h podľa výkazu hodín, príloha`,
-          quantity: 1, unit: 'pausal', unit_price: total, tax };
-  } else {
-    item = { name, quantity: 1, unit: 'pausal', unit_price: total, tax };
-  }
-
-  return {
-    Invoice: {
-      name, type: 'regular',
-      invoice_currency: inv.currency || 'EUR',
-      variable: String(inv.invoice_number || '').replace(/\D/g, '') || undefined,
-      created: inv.issue_date || undefined,
-      due: inv.due_date || undefined,
-      delivery: inv.delivery_date || undefined,
-      payment_type: 'transfer',
-      comment: comments.join(' ') || undefined,
-    },
-    Client: {
-      name: partner.name,
-      ic_dph: partner.ust_idnr || undefined,
-      ico: partner.registration_no || undefined,
-      address: partner.address || undefined,
-      city: partner.city || undefined,
-      zip: partner.postal_code || undefined,
-      country_id: COUNTRY_ID[String(partner.country || 'DE').toUpperCase()],
-      email: partner.email || undefined,
-      update_addressbook: 1,
-    },
-    InvoiceItem: vlastne.length
-      ? vlastne.map(i => ({ name: String(i.description || '').slice(0, 250) || 'Leistung',
-        quantity: Number(i.quantity) || 0, unit: i.unit || 'ks', unit_price: round2(i.unit_price), tax }))
-      : [item],
-    InvoiceSetting: {
-      language: partner.invoice_language || 'deu',
-      bysquare: 1,
-      online_payment: 0,
-    },
-  };
-}
-
-function round2(n) { return Math.round(Number(n) * 100) / 100; }
-
-/** Dnešný deň na Slovensku (server beží v UTC — po polnoci by bol včerajšok). */
-function todaySk() {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date());
-  const g = (t) => p.find(x => x.type === t).value;
-  return `${g('year')}-${g('month')}-${g('day')}`;
-}
-
-/**
- * Značka „práve sa vystavuje" v sf_error. Platí 10 minút — funkcia beží
- * najviac pár sekúnd, takže staršia značka je po spadnutom pokuse a nesmie
- * faktúru zamknúť navždy.
- */
-const ISSUING = 'VYSTAVUJE SA';
-function issuingNow(sfError, now = Date.now()) {
-  const m = String(sfError || '').match(/^VYSTAVUJE SA (\S+)/);
-  if (!m) return false;
-  const t = Date.parse(m[1]);
-  return Number.isFinite(t) && now - t < 10 * 60 * 1000;
-}
-
-function de(cents) {
-  return (cents / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d),)/g, '.');
-}

@@ -124,7 +124,8 @@
       const SETTLED = ['paid', 'cancelled', 'draft'];
       const pending = this.items.filter(x =>
         ['draft_pending_approval', 'pending_approval'].includes(x.status));
-      const unpaid = this.items.filter(x => !SETTLED.includes(x.status));
+      // Dobropis nie je pohľadávka — do „nezaplatené" nepatrí (migrácia 092).
+      const unpaid = this.items.filter(x => !SETTLED.includes(x.status) && x.kind !== 'credit_note');
       // V centoch: súčet floatov by pri stovkách faktúr ukázal o cent iné číslo.
       const unpaidSum = Money.fromCents(Money.sum(unpaid.map(x => Money.toCents(x.total || 0))));
 
@@ -140,7 +141,13 @@
       el.innerHTML = Danubra.header(Danubra.labelOf('invoices'),
         `${this.items.length} celkom · nezaplatené ${UI.money(unpaidSum)}`) +
         this.nowHtml(q) +
+        // SuperFaktúra (modules/superfaktura.js): prostredie, schválené na vystavenie, synchronizácia.
+        (window.SFUI ? SFUI.barHtml(this.items) : '') +
         DataList.html(this.listConfig(this.listRows(q)));
+      if (window.SFUI && el.querySelector('.sf-env-slot')) {
+        // Prostredie (SANDBOX / PRODUKCIA) sa zistí raz; odznak sa po odpovedi prekreslí.
+        SFUI.ensureStatus().then(() => el.querySelectorAll('.sf-env-slot').forEach(n => { n.innerHTML = SFUI.envBadge(); })).catch(() => {});
+      }
 
       // Odkaz odinakiaľ („Otvoriť návrhy" po mesačnej fakturácii) nastaví
       // `Inv.filters.status` — zoznam si ho prevezme ako filter stavu.
@@ -170,7 +177,7 @@
         const who = this.counterparty(x);
         const st = x.status === 'draft_pending_approval' ? 'pending_approval' : x.status;
         const due = x.due_date ? String(x.due_date).slice(0, 10) : '';
-        const open = OPEN.includes(x.status);
+        const open = OPEN.includes(x.status) && x.kind !== 'credit_note';
         // Suma v centoch. Čo reálne príde (po zrážke §48b), počíta knižnica.
         const w = DanubraInvoice.withholding(x);
         const dun = this.dunQueue ? DanubraDunning.next(x, this.reminders, today) : null;
@@ -261,7 +268,8 @@
             tip: TIP_NUMBER,
             // Pod číslom obdobie, za ktoré sa fakturuje; inak typ (okrem bežnej faktúry odberateľovi).
             render: (r) => {
-              const sub = r.x.billing_period_from ? DL.rangeText(r.x.billing_period_from, r.x.billing_period_to)
+              const sub = r.x.kind === 'credit_note' ? 'Dobropis'
+                : r.x.billing_period_from ? DL.rangeText(r.x.billing_period_from, r.x.billing_period_to)
                 : r.x.type && r.x.type !== 'standard' ? (TYPE[r.x.type] || r.x.type) : '';
               return `<span class="dl-title">${r.number ? `<b class="mono">${UI.esc(r.number)}</b>`
                 : '<b class="dl-nonum">Návrh bez čísla</b>'}${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
@@ -289,7 +297,8 @@
             tip: 'Faktúra ide krokmi: Návrh → Čaká na schválenie → Schválená → Vystavená → '
               + 'Odoslaná → Zaplatená. Mimo poradia sú Po splatnosti (appka označí sama) a Stornovaná. '
               + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
-            render: (r) => this.badge(r.x.status),
+            render: (r) => (window.SFUI && r.x.sf_invoice_id
+              ? `<span class="dl-two">${this.badge(r.x.status)}${SFUI.listMark(r.x)}</span>` : this.badge(r.x.status)),
             // Predvolené poradie: čo čaká na Vás, po splatnosti, čo čaká na peniaze, uzavreté.
             sortValue: (r) => [['nas', 'late', 'wait', 'done'].indexOf(r.rad), r.x.due_date || '9999', statusIdx(r.st)],
             sortLabel: 'Čo je na rade' },
@@ -905,8 +914,8 @@
             + '(opravnou faktúrou). Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
           issued: 'Faktúra sa zapíše do SuperFaktúry (fakturačný program) a stane sa platným dokladom. '
             + 'Odberateľovi ešte nič nepríde — to je ďalší krok.',
-          sent: 'SuperFaktúra pošle faktúru odberateľovi e-mailom (po nemecky). Poslaný e-mail sa nedá '
-            + 'vziať späť.',
+          sent: 'Faktúra odíde odberateľovi e-mailom — cez SuperFaktúru (po nemecky) alebo z našej schránky '
+            + 's PDF zo SuperFaktúry. Poslaný e-mail sa nedá vziať späť.',
           paid: 'Zapíše úhradu aj do SuperFaktúry. Použite, keď peniaze naozaj prišli na účet — '
             + 'zvyčajne to za Vás spraví spárovanie v Banke.',
         }[to] || '');
@@ -916,9 +925,17 @@
           return `<button class="btn btn-primary" disabled title="${
             UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>${tip}`;
         }
+        // Vystaviť a odoslať smie len administrátor — server to overí aj tak,
+        // tu sa len neponúka tlačidlo, ktoré by odmietol.
+        if ((to === 'issued' || to === 'sent') && !Danubra.isAdmin()) {
+          return `<button class="btn ${map[1]}" disabled title="Vystavuje a odosiela len administrátor">${map[0]}</button>${tip}`;
+        }
+        if (to === 'sent' && x.sf_check === 'mismatch') {
+          return `<button class="btn ${map[1]}" disabled title="Nesúhlasí so SuperFaktúrou — najprv to treba skontrolovať">${map[0]}</button>${tip}`;
+        }
         const fn = spat(to) ? `Inv.backToDraft('${x.id}')`
           : to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
-          : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
+          : to === 'sent' ? (window.SFUI ? `SFUI.sendChoice('${x.id}')` : `Inv.sfAction('${x.id}','send')`)
           : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
           : `Inv.setStatusV2('${x.id}','${to}')`;
         return `<button class="btn ${map[1]}" onclick="${fn}">${map[0]}</button>${tip}`;
@@ -951,10 +968,9 @@
         ['Schválil', x.approved_at
           ? `${new Date(x.approved_at).toLocaleString('sk-SK')}` : null,
           'Kedy faktúru schválil administrátor. Bez tohto záznamu sa nedá vystaviť ani odoslať.'],
-        ['V SuperFaktúre', x.sf_invoice_id
-          ? `${x.sf_invoice_id} (${x.sf_environment || 'sandbox'})` : null,
-          'Číslo dokladu v SuperFaktúre — fakturačnom programe, cez ktorý faktúra odchádza. '
-            + '„sandbox" je skúšobný účet: doklad tam nie je ostrý; „production" je ostrý účet.'],
+        ['Dobropis k faktúre', x.kind === 'credit_note' ? ((this.items.find(i => i.id === x.parent_invoice_id) || {}).invoice_number || '—') : null,
+          'Dobropis ruší pôvodnú faktúru. Keď ho admin schváli a vystaví v SuperFaktúre, pôvodná faktúra sa stornuje.'],
+        ['Dôvod dobropisu', x.kind === 'credit_note' ? x.cancel_reason : null],
       ].filter(r => r[1] != null && r[1] !== '');
 
       const body = `
@@ -1012,13 +1028,16 @@
           ${rows.map(r => `<div><span>${r[0]}${r[2] ? UI.tip(r[2]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
         </div>
 
-        ${this.dunningHtml ? this.dunningHtml(x) : ''}
+        ${window.SFUI ? SFUI.panelHtml(x) : ''}
+
+        ${this.dunningHtml && x.kind !== 'credit_note' ? this.dunningHtml(x) : ''}
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-          ${kroky.map(act).join('')}
+          ${kroky.filter(to => !(to === 'paid' && x.kind === 'credit_note')).map(act).join('')}
         </div>`;
-      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true, logo: this.whoLogo(x) });
+      UI.modal(`${x.kind === 'credit_note' ? 'Dobropis' : 'Faktúra'} ${x.invoice_number || ''}`, body, { wide: true, logo: this.whoLogo(x) });
+      if (window.SFUI) SFUI.loadHistory(x.id);
     },
 
     /**
@@ -1142,7 +1161,7 @@
      * SuperFaktúry nikdy neopustí server a funkcia si stav overí v databáze —
      * poslať `{action:'issue'}` z konzoly schvaľovanie neobíde.
      */
-    async sfAction(id, action) {
+    async sfAction(id, action, extra = {}) {
       // Dvojklik = dve požiadavky. Pri vystavení by vznikli dva doklady, pri
       // odoslaní dva e-maily odberateľovi. Server má vlastný zámok, ale druhá
       // požiadavka nemá z obrazovky vôbec odísť.
@@ -1151,14 +1170,14 @@
       this._sfBusy[id] = true;
       const vypnute = [...document.querySelectorAll('#ui-modal .modal-actions button:not([disabled])')];
       vypnute.forEach(b => { b.disabled = true; });
-      const labels = { issue: 'Vystavujem…', send: 'Odosielam…', pay: 'Zapisujem úhradu…' };
+      const labels = { issue: 'Vystavujem v SuperFaktúre…', send: 'Odosielam…', pay: 'Zapisujem úhradu…' };
       UI.toast(labels[action] || 'Pracujem…');
       let res, json;
       try {
         res = await fetch('/.netlify/functions/danubra-sf-invoice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invoice_id: id, action }),
+          body: JSON.stringify({ invoice_id: id, action, ...extra }),
         });
         json = await res.json();
       } catch (e) {
@@ -1167,14 +1186,23 @@
         delete this._sfBusy[id];
         vypnute.forEach(b => { b.disabled = false; });
       }
+      // Chyba po slovensky aj s tým, čo spraviť (modules/superfaktura.js).
+      const zle = (j) => (window.SFUI ? SFUI.toastErr(j) : UI.toast(j && j.error ? j.error : 'Nepodarilo sa', 'err'));
       if (json && json.skipped) {
-        return UI.toast(json.message, 'err');
+        return zle({ error: json.message, hint: json.hint });
       }
       if (!res.ok) {
-        return UI.toast(json && json.error ? json.error : 'Nepodarilo sa', 'err');
+        zle(json || {});
+        // Detail ukáže, čo sa zapísalo (sf_error, história).
+        this.loaded = false; await this.load(); this.detail(id);
+        return;
       }
-      UI.toast({ issue: 'Faktúra vystavená', send: 'Faktúra odoslaná',
-        pay: 'Označená ako zaplatená' }[action] || 'Hotovo', 'ok');
+      if (action === 'issue' && json.check === 'mismatch') {
+        UI.toast(`Vystavená, ale nesúhlasí so SuperFaktúrou: ${json.check_note || ''} Neodošle sa, kým sa to neskontroluje.`, 'err');
+      } else {
+        UI.toast({ issue: 'Faktúra vystavená v SuperFaktúre', send: 'Faktúra odoslaná',
+          pay: 'Úhrada zapísaná' }[action] || 'Hotovo', 'ok');
+      }
       this.loaded = false; await this.load();
       this.detail(id); Danubra.renderRoute();
     },
@@ -1387,7 +1415,8 @@
       const client = { name: p.name, country: p.country || 'DE', vat_id: p.ust_idnr, company_id: p.registration_no,
         contact_person: p.contact_person, address: [p.address, [p.postal_code, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') };
       const html = DanubraPapers.invoice({ invoice: x, items, client, supplier, qrSvg, vatNote: notes.join(' '), lang: 'de' });
-      Invoicing._openHtml(html, { kind: 'rechnung', title: 'Rechnung', number: x.invoice_number, who: p.name,
+      const cn = x.kind === 'credit_note';
+      Invoicing._openHtml(html, { kind: cn ? 'storno' : 'rechnung', title: cn ? 'Stornorechnung' : 'Rechnung', number: x.invoice_number, who: p.name,
         lang: 'de', partner_id: x.partner_id || null, subcontract_id: x.subcontract_id || null });
     },
 

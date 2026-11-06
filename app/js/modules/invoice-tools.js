@@ -185,7 +185,8 @@
           ? `Vzniklo ${ok} ${Shell.plural(ok, 'návrh', 'návrhy', 'návrhov')} faktúr. Skontrolujte ich vo Vydaných
             faktúrach a pošlite na schválenie.${UI.tip('Návrh je len v appke — odberateľ o ňom nevie. '
               + 'V detaile faktúry skontrolujte sumu a odberateľa a kliknite „Poslať na schválenie". '
-              + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}`
+              + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
+            Schválené potom vystavíte v SuperFaktúre naraz tlačidlom „Vystaviť schválené v SuperFaktúre".`
           : 'Nevznikol žiadny návrh faktúry.'}</div>
         ${chyby.length ? `<div class="form-section">Nepodarilo sa</div>${chyby.map(c => `<div class="js-row">${UI.esc(c)}</div>`).join('')}` : ''}
         <div class="modal-actions">

@@ -427,6 +427,9 @@
 
         this.stampHtml() +
 
+        // SuperFaktúra: stav pripojenia, test spojenia a mapovanie (len admin).
+        (window.SFUI ? SFUI.settingsCard(this) : '') +
+
         `<div class="card card-pad" style="margin-bottom:16px;">
           <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
           <div class="regimebox" style="margin:0 0 12px;">
@@ -475,6 +478,8 @@
           ['consent_script_sk', 'Znenie otázky na súhlas — slovensky ({firma} = názov firmy)', 'textarea'],
           ['consent_script_de', 'Znenie otázky na súhlas — nemecky ({firma} = názov firmy)', 'textarea'],
         ]);
+      // Stav SuperFaktúry sa dočíta zo servera (bez kľúčov) a dopíše do karty.
+      if (window.SFUI && Danubra.isAdmin()) SFUI.paintStatus().catch(() => {});
     },
   };
 
