@@ -13,16 +13,21 @@
 //      o tom nevie.** `sf_invoice_id` sa zapisuje hneď po odpovedi a pri
 //      akejkoľvek neistote sa doklad najprv hľadá — nevystaví sa druhýkrát.
 //
-// Akcie (POST { action, invoice_id?, … }):
-//   status      stav pripojenia (bez kľúčov)            člen s Vydanými faktúrami
-//   ping        overí prihlásenie, vráti názov firmy     admin
-//   issue       vystaví schválenú faktúru / dobropis     admin + schválenie v DB
-//   send        odošle e-mailom cez SuperFaktúru         admin
-//   mark_sent   zapíše „odoslaná" po odoslaní z našej schránky   admin
-//   cancel      pripraví dobropis (čaká na schválenie)   admin, dôvod povinný
-//   pdf         PDF zo SuperFaktúry do Dokumentov        člen s Vydanými faktúrami
-//   pay         zapíše úhradu (aj do SuperFaktúry)       člen s Vydanými faktúrami
-//   sync        stav úhrady zo SuperFaktúry (invoice_id alebo všetky)
+// Akcie (POST { action, invoice_id?, … }) — v zátvorke požiadavky na SuperFaktúru:
+//   status      stav pripojenia a dnešné počítadlo (0)  člen s Vydanými faktúrami
+//   ping        overí prihlásenie, vráti názov firmy (1)  admin
+//   issue       vystaví schválenú faktúru / dobropis (1–4) admin + schválenie v DB
+//   send        odošle e-mailom cez SuperFaktúru (1)      admin
+//   mark_sent   zapíše „odoslaná" po odoslaní z našej schránky (0–1)   admin
+//   cancel      pripraví dobropis (čaká na schválenie) (0)  admin, dôvod povinný
+//   pdf         PDF zo SuperFaktúry do Dokumentov (0–1)  člen s Vydanými faktúrami
+//   pay         zapíše úhradu (aj do SuperFaktúry) (0–2)  člen s Vydanými faktúrami
+//   sync        stav úhrady zo SuperFaktúry: invoice_id (1) alebo všetky
+//               (1 na každých 100 dokladov zo zoznamu + view, kde zoznam nestačil)
+//
+// Denný limit požiadaviek (sf-budget.js, migrácia 093): každá požiadavka sa
+// pred odoslaním zarezervuje v databáze. Vyčerpaný rozpočet = HTTP 429,
+// code `budget`, veta po slovensky. Opakované pokusy (len čítanie) sa rátajú tiež.
 //
 // Premenné prostredia:
 //   SF_EMAIL      e-mail účtu v SuperFaktúre
@@ -30,6 +35,10 @@
 //   SF_COMPANY_ID voliteľné, keď je pod účtom viac firiem
 //   SF_ENV        sandbox | production   (predvolene sandbox; ostrý účet len
 //                 pri presnom „production" a až po odsúhlasení majiteľom)
+//   SF_DAILY_LIMIT    denný limit účtu (predvolene 1000)
+//   SF_SAFETY_MARGIN  rezerva pod limitom, ktorá sa nikdy nepoužije (50 → strop 950)
+//   SF_SYNC_BUDGET    najviac na synchronizáciu a PDF za deň (300)
+//   SF_WRITE_RESERVE  pod stropom len pre vystavenie / odoslanie / úhradu (100)
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
 const { createService } = require('../../app/lib/billing/sf-service.js');
@@ -75,7 +84,8 @@ exports.handler = async (event) => {
 
   // Služba sa skladá pri každej požiadavke — SF_ENV a kľúče sa čítajú vždy čerstvé.
   const sf = createService({ supabase, env: process.env });
-  if (action === 'status') return reply(200, { ok: true, ...sf.config() });
+  // Stav a počítadlo sa čítajú z databázy — SuperFaktúra sa tu nevolá.
+  if (action === 'status') return reply(200, { ok: true, ...sf.config(), usage: await sf.usage() });
 
   if (!process.env.SF_API_KEY || !process.env.SF_EMAIL) {
     // Bez kľúča sa nič nerozbije — funkcia povie, čo chýba, a skončí.
@@ -100,9 +110,9 @@ exports.handler = async (event) => {
     else if (action === 'send') r = await sf.send(id, { cc: body.cc, actor });
     else if (action === 'mark_sent') r = await sf.markSent(id, { to: body.to, actor });
     else if (action === 'cancel') r = await sf.cancel(id, { reason: body.reason, actor });
-    else if (action === 'pdf') r = await sf.pdf(id, { force: !!body.force, actor });
+    else if (action === 'pdf') r = await sf.pdf(id, { force: !!body.force, purpose: body.purpose === 'send' ? 'send' : undefined, actor });
     else if (action === 'pay') r = await sf.pay(id, { actor });
-    else if (action === 'sync') r = id ? await sf.sync(id, { actor }) : await sf.syncAll({ actor });
+    else if (action === 'sync') r = id ? await sf.sync(id, { actor }) : await sf.syncAll({ actor, force: body.force === true });
     return reply(r.status, r.body);
   } catch (e) {
     // Chyba sa zapíše k faktúre celá. Stav sa nemení — faktúra zostane

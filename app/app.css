@@ -5858,3 +5858,15 @@ a.ld-g-v:hover { text-decoration: underline; }
 .sf-bar-t { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
 .sf-bar-a { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tx-red { color: var(--red); }
+/* Denný limit požiadaviek na SuperFaktúru (093) */
+.sf-usage { margin: 2px 0 10px; font-size: 13px; color: var(--ink); }
+.sf-usage-t { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
+.sf-usage-bar { position: relative; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; max-width: 420px; }
+.sf-usage-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.sf-usage-bar > i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink-sub); opacity: .5; }
+.sf-usage.is-amber .sf-usage-bar > span { background: var(--amber); }
+.sf-usage.is-red .sf-usage-bar > span { background: var(--red); }
+.sf-usage.is-red { color: var(--red); }
+.sf-usage .muted-sm { margin-top: 6px; }
+.sf-req { font-variant-numeric: tabular-nums; }
+.sf-sync-btn[disabled] { cursor: not-allowed; }

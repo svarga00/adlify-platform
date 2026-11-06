@@ -130,5 +130,12 @@ eq([SF.sfLang('de'), SF.sfLang('DE'), SF.sfLang('sk'), SF.sfLang('en'), SF.sfLan
     ['issued', 'partial', 'mismatch'], 'čiastočne a nesúhlasí');
 }
 
+console.log('\nBase64 pre vyhľadávanie (bezpečné v adrese)');
+{
+  eq(SF.b64('2026042'), 'MjAyNjA0Mg,,', '„=" → „," (číslo faktúry)');
+  eq(SF.b64('ä?>'), 'w6Q_Pg,,', '„/" → „_"');
+  eq(SF.b64('>>>'), 'Pj4-', '„+" → „-"');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

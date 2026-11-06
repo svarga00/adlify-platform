@@ -18,12 +18,18 @@
 //      faktúry a „zaplatená" sa nastaví len pri úplnej úhrade v SuperFaktúre,
 //      a to len keď platbu ešte nespárovala Banka.
 //   5. Sandbox, kým SF_ENV nie je presne `production`.
+//   6. Denný limit požiadaviek (sf-budget.js, migrácia 093): každá
+//      požiadavka sa pred odoslaním zarezervuje v databáze — aj opakovaný
+//      pokus. Keď rezerva nevyjde, požiadavka neodíde (kód `budget`) a
+//      neopakuje sa. Synchronizácia má vlastný menší rozpočet, vystavovanie
+//      a odosielanie rezervu, ktorú synchronizácia nezje.
 //
-// Testy: node app/tests/sf-invoice.test.js
+// Testy: node app/tests/sf-invoice.test.js, node app/tests/sf-limit.test.js
 // ============================================================================
 const SF = require('./superfaktura.js');
 const M = require('../money.js');
 const Archive = require('../documents/archive.js');
+const Budget = require('./sf-budget.js');
 
 const DOCS_BUCKET = 'danubra-docs';
 const ISSUING = 'VYSTAVUJE SA';
@@ -57,6 +63,7 @@ const HINT = {
   not_found: 'Doklad v SuperFaktúre sa nenašiel. Skontrolujte, či ho tam niekto nezmazal, a v akom prostredí (sandbox / ostrý účet) vznikol.',
   validation: 'Opravte údaje, ktoré SuperFaktúra odmietla (zvyčajne odberateľ alebo položky), a skúste to znova.',
   bad_response: 'SuperFaktúra odpovedala inak, než appka čaká. Skontrolujte doklad priamo v SuperFaktúre.',
+  budget: 'Denný limit požiadaviek na SuperFaktúru je minutý. Počítadlo sa vynuluje o polnoci (slovenský čas).',
 };
 const LEAD = {
   auth: 'SuperFaktúra odmietla prihlásenie.',
@@ -67,6 +74,7 @@ const LEAD = {
   not_found: 'Doklad v SuperFaktúre neexistuje.',
   validation: 'SuperFaktúra doklad odmietla.',
   bad_response: 'Nečakaná odpoveď SuperFaktúry.',
+  budget: 'Dnešný limit požiadaviek na SuperFaktúru je vyčerpaný.',
 };
 
 /**
@@ -78,7 +86,9 @@ function classifyError({ status, json, text } = {}) {
   const first = (...v) => v.find(x => x !== undefined && x !== null && x !== '');
   const raw = json ? SF.flatMessage(first(json.error_message, json.message, json.errors)) : '';
   let code;
-  if (status === 401 || status === 403) code = 'auth';
+  // „You have exceeded a daily limit of 1000 API requests." — opakovať nemá zmysel.
+  if (/exceeded (a |the )?(daily|monthly) limit|prekročil[ia]?\s.{0,30}limit|(denný|mesačný) limit/i.test(raw)) code = 'budget';
+  else if (status === 401 || status === 403) code = 'auth';
   else if (status === 429 || /too many|rate limit|limit požiadaviek|príliš veľa/i.test(raw)) code = 'rate_limit';
   else if (status === 404) code = 'not_found';
   else if (status >= 500) code = 'server';
@@ -133,13 +143,7 @@ class SfError extends Error {
 }
 
 /** Dnešný deň na Slovensku (server beží v UTC — po polnoci by bol včerajšok). */
-function todaySk(d = new Date()) {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(d);
-  const g = (t) => p.find(x => x.type === t).value;
-  return `${g('year')}-${g('month')}-${g('day')}`;
-}
+const todaySk = Budget.todaySk;
 
 /**
  * Značka „práve sa vystavuje" v sf_error. Platí 10 minút — funkcia beží
@@ -156,12 +160,22 @@ function issuingNow(sfError, now = Date.now()) {
 const EMAIL = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
 const emails = (v) => [].concat(v || []).flatMap(x => String(x || '').split(/[,;\s]+/)).map(s => s.trim()).filter(Boolean);
 
-function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sleep } = {}) {
+// Synchronizácia: doklad synchronizovaný pred menej než 20 h sa znova nečíta.
+const FRESH_HOURS = 20;
+// Zoznam faktúr: 100 dokladov na požiadavku (SuperFaktúra dovolí 200).
+const PER_PAGE = 100;
+const MAX_PAGES = 50;
+
+function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sleep, clock } = {}) {
   const doFetch = fetchImpl || ((...a) => global.fetch(...a));
   const wait = sleep || ((ms) => new Promise(r => setTimeout(r, ms)));
+  const now = clock || (() => new Date());
   const env = SF.envOf(ENV.SF_ENV);
   const base = SF.baseUrl(env);
   const retryDelay = ENV.SF_RETRY_DELAY_MS != null ? Number(ENV.SF_RETRY_DELAY_MS) : 800;
+  const budget = Budget.createBudget({ supabase, env: ENV, clock: now });
+  // Koľko požiadaviek táto inštancia naozaj poslala (služba sa skladá pre každú požiadavku).
+  const stats = { sent: 0, sync: 0, write: 0 };
 
   function config() {
     return {
@@ -173,20 +187,32 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
   }
 
   // ── HTTP ───────────────────────────────────────────────────────────────
+  /** Rezerva nevyšla → chyba `budget` (bez opakovania). */
+  function budgetError(kind, slot, action) {
+    if (!slot || slot.unavailable) return new SfError({ code: 'budget', ...Budget.UNAVAILABLE });
+    return new SfError({ code: 'budget', message: budget.message(kind, slot.used, action), hint: budget.hint(kind) });
+  }
+
   /**
    * Jedno volanie SuperFaktúry.
    * @param {string} path
-   * @param {{ body?:Object, read?:boolean, binary?:boolean, timeoutMs?:number }} o
+   * @param {{ body?:Object, read?:boolean, binary?:boolean, timeoutMs?:number, kind?:'sync'|'write', action?:string }} o
    *   read = bezpečné opakovať (GET). Zápis sa neopakuje nikdy.
+   *   kind = z ktorého denného rozpočtu (sync = synchronizácia/PDF, write = vystavenie, odoslanie, úhrada, test).
    */
   async function request(path, o = {}) {
     const read = o.read !== undefined ? o.read : !o.body;
+    const kind = o.kind === 'write' || o.kind === 'sync' ? o.kind : (read ? 'sync' : 'write');
     const tries = read ? 3 : 1;
     let last;
     for (let i = 0; i < tries; i++) {
       if (i) await wait(retryDelay * i);
+      // Najprv rezerva v databáze, potom požiadavka. Aj opakovaný pokus je požiadavka.
+      const slot = await budget.take(kind, 1);
+      if (!slot.ok) throw budgetError(kind, slot, o.action);
+      stats.sent++; stats[kind]++;
       try {
-        return await once(path, o, read);
+        return await once(path, o, read, kind);
       } catch (e) {
         last = e;
         const again = read && (e.code === 'rate_limit' || e.code === 'server' || e.code === 'timeout' || e.code === 'network');
@@ -196,7 +222,7 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     throw last;
   }
 
-  async function once(path, o, read) {
+  async function once(path, o, read, kind) {
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const ms = o.timeoutMs || (read ? 12000 : 25000);
     const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
@@ -219,6 +245,14 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
         hint: read ? HINT[code] : HINT.uncertain, uncertain: !read });
     } finally {
       if (timer) clearTimeout(timer);
+    }
+
+    // Počítadlo SuperFaktúry (X-RateLimit-*) — platí prísnejšie z oboch.
+    const rl = Budget.readHeaders(res.headers, budget.limits);
+    if (rl) await budget.report(rl);
+    if (rl && rl.exceeded && !res.ok) {
+      throw new SfError({ code: 'budget', http: res.status,
+        message: budget.message(kind, rl.sf_used != null ? rl.sf_used : budget.limits.limit, o.action), hint: budget.hint(kind) });
     }
 
     if (o.binary && res.ok) {
@@ -302,8 +336,10 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
 
   const ok = (body) => ({ status: 200, body: { ok: true, environment: env, ...body } });
   const no = (status, error, extra = {}) => ({ status, body: { error, ...extra } });
-  const fromErr = (e) => no(e.code === 'auth' ? 502 : e.code === 'rate_limit' ? 429 : 502,
+  const fromErr = (e) => no(e.code === 'auth' ? 502 : (e.code === 'rate_limit' || e.code === 'budget') ? 429 : 502,
     e.message, { code: e.code, hint: e.hint, uncertain: e.uncertain || undefined });
+  // Vystavenie, odoslanie, úhrada, test: z rezervy, ktorú synchronizácia nezje.
+  const W = (action, o = {}) => ({ ...o, kind: 'write', action });
 
   /** Doklad z iného prostredia sa týmto kľúčom nedá čítať ani meniť. */
   function envMismatch(inv) {
@@ -321,14 +357,14 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     const t0 = Date.now();
     let companies = [];
     try {
-      const json = await request('/users/getUserCompaniesData', { read: true });
+      const json = await request('/users/getUserCompaniesData', W('ping', { read: true }));
       const list = Array.isArray(json) ? json : (json && (json.data || json.companies || json.items)) || [];
       companies = (Array.isArray(list) ? list : []).map(x => (x && (x.Company || x)) || {})
         .filter(c => c.name).map(c => ({ id: c.id != null ? String(c.id) : null, name: String(c.name) }));
     } catch (e) {
       if (e.code !== 'not_found') throw e;
       // Starší účet bez tohto volania — overí sa aspoň prihlásenie.
-      await request('/clients/index.json/listinfo:1/per_page:1', { read: true });
+      await request('/clients/index.json/listinfo:1/per_page:1', W('ping', { read: true }));
     }
     const chosen = companies.find(c => ENV.SF_COMPANY_ID && c.id === String(ENV.SF_COMPANY_ID)) || companies[0] || null;
     return ok({ base, account: SF.maskEmail(ENV.SF_EMAIL), company: chosen ? chosen.name : null,
@@ -343,13 +379,16 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     let id = null;
     if (partner.ust_idnr) {
       try {
-        const json = await request(`/clients/index.json/listinfo:1/per_page:20/search:${SF.b64(partner.ust_idnr)}`, { read: true });
+        const json = await request(`/clients/index.json/listinfo:1/per_page:20/search:${SF.b64(partner.ust_idnr)}`, W('issue', { read: true }));
         id = SF.findClient(json, partner);
-      } catch (e) { /* hľadanie je navyše — klient sa založí */ }
+      } catch (e) {
+        if (e.code === 'budget') throw e;   // bez rezervy sa nezakladá ani klient
+        /* hľadanie je navyše — klient sa založí */
+      }
     }
     let how = 'found';
     if (!id) {
-      const res = await request('/clients/create', { body: SF.buildClient(partner) });
+      const res = await request('/clients/create', W('issue', { body: SF.buildClient(partner) }));
       const d = (res && (res.data || res)) || {};
       id = d.Client && d.Client.id != null ? (Number(d.Client.id) || d.Client.id) : null;
       if (!id) throw new SfError({ code: 'bad_response', message: 'SuperFaktúra nevrátila id odberateľa.' });
@@ -416,10 +455,12 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
       // Po neistom pokuse sa doklad najprv hľadá. Nájdený = prevezme sa, nezaloží sa druhý.
       if (retry) {
         try {
-          const json = await request(`/invoices/index.json/listinfo:1/per_page:50/search:${SF.b64(inv.invoice_number || '')}`, { read: true });
+          const json = await request(`/invoices/index.json/listinfo:1/per_page:50/search:${SF.b64(inv.invoice_number || '')}`, W('issue', { read: true }));
           doc = SF.findInList(json, { number: inv.invoice_number, key });
           if (doc) adopted = true;
         } catch (e) {
+          // Bez rezervy sa nesmie ani hľadať, ani zakladať — značka (aj NEISTÉ) zostáva.
+          if (e.code === 'budget') { await release(inv.sf_error || e.message); return fromErr(e); }
           if (String(inv.sf_error || '').startsWith(UNCERTAIN)) {
             await release(inv.sf_error);
             return no(409, 'Predchádzajúci pokus o vystavenie skončil neisto a SuperFaktúra sa teraz nedá prehľadať. '
@@ -443,7 +484,7 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
         const client = await clientId(partner, actor, inv.id);
         payload = SF.buildInvoice({ invoice: inv, partner, subcontract: ctx.subcontract, period: ctx.period,
           items: ctx.items, freistellung, settings, supplier, sfClientId: client.id, parent: ctx.parent, key });
-        const res = await request('/invoices/create', { body: payload });
+        const res = await request('/invoices/create', W('issue', { body: payload }));
         doc = SF.readInvoice(res);
         if (!doc.id) {
           // Doklad možno vznikol, ale nevieme jeho id — to sa nesmie zamlčať.
@@ -475,7 +516,7 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
 
     // ── Kontrola súm: SuperFaktúra vs. appka ───────────────────────────────
     if (doc.totalCents == null) {
-      try { const v = SF.readInvoice(await request(`/invoices/view/${doc.id}.json`, { read: true })); doc = { ...doc, ...v, id: doc.id }; }
+      try { const v = SF.readInvoice(await request(`/invoices/view/${doc.id}.json`, W('issue', { read: true }))); doc = { ...doc, ...v, id: doc.id }; }
       catch (e) { /* bez sumy z view ostane kontrola neúplná — zapíše sa */ }
     }
     const rec = SF.reconcile({ invoice: inv, doc, settings });
@@ -510,7 +551,12 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
   }
 
   // ── pdf ────────────────────────────────────────────────────────────────
-  async function pdf(invoiceId, { force, actor } = {}) {
+  /**
+   * @param {{ force?:boolean, actor?:string, purpose?:string }} o
+   *   purpose 'send' = PDF na odoslanie z našej schránky — ide z rezervy na
+   *   odosielanie, nie z rozpočtu synchronizácie. Inak je to čítanie (sync).
+   */
+  async function pdf(invoiceId, { force, actor, purpose } = {}) {
     const ctx = await loadInvoice(invoiceId);
     if (!ctx) return no(404, 'Faktúra neexistuje.');
     const { inv, partner } = ctx;
@@ -534,7 +580,8 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     const t0 = Date.now();
     let file;
     try {
-      file = await request(`/${lang}/invoices/pdf/${inv.sf_invoice_id}/token:${inv.sf_token}`, { read: true, binary: true });
+      file = await request(`/${lang}/invoices/pdf/${inv.sf_invoice_id}/token:${inv.sf_token}`,
+        { read: true, binary: true, kind: purpose === 'send' ? 'write' : 'sync', action: 'pdf' });
     } catch (e) {
       const err = e instanceof SfError ? e : new SfError({ message: e.message });
       await log(inv.id, `PDF zo SuperFaktúry sa nepodarilo stiahnuť — ${err.message}`, { action: 'pdf', ok: false, code: err.code }, actor);
@@ -592,11 +639,11 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     const credit = SF.isCreditNote(inv);
     const t0 = Date.now();
     try {
-      await request('/invoices/send', { body: { Email: {
+      await request('/invoices/send', W('send', { body: { Email: {
         invoice_id: Number(inv.sf_invoice_id) || inv.sf_invoice_id, to, cc: copy, bcc: [],
         subject: credit ? t.subjectCn(inv.invoice_number) : t.subject(inv.invoice_number),
         message: credit ? t.messageCn : t.message, pdf_language: lang,
-      } } });
+      } } }));
     } catch (e) {
       const err = e instanceof SfError ? e : new SfError({ message: e.message });
       await patchInvoice(inv.id, { sf_error: err.message.slice(0, 2000) }).catch(() => {});
@@ -628,8 +675,8 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     let sfNote = '';
     if (inv.sf_invoice_id && !envMismatch(inv)) {
       try {
-        await request('/invoices/mark_as_sent', { body: { InvoiceEmail: { invoice_id: Number(inv.sf_invoice_id) || inv.sf_invoice_id,
-          email: adr, subject: SF.txt('deu').subject(inv.invoice_number), message: 'DANUBRA Hub' } } });
+        await request('/invoices/mark_as_sent', W('mark_sent', { body: { InvoiceEmail: { invoice_id: Number(inv.sf_invoice_id) || inv.sf_invoice_id,
+          email: adr, subject: SF.txt('deu').subject(inv.invoice_number), message: 'DANUBRA Hub' } } }));
       } catch (e) { sfNote = ' SuperFaktúra si „odoslaná" nezapísala — v appke je to zapísané.'; }
     }
     const { error } = await supabase.from('danubra_invoices').update(patch).eq('id', inv.id);
@@ -656,16 +703,16 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
       const bad = envMismatch(inv); if (bad) return bad;
       try {
         // Najprv sa pozrie, čo už v SuperFaktúre zapísané je — úhrada sa nezapíše dvakrát.
-        const doc = SF.readInvoice(await request(`/invoices/view/${inv.sf_invoice_id}.json`, { read: true }));
+        const doc = SF.readInvoice(await request(`/invoices/view/${inv.sf_invoice_id}.json`, W('pay', { read: true })));
         const total = SF.expectedCents(inv);
         const paid = doc.paidCents || 0;
         const left = total - paid;
         if (left > 0) {
-          await request('/invoice_payments/add/ajax:1/api:1', { body: { InvoicePayment: {
+          await request('/invoice_payments/add/ajax:1/api:1', W('pay', { body: { InvoicePayment: {
             invoice_id: Number(inv.sf_invoice_id) || inv.sf_invoice_id, payment_type: 'transfer',
             amount: Number(M.toNumeric(left)), currency: inv.currency || 'EUR',
             created: String(inv.paid_at || '').slice(0, 10) || todaySk(),
-          } } });
+          } } }));
         }
         Object.assign(patch, { sf_paid_at: now, sf_paid_amount: M.toNumeric(total), sf_status: 'paid' });
         await log(inv.id, left > 0 ? `Úhrada ${M.format(left)} zapísaná do SuperFaktúry.` : 'V SuperFaktúre už bola faktúra uhradená — nič sa nezapisovalo.',
@@ -688,11 +735,12 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
    * úplná úhrada (a Banka ju ešte nespárovala) → zaplatená. Všetko ostatné
    * sa len zapíše do histórie, raz pri každej zmene.
    */
-  async function syncOne(inv, { actor, today = todaySk() } = {}) {
+  async function syncOne(inv, { actor, today = todaySk(now()), doc: given } = {}) {
     const changes = [];
-    const doc = SF.readInvoice(await request(`/invoices/view/${inv.sf_invoice_id}.json`, { read: true }));
+    // Doklad už načítaný zo zoznamu (syncAll) = žiadna ďalšia požiadavka.
+    const doc = given || SF.readInvoice(await request(`/invoices/view/${inv.sf_invoice_id}.json`, { read: true, kind: 'sync', action: 'sync' }));
     const state = SF.paymentState(doc, today);
-    const patch = { sf_synced_at: new Date().toISOString() };
+    const patch = { sf_synced_at: now().toISOString() };
     const app = SF.expectedCents(inv);
 
     if (doc.totalCents != null && doc.totalCents !== app) {
@@ -760,28 +808,111 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     }
   }
 
-  /** Všetky faktúry v SuperFaktúre (toto prostredie), ktoré ešte nie sú uzavreté na oboch stranách. */
-  async function syncAll({ actor, limit = 200 } = {}) {
+  /**
+   * Všetky faktúry v SuperFaktúre (toto prostredie), ktoré ešte nie sú
+   * uzavreté na oboch stranách — šetrne k dennému limitu:
+   *
+   *   1. Faktúra synchronizovaná za posledných 20 h sa preskočí (okrem `force`).
+   *   2. Doklady sa čítajú zo zoznamu /invoices/index.json — 100 na jednu
+   *      požiadavku, len od najstaršieho dátumu vystavenia, ktorý treba.
+   *      Stránkuje sa, kým sa nenájdu všetky hľadané.
+   *   3. /invoices/view (1 požiadavka na faktúru) len pre doklad, ktorý
+   *      v zozname nebol alebo mu chýba suma.
+   *   4. Keď sa minie rozpočet synchronizácie, beh skončí; zvyšok počká na zajtra
+   *      (najdlhšie nesynchronizované idú prvé).
+   *
+   * @param {{ actor?:string, force?:boolean, limit?:number, freshHours?:number }} o
+   */
+  async function syncAll({ actor, force = false, limit = 1000, freshHours = FRESH_HOURS } = {}) {
     const { data, error } = await supabase.from('danubra_invoices').select('*')
       .not('sf_invoice_id', 'is', null).eq('sf_environment', env)
       .in('status', [...OPEN, 'paid']).limit(1000);
     if (error) throw new Error('Databáza: ' + error.message);
-    const list = (data || []).filter(i => (i.kind || 'invoice') === 'invoice' && !(i.status === 'paid' && i.sf_status === 'paid')).slice(0, limit);
-    const out = { checked: 0, paid: 0, partial: 0, mismatch: 0, errors: [] };
-    for (const inv of list) {
+    const open = (data || []).filter(i => (i.kind || 'invoice') === 'invoice' && !(i.status === 'paid' && i.sf_status === 'paid'));
+    const t = now().getTime();
+    const isFresh = (i) => { const s = Date.parse(i.sf_synced_at || ''); return Number.isFinite(s) && t - s < freshHours * 3600 * 1000; };
+    const fresh = force ? [] : open.filter(isFresh);
+    // Najdlhšie nesynchronizované prvé — keď sa minie rozpočet, dostanú sa na rad zajtra ostatné.
+    const at = (i) => { const s = Date.parse(i.sf_synced_at || ''); return Number.isFinite(s) ? s : 0; };
+    const list = open.filter(i => force || !isFresh(i)).sort((a, b) => at(a) - at(b)).slice(0, limit);
+    const out = { checked: 0, paid: 0, partial: 0, mismatch: 0, skipped_recent: fresh.length, pending: 0,
+      requests: 0, pages: 0, views: 0, budget_stopped: false, errors: [] };
+    const sent0 = stats.sent;
+    const finish = async (extra = {}) => {
+      out.requests = stats.sent - sent0;
+      return ok({ ...out, ...extra, usage: await budget.read() });
+    };
+    if (!list.length) return finish();
+
+    // Rozpočet na tento beh: čo dnes synchronizácii zostáva.
+    const u0 = await budget.read();
+    if (u0.available === false) {
+      return no(503, Budget.UNAVAILABLE.message, { code: 'budget', hint: Budget.UNAVAILABLE.hint, ...out, pending: list.length });
+    }
+    if (u0.sync_remaining <= 0) {
+      return no(429, budget.message('sync', u0.used), { code: 'budget', hint: budget.hint('sync'), ...out, pending: list.length, usage: u0 });
+    }
+
+    // ── 1. Zoznam: veľa dokladov jednou požiadavkou ────────────────────────
+    const want = new Set(list.map(i => String(i.sf_invoice_id)));
+    const docs = new Map();
+    const dates = list.map(i => String(i.issue_date || '').slice(0, 10));
+    const today = todaySk(now());
+    const range = dates.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      ? `/created:3/created_since:${dates.reduce((a, b) => (a < b ? a : b))}/created_to:${dates.reduce((a, b) => (a > b ? a : b), today)}`
+      : '/created:0';
+    let stop = null;         // auth / rate_limit / budget → ďalšie by dopadli rovnako
+    for (let page = 1, pages = 1; page <= pages && page <= MAX_PAGES && docs.size < want.size; page++) {
+      let json;
       try {
-        const r = await syncOne(inv, { actor });
+        json = await request(`/invoices/index.json/listinfo:1/per_page:${PER_PAGE}/page:${page}/type:regular${range}`,
+          { read: true, kind: 'sync', action: 'sync' });
+      } catch (e) {
+        if (e.code === 'budget') { out.budget_stopped = true; stop = e; break; }
+        // Zoznam SuperFaktúra nepozná alebo mu nerozumieme → doklady po jednom (view).
+        if (e.code === 'not_found' || e.code === 'bad_response' || e.code === 'validation') break;
+        out.errors.push(`zoznam faktúr: ${e.message}`);
+        stop = e;
+        break;
+      }
+      out.pages++;
+      const L = SF.readList(json);
+      for (const d of L.items) if (d.id != null && want.has(String(d.id))) docs.set(String(d.id), d);
+      pages = L.pageCount != null ? L.pageCount : (L.items.length >= PER_PAGE ? page + 1 : page);
+    }
+
+    // ── 2. Zápis; view len kde zoznam nestačil ─────────────────────────────
+    for (const inv of list) {
+      let doc = docs.get(String(inv.sf_invoice_id));
+      if (!doc || doc.totalCents == null) {
+        if (stop) { out.pending++; continue; }
+        try {
+          doc = SF.readInvoice(await request(`/invoices/view/${inv.sf_invoice_id}.json`, { read: true, kind: 'sync', action: 'sync' }));
+          out.views++;
+        } catch (e) {
+          if (e.code === 'budget') { out.budget_stopped = true; stop = e; out.pending++; continue; }
+          out.errors.push(`${inv.invoice_number || inv.id}: ${e.message}`);
+          if (e.code === 'auth' || e.code === 'rate_limit') stop = e;   // ďalšie by dopadli rovnako
+          continue;
+        }
+      }
+      try {
+        const r = await syncOne(inv, { actor, doc });
         out.checked++;
         if (r.changes.includes('paid')) out.paid++;
         if (r.changes.includes('partial')) out.partial++;
         if (r.changes.includes('mismatch')) out.mismatch++;
       } catch (e) {
         out.errors.push(`${inv.invoice_number || inv.id}: ${e.message}`);
-        if (e.code === 'auth' || e.code === 'rate_limit') break;   // ďalšie by dopadli rovnako
       }
     }
-    return ok(out);
+    return finish(out.budget_stopped ? { message: stop ? stop.message : budget.message('sync', u0.used), hint: budget.hint('sync') } : {});
   }
+
+  /** Dnešné počítadlo požiadaviek (len databáza, do SuperFaktúry nič nejde). */
+  async function usage() { return budget.read(); }
+  /** Denná synchronizácia z cronu len raz za deň. */
+  async function claimDailySync() { return budget.claimCron(); }
 
   // ── cancel (dobropis) ──────────────────────────────────────────────────
   /**
@@ -847,7 +978,8 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
     return ok({ credit_note_id: cn.id, invoice_number: num });
   }
 
-  return { env, base, config, request, ping, issue, pdf, send, markSent, pay, sync, syncAll, cancel, SfError };
+  return { env, base, config, request, ping, issue, pdf, send, markSent, pay, sync, syncAll, cancel, usage, claimDailySync,
+    stats, limits: budget.limits, SfError };
 }
 
 module.exports = { createService, SfError, issuingNow, todaySk, ISSUING, UNCERTAIN,

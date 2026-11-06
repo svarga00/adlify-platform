@@ -145,8 +145,9 @@
         (window.SFUI ? SFUI.barHtml(this.items) : '') +
         DataList.html(this.listConfig(this.listRows(q)));
       if (window.SFUI && el.querySelector('.sf-env-slot')) {
-        // Prostredie (SANDBOX / PRODUKCIA) sa zistí raz; odznak sa po odpovedi prekreslí.
-        SFUI.ensureStatus().then(() => el.querySelectorAll('.sf-env-slot').forEach(n => { n.innerHTML = SFUI.envBadge(); })).catch(() => {});
+        // Prostredie (SANDBOX / PRODUKCIA) a dnešné počítadlo požiadaviek sa zistia raz;
+        // pás sa po odpovedi prekreslí (odznak, zostatok, vypnutá synchronizácia).
+        SFUI.ensureStatus().then(() => SFUI.paintBar(el, this.items)).catch(() => {});
       }
 
       // Odkaz odinakiaľ („Otvoriť návrhy" po mesačnej fakturácii) nastaví
@@ -1186,6 +1187,8 @@
         delete this._sfBusy[id];
         vypnute.forEach(b => { b.disabled = false; });
       }
+      // Každá akcia mohla minúť požiadavky z denného limitu — počítadlo sa načíta znova.
+      if (window.SFUI) SFUI.ensureStatus(true).catch(() => {});
       // Chyba po slovensky aj s tým, čo spraviť (modules/superfaktura.js).
       const zle = (j) => (window.SFUI ? SFUI.toastErr(j) : UI.toast(j && j.error ? j.error : 'Nepodarilo sa', 'err'));
       if (json && json.skipped) {

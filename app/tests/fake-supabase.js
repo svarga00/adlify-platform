@@ -101,4 +101,45 @@ function create(db = {}, opts = {}) {
   };
 }
 
-module.exports = { create };
+/**
+ * RPC počítadla požiadaviek na SuperFaktúru (migrácia 093) nad
+ * `db.danubra_sf_usage` — rovnaké pravidlá ako SQL funkcie
+ * danubra_sf_usage_take / danubra_sf_usage_report.
+ *   F.create(db, { rpc: { ...F.sfUsageRpc() } })
+ */
+function sfUsageRpc() {
+  const row = (db, day) => {
+    db.danubra_sf_usage = db.danubra_sf_usage || [];
+    return db.danubra_sf_usage.find(r => r.day === day);
+  };
+  return {
+    danubra_sf_usage_take: async ({ p_day, p_kind, p_n = 1, p_cap, p_kind_cap = null }, db) => {
+      const ok = p_n <= p_cap && (p_kind_cap == null || p_n <= p_kind_cap);
+      let r = row(db, p_day);
+      if (ok && !r) {
+        r = { day: p_day, used: p_n, by_kind: { [p_kind]: p_n }, sf_used: null, blocked_at: null, cron_sync_at: null };
+        db.danubra_sf_usage.push(r);
+        return { data: { ok: true, used: p_n, kind_used: p_n, blocked: false }, error: null };
+      }
+      const eff = r ? Math.max(r.used || 0, r.sf_used || 0) : 0;
+      const kind = r ? ((r.by_kind || {})[p_kind] || 0) : 0;
+      if (ok && r && !r.blocked_at && eff + p_n <= p_cap && (p_kind_cap == null || kind + p_n <= p_kind_cap)) {
+        r.used = (r.used || 0) + p_n;
+        r.by_kind = { ...(r.by_kind || {}), [p_kind]: kind + p_n };
+        return { data: { ok: true, used: Math.max(r.used, r.sf_used || 0), kind_used: kind + p_n, blocked: false }, error: null };
+      }
+      return { data: { ok: false, used: eff, kind_used: kind, blocked: !!(r && r.blocked_at) }, error: null };
+    },
+    danubra_sf_usage_report: async ({ p_day, p_sf_used, p_sf_limit, p_reset, p_blocked }, db) => {
+      let r = row(db, p_day);
+      if (!r) { r = { day: p_day, used: 0, by_kind: {}, sf_used: null, blocked_at: null, cron_sync_at: null }; db.danubra_sf_usage.push(r); }
+      if (p_sf_used != null) r.sf_used = Math.max(r.sf_used || 0, p_sf_used);
+      if (p_sf_limit != null) r.sf_limit = p_sf_limit;
+      if (p_reset != null) r.sf_reset = p_reset;
+      if (p_blocked && !r.blocked_at) r.blocked_at = new Date().toISOString();
+      return { data: null, error: null };
+    },
+  };
+}
+
+module.exports = { create, sfUsageRpc };
