@@ -22,8 +22,19 @@ function ok(c, msg, extra) {
 console.log('Outscraper — Google Mapy a aktuálnosť');
 
 // ── Limity a odhad ──────────────────────────────────────────────────────────
-eq([O.maxRecords(undefined), O.maxRecords('500'), O.maxRecords('3'), O.maxRecords('x'), O.maxRecords(99999)], [200, 500, 10, 200, 5000],
-  'OUTSCRAPER_MAX_RECORDS: predvolene 200, 10 až 5000');
+eq([O.maxRecords(undefined), O.maxRecords('500'), O.maxRecords('3'), O.maxRecords('x'), O.maxRecords(99999)], [1000, 500, 10, 1000, 5000],
+  'OUTSCRAPER_MAX_RECORDS: predvolene 1000 (300 firiem × 3), 10 až 5000');
+eq(O.DEFAULT_MAX_RECORDS, 1000, 'predvolený strop v kóde je 1000 (env ho prepíše)');
+eq([O.budget({ count: 300 }), O.budget({ count: 300, max: 200 }), O.budget({ count: 200 })], [900, 200, 600], 'veľké hľadanie: 300 × 3 = 900 v predvolenom strope');
+{
+  const e20 = O.costEstimate({ count: 20 }), e200 = O.costEstimate({ count: 200 }), e300 = O.costEstimate({ count: 300 });
+  eq([e20.records, e20.contacts, e20.rounds, e20.multi, e20.confirm, e20.timeLabel], [60, 10, 1, false, false, '3–10 minút'], 'odhad 20 firiem: 60 záznamov, 10 kontaktov, jedno kolo');
+  eq([e200.records, e200.contacts, e200.usd, e200.rounds, e200.multi, e200.confirm], [600, 100, 2.1, 3, true, false], 'odhad 200 firiem: 600 záznamov, 100 kontaktov, ~2,1 USD, 3 kolá');
+  eq([e300.records, e300.usd, e300.rounds, e300.confirm], [900, 3.2, 4, true], 'odhad 300 firiem: 900 záznamov, ~3,2 USD, 4 kolá, pred spustením otázka');
+  ok(/^približne \d+ minút$/.test(e300.timeLabel) && e300.minutes > e200.minutes && e200.minutes > e20.minutes, 'čas rastie s počtom', e300.timeLabel);
+  eq(O.costEstimate({ count: 300, max: 200 }).records, 200, 'odhad rešpektuje strop z env');
+  eq([O.usdLabel(2.1), O.usdLabel(0.02), O.usdLabel('x')], ['2,1 USD', '0,1 USD', ''], 'cena „2,1 USD"');
+}
 eq([O.minScore(''), O.minScore('70'), O.minScore(150), O.minScore('abc')], [50, 70, 100, 50], 'prah skóre: predvolene 50, 0 až 100');
 eq([O.budget({ count: 20 }), O.budget({ count: 50 }), O.budget({ count: 50, max: 500 }), O.budget({ count: 10, max: 20 })], [60, 150, 150, 20],
   'rozpočet = počet × 3, najviac strop');
@@ -42,6 +53,16 @@ eq(O.combine(['Fliesenleger'], []), ['Fliesenleger, Deutschland'], 'bez lokality
   const small = O.planQueries({ categories: ['Maler', 'Fliesen', 'Elektro', 'Metallbau'], locations: ['Ulm', 'Köln', 'Bonn'], count: 10, max: 20 });
   ok(small.queries.length * small.perQuery <= 20 && small.queries.length === 4 && small.perQuery === 5, 'malý strop → menej dotazov, nie menej ako 5 na dotaz', JSON.stringify(small));
   eq(O.planQueries({}).queries, [], 'bez kategórií žiadny dotaz');
+  // Väčšie hľadanie: viac dotazov (po ~50 firmách), doplnené kombináciou kategórií × lokalít.
+  const cats = ['Trockenbau', 'Bauunternehmen', 'Innenausbau', 'Fliesenleger'];
+  const locs = ['München', 'Augsburg', 'Dachau', 'Freising', 'Erding', 'Landshut'];
+  const big = O.planQueries({ queries: ['Trockenbau, München', 'Akustikbau, München', 'Malerbetrieb, Augsburg'], categories: cats, locations: locs, count: 300 });
+  eq([big.budget, big.queries.length, big.perQuery, big.estimate <= 900], [900, 18, 50, true], '300 firiem: 18 dotazov po 50 (spolu najviac 900)');
+  eq(big.queries.slice(0, 3), ['Trockenbau, München', 'Akustikbau, München', 'Malerbetrieb, Augsburg'], 'dotazy od AI prvé, potom kombinácie');
+  eq([O.queryLimit(150), O.queryLimit(600), O.queryLimit(900), O.queryLimit(5000)], [10, 12, 18, 30], 'najviac dotazov: 10, pri väčšom rozpočte až 30');
+  eq(O.chunkQueries(big.queries).map(x => x.length), [10, 8], 'dotazy idú na Outscraper po 10 v požiadavke');
+  const mid = O.planQueries({ queries: ['A Bau, Ulm', 'B Bau, Ulm', 'C Bau, Ulm', 'D Bau, Ulm'], categories: cats, locations: locs, count: 50 });
+  eq([mid.queries.length, mid.perQuery], [4, 37], 'do 50 firiem ako doteraz: stačia dotazy od AI');
 }
 
 // ── Požiadavka ──────────────────────────────────────────────────────────────
@@ -277,6 +298,32 @@ const P = (o) => O.normPlace({ ...RAW, ...o });
     const m = await c.contacts(['a.de', 'a.de', 'b.de'], { deadline: 60000 });
     ok(urls[0].startsWith('https://api.app.outscraper.com/emails-and-contacts?query=a.de&query=b.de'), 'kontakty: GET /emails-and-contacts, domény raz', urls[0]);
     eq(m.get('a.de').emails, ['info@a.de'], 'a vrátia sa po doménach');
+  }
+  {
+    // Väčšie hľadanie: dotazy po 10 v požiadavke, async; čakanie sa dá prerušiť a dokončiť v ďalšom kole.
+    const urls = [];
+    let t = 0, polls = 0;
+    const c = OS.client({ key: 'k', fetch: async (u) => {
+      urls.push(u);
+      if (u.includes('/maps/search-v3')) { const n = urls.filter(x => x.includes('/maps/')).length; return json(202, { id: `req-big-${n}`, status: 'Pending' }); }
+      if (u.endsWith('req-big-1')) return json(200, { id: 'req-big-1', status: 'Success', data: [[RAW]] });
+      polls++;
+      return json(200, polls < 4 ? { id: 'req-big-2', status: 'Pending' } : { id: 'req-big-2', status: 'Success', data: [[{ ...RAW, name: 'B', place_id: 'b' }]] });
+    }, sleep: async (ms) => { t += ms; }, now: () => t, pollMs: 5000 });
+    const qs = Array.from({ length: 14 }, (_, i) => `Trockenbau, Ort ${i + 1}`);
+    const jobs = await c.mapsStart(qs, { limit: 50, deadline: 600000 });
+    eq(jobs.map(j => [j.id, j.queries.length, j.done]), [['req-big-1', 10, false], ['req-big-2', 4, false]], 'mapsStart: dve požiadavky (10 + 4 dotazy), async');
+    ok(urls.filter(u => u.includes('/maps/')).every(u => u.includes('async=true') && u.includes('limit=50')), 'všetky async s limitom na dotaz');
+    const r1 = await c.mapsCollect(jobs, { stopAt: 8000 });
+    eq([r1.done, r1.jobs.map(j => j.done)], [false, [true, false]], 'mapsCollect do stopAt: hotová prvá, druhá ešte nie (ďalšie kolo)');
+    const r2 = await c.mapsCollect(r1.jobs, { stopAt: t + 60000 });
+    eq([r2.done, r2.jobs[0].data.length, O.flatten(r2.jobs[1].data, r2.jobs[1].queries)[0].name], [true, 1, 'B'], 'ďalšie kolo dočaká druhú úlohu');
+  }
+  {
+    const urls = [];
+    const c = OS.client({ key: 'k', fetch: async (u) => { urls.push(u); return json(200, { status: 'Success', data: [] }); }, sleep: async () => {}, now: () => 0 });
+    await c.contacts(Array.from({ length: 230 }, (_, i) => `f${i}.de`), { deadline: 600000 });
+    eq(urls.map(u => new URL(u).searchParams.getAll('query').length), [100, 100, 30], 'kontakty po 100 doménach v požiadavke');
   }
   eq(OS.fromEnv({}), null, 'bez OUTSCRAPER_API_KEY žiadny klient');
 

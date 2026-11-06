@@ -5639,7 +5639,21 @@ label.mf-row:not(.is-off):hover { border-color: var(--brand-line); background: v
 .ls-note-txt { flex: 1 1 360px; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink-sub); overflow-wrap: anywhere; }
 .ls-note-txt b { color: var(--ink); font-weight: 700; }
 .ls-note-txt small { display: block; font-size: 12.5px; color: var(--ink-sub); margin-top: 2px; }
-.ls-note-acts { flex: none; display: flex; gap: 8px; align-items: center; }
+.ls-note-acts { flex: 0 1 auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* Hľadanie po kolách (088): „Kolo 2 z ~4 · uložených 75 z 200" v hlavičke pásu. */
+.lp-round { font-size: 12px; font-weight: 600; color: var(--brand-dark); background: var(--brand-50); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.lp-round[hidden] { display: none; }
+.ls-cost { display: flex; gap: 8px; align-items: flex-start; }
+.ls-cost > span { min-width: 0; overflow-wrap: anywhere; }
+/* História hľadaní: riadok = hľadanie, vpravo Ukázať / Export / e-maily. */
+.ls-hist { display: grid; gap: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; }
+.ls-hist-row { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--border-soft); }
+.ls-hist-row:first-child { border-top: 0; }
+.ls-hist-t { flex: 1 1 260px; min-width: 0; display: grid; gap: 3px; }
+.ls-hist-t b { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+.ls-hist-t small { font-size: 12.5px; color: var(--ink-sub); display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.ls-hist-acts { flex: none; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ls-mails { width: 100%; font-family: var(--mono); font-size: 12.5px; }
 .ls-note .lp-ins { margin-top: 10px; }
 .ld-sm { border-left-color: var(--blue); }
 #ld-sm:empty { display: none; }

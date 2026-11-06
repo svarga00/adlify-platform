@@ -10,9 +10,12 @@
 // (`danubra-leads-from-urls-background`, `danubra-leads-refresh-background`)
 // s kľúčom OUTSCRAPER_API_KEY — tu sú čisté pravidlá bez siete:
 //
-//   dotazy       z kategórií a lokalít „Trockenbau, München", najviac 10,
-//                limit na dotaz tak, aby spolu nepresiahli počet × 3 a strop
-//                OUTSCRAPER_MAX_RECORDS (účtuje sa za vrátený záznam)
+//   dotazy       z kategórií a lokalít „Trockenbau, München", najviac 10
+//                (pri väčšom hľadaní až 30), limit na dotaz tak, aby spolu
+//                nepresiahli počet × 3 a strop OUTSCRAPER_MAX_RECORDS
+//                (predvolene 1000; účtuje sa za vrátený záznam)
+//   odhad        záznamy, kontakty, približná cena v USD, čas a počet kôl
+//                pre okno hľadania (väčšie hľadanie beží po kolách)
 //   odpoveď      synchrónna (data) aj asynchrónna (id → /requests/<id>),
 //                výsledky po dotazoch (pole polí) aj spolu (jedno pole)
 //   firma        mapovanie polí Outscraperu na naše, doména, telefón, stav,
@@ -35,8 +38,22 @@
   const API_BASE = 'https://api.app.outscraper.com';
   /** Kam smie ísť kľúč — nikam inam (aj keď by niekto prepísal adresu v env). */
   const API_HOSTS = ['api.app.outscraper.com', 'api.app.outscraper.cloud', 'api.outscraper.net'];
-  const DEFAULT_MAX_RECORDS = 200;
+  const DEFAULT_MAX_RECORDS = 1000;
   const MAX_QUERIES = 10;
+  /** Väčšie hľadanie (nad 500 záznamov): viac dotazov po ~50 firmách, najviac 30. */
+  const MAX_QUERIES_BIG = 30;
+  const BIG_PER_QUERY = 50;
+  /** Dotazov v jednej požiadavke na Outscraper — väčší plán sa pošle po častiach. */
+  const QUERIES_PER_REQUEST = 10;
+  /**
+   * Hľadanie po kolách (server, migrácia 088): do 50 firiem jedno kolo ako
+   * doteraz; viac → kolá po ~150 kandidátoch (Impressum + skóre), najviac 8.
+   */
+  const ROUND = { SINGLE_MAX: 50, CHUNK: 150, MAX_ROUNDS: 8 };
+  /** Cena podľa cenníka Outscraperu (bez 500 záznamov zadarmo mesačne) — len odhad. */
+  const USD_PER_1000 = 3;
+  /** Nad toľko záznamov sa okno hľadania pred spustením opýta. */
+  const CONFIRM_RECORDS = 600;
   const RESERVE = 3;
   const MIN_PER_QUERY = 5;
   const MAX_PER_QUERY = 100;
@@ -66,7 +83,7 @@
   }
 
   // ── Limity a odhad spotreby ─────────────────────────────────────────────
-  /** OUTSCRAPER_MAX_RECORDS → 10 až 5000, predvolene 200. */
+  /** OUTSCRAPER_MAX_RECORDS → 10 až 5000, predvolene 1000. */
   function maxRecords(v) {
     const n = int(v, NaN);
     if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_RECORDS;
@@ -116,20 +133,67 @@
    * ako tri, doplnia sa kombináciou kategórií a lokalít.
    * @returns {{ queries: string[], perQuery: number, estimate: number, budget: number }}
    */
-  function planQueries({ queries = [], categories = [], locations = [], count = 20, max = DEFAULT_MAX_RECORDS, maxQueries = MAX_QUERIES } = {}) {
+  function planQueries({ queries = [], categories = [], locations = [], count = 20, max = DEFAULT_MAX_RECORDS, maxQueries } = {}) {
     const b = budget({ count, max });
-    // Hotové dotazy od AI; keď sú menej ako 3, doplnia sa kombináciou.
+    const mq = maxQueries || queryLimit(b);
+    // Hotové dotazy od AI; keď sú menej ako 3 (pri väčšom hľadaní menej, ako
+    // treba), doplnia sa kombináciou kategórií a lokalít.
     const own = uniq((queries || []).map(cleanQuery).filter(Boolean));
-    const list = own.length >= 3 ? own : uniq([...own, ...combine(categories, locations)]);
+    const enough = own.length >= 3 && (mq <= MAX_QUERIES || own.length >= mq);
+    const list = enough ? own : uniq([...own, ...combine(categories, locations)]);
+    const maxQueries2 = mq;
     if (!list.length) return { queries: [], perQuery: 0, estimate: 0, budget: b };
-    const nq = Math.max(1, Math.min(list.length, maxQueries, Math.floor(b / MIN_PER_QUERY) || 1));
+    const nq = Math.max(1, Math.min(list.length, maxQueries2, Math.floor(b / MIN_PER_QUERY) || 1));
     const perQuery = Math.max(1, Math.min(MAX_PER_QUERY, Math.floor(b / nq)));
     return { queries: list.slice(0, nq), perQuery, estimate: nq * perQuery, budget: b };
+  }
+
+  /** Koľko dotazov smie plán mať: do 500 záznamov 10, viac → po ~50 na dotaz, najviac 30. */
+  function queryLimit(b) {
+    return Math.min(MAX_QUERIES_BIG, Math.max(MAX_QUERIES, Math.ceil(int(b, 0) / BIG_PER_QUERY)));
+  }
+
+  /** Dotazy po častiach na požiadavky Outscraperu (najviac 10 v jednej). */
+  function chunkQueries(queries = [], per = QUERIES_PER_REQUEST) {
+    const out = [];
+    const list = (queries || []).filter(Boolean);
+    for (let i = 0; i < list.length; i += per) out.push(list.slice(i, i + per));
+    return out;
   }
 
   /** Pre okno hľadania: „Outscraper prehľadá cca X záznamov". */
   function estimate({ count = 20, max = DEFAULT_MAX_RECORDS } = {}) {
     return budget({ count, max });
+  }
+
+  /**
+   * Odhad pre okno hľadania: záznamy z Máp, kontakty (približne pri polovici
+   * firiem chýba e-mail v Impressum), cena v USD (bez mesačného bezplatného
+   * limitu, cena AI nie je zahrnutá), čas a počet kôl. Len odhad — skutočnosť
+   * závisí od toho, koľko firiem Mapy v oblasti majú a koľko sa vyradí.
+   * @returns {{ records, contacts, usd, minutes, rounds, multi, confirm, timeLabel }}
+   */
+  function costEstimate({ count = 20, max = DEFAULT_MAX_RECORDS } = {}) {
+    const n = Math.max(1, int(count, 20));
+    const records = budget({ count: n, max });
+    const contacts = Math.ceil(n * 0.5);
+    const usd = Math.round(((records + contacts) * USD_PER_1000 / 1000) * 10) / 10;
+    // Kandidáti po vyradení (zatvorené, bez webu, už ich máme…) ~60 % záznamov.
+    const cands = Math.round(records * 0.6);
+    const multi = n > ROUND.SINGLE_MAX;
+    const rounds = multi ? Math.min(ROUND.MAX_ROUNDS, Math.max(1, Math.ceil(cands / ROUND.CHUNK))) : 1;
+    // Weby a plán ~3 min, Mapy ~120 záznamov za minútu, Impressum + skóre ~4 s na firmu.
+    const minutes = Math.ceil(3 + records / 120 + (cands * 4) / 60);
+    const round5 = Math.max(5, Math.round(minutes / 5) * 5);
+    const timeLabel = minutes <= 10 ? '3–10 minút' : `približne ${round5} minút`;
+    return { records, contacts, usd, minutes, rounds, multi, confirm: records > CONFIRM_RECORDS, timeLabel };
+  }
+
+  /** „1,8 USD" — desatinná čiarka. */
+  function usdLabel(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '';
+    return `${n < 0.1 ? '0,1' : n.toFixed(1).replace('.', ',')} USD`;
   }
 
   // ── Požiadavka a odpoveď ────────────────────────────────────────────────
@@ -704,8 +768,9 @@
   }
 
   const API = {
-    API_BASE, API_HOSTS, DEFAULT_MAX_RECORDS, MAX_QUERIES, RESERVE, MIN_SCORES, DEFAULT_MIN_SCORE, STATUS, DROP, NEW_COLUMNS,
-    normStatus, maxRecords, minScore, budget, cleanQuery, combine, planQueries, estimate,
+    API_BASE, API_HOSTS, DEFAULT_MAX_RECORDS, MAX_QUERIES, MAX_QUERIES_BIG, QUERIES_PER_REQUEST, ROUND, USD_PER_1000, CONFIRM_RECORDS,
+    RESERVE, MIN_SCORES, DEFAULT_MIN_SCORE, STATUS, DROP, NEW_COLUMNS,
+    normStatus, maxRecords, minScore, budget, cleanQuery, combine, planQueries, queryLimit, chunkQueries, estimate, costEstimate, usdLabel,
     queryString, mapsParams, apiBase, requestIdOk, readResponse, httpError, groups, flatten,
     categoriesOf, normPlace, filterPlaces, pickContactEmail, readContacts, selectScored, toLead, legacyRow,
     refreshQuery, matchPlace, refreshPatch, mxVerdict, mxFromError, checkMx, pickStale, isRefreshDay, weeklyLimit,

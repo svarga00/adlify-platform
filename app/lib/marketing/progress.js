@@ -18,6 +18,13 @@
 //                   kontrola „Zastaviť" (cancel_requested) najviac raz za ~3 s
 //   pre appku       model pásu: percentá, kroky (hotové / práve / ešte nie),
 //                   ako dlho beží, či sa hľadanie zrejme neprerušilo
+//   kolá (088)      väčšie hľadanie beží po kolách (funkcia na pozadí smie
+//                   15 min): percentá sú za celé hľadanie (`scale`), kroky
+//                   Impressum → skóre → uloženie sa v každom kole zopakujú
+//                   (`rewind`), ďalšie kolo pokračuje v tom istom pase
+//                   (`resume`). „Kolo 2 z ~4" je zo stats.round / stats.rounds.
+//                   Medzi kolami (stats.handoff_at) sa čaká dlhšie, kým sa
+//                   hľadanie považuje za prerušené.
 //
 // Čisté funkcie bez siete a databázy — zápis a čítanie sa podstrčia.
 // Testy: node app/lib/marketing/progress.test.js
@@ -30,6 +37,8 @@
   const STALE_MS = 3 * 60 * 1000;
   /** Bez heartbeat (pred 080): Netlify funkciu na pozadí zastaví po 15 min. */
   const STALE_NO_HEARTBEAT_MS = 16 * 60 * 1000;
+  /** Medzi kolami: kolo skončilo a spustilo ďalšie — kým sa ozve, čaká sa dlhšie. */
+  const STALE_HANDOFF_MS = 6 * 60 * 1000;
 
   // [kľúč, od %, do %, názov kroku v zozname]
   const PLANS = {
@@ -143,6 +152,8 @@
     const g = gate({ minMs, now });
     let cancelAt = -Infinity;
     let stopped = false;
+    // Kolá: surové percento kroku → percento celého hľadania.
+    let scale = null;
     let dirty = false;
     let chain = Promise.resolve();
     let writes = 0;
@@ -187,7 +198,7 @@
         if (late) stage = st.stage;
         const changed = stage !== st.stage;
         const p = late ? null : pct(stage, frac, source);
-        if (p != null) st.progress = Math.max(st.progress, p);
+        if (p != null) st.progress = Math.max(st.progress, scale ? clamp(Math.round(num(scale(p, stage))), 0, 99) : p);
         st.stage = stage;
         if (label) st.stage_label = cut(label, 240);
         const text = log === true ? label : log;
@@ -206,8 +217,29 @@
        */
       beat() {
         const s = plan(source).find(x => x.key === st.stage);
-        if (s && st.progress < s.to - 1) st.progress = Math.min(s.to - 1, st.progress + Math.max(1, Math.round((s.to - st.progress) * 0.12)));
+        const to = s ? (scale ? clamp(Math.round(num(scale(s.to, s.key))), 0, 99) : s.to) : 0;
+        if (s && st.progress < to - 1) st.progress = Math.min(to - 1, st.progress + Math.max(1, Math.round((to - st.progress) * 0.12)));
         return maybe(false);
+      },
+      /**
+       * Kolá: `fn(surové %, krok)` → percento celého hľadania (null = bez
+       * prepočtu). Percentá ani tak nikdy neklesnú.
+       */
+      setScale(fn) { scale = typeof fn === 'function' ? fn : null; },
+      /** Nové kolo: krok sa smie vrátiť (Impressum po Uložení), percentá nie. */
+      rewind(stage) { if (plan(source).some(x => x.key === stage)) st.stage = stage; },
+      /**
+       * Ďalšie kolo pokračuje v tom istom pase: percentá a log z hľadania,
+       * started_at sa neprepíše.
+       */
+      resume(s, label) {
+        st.progress = clamp(Math.round(num(s && s.progress)), 0, 99);
+        st.stage = (s && plan(source).some(x => x.key === s.stage)) ? s.stage : st.stage;
+        st.log = Array.isArray(s && s.log) ? s.log.filter(x => x && x.text).slice(-maxLog) : [];
+        st.stage_label = cut(label || (s && s.stage_label) || 'Pokračujem', 240);
+        st.log = addLog(st.log, st.stage_label, now(), maxLog);
+        g.ready(true);
+        return send();
       },
       /** Zapíše, čo ešte čaká (po obmedzení). */
       flush() { if (dirty) { g.ready(true); return send(); } return chain; },
@@ -253,9 +285,29 @@
   function isStale(s, now = Date.now(), ms = STALE_MS) {
     if (!s || !['pending', 'running'].includes(s.status)) return false;
     const hb = time(s.heartbeat_at) || time(s.started_at);
+    // Medzi kolami (088): kolo zapísalo handoff_at a spustilo ďalšie; kým sa
+    // ďalšie ozve (heartbeat po handoff), platí dlhší limit.
+    const ho = time(s.stats && s.stats.handoff_at);
+    if (ho != null && (hb == null || hb <= ho + 5000)) {
+      // Ďalšie kolo sa nespustilo (server to vie) → hneď, nech sa dá „Pokračovať".
+      if (s.stats.chain_failed) return true;
+      return now - Math.max(ho, hb || 0) > STALE_HANDOFF_MS;
+    }
     if (hb != null) return now - hb > ms;
     const c = time(s.created_at);
     return c != null && now - c > STALE_NO_HEARTBEAT_MS;
+  }
+
+  /**
+   * Kolo hľadania (088): { round, rounds, label: „Kolo 2 z ~4" } alebo null
+   * (jedno kolo). `rounds` je odhad — preto „~".
+   */
+  function roundInfo(s) {
+    const st = (s && s.stats) || {};
+    const r = Math.trunc(num(st.round));
+    const n = Math.max(r, Math.trunc(num(st.rounds)));
+    if (!(n > 1 || r > 1)) return null;
+    return { round: Math.max(1, r), rounds: n, label: `Kolo ${Math.max(1, r)} z ${st.rounds_final ? '' : '~'}${n}`, waiting: !!st.handoff_at };
   }
 
   /** Súhrn hotového hľadania: našlo, vyradené, uložené. */
@@ -291,8 +343,11 @@
     const took = start != null && end != null ? duration(end - start) : '';
     const log = (Array.isArray(s.log) ? s.log : []).filter(x => x && x.text).slice(-logLines);
     const stale = isStale(s, now);
+    const rounds = roundInfo(s);
     return {
-      id: s.id, status: s.status, source, running, finished, stale, hasProgress,
+      id: s.id, status: s.status, source, running, finished, stale, hasProgress, rounds,
+      // Prerušené hľadanie po kolách sa dá dokončiť (stav je uložený), nie len spustiť znova.
+      resumable: !!(stale && s.stats && s.stats.multi),
       pct: pctV, label: s.stage_label || (s.status === 'pending' ? 'Čakám, kým server hľadanie spustí' : ''),
       stages, log, elapsed: took ? (running ? `beží ${took}` : `trvalo ${took}`) : '',
       cancelRequested: !!s.cancel_requested,
@@ -302,8 +357,8 @@
   }
 
   const API = {
-    MAX_LOG, WRITE_MS, CANCEL_MS, STALE_MS, STALE_NO_HEARTBEAT_MS, PLANS,
-    plural, plan, sourceOf, pct, addLog, gate, filterLine, reporter, duration, isStale, summary, model,
+    MAX_LOG, WRITE_MS, CANCEL_MS, STALE_MS, STALE_NO_HEARTBEAT_MS, STALE_HANDOFF_MS, PLANS,
+    plural, plan, sourceOf, pct, addLog, gate, filterLine, reporter, duration, isStale, roundInfo, summary, model,
   };
   if (typeof window !== 'undefined') window.DanubraProgress = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

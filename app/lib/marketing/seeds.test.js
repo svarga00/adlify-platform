@@ -72,7 +72,9 @@ https://bau.example.com/,  https://elektro-weber.de;https://shop.mueller-bau.de`
   const vela = S.parseSeeds(Array.from({ length: 11 }, (_, i) => `firma${i}.de`).join('\n'));
   ok(!vela.ok && /Najviac 10/.test(vela.error), 'jedenásť je priveľa', vela.error);
   eq(S.parseSeeds('').seeds, [], 'prázdne pole');
-  eq([S.clampCount(5), S.clampCount(30), S.clampCount(500), S.clampCount('x')], [10, 30, 50, 20], 'počet 10 až 50, predvolene 20');
+  eq([S.clampCount(5), S.clampCount(30), S.clampCount(500), S.clampCount('x')], [10, 30, 300, 20], 'počet 10 až 300, predvolene 20');
+  eq([S.clampCount(200, S.MAX_COUNT_AI), S.clampCount(30, S.MAX_COUNT_AI), S.clampCount(300)], [50, 30, 300], 'bez Outscraperu (AI) najviac 50');
+  eq(S.COUNTS, [10, 20, 30, 50, 100, 200, 300], 'v okne hľadania: 10, 20, 30, 50, 100, 200, 300 (500 nie)');
 }
 
 console.log('\nSTRÁNKA → TEXT');
