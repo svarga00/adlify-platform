@@ -49,6 +49,18 @@
         </label>
         <button type="submit" class="btn btn-primary btn-block" id="login-btn">Prihlásiť sa</button>
         <div id="login-error" class="login-error" hidden></div>
+        <button type="button" class="login-link" id="login-forgot">Zabudli ste heslo?</button>
+      </form>
+      <!-- Zabudnuté heslo: odkaz pošle Supabase (components/heslo.js). -->
+      <form id="forgot-form" class="login-alt" hidden>
+        <div class="login-alt-t">Zabudli ste heslo?</div>
+        <p class="login-alt-s">Napíšte e-mail, ktorým sa prihlasujete. Pošleme Vám odkaz na nastavenie nového hesla.</p>
+        <label>E-mail
+          <input type="email" id="forgot-email" required autocomplete="username" placeholder="meno@firma.sk">
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="forgot-btn">Poslať odkaz</button>
+        <div id="forgot-msg" class="login-note" role="status" hidden></div>
+        <button type="button" class="login-link" id="forgot-back">Späť na prihlásenie</button>
       </form>
     </div>
   </div>
@@ -95,6 +107,10 @@
         <!-- Papiere na dva kliky: vyber papier, vyber človeka. Je na každej
              obrazovke, lebo papier treba práve vtedy, keď na ňu človek
              nemyslí. Pozri js/components/papers.js. -->
+        <!-- Kalendárny týždeň (KW, ISO 8601) — na stavbách sa žije po týždňoch.
+             Napĺňa to js/modules/kalendar.js, klik otvorí Kalendár. -->
+        <button class="kw-badge no-print" onclick="Kal.openFromBadge()" id="kw-badge"
+          title="Kalendárny týždeň" aria-label="Kalendárny týždeň — otvoriť kalendár"></button>
         <button class="top-papers no-print" onclick="Pap.open()" id="btn-papers"
           title="Súhlas GDPR, zmluva, objednávka, infolist — údaje sa doplnia samy"></button>
         <!-- Vysvetlivky. Nie je to nápoveda k tlačidlám — je to zoznam toho,
@@ -116,6 +132,8 @@
           </div>
           <!-- Na mobile horný pruh nie je, takže zvonček musí byť aj tu —
                inak by sa o udalostiach z telefónu nedalo dozvedieť. -->
+          <button class="kw-badge no-print" onclick="Kal.openFromBadge()" id="kw-badge-m"
+            title="Kalendárny týždeň" aria-label="Kalendárny týždeň — otvoriť kalendár"></button>
           <button class="bell-btn no-print" onclick="Pap.open()" title="Papiere"
             aria-label="Papiere" id="btn-papers-m"></button>
           <button class="bell-btn no-print" onclick="Help.index()" title="Vysvetlivky"
@@ -195,6 +213,7 @@
   <script src="./lib/staffing/periods.js"></script>
   <script src="./lib/staffing/account.js"></script>
   <script src="./lib/staffing/hoursheet.js"></script>
+  <script src="./lib/calendar.js"></script>
   <script src="./lib/staffing/hourscan.js"></script>
   <script src="./lib/staffing/docscan.js"></script>
   <script src="./lib/staffing/site.js"></script>
@@ -283,9 +302,11 @@
   <script src="./js/modules/ads.js"></script>
   <script src="./js/modules/recruiting.js"></script>
   <script src="./js/modules/tasks.js"></script>
+  <script src="./js/modules/kalendar.js"></script>
   <script src="./js/modules/compliance-view.js"></script>
   <script src="./js/modules/messages.js"></script>
   <script src="./js/modules/members.js"></script>
+  <script src="./lib/prihlasenie.js"></script><script src="./js/components/heslo.js"></script>
   <script src="./js/modules/settings.js"></script>
   <script src="./js/modules/archive-view.js"></script>
   <script src="./lib/marketing/leadview.js"></script>

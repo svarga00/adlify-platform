@@ -161,6 +161,8 @@
       Danubra.setActions(
         `<button class="btn btn-outline btn-sm" onclick="Tsk.exportCsv()" title="Exportovať do CSV to, čo je práve vidieť">${Icon('download', 14)} Export</button>
          <button class="btn btn-outline btn-sm" onclick="Tsk.rulesView()">${Icon('rules', 14)} Pravidlá</button>
+         ${Danubra.routeAvailable('kalendar') ? `<button class="btn btn-outline btn-sm" onclick="Danubra.go('kalendar')"
+           title="Úlohy, udalosti a termíny po dňoch a týždňoch (KW)">${Icon('calendar', 14)} V kalendári</button>` : ''}
          <button class="btn btn-primary btn-sm" onclick="Tsk.form()">${Icon('plus')} Nová úloha</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       this._badge();
@@ -475,7 +477,7 @@
 
       const dueCell = done
         ? `<b>hotové</b><small>${t.done_at ? this.shortDate(t.done_at) : ''}</small>`
-        : `<b>${UI.esc(rel.text)}</b>${this.dueSmall(t, rel, open)}`;
+        : `<b>${UI.esc(rel.text)}${t.due_time ? ` ${UI.esc(String(t.due_time).slice(0, 5))}` : ''}</b>${this.dueSmall(t, rel, open)}`;
 
       const st = t.status === 'in_progress'
         ? `<button class="tk-st is-prog" onclick="event.stopPropagation();Tsk.setStatus('${id}','open')"
@@ -1057,6 +1059,8 @@
           <button class="btn btn-danger" onclick="Tsk.del('${tid}')">${Icon('archive', 14)} Archivovať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Tsk.form('${tid}')">${Icon('edit', 14)} Upraviť</button>
+          ${window.Kal && Danubra.routeAvailable('kalendar') ? `<button class="btn btn-outline" onclick="Tsk.toCalendar('${tid}')"
+              title="Zapísať k tejto úlohe udalosť (stretnutie, hovor, obhliadku) s časom a miestom">${Icon('calendar', 14)} Pridať do kalendára</button>` : ''}
           ${open ? `<button class="btn btn-outline" onclick="Tsk.snooze('${tid}')"
               title="Posunie termín o 7 dní. Kratšie odloženie je vyššie pri termíne.">${Icon('clock', 14)} Odložiť o týždeň</button>` : ''}
           ${t.status === 'open' ? `<button class="btn btn-outline" onclick="Tsk.setStatus('${tid}','in_progress')">
@@ -1347,6 +1351,14 @@
         { action: 'Vrátiť', run: this._undo(id, before) });
     },
 
+    /** „Pridať do kalendára" z detailu: udalosť s tým istým záznamom a dňom. */
+    toCalendar(id) {
+      const t = this.find(id);
+      if (!t || !window.Kal) return;
+      UI.closeModal();
+      return Kal.fromTask(t);
+    },
+
     /** Kedysi jediný spôsob odškrtnutia — ostáva pre prípadné staré volania. */
     toggle(id) { return this.done(id); },
 
@@ -1368,6 +1380,11 @@
       const inp = document.getElementById('tk-quick');
       const v = inp ? inp.value.trim() : '';
       return this.form('', v ? T().parseQuick(v, this.today()) : null);
+    },
+
+    /** Má databáza čas úlohy (migrácia 089)? Pozná sa podľa načítaných úloh. */
+    _hasTime(t) {
+      return !!(t && 'due_time' in t) || this.items.some(x => x && 'due_time' in x);
     },
 
     form(id, preset) {
@@ -1394,6 +1411,8 @@
           ${UI.field('description', 'Podrobnosti', { type: 'textarea', rows: 2, value: t.description })}
           <div class="form-grid">
             ${UI.field('due_date', 'Termín', { type: 'date', value: t.due_date })}
+            ${this._hasTime(t) ? UI.field('due_time', 'Čas', { type: 'time', value: t.due_time ? String(t.due_time).slice(0, 5) : '',
+              tip: 'Nepovinné. Úloha s časom je pripomienka — v kalendári stojí v ten čas.' }) : ''}
             ${UI.field('priority', 'Priorita', { value: t.priority || 'normal', options: PRIO.map(p => [p[0], p[1]]),
               tip: 'Vysoká sa v zozname označí červeným štítkom „Vysoká" a v sekcii je navrchu.' })}
             ${UI.field('status', 'Stav', { value: t.status || 'open', options: STATUS.map(s => [s[0], s[1]]),
@@ -1421,6 +1440,7 @@
         Object.assign(payload, T().assignPatch(m));
       }
       if (payload.due_date === '') payload.due_date = null;
+      if (payload.due_time === '') payload.due_time = null;
       if (payload.status === 'done') payload.done_at = new Date().toISOString();
       const res = id ? await DB.update('tasks', id, payload) : await DB.insert('tasks', payload);
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');

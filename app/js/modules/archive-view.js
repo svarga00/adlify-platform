@@ -27,6 +27,7 @@
       ['recruitment_plans', 'Náborové plány'],
       ['timesheets', 'Hodiny'],
       ['tasks', 'Úlohy'],
+      ['events', 'Udalosti v kalendári'],
       ['worker_documents', 'Doklady ľudí'],
       ['compliance', 'Compliance'],
       ['call_recordings', 'Nahrávky hovorov'],

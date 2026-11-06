@@ -184,6 +184,8 @@ const FILE_MODULES = {
   'js/modules/settings.js': ['settings'],
   'js/modules/subcontracts.js': ['subcontracts'],
   'js/modules/tasks.js': ['tasks'],
+  // Kalendár (089): udalosti a pripomienky (úlohy) — ako Úlohy.
+  'js/modules/kalendar.js': ['tasks'],
   'js/modules/timesheets.js': ['timesheets'],
   'js/modules/trades.js': ['trades'],
   'js/modules/website.js': ['marketing'],

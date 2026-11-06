@@ -220,6 +220,7 @@
           ${next}
         </div>
         ${this.tradeOfferHtml()}
+        ${this.meetOfferHtml()}
         ${quick ? `<div class="lc-quick">${quick}</div>` : '<div class="lc-empty">Firma nemá telefón, e-mail ani web.</div>'}
         <div class="lc-callwrap">${this.callHtml()}</div>
         ${this.missing ? `<div class="notebox">${ico('alert', 14)} Záznamy kontaktov ešte nie sú pripravené v databáze (migrácia 081). Rýchle akcie a e-maily fungujú.</div>` : `
@@ -520,6 +521,8 @@
       if (a === 'fix') return this.fix(b.dataset.v);
       if (a === 'trsave') return this.saveTradeOffer();
       if (a === 'trno') { this.tradeOffer = null; return this.render(); }
+      if (a === 'meetcal') return this.meetToCalendar();
+      if (a === 'meetno') { this.meetOffer = null; return this.render(); }
     }
     onChange(e) {
       const t = e.target;
@@ -633,6 +636,10 @@
         if (r.contact) this.contacts.unshift(r.contact);
         // „Ktoré remeslá potrebujú" → ponuka uložiť ich ako remeslá firmy (087).
         this.tradeOffer = this.offerTrades(answers);
+        // „Stretnutie dohodnuté" → ponuka zapísať ho do kalendára (089) s dňom a časom.
+        this.meetOffer = (f.outcome === 'meeting_set' || f.kind === 'meeting') && window.Kal && window.Danubra
+          && Danubra.routeAvailable('kalendar') ? { date: (v.row && v.row.next_step_at) || f.next_step_at || null,
+            text: (v.row && v.row.next_step_text) || f.next_step_text || '', contact: f.contact_name || '' } : null;
         this.form = null; this.sug = null; this.answers = null;
         if (this.sheet && this.sheet.done) this.sheet = null;
         this.render();
@@ -660,6 +667,26 @@
       return `<div class="lc-trsave" role="status">${ico('wrench', 14)} <span>Z hovoru: potrebujú <b>${esc(names)}</b>.</span>
         <button type="button" class="btn btn-primary btn-sm" data-lc-a="trsave">${ico('check', 13)} Uložiť ako remeslá firmy</button>
         <button type="button" class="lc-lnk" data-lc-a="trno">Nie</button>${window.UI ? UI.tip('Remeslá firmy sa nastavia na tieto (ručne). Podľa nich sa firma filtruje v zoznamoch a píše sa jej e-mail a prezentácia. Zmeniť ich môžete kedykoľvek v hlavičke firmy — „Upraviť remeslá".') : ''}</div>`;
+    }
+    meetOfferHtml() {
+      const m = this.meetOffer;
+      if (!m) return '';
+      return `<div class="lc-trsave lc-meet" role="status">${ico('calendar', 14)} <span>Stretnutie dohodnuté${m.date ? ` na <b>${esc(dateLabel(String(m.date).slice(0, 10)))}</b>` : ''}.</span>
+        <button type="button" class="btn btn-primary btn-sm" data-lc-a="meetcal">${ico('calendar', 13)} Zapísať stretnutie do kalendára</button>
+        <button type="button" class="lc-lnk" data-lc-a="meetno">Nie</button>${window.UI ? UI.tip('Otvorí sa nová udalosť v Kalendári: firma, deň a kontakt sú predvyplnené, doplníte čas a miesto. Pripomienka sa zapíše do Úloh.') : ''}</div>`;
+    }
+    meetToCalendar() {
+      const m = this.meetOffer, l = this.lead;
+      if (!m || !window.Kal) return;
+      this.meetOffer = null;
+      this.render();
+      const today = F() ? F().today() : null;
+      return Kal.eventForm({
+        kind: 'meeting', title: `Stretnutie: ${l.name || 'firma'}`, starts_on: (m.date && String(m.date).slice(0, 10)) || today || undefined,
+        place: [l.address || l.street, l.postal_code, l.city].filter(Boolean).join(', ') || null,
+        description: [m.contact ? `S kým: ${m.contact}` : '', m.text || ''].filter(Boolean).join('\n') || null,
+        entity_type: 'lead', entity_id: l.id, entity_label: l.name || '', remind_minutes: 60,
+      });
     }
     async saveTradeOffer() {
       const keys = this.tradeOffer;
