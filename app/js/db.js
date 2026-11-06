@@ -3,6 +3,12 @@
 // Moduly volajú logické názvy ('clients'), DB ich prefixne ('danubra_clients').
 (function () {
   const cfg = window.DANUBRA_CONFIG;
+  // Adresa pri otvorení — skôr, než ju supabase-js prečíta a vyčistí
+  // (návrat z odkazu na heslo: #access_token=…&type=recovery alebo chyba
+  // „odkaz vypršal"). Číta ju stránka „Nastavte si heslo" (components/heslo.js).
+  const bootUrl = (() => {
+    try { return { search: String(location.search || ''), hash: String(location.hash || '') }; } catch (e) { return { search: '', hash: '' }; }
+  })();
   const client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
   const PREFIX = 'danubra_';
   const t = (name) => (name.startsWith(PREFIX) ? name : PREFIX + name);
@@ -46,6 +52,7 @@
   window.DB = {
     client,
     prefix: PREFIX,
+    bootUrl,
 
     // Raw query builder na prefixnutú tabuľku (pre hromadné inserty a pod.)
     from(name) { return client.from(t(name)); },
@@ -82,13 +89,17 @@
       console.error(`[danubra] ${t(table)}:`, error);
     },
 
-    async list(table, { select = '*', filters = {}, order, limit } = {}) {
+    // `gte` / `lte` = { stĺpec: hodnota } — od / do vrátane (kalendár číta
+    // len zobrazené obdobie, nie celú tabuľku).
+    async list(table, { select = '*', filters = {}, order, limit, gte, lte } = {}) {
       let q = client.from(t(table)).select(select);
       for (const [k, v] of Object.entries(filters)) {
         if (v == null) continue;
         if (Array.isArray(v)) q = q.in(k, v);
         else q = q.eq(k, v);
       }
+      for (const [k, v] of Object.entries(gte || {})) if (v != null) q = q.gte(k, v);
+      for (const [k, v] of Object.entries(lte || {})) if (v != null) q = q.lte(k, v);
       if (order) q = q.order(order.column, { ascending: order.ascending !== false });
       if (limit) q = q.limit(limit);
       const res = await q;

@@ -932,6 +932,20 @@
           example: 'Úloha „Zavolať pánovi Hofmannovi kvôli faktúre VZOR-2026-0003" je s vysokou prioritou po termíne.',
         },
         {
+          title: 'Kalendár a KW',
+          what: 'Čo je kedy po týždňoch (KW): úlohy, stretnutia a obhliadky, ďalšie kroky s firmami, končiace A1 a splatné faktúry. Aktuálny KW je stále vpravo hore v appke.',
+          how: [
+            'Kliknite na „KW" vpravo hore (na telefóne v tmavej hlavičke) alebo v menu Dnes na záložku „Kalendár".',
+            'Hore prepnete Týždeň, Mesiac alebo Agenda; šípkami idete na predošlý a ďalší týždeň, „Dnes" vráti späť.',
+            '„Pridať" alebo klik na prázdne miesto dňa: Udalosť (stretnutie, hovor, obhliadka — s časom, miestom a účastníkmi), Úloha alebo Pripomienka s časom.',
+            'Úlohu presuniete na iný deň potiahnutím myšou; na telefóne tlačidlom „Presunúť".',
+            'Po hovore s firmou s výsledkom „Stretnutie dohodnuté" appka ponúkne „Zapísať stretnutie do kalendára".',
+          ],
+          open: open('kalendar', 'Otvoriť Kalendár'),
+          tip: 'Pripomienka udalosti je úloha v Úlohách — nájdete ju aj na Prehľade dňa a v odznaku pri Úlohách.',
+          example: 'Štvrtok KW 45: o 10:00 obhliadka Wohnpark Feuerbach v Ulme, pripomienka hodinu vopred; v nedeľu končí A1 Jánovi Kováčikovi.',
+        },
+        {
           title: 'Ako to ide',
           what: 'Sedem krokov firmy so živými číslami: koľko toho v kroku je a koľko čaká na Vás.',
           how: [
@@ -1240,6 +1254,20 @@
           ],
           open: open('invoices', 'Otvoriť Vydané faktúry'),
           tip: 'Výnimka sa nemaže. Zostane pri zázname aj s dôvodom, aby bolo o rok jasné, kto a prečo ju povolil.',
+          example: null,
+        },
+        {
+          title: 'Ako pozvať kolegu do appky',
+          what: 'Kolega sa do appky prihlasuje svojím e-mailom a heslom. Účet mu založíte jedným klikom a heslo si nastaví sám cez odkaz.',
+          how: [
+            'Otvorte Nastavenia → „Používatelia" a kliknite na „Pridať človeka".',
+            'Vyplňte meno a e-mail (týmto e-mailom sa bude prihlasovať), zvoľte rolu a kliknite na „Uložiť a pozvať".',
+            'Zobrazí sa okno s odkazom. Pošlite ho kolegovi: „Poslať cez WhatsApp", „Poslať e-mailom" alebo „Kopírovať".',
+            'Kolega odkaz otvorí, dvakrát napíše nové heslo (aspoň 10 znakov) a klikne na „Nastaviť heslo a pokračovať". Tým je prihlásený.',
+            'Keď odkaz vyprší alebo kolega heslo zabudne, kliknite pri ňom na „Poslať nový odkaz na heslo". Kolega si heslo vie obnoviť aj sám cez „Zabudli ste heslo?" na prihlasovacej stránke.',
+          ],
+          open: open('members', 'Otvoriť Používateľov'),
+          tip: 'V stĺpci „Prihlásenie" vidíte, kto ešte nemá účet, kto čaká na heslo a kto sa už prihlasuje.',
           example: null,
         },
         {

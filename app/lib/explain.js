@@ -2441,6 +2441,44 @@
       links: [['invoices', 'Vydané faktúry'], ['costs', 'Náklady']],
     },
 
+    'screen.kalendar': {
+      title: 'Kalendár',
+      lead: 'Čo je kedy — po týždňoch (KW), ako sa ráta na nemeckých stavbách. Úlohy, udalosti, poznámky a termíny na jednom mieste.',
+      what: [
+        'Vpravo hore v appke je vždy **KW** — aktuálny kalendárny týždeň (ISO 8601, ten istý ako na Stundennachweis). '
+        + 'Bublinka ukáže celý rozsah, napr. „Kalendárny týždeň 45 · 2.–8. 11. 2026". Klik otvorí Kalendár.',
+        'Tri pohľady: **Týždeň** (pondelok až nedeľa vedľa seba, KW v nadpise), **Mesiac** (mriežka s číslom KW vľavo — '
+        + 'klik na číslo otvorí ten týždeň) a **Agenda** (najbližších 30 dní po KW, prázdne dni vynechané).',
+        'V kalendári sú **Úlohy** (podľa termínu, odložené na deň, kam sa odložili), **Pripomienky** (úlohy s časom), '
+        + '**Udalosti** (stretnutia, hovory, obhliadky stavieb, termíny), **Poznámky a ďalšie kroky** (poznámka s termínom, '
+        + 'dohodnutý ďalší krok s firmou, pripomenutie e-mailom) a **Termíny** len na čítanie: končiace A1 a iné doklady, '
+        + 'začiatok a koniec zákazky, splatnosť vydaných faktúr.',
+        'Klik na položku otvorí to, odkiaľ je: úlohu, firmu, zákazku, živnostníka alebo faktúru.',
+      ],
+      how: [
+        'Úlohu presuniete na iný deň tak, že ju chytíte myšou a pustíte na iný deň — zmení sa jej termín. '
+        + 'Na telefóne má úloha tlačidlo „Presunúť" s výberom dňa. Preklik vráti „Vrátiť" v hlásení.',
+        '„Pridať" hore (alebo klik na prázdne miesto v dni) ponúkne Udalosť, Úlohu alebo Pripomienku s predvyplneným dňom.',
+        'Udalosť má deň (aj viac dní), čas alebo celý deň, miesto, čoho sa týka, účastníkov a farbu. Pripomienka udalosti '
+        + '(napr. hodinu vopred) sa založí ako úloha v Úlohách — je tak v odznakoch aj na Prehľade dňa.',
+        'Prepínače vrstiev s počtami skryjú, čo práve netreba (napr. splatnosť faktúr). Voľba sa pamätá pre Vás v tomto prehliadači.',
+        '„Len moje" ukáže úlohy, ktoré riešite, a udalosti, kde ste účastník. Výber kolegu ukáže jeho. „Hotové" ukáže aj hotové úlohy prečiarknuté.',
+        'Na telefóne je týždeň zoznam dní — na ďalší a predošlý týždeň sa prejde potiahnutím prstom doľava a doprava.',
+      ],
+      why: [
+        'Na nemeckých stavbách sa plánuje po týždňoch: „ab KW 47", výkaz za KW 45. Keď je číslo týždňa stále na očiach, '
+        + 'netreba ho prepočítavať v hlave ani hľadať v telefóne.',
+        'Úlohy, stretnutia a termíny boli na rôznych obrazovkách. Kalendár ich ukáže vedľa seba, takže je vidieť, '
+        + 'že vo štvrtok je obhliadka v Ulme a v ten istý deň končí A1 človeku, ktorý tam má ísť.',
+      ],
+      watch: [
+        'Úlohy po termíne z minulých týždňov sú v červenom pruhu nad kalendárom — vyriešite ich v Úlohách.',
+        'Termíny (doklady, zákazky, faktúry) sa tu nemenia — menia sa na ich obrazovkách. Nie sú nikoho, preto ich „Len moje" neskryje.',
+        'Udalosť sa nemaže, ale archivuje (Nastavenia → Archív). Jej pripomienka v Úlohách sa pritom zruší.',
+      ],
+      links: [['kalendar', 'Otvoriť Kalendár'], ['tasks', 'Úlohy a pripomienky']],
+    },
+
     'screen.tasks': {
       title: 'Úlohy a pripomienky',
       lead: 'Čo treba spraviť a dokedy — zoradené podľa času. Väčšina vzniká sama z pravidiel.',
@@ -2670,8 +2708,15 @@
         + 'ňom zostali, musia mať stále meno.',
       ],
       how: [
-        'Účet na prihlásenie vzniká v Supabase; tu sa nastavuje len to, na čo má. '
-        + 'Spája sa to cez e-mail.',
+        'Nového človeka pridáte tlačidlom **Pridať človeka** a potom **Pozvať do appky** (alebo rovno **Uložiť a pozvať**). '
+        + 'Appka mu založí účet a dá Vám odkaz, cez ktorý si nastaví heslo.',
+        'Odkaz pošlete sami: **Kopírovať**, **Poslať cez WhatsApp** alebo **Poslať e-mailom** zo schránky firmy. Appka ho sama nikam neposiela.',
+        'Odkaz platí obmedzený čas (podľa nastavenia Supabase: predvolene 1 h, najviac 24 h) a dá sa použiť raz. Keď vyprší, '
+        + 'kliknite pri človeku na **Poslať nový odkaz na heslo**. Rovnako postupujte, keď človek heslo zabudne.',
+        'Stĺpec **Prihlásenie** ukazuje, kde človek je: *Nemá účet* (ešte nebol pozvaný), *Pozvaný (čaká na heslo)* '
+        + '(dostal odkaz, heslo si ešte nenastavil), *Aktívny* (prihlasuje sa, vidno dátum posledného prihlásenia).',
+        'Keď sa niekto prihlási a uvidí „Váš účet ešte nie je priradený k tímu", skontrolujte, či ho máte v zozname s **rovnakým e-mailom** '
+        + 'a so zapnutým prístupom. Kliknite pri ňom na **Pozvať do appky**: účet sa prepojí.',
         'Kým tu nie je nikto, má každý prihlásený všetko — inak by sa prvý človek '
         + 'zamkol von. Hneď ako pribudne prvý, začnú platiť práva.',
       ],
@@ -2680,6 +2725,8 @@
         + 'tam; kto pozná verejný kľúč, obíde appku úplne. Preto práva držia '
         + 'politiky a spúšťače v databáze a táto obrazovka len skrýva to, na čo '
         + 'človek aj tak nemá.',
+        'Odkaz na heslo je ako heslo. Do Správ sa preto ukladá e-mail **bez** odkazu. Účtu, ktorý nezaložila appka (napríklad z Adlify), '
+        + 'sa odkaz nevydá vôbec: človek si heslo obnoví sám cez „Zabudli ste heslo?" a odkaz príde priamo jemu.',
         'Tri veci sa nedajú prideliť nikomu okrem administrátora, ani zaškrtnutím: '
         + 'schválenie faktúry, výnimka pri nasadení bez platných dokladov a správa '
         + 'používateľov a nastavení. Sú to pravidlá zo zadania, nie nastavenie.',

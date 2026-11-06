@@ -144,6 +144,8 @@
     archive: 'dashboard',
     // Návod smie čítať každý, kto smie na Prehľad.
     navod: 'dashboard',
+    // Kalendár sú úlohy po dňoch (a udalosti, ktoré sa správajú ako úlohy).
+    kalendar: 'tasks',
     // Marketing: nové firmy a e-maily patria k tomu istému ako inzercia.
     leads: 'marketing', campaigns: 'marketing', printwork: 'marketing', website: 'marketing', outreach: 'marketing',
     // E-maily sú to isté ako Správy; ktoré schránky vidí, určuje admin

@@ -117,6 +117,8 @@ window.Danubra = {
     // tá istá obrazovka volala „Dnes" na záložke a „Prehľad" v nadpise.
     ['DNES',       [['dashboard', 'Dnes', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
+                    // Kalendár s KW: úlohy, udalosti, poznámky a termíny po dňoch (089).
+                    ['kalendar', 'Kalendár', 'calendar'],
                     ['flow', 'Ako to ide', 'repeat'],
                     // Každé PDF z appky — triedené podľa ľudí a firiem.
                     ['archive', 'Dokumenty', 'doc'],
@@ -182,6 +184,7 @@ window.Danubra = {
     navod: 'Návod k appke krok za krokom: od dopytu po zaplatenú faktúru, s tlačidlom na každú obrazovku',
     money: 'Kde stoja naše peniaze a koľko sa z nich dá minúť a dokedy',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
+    kalendar: 'Týždeň po KW, mesiac a agenda: úlohy, stretnutia, ďalšie kroky, končiace A1 a splatné faktúry',
     messages: 'Interné poznámky a komunikácia pri zázname, ktorého sa týka',
     mail: 'Firemné e-maily — viac schránok, podpis, prílohy; e-maily sa samy priradia k ľuďom a firmám',
     mailboxes: 'Firemné schránky (info@, fakturácia@…), ich podpis a kto ich vidí',
@@ -250,6 +253,8 @@ window.Danubra = {
     contract:   { route: 'contracts',    handle: 'Con',   ico: 'note',      what: 'Zmluva' },
     // Úloha nemá „detail" — otvára sa rovno formulár, v ktorom sa dá upraviť.
     task:       { route: 'tasks',        handle: 'Tsk',   ico: 'tasks',     what: 'Úloha', method: 'form' },
+    // Udalosť v kalendári (stretnutie, obhliadka) — pripomienka v Úlohách ukazuje na ňu.
+    event:      { route: 'kalendar',     handle: 'Kal',   ico: 'calendar',  what: 'Udalosť' },
     accommodation: { route: 'accommodations', handle: 'Acc', ico: 'bed',    what: 'Ubytovanie' },
     order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka' },
     // Nová firma z marketingu (úloha „Pripomenúť sa firme X" ukazuje na ňu).
@@ -373,7 +378,7 @@ window.Danubra = {
    */
   navParent: {
     // Poradie tu je poradím záložiek. Prehľad „čo dnes" a jeho ďalšie pohľady.
-    tasks: 'dashboard', flow: 'dashboard', archive: 'dashboard', navod: 'dashboard',
+    tasks: 'dashboard', kalendar: 'dashboard', flow: 'dashboard', archive: 'dashboard', navod: 'dashboard',
     // Správy: e-maily zo schránok a interné poznámky.
     messages: 'mail',
     // Zákazka: od dopytu po hodiny. Na konkrétnej zákazke je to isté ako
@@ -395,7 +400,7 @@ window.Danubra = {
   // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
   // povedať, čo na nej je — „Ľudia → Ľudia" nepovie nič.
   navTabLabel: {
-    dashboard: 'Prehľad dňa', tasks: 'Úlohy', flow: 'Ako to ide', navod: 'Návod',
+    dashboard: 'Prehľad dňa', tasks: 'Úlohy', kalendar: 'Kalendár', flow: 'Ako to ide', navod: 'Návod',
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
@@ -411,7 +416,7 @@ window.Danubra = {
 
   // Krátko pod názvom záložky — čo tam je. Celá veta je v `navHints`.
   navTabHint: {
-    dashboard: 'Čo treba dnes', tasks: 'Pripomienky', messages: 'Poznámky pri záznamoch', flow: 'Celá cesta',
+    dashboard: 'Čo treba dnes', tasks: 'Pripomienky', kalendar: 'Týždeň po KW', messages: 'Poznámky pri záznamoch', flow: 'Celá cesta',
     mail: 'Doručené a odoslané', mailboxes: 'Podpis a kto ich vidí',
     archive: 'Všetky PDF', navod: 'Ako na to, krok za krokom',
     subcontracts: 'Stavby v 7 krokoch', opportunities: 'Kto chce ľudí', quotes: 'Ceny pre Nemcov',
@@ -629,9 +634,17 @@ window.Danubra = {
 
   _render() {
     const authed = !!this.user;
+    // Prihlásený, ale nie je (aktívny) v Nastaveniach → Používatelia: databáza
+    // mu nič neukáže a appka by vyzerala prázdna bez vysvetlenia. Namiesto
+    // nej jasná správa s odhlásením (components/heslo.js → Heslo.noAccess).
+    // Prázdna appka (nikto nie je založený) pustí každého prihláseného.
+    const mine = authed && (this.members || []).find(m => m.user_id === this.user.id);
+    const blocked = authed && !!window.DanubraPerm && !DanubraPerm.bootstrap(this.members)
+      && !(mine && mine.active !== false);
     document.getElementById('login-screen').hidden = authed;
-    document.getElementById('app').hidden = !authed;
-    if (authed) {
+    document.getElementById('app').hidden = !authed || blocked;
+    if (window.Heslo && Heslo.noAccess) Heslo.noAccess(blocked ? { email: this.user.email || '', off: !!mine } : null);
+    if (authed && !blocked) {
       const email = this.user.email || '';
       const name = (email.split('@')[0] || '').replace(/[._-]/g, ' ');
       const nice = name.charAt(0).toUpperCase() + name.slice(1);
@@ -3618,6 +3631,7 @@ window.Danubra = {
            </div>`}
       ${rest > 0 ? `<div style="color:var(--ink-mute);font-size:12.5px;padding:8px 2px 0;">
         a ${rest} ${Shell.plural(rest, 'ďalšia neskôr', 'ďalšie neskôr', 'ďalších neskôr')}</div>` : ''}
+      ${window.Kal && Kal.dashHtml ? Kal.dashHtml() : ''}
     </div>`;
   },
 
