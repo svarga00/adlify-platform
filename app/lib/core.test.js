@@ -43,8 +43,9 @@ eq(sm.SIDE_EFFECTS.paid.includes('create_first_service_period'), true, 'paid →
 // ── ČÍSELNÉ RADY (§6.1) ─────────────────────────────────────────────────────
 console.log('\nnumbering (§6.1)');
 eq(num.formatOrderNumber(2026, 42), 'OBJ-2026-0042', 'formát objednávky OBJ-2026-0042');
-eq(num.formatInvoiceNumber(2026, 1), '2026001', 'formát faktúry 2026001');
-eq(num.formatInvoiceNumber(2026, 137), '2026137', 'formát faktúry 3 číslice 2026137');
+eq(num.formatInvoiceNumber(2026, 1), '202600001', 'formát faktúry 202600001 (rok + 5 číslic, 094)');
+eq(num.formatInvoiceNumber(2026, 137), '202600137', 'formát faktúry 202600137');
+eq(num.formatInvoiceNumber(2026, 123456), '2026123456', 'faktúra sa neoreže (100 000+ v roku)');
 
 // prvý v roku
 eq(num.nextOrderNumber({ year: 2026, current: 0 }, 2026).number, 'OBJ-2026-0001', 'prvá objednávka roka');
@@ -67,7 +68,7 @@ eq(num.nextOrderNumber({ year: 2026, current: 41 }, 2026).number, 'OBJ-2026-0042
     issued.push(r.number);
     series = r.newSeries; // stav sa prenáša (transakčne serializované)
   }
-  eq(issued, ['2026001', '2026002', '2026003', '2026004', '2026005'], 'súbežnosť: 5 faktúr bez diery/duplicity');
+  eq(issued, ['202600001', '202600002', '202600003', '202600004', '202600005'], 'súbežnosť: 5 faktúr bez diery/duplicity');
   const unique = new Set(issued);
   eq(unique.size, 5, 'súbežnosť: všetkých 5 čísel unikátnych');
 }

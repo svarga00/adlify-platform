@@ -557,6 +557,69 @@
         total: M.fromCents(M.mul(M.toCents(i.unit_price || 0), Number(i.quantity) || 0)) })),
     };
   }
+  // ── Merné jednotky podľa jazyka dokladu ───────────────────────────────────
+  // Položka sa ukladá s jednotkou, akú človek napísal („mes", „hod", „ks").
+  // Na nemeckom doklade však „mes" nikto nepozná — majiteľ to videl na
+  // faktúre zo SuperFaktúry („1 | mes | 980,00 €"). Preklad je len pri
+  // výstupe: v SuperFaktúre (superfaktura.js) aj na PDF z appky
+  // (templates.js). Neznáma jednotka ostane, ako bola napísaná.
+  //
+  // Každá jednotka: zápisy v jazykoch (bez bodky na konci, malými) → výstup.
+  const UNITS = [
+    { sk: ['mes', 'mesiac', 'mesiace', 'mesiacov', 'mesačne', 'mesacne', 'mesiac(e)'], de: ['monat', 'monate', 'mon', 'mtl'],
+      en: ['month', 'months', 'mo', 'mth'], out: { sk: 'mes.', de: 'Monat', en: 'month' } },
+    { sk: ['h', 'hod', 'hodina', 'hodiny', 'hodín', 'hodin'], de: ['std', 'stunde', 'stunden', 'stdn'],
+      en: ['hr', 'hrs', 'hour', 'hours'], out: { sk: 'h', de: 'Std.', en: 'hrs' } },
+    { sk: ['ks', 'kus', 'kusy', 'kusov'], de: ['stk', 'stück', 'stuck', 'st'],
+      en: ['pc', 'pcs', 'piece', 'pieces'], out: { sk: 'ks', de: 'Stk.', en: 'pcs' } },
+    { sk: ['deň', 'den', 'dni', 'dní', 'dn'], de: ['tag', 'tage'],
+      en: ['day', 'days'], out: { sk: 'deň', de: 'Tag', en: 'day' } },
+    { sk: ['noc', 'noci', 'nocí'], de: ['nacht', 'nächte', 'naechte', 'übernachtung', 'übernachtungen'],
+      en: ['night', 'nights'], out: { sk: 'noc', de: 'Nacht', en: 'night' } },
+    { sk: ['km'], de: [], en: [], out: { sk: 'km', de: 'km', en: 'km' } },
+    { sk: ['paušál', 'pausal', 'paušálne', 'pausalne'], de: ['pauschale', 'pauschal', 'psch', 'pschl'],
+      en: ['lump sum', 'flat', 'flat rate', 'lumpsum'], out: { sk: 'paušál', de: 'Pauschale', en: 'lump sum' } },
+    { sk: ['týždeň', 'tyzden', 'týž', 'tyz', 'týždne', 'týždňov'], de: ['woche', 'wochen', 'wo'],
+      en: ['week', 'weeks', 'wk'], out: { sk: 'týždeň', de: 'Woche', en: 'week' } },
+    { sk: ['osoba', 'osoby', 'osôb', 'os'], de: ['person', 'personen', 'pers'],
+      en: ['persons', 'people'], out: { sk: 'osoba', de: 'Person', en: 'person' } },
+    { sk: ['os./deň', 'os/deň', 'os./den', 'os/den', 'osobodeň', 'osobodni', 'osobodní'], de: ['personentag', 'personentage', 'pers.-tag'],
+      en: ['person-day', 'person day', 'person-days'], out: { sk: 'os./deň', de: 'Personentag', en: 'person-day' } },
+  ];
+  const UNIT_INDEX = (() => {
+    const m = new Map();
+    for (const u of UNITS) for (const lng of ['sk', 'de', 'en']) for (const a of u[lng]) m.set(a, { u, lng });
+    // „person" je nemecky aj anglicky rovnaké slovo.
+    m.set('person', { u: UNITS.find(x => x.out.de === 'Person'), lng: 'de' });
+    return m;
+  })();
+  const unitKey = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/\.+$/, '');
+
+  /** „de", „deu", „ger" → de; „sk", „slo" → sk; „en", „eng" → en; iné → null. */
+  function docLang(code) {
+    const k = String(code || '').trim().toLowerCase();
+    if (['de', 'deu', 'ger'].includes(k)) return 'de';
+    if (['sk', 'slo', 'svk'].includes(k)) return 'sk';
+    if (['en', 'eng'].includes(k)) return 'en';
+    return null;
+  }
+
+  /**
+   * Jednotka na doklad v danom jazyku: „mes" → „Monat", „hod" → „Std.",
+   * „ks" → „Stk.". Keď je jednotka už v jazyku dokladu alebo ju appka
+   * nepozná, vráti sa presne tak, ako bola zapísaná.
+   */
+  function unitFor(unit, lang) {
+    const raw = String(unit == null ? '' : unit).trim();
+    const L = docLang(lang);
+    if (!raw || !L) return raw;
+    const hit = UNIT_INDEX.get(unitKey(raw));
+    if (!hit) return raw;
+    if (hit.lng === L && hit.u.out[L] !== 'Person') return raw;
+    if (L === 'en' && unitKey(raw) === 'person') return 'person';
+    return hit.u.out[L];
+  }
+
   /** Nemecký zápis čísla pre poznámku na doklade. */
   function fmtDe(cents) {
     return M.fromCents(cents).toFixed(2).replace('.', ',')
