@@ -7,36 +7,45 @@
 //
 //   prefix      text (môže byť prázdny)         „OBJ", „D", „"
 //   year_style  'yyyy' | 'yy' | 'none'          2026 / 26 / bez roka
-//   separator   '' | '-' | '/'                   medzi predponou, rokom a poradím
+//   code        '' alebo dve číslice             kód druhu dokladu, v každom rade iný
+//   separator   '' | '-' | '/'                   medzi predponou, rokom, kódom a poradím
 //   digits      3–7                              doplní sa nulami, NIKDY sa neoreže
 //
-//   faktúry            202600001      dobropisy            D202600001
-//   objednávky         OBJ-2026-0001  zákazky              ZAK-2026-0001
-//   ponuky             PON-2026-0001  zmluvy s odberateľmi ZML-2026-0001
-//   zmluvy so živn.    2026-001       faktúry za živn.     NOVAK-2026-001
+// Predvolené (majiteľ): rok + kód druhu + 4 číslice, bez oddeľovačov — číslo
+// samo povie, čo je to za doklad, a celé je variabilný symbol (10 číslic):
+//
+//   01 faktúry      2026010001     02 objednávky   2026020001
+//   04 ponuky       2026040001     05 zmluvy       2026050001
+//   06 dodatky      2026060001     07 zákazky      2026070001
+//   08 dobropisy    2026080001     09 faktúry za živnostníkov 2026090001
+//   10 zmluvy so živnostníkmi 2026100001
 //
 // Tu je tá istá logika ako v SQL (danubra_series_format, danubra_series_next)
 // — pre náhľad v Nastaveniach a pre testy bez databázy. Či číslo už nemá iný
 // doklad, vie len databáza; náhľad z nej sa dočíta (danubra_series_preview).
 // ============================================================================
 (function () {
-  /** Rady v poradí, v akom ich ukazuje karta Číselné rady. Musí sedieť s 094. */
+  const D = (code) => ({ prefix: '', year_style: 'yyyy', code, separator: '', digits: 4 });
+  /** Rady v poradí kódov. Musí sedieť s danubra_series_defaults (094). */
   const SERIES = [
-    { kind: 'invoice', label: 'Faktúry', doc: 'faktúra', defaults: { prefix: '', year_style: 'yyyy', separator: '', digits: 5 },
-      note: 'Číslice z čísla sú zároveň variabilný symbol pri platbe (najviac 10).' },
-    { kind: 'credit_note', label: 'Dobropisy', doc: 'dobropis', defaults: { prefix: 'D', year_style: 'yyyy', separator: '', digits: 5 },
-      note: 'Opravné faktúry (storno). Predpona sa musí líšiť od faktúr.' },
-    { kind: 'order', label: 'Objednávky', doc: 'objednávka', defaults: { prefix: 'OBJ', year_style: 'yyyy', separator: '-', digits: 4 },
-      note: 'Objednávky od odberateľov aj objednávky ubytovania.' },
-    { kind: 'subcontract', label: 'Zákazky', doc: 'zákazka', defaults: { prefix: 'ZAK', year_style: 'yyyy', separator: '-', digits: 4 } },
-    { kind: 'quote', label: 'Ponuky', doc: 'ponuka', defaults: { prefix: 'PON', year_style: 'yyyy', separator: '-', digits: 4 } },
-    { kind: 'contract', label: 'Zmluvy s odberateľmi', doc: 'zmluva', defaults: { prefix: 'ZML', year_style: 'yyyy', separator: '-', digits: 4 },
-      note: 'Rámcové zmluvy a zmluvy o dielo s nemeckými firmami. Dodatky sa číslujú v rámci zmluvy (Dodatok č. 1, 2…).' },
-    { kind: 'worker_contract', label: 'Zmluvy so živnostníkmi', doc: 'zmluva', defaults: { prefix: '', year_style: 'yyyy', separator: '-', digits: 3 },
+    { kind: 'invoice', label: 'Faktúry', next: 'Ďalšia faktúra', defaults: D('01'),
+      note: 'Vydané faktúry odberateľom. Celé číslo je zároveň variabilný symbol pri platbe (najviac 10 číslic).' },
+    { kind: 'order', label: 'Objednávky', next: 'Ďalšia objednávka', defaults: D('02'),
+      note: 'Objednávky od odberateľov (aj objednávka pre živnostníka je tá istá objednávka) a objednávky ubytovania.' },
+    { kind: 'quote', label: 'Ponuky', next: 'Ďalšia ponuka', defaults: D('04') },
+    { kind: 'contract', label: 'Zmluvy s odberateľmi', next: 'Ďalšia zmluva', defaults: D('05'),
+      note: 'Rámcové zmluvy a zmluvy o dielo s nemeckými firmami.' },
+    { kind: 'amendment', label: 'Dodatky zmlúv', next: 'Ďalší dodatok', defaults: D('06'),
+      note: 'Číslo sa pridelí pri zápise dodatku, keď pole „Číslo dodatku" necháte prázdne.' },
+    { kind: 'subcontract', label: 'Zákazky', next: 'Ďalšia zákazka', defaults: D('07') },
+    { kind: 'credit_note', label: 'Dobropisy', next: 'Ďalší dobropis', defaults: D('08'),
+      note: 'Opravné faktúry (storno faktúry). Celé číslo je variabilný symbol.' },
+    { kind: 'self_bill', label: 'Faktúry za živnostníkov', next: 'Ďalšia faktúra za živnostníka', defaults: { ...D('09'), per_worker: false },
+      perWorkerOption: true,
+      note: 'Samofakturácia: faktúry, ktoré vystavujeme v mene živnostníka. Predvolene jeden spoločný rad; '
+        + 'dá sa prepnúť na rad podľa živnostníka (predpona z jeho karty, napr. NOVAK-2026-001).' },
+    { kind: 'worker_contract', label: 'Zmluvy so živnostníkmi', next: 'Ďalšia zmluva so živnostníkom', defaults: D('10'),
       note: 'Rámcová zmluva o dielo. Číslo sa pridelí pri prvej tlači zmluvy.' },
-    { kind: 'self_bill', label: 'Faktúry za živnostníkov', doc: 'faktúra', defaults: { prefix: '', year_style: 'yyyy', separator: '-', digits: 3 },
-      perWorker: true,
-      note: 'Samofakturácia: predponu a poradie má každý živnostník svoje (na jeho karte, inak „OV").' },
   ];
   const BY_KIND = Object.fromEntries(SERIES.map(s => [s.kind, s]));
   const YEAR_STYLES = [['yyyy', '2026'], ['yy', '26'], ['none', 'bez roka']];
@@ -48,11 +57,13 @@
     const d = (BY_KIND[kind] || BY_KIND.order).defaults;
     const s = series || {};
     const pick = (k) => (s[k] === undefined || s[k] === null ? d[k] : s[k]);
-    return { prefix: String(pick('prefix') ?? ''), year_style: pick('year_style'),
+    const out = { prefix: String(pick('prefix') ?? ''), year_style: pick('year_style'), code: String(pick('code') ?? ''),
       separator: String(pick('separator') ?? ''), digits: Number(pick('digits')) };
+    if ('per_worker' in d) out.per_worker = !!pick('per_worker');
+    return out;
   }
 
-  /** Číslo z formátu. Rovnaké ako danubra_series_format v SQL. */
+  /** Číslo z formátu: predpona, rok, kód, poradie. Rovnaké ako danubra_series_format v SQL. */
   function format(fmt, year, seq, prefix) {
     const f = fmt || {};
     const pre = prefix != null ? String(prefix) : String(f.prefix || '');
@@ -60,6 +71,7 @@
     if (pre) parts.push(pre);
     if ((f.year_style || 'yyyy') === 'yyyy') parts.push(String(year));
     else if (f.year_style === 'yy') parts.push(String(Number(year) % 100).padStart(2, '0'));
+    if (f.code) parts.push(String(f.code));
     const s = String(seq);
     parts.push(s.padStart(Math.max(Number(f.digits) || 4, s.length), '0'));
     return parts.join(f.separator || '');
@@ -79,7 +91,7 @@
   /** Ďalšie číslo radu (náhľad). */
   function preview(kind, series, year, prefix) {
     const fmt = formatOf(kind, series);
-    const pre = BY_KIND[kind] && BY_KIND[kind].perWorker ? (prefix || 'NOVAK') : prefix;
+    const pre = fmt.per_worker ? (prefix || 'NOVAK') : prefix;
     return format(fmt, year, nextSeq(kind, series, year), pre);
   }
 
@@ -89,22 +101,31 @@
   /**
    * Chyby formátu pred uložením. Tie isté pravidlá stráži danubra_set_series —
    * tu sú len preto, aby admin videl vetu hneď pri písaní.
+   * @param {Object} all  formáty ostatných radov { kind: fmt } (kód a formát musia byť iné)
    * @returns {string[]}
    */
-  function validate(kind, fmt, { next, other, year = new Date().getFullYear() } = {}) {
+  function validate(kind, fmt, { next, all = {}, year = new Date().getFullYear() } = {}) {
     const out = [];
     const f = fmt || {};
     if (!/^[A-Za-z0-9]{0,10}$/.test(String(f.prefix || ''))) out.push('Predpona smie mať len písmená bez diakritiky a číslice, najviac 10 znakov.');
-    if (BY_KIND[kind] && BY_KIND[kind].perWorker && f.prefix) out.push('Predponu faktúr za živnostníka má každý na svojej karte.');
+    if (f.per_worker && f.prefix) out.push('Pri rade podľa živnostníka je predpona na jeho karte — tu nechajte prázdnu.');
     if (!['yyyy', 'yy', 'none'].includes(f.year_style)) out.push('Rok v čísle: 2026, 26 alebo bez roka.');
+    if (!/^(\d{2})?$/.test(String(f.code || ''))) out.push('Kód druhu dokladu sú dve číslice (01–99) alebo nič.');
     if (!['', '-', '/'].includes(f.separator)) out.push('Oddeľovač: žiadny, pomlčka alebo lomka.');
     const d = Number(f.digits);
     if (!Number.isInteger(d) || d < 3 || d > 7) out.push('Počet číslic poradia: 3 až 7.');
     if (next != null && next !== '' && (!Number.isInteger(Number(next)) || Number(next) < 1)) out.push('Ďalšie číslo musí byť celé číslo, aspoň 1.');
+    if (f.per_worker && next != null && next !== '') out.push('Pri rade podľa živnostníka má poradie každý svoje.');
+    const head = (x) => [x.prefix || '', x.year_style, x.code || '', x.separator || ''].join('|');
+    for (const [k, o] of Object.entries(all)) {
+      if (k === kind || !o) continue;
+      const lbl = (BY_KIND[k] || {}).label || k;
+      if (f.code && String(o.code || '') === String(f.code)) out.push(`Kód ${f.code} už má rad „${lbl}". Každý druh dokladu potrebuje vlastný kód.`);
+      else if (head(o) === head(f)) out.push(`Formát je rovnaký ako v rade „${lbl}" — líšiť sa musí predpona alebo kód.`);
+    }
     if ((kind === 'invoice' || kind === 'credit_note') && Number.isInteger(d) && d >= 3 && d <= 7) {
       const vs = vsOf(format(f, year, Number('9'.repeat(d))));
       if (vs.length > VS_MAX) out.push(`Variabilný symbol by mal ${vs.length} číslic — banka berie najviac ${VS_MAX}.`);
-      if (other && String(other.prefix || '') === String(f.prefix || '')) out.push('Faktúry a dobropisy musia mať rozdielnu predponu.');
     }
     return out;
   }

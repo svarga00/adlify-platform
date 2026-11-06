@@ -77,7 +77,7 @@
           await loadMod(Wrk);
           for (const w of Wrk.items.filter(x => is('workers', x.id) && x.legal_form !== 'employee')) {
             await job(() => Wrk.gdpr(w.id));
-            await job(() => Wrk.zmluva(w.id));
+            await job(() => Wrk.zmluva(w.id, { vzor: true }));
           }
         }
         if (window.Sub) {

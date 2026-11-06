@@ -1485,16 +1485,25 @@
     },
     'card.settings.numbers': {
       title: 'Číselné rady',
-      lead: 'Odkiaľ sa berú čísla faktúr, objednávok a zmlúv.',
-      what: ['Každý rad má rok a poradové číslo. Pri zmene roka sa vynuluje.'],
+      lead: 'Odkiaľ sa berú čísla faktúr, objednávok, ponúk, zmlúv, dodatkov, zákaziek, dobropisov a zmlúv so živnostníkmi.',
+      what: [
+        'Predvolene má každé číslo tvar **rok + dvojmiestny kód druhu dokladu + 4 číslice**: faktúra 2026010001, '
+        + 'objednávka 2026020001, ponuka …04…, zmluva …05…, dodatok …06…, zákazka …07…, dobropis …08…, '
+        + 'faktúra za živnostníka …09…, zmluva so živnostníkom …10…. Z čísla je hneď jasné, čo je to za doklad.',
+        'Celé číslo faktúry je zároveň variabilný symbol (10 číslic — viac banka neberie).',
+        'V januári sa poradie začne znova od 0001.',
+      ],
       how: [
-        'Čísla prideľuje databáza transakčne. Nikdy preto nevznikne diera ani '
-        + 'duplicita, ani keď dvaja ľudia vystavia faktúru v tej istej sekunde.',
+        'Čísla prideľuje databáza transakčne, keď doklad vzniká. Dve faktúry v tej istej sekunde nikdy nedostanú to isté číslo.',
+        'Administrátor môže pri každom rade kliknúť **Upraviť** a zmeniť predponu, rok, kód, oddeľovač, počet číslic '
+        + 'a **Ďalšie číslo**. Okno hneď ukazuje, aké číslo dostane ďalší doklad.',
+        'Pri prechode na ostrú SuperFaktúru nastavte pri faktúrach „Ďalšie číslo" tak, aby nadviazalo na ostrý rad '
+        + '(napr. 137 → 2026010137).',
       ],
       why: [
-        'Diera v číselnom rade je pre daňovú kontrolu otázka, na ktorú treba '
-        + 'odpovedať. Preto sa číslo prideľuje až pri vzniku dokladu a nikdy '
-        + 'sa nepreskakuje.',
+        'Číslo sa nikdy nepoužije druhýkrát. Nižšie „Ďalšie číslo", než aké už bolo použité, databáza odmietne, '
+        + 'a číslo, ktoré už má iný doklad, preskočí. Každá zmena sa zapíše do histórie.',
+        'Už vydané doklady si svoje čísla nechajú (aj vzorové VZOR-…) — nový formát dostanú len nové.',
       ],
       links: [['settings', 'Nastavenia']],
     },

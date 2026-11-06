@@ -371,7 +371,6 @@
     async settingsView(el) {
       Danubra.setActions('');
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const inv = this.j('invoice_series'), ord = this.j('order_series'), sub = this.j('subcontract_series');
       const sup = this.j('supplier');
 
       el.innerHTML = Danubra.header('Nastavenia', 'Agendy, fakturačné údaje, číselné rady a automatizácie') +
@@ -430,19 +429,7 @@
         // SuperFaktúra: stav pripojenia, test spojenia a mapovanie (len admin).
         (window.SFUI ? SFUI.settingsCard(this) : '') +
 
-        `<div class="card card-pad" style="margin-bottom:16px;">
-          <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
-          <div class="regimebox" style="margin:0 0 12px;">
-            Čísla prideľuje databáza transakčne, takže nikdy nevznikne diera ani duplicita.
-            Pri zmene roka sa rad automaticky vynuluje.</div>
-          <div class="kv">
-            <div><span>Objednávky${UI.tip('Číslo poslednej objednávky (OBJ-rok-poradie). Ďalšia dostane '
-              + 'o jedno vyššie — appka ho pridelí sama.')}</span><strong class="mono">OBJ-${ord.year || '—'}-${String(ord.current || 0).padStart(4, '0')}</strong></div>
-            <div><span>Faktúry${UI.tip('Číslo poslednej vydanej faktúry: rok a poradie (napr. 2026091). '
-              + 'Ďalšia dostane o jedno vyššie. Číslice z neho sú zároveň variabilný symbol pri platbe.')}</span><strong class="mono">${inv.year || '—'}${String(inv.current || 0).padStart(3, '0')}</strong></div>
-            <div><span>Zákazky${UI.tip('Číslo poslednej zákazky (ZAK-rok-poradie). Pridelí sa pri jej založení.')}</span><strong class="mono">ZAK-${sub.year || '—'}-${String(sub.current || 0).padStart(4, '0')}</strong></div>
-          </div>
-        </div>` +
+        this.seriesHtml() +
 
         this.section('Automatizácie',
           'Čo smie systém robiť sám. Faktúry za priebežnú službu sa neodosielajú '
@@ -480,6 +467,174 @@
         ]);
       // Stav SuperFaktúry sa dočíta zo servera (bez kľúčov) a dopíše do karty.
       if (window.SFUI && Danubra.isAdmin()) SFUI.paintStatus().catch(() => {});
+      // Skutočné ďalšie čísla (databáza preskočí čísla, ktoré už majú doklad).
+      this.paintSeries().catch(() => {});
+    },
+
+    // ── Číselné rady ──────────────────────────────────────────────────────
+    // Formát každého radu (predpona, rok, kód druhu, oddeľovač, počet číslic)
+    // a ďalšie číslo. Mení len admin cez danubra_set_series (migrácia 094) —
+    // databáza odmietne číslo, ktoré už bolo použité, a zmenu zapíše do
+    // histórie. Náhľad počíta lib/numbering.js rovnako ako databáza.
+    year() { return Number(new Intl.DateTimeFormat('en', { timeZone: 'Europe/Bratislava', year: 'numeric' }).format(new Date())); },
+    seriesOf(kind) { return this.j(kind + '_series'); },
+    seriesFmt(kind) { return DanubraNumbering.formatOf(kind, this.seriesOf(kind)); },
+    /** Ďalšie číslo: z databázy, kým sa nenačíta, z počítadla. */
+    seriesNext(kind) {
+      const db = this._seriesDb && this._seriesDb[kind];
+      if (db && db.next) return db.next;
+      return DanubraNumbering.preview(kind, this.seriesOf(kind), this.year());
+    },
+    /** „rok + kód 01 + 4 číslice" — ako sa číslo skladá, slovami. */
+    seriesWords(f) {
+      const p = [];
+      if (f.per_worker) p.push('predpona z karty živnostníka');
+      else if (f.prefix) p.push(`predpona ${f.prefix}`);
+      if (f.year_style === 'yyyy') p.push('rok 2026'.replace('2026', String(this.year())));
+      else if (f.year_style === 'yy') p.push(`rok ${String(this.year() % 100).padStart(2, '0')}`);
+      if (f.code) p.push(`kód ${f.code}`);
+      p.push(`${f.digits} číslice poradia`.replace(/^([5-7]) číslice/, '$1 číslic'));
+      const sep = f.separator ? ` (oddelené „${f.separator}")` : '';
+      return p.join(' + ') + sep;
+    },
+
+    seriesHtml() {
+      const N = window.DanubraNumbering;
+      if (!N) return '';
+      const admin = Danubra.isAdmin();
+      const top = N.SERIES.filter(s => ['invoice', 'order'].includes(s.kind))
+        .map(s => `${UI.esc(s.next)}: <b class="mono" data-series-next="${s.kind}">${UI.esc(this.seriesNext(s.kind))}</b>`).join(' · ');
+      const rows = N.SERIES.map(s => {
+        const f = this.seriesFmt(s.kind);
+        const next = f.per_worker ? `${N.preview(s.kind, this.seriesOf(s.kind), this.year(), 'NOVAK')}` : this.seriesNext(s.kind);
+        return `<div class="ser-row">
+          <div class="ser-main">
+            <b>${UI.esc(s.label)}</b>${s.note ? UI.tip(s.note) : ''}
+            <span class="muted-sm">${UI.esc(this.seriesWords(f))}</span>
+          </div>
+          <div class="ser-next">
+            <span class="muted-sm">${f.per_worker ? 'napr.' : UI.esc(s.next)}</span>
+            <strong class="mono" data-series-next="${f.per_worker ? '' : s.kind}">${UI.esc(next)}</strong>
+          </div>
+          ${admin ? `<button type="button" class="btn btn-outline btn-sm" onclick="Cfg.seriesForm('${s.kind}')">${Icon('edit', 14)} Upraviť</button>` : ''}
+        </div>`;
+      }).join('');
+      return `<div class="card card-pad" id="cfg-series" style="margin-bottom:16px;">
+          <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
+          <div class="ser-top">${top}</div>
+          <div class="regimebox" style="margin:0 0 12px;">
+            Čísla prideľuje databáza pri vzniku dokladu. Žiadne číslo sa nepoužije druhýkrát — ani keď
+            nastavíte nižšie „Ďalšie číslo" (databáza to odmietne). V januári sa poradie začne znova od 1.
+            Predvolene: rok + dvojmiestny kód druhu dokladu + 4 číslice, takže z čísla je hneď jasné,
+            čo je to za doklad, a celé je variabilný symbol.${admin ? '' : ' Meniť ich smie administrátor.'}</div>
+          <div class="ser-list">${rows}</div>
+        </div>`;
+    },
+
+    async paintSeries() {
+      if (!document.getElementById('cfg-series')) return;
+      const { data, error } = await DB.rpc('series_preview');
+      if (error || !data) return;
+      this._seriesDb = data;
+      document.querySelectorAll('[data-series-next]').forEach(el => {
+        const k = el.getAttribute('data-series-next');
+        if (k && data[k] && data[k].next) el.textContent = data[k].next;
+      });
+    },
+
+    seriesForm(kind) {
+      const N = DanubraNumbering;
+      const s = N.BY_KIND[kind];
+      if (!s || !Danubra.isAdmin()) return;
+      const f = this.seriesFmt(kind);
+      UI.modal(`Číselný rad — ${s.label}`, `
+        <form id="ser-form" oninput="Cfg.seriesLive('${kind}')" onchange="Cfg.seriesLive('${kind}')"
+          onsubmit="event.preventDefault();Cfg.saveSeries('${kind}')">
+          <div class="ser-prev" id="ser-prev" aria-live="polite"></div>
+          <div class="form-grid">
+            ${UI.field('prefix', 'Predpona', { value: f.prefix, placeholder: 'prázdne, napr. FA',
+              tip: 'Písmená bez diakritiky a číslice, najviac 10. Predvolene prázdna — číslo je len z číslic.' })}
+            ${UI.field('year_style', 'Rok v čísle', { value: f.year_style,
+              options: N.YEAR_STYLES.map(([v, l]) => [v, v === 'yyyy' ? String(this.year()) : v === 'yy' ? String(this.year() % 100).padStart(2, '0') : l]),
+              tip: 'S rokom sa poradie v januári začne znova od 1. Bez roka pokračuje stále ďalej.' })}
+            ${UI.field('code', 'Kód druhu dokladu', { value: f.code, placeholder: 'napr. 01',
+              tip: 'Dve číslice za rokom. Každý druh dokladu má vlastný (faktúry 01, objednávky 02…), takže sa čísla nikdy nestretnú. Prázdne = bez kódu.' })}
+            ${UI.field('separator', 'Oddeľovač', { value: f.separator, options: N.SEPARATORS,
+              tip: 'Medzi predponou, rokom, kódom a poradím. Pri faktúrach nechajte žiadny — číslo je potom celé variabilný symbol.' })}
+            ${UI.field('digits', 'Počet číslic poradia', { type: 'number', value: f.digits, step: '1',
+              tip: '3 až 7. Poradie sa doplní nulami zľava (0001). Dlhšie číslo sa nikdy neoreže.' })}
+            ${s.perWorkerOption ? '' : UI.field('next', 'Ďalšie číslo (poradie)', { type: 'number', step: '1',
+              placeholder: String(DanubraNumbering.nextSeq(kind, this.seriesOf(kind), this.year())),
+              tip: 'Prázdne = pokračuje sa ďalej. Pri prechode na ostrú SuperFaktúru sem dajte poradie, ktoré nadviaže na ostrý rad (napr. 137). Nižšie, než už bolo použité, sa nedá.' })}
+          </div>
+          ${s.perWorkerOption ? `
+            <div class="form-grid">
+              ${UI.field('next', 'Ďalšie číslo (poradie)', { type: 'number', step: '1',
+                placeholder: String(DanubraNumbering.nextSeq(kind, this.seriesOf(kind), this.year())),
+                tip: 'Platí pre spoločný rad. Pri rade podľa živnostníka má poradie každý svoje.' })}
+              ${UI.field('per_worker', 'Rad podľa živnostníka', { type: 'checkbox', value: !!f.per_worker,
+                placeholder: 'Predpona a poradie z karty živnostníka (NOVAK-2026-001)',
+                tip: 'Zapnuté: každý živnostník má vlastný rad s predponou z jeho karty (inak OV). Vtedy nechajte predponu prázdnu a nastavte oddeľovač pomlčku a kód prázdny.' })}
+            </div>` : ''}
+          <div class="ser-err" id="ser-err" aria-live="polite"></div>
+          <div class="regimebox">Žiadne číslo sa nepoužije druhýkrát. Už vydané doklady si svoje čísla nechajú —
+            nový formát dostanú len nové. Zmena sa zapíše do histórie.</div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary" id="ser-save">${Icon('check')} Uložiť</button>
+          </div>
+        </form>`);
+      this.seriesLive(kind);
+    },
+
+    /** Formát z okna radu. */
+    seriesInput() {
+      const form = document.getElementById('ser-form');
+      if (!form) return null;
+      const d = UI.formData(form);
+      const fmt = { prefix: String(d.prefix || '').trim(), year_style: d.year_style, code: String(d.code || '').trim(),
+        separator: d.separator || '', digits: Number(d.digits) };
+      const cb = form.querySelector('[name="per_worker"]');
+      if (cb) fmt.per_worker = !!cb.checked;
+      const next = String(d.next || '').trim();
+      return { fmt, next: next === '' ? null : Number(next) };
+    },
+
+    seriesLive(kind) {
+      const N = DanubraNumbering;
+      const s = N.BY_KIND[kind];
+      const x = this.seriesInput();
+      if (!x) return;
+      const all = Object.fromEntries(N.SERIES.map(o => [o.kind, this.seriesFmt(o.kind)]));
+      const errs = N.validate(kind, x.fmt, { next: x.next, all, year: this.year() });
+      const seq = x.next || N.nextSeq(kind, { ...this.seriesOf(kind), ...x.fmt }, this.year());
+      const num = N.format(x.fmt, this.year(), seq, x.fmt.per_worker ? 'NOVAK' : undefined);
+      const prev = document.getElementById('ser-prev');
+      if (prev) {
+        prev.innerHTML = `${UI.esc(s.next)} dostane číslo <b class="mono">${UI.esc(num)}</b>`
+          + (x.fmt.per_worker ? ' <span class="muted-sm">(príklad pre živnostníka s radom NOVAK)</span>' : '')
+          + (['invoice', 'credit_note'].includes(kind) ? ` <span class="muted-sm">· variabilný symbol ${UI.esc(N.vsOf(num))}</span>` : '');
+      }
+      const box = document.getElementById('ser-err');
+      if (box) box.innerHTML = errs.length ? `<div class="warnbox">${Icon('alert', 14)} ${errs.map(UI.esc).join('<br>')}</div>` : '';
+      const btn = document.getElementById('ser-save');
+      if (btn) btn.disabled = errs.length > 0;
+    },
+
+    async saveSeries(kind) {
+      const x = this.seriesInput();
+      if (!x) return;
+      const { data, error } = await DB.rpc('set_series', { p_kind: kind, p_format: x.fmt, p_next: x.next });
+      if (error) {
+        const box = document.getElementById('ser-err');
+        if (box) box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} <strong>Neuložené.</strong> ${UI.esc(error.message)}</div>`;
+        return;
+      }
+      UI.closeModal();
+      UI.toast(`Uložené — ${DanubraNumbering.BY_KIND[kind].next.toLowerCase()} dostane číslo ${data && data.next ? data.next : ''}`, 'ok');
+      this.row = await Danubra.loadCfg(true);
+      this._seriesDb = null;
+      Danubra.renderRoute();
     },
   };
 

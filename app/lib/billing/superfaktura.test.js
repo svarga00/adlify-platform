@@ -137,5 +137,31 @@ console.log('\nBase64 pre vyhľadávanie (bezpečné v adrese)');
   eq(SF.b64('>>>'), 'Pj4-', '„+" → „-"');
 }
 
+
+// ── Jednotky po nemecky a dodávateľ z appky (MyData) ──────────────────────
+console.log('\njednotky a dodávateľ na doklade');
+{
+  const items = [{ description: 'Weiterberechnung Unterkunft', quantity: 1, unit: 'mes', unit_price: 980 },
+    { description: 'Fahrtkosten', quantity: 120, unit: 'km', unit_price: 0.3 }, { description: 'Montage', quantity: 2, unit_price: 50 }];
+  eq(SF.buildItems({ items, lang: 'deu' }).map(i => i.unit), ['Monat', 'km', 'Stk.'], 'nemecký doklad: mes → Monat, km, bez jednotky → Stk.');
+  eq(SF.buildItems({ items, lang: 'slo' }).map(i => i.unit), ['mes', 'km', 'ks'], 'slovenský doklad: ako bolo napísané');
+  eq(SF.buildItems({ items, lang: 'eng' }).map(i => i.unit), ['month', 'km', 'pcs'], 'anglický doklad');
+
+  eq(SF.splitAddress('Hlavná 12, 949 01 Nitra'), { address: 'Hlavná 12', zip: '949 01', city: 'Nitra' }, 'adresa → ulica, PSČ, mesto');
+  eq(SF.splitAddress('Hlavná 12 94901 Nitra, Slovensko'), { address: 'Hlavná 12', zip: '949 01', city: 'Nitra' }, 'aj bez čiarky a s krajinou');
+  eq(SF.splitAddress('Nitra'), { address: 'Nitra' }, 'bez PSČ celá adresa ako ulica');
+  const SUP = { name: 'Partner und Service s. r. o.', address: 'Hlavná 12, 949 01 Nitra', company_id: '53941870',
+    tax_id: '2122816839', vat_id: 'SK2122816839', register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N', iban: 'SK31 1200', email: 'x@punds.eu' };
+  const p = SF.buildInvoice({ invoice: { invoice_number: '2026010001', total: 980 }, partner: { name: 'X', invoice_language: 'de' }, supplier: SUP });
+  eq(p.MyData, { company_name: 'Partner und Service s. r. o.', address: 'Hlavná 12', city: 'Nitra', zip: '949 01', country_id: 191,
+    ico: '53941870', dic: '2122816839', ic_dph: 'SK2122816839', business_register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N' },
+  'MyData: naša firma z Fakturačných údajov (prebije profil účtu SuperFaktúry)');
+  eq(p.Invoice.variable, '2026010001', 'variabilný symbol = celé desaťmiestne číslo faktúry');
+  eq(SF.buildInvoice({ invoice: { total: 1 }, partner: { name: 'X' }, supplier: SUP, settings: { send_my_data: false } }).MyData, undefined,
+    'vypnuté v nastaveniach → MyData nejde (SuperFaktúra vezme Moja firma)');
+  eq(SF.buildInvoice({ invoice: { total: 1 }, partner: { name: 'X' }, supplier: { address: 'Hlavná 1' } }).MyData, undefined,
+    'bez názvu firmy MyData nejde (radšej profil SuperFaktúry než prázdny blok)');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

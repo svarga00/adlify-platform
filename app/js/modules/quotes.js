@@ -511,7 +511,8 @@
     },
 
     /**
-     * PON-2026-0001. Číslo prideľuje databáza transakčne (`danubra_next_number`),
+     * Číslo ponuky z radu „Ponuky" (predvolene 2026040001, Nastavenia → Číselné
+     * rady). Prideľuje ho databáza transakčne (`danubra_next_number`),
      * nie prehliadač — inak by pri dvoch ľuďoch naraz vznikla diera alebo
      * duplicita. Rad sa vynuluje pri zmene roka.
      */

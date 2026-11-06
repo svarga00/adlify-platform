@@ -5870,3 +5870,21 @@ a.ld-g-v:hover { text-decoration: underline; }
 .sf-usage .muted-sm { margin-top: 6px; }
 .sf-req { font-variant-numeric: tabular-nums; }
 .sf-sync-btn[disabled] { cursor: not-allowed; }
+
+/* ── Číselné rady (Nastavenia, migrácia 094) ─────────────────────────────── */
+.ser-top { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-sub); line-height: 1.7; }
+.ser-top b { color: var(--ink); font-size: 14px; }
+.ser-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; flex-wrap: wrap; }
+.ser-row + .ser-row { border-top: 1px solid var(--border-soft); }
+.ser-main { flex: 1 1 260px; min-width: 0; }
+.ser-main b { font-size: 14px; font-weight: 700; }
+.ser-main .muted-sm { display: block; margin-top: 2px; }
+.ser-next { display: flex; flex-direction: column; align-items: flex-end; min-width: 150px; }
+.ser-next strong { font-size: 15px; letter-spacing: .02em; }
+.ser-prev { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 14px; }
+.ser-prev b { font-size: 16px; }
+.ser-err:empty { display: none; }
+.ser-err { margin: 10px 0; }
+@media (max-width: 560px) {
+  .ser-next { align-items: flex-start; min-width: 0; }
+}

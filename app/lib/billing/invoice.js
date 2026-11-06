@@ -589,8 +589,7 @@
   const UNIT_INDEX = (() => {
     const m = new Map();
     for (const u of UNITS) for (const lng of ['sk', 'de', 'en']) for (const a of u[lng]) m.set(a, { u, lng });
-    // „person" je nemecky aj anglicky rovnaké slovo.
-    m.set('person', { u: UNITS.find(x => x.out.de === 'Person'), lng: 'de' });
+    // „person" je nemecky aj anglicky to isté slovo (v zozname je pri nemčine).
     return m;
   })();
   const unitKey = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/\.+$/, '');
@@ -615,9 +614,7 @@
     if (!raw || !L) return raw;
     const hit = UNIT_INDEX.get(unitKey(raw));
     if (!hit) return raw;
-    if (hit.lng === L && hit.u.out[L] !== 'Person') return raw;
-    if (L === 'en' && unitKey(raw) === 'person') return 'person';
-    return hit.u.out[L];
+    return hit.lng === L ? raw : hit.u.out[L];
   }
 
   /** Nemecký zápis čísla pre poznámku na doklade. */
@@ -632,6 +629,7 @@
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe, TAX,
     liveItems, itemsTotal, docItems, editable, freeInvoice, isCreditNote,
+    UNITS, unitFor, docLang,
   };
   if (typeof window !== 'undefined') window.DanubraInvoice = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

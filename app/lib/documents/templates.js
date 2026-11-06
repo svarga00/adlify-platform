@@ -35,6 +35,12 @@
   const money = (n, cur = 'EUR', loc = 'sk-SK') => Number(n || 0).toLocaleString(loc,
     { style: 'currency', currency: cur, minimumFractionDigits: 2 });
   const date = (d) => d ? new Date(d).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+  /** Merná jednotka v jazyku dokladu (mes → Monat). Bez knižnice faktúr ostane, ako je. */
+  function unitOut(unit, lang) {
+    const IV = (typeof window !== 'undefined' && window.DanubraInvoice)
+      || (typeof require !== 'undefined' && typeof module !== 'undefined' ? require('../billing/invoice.js') : null);
+    return IV && IV.unitFor ? IV.unitFor(unit || '', lang) : String(unit || '');
+  }
   /** Text bez diakritiky — pre SMS (GSM-7). */
   const noDia = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -440,10 +446,12 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const pct = Number(inv.withholding_pct)
       || (p.total ? Math.round((p.held / p.total) * 100) : 0);
 
+    // Jednotka sa ukladá, ako ju človek napísal („mes"); na nemecký doklad
+    // ide „Monat" — ten istý preklad ako v SuperFaktúre (invoice.js unitFor).
     const rows = (items || []).map(i => `<tr>
       <td>${esc(i.description)}</td>
       <td class="r">${Number(i.quantity || 0).toLocaleString(loc)}</td>
-      <td class="r">${esc(i.unit || '')}</td>
+      <td class="r">${esc(unitOut(i.unit, de ? 'de' : 'sk'))}</td>
       <td class="r">${money(i.unit_price, inv.currency, loc)}</td>
       <td class="r"><strong>${money(i.total, inv.currency, loc)}</strong></td></tr>`).join('');
 

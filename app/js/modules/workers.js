@@ -1475,7 +1475,7 @@
      * Otvorí zmluvu na vytlačenie. Sumy a lehoty sa berú z Nastavení, takže
      * zdvihnutie pokuty nie je zásah do kódu.
      */
-    zmluva(workerId) {
+    async zmluva(workerId, { vzor = false } = {}) {
       const w = this.items.find(x => x.id === workerId);
       if (!w) return UI.toast('Nenájdené', 'err');
       if (!Danubra.supplierReady('Rámcová zmluva o dielo')) return;
@@ -1490,16 +1490,26 @@
         ? this.docsOf(workerId).filter(d => d.kind === 'contract')
           .sort((a, b) => String(b.valid_from || '').localeCompare(String(a.valid_from || '')))[0]
         : null;
+      // Okno sa otvára hneď po kliknutí — po čakaní na číslo by ho prehliadač zablokoval.
+      const okno = window.open('', '_blank');
+      let cislo;
+      try {
+        // Dokumenty k vzorovým dátam nemíňajú čísla z ostrého radu.
+        cislo = (doklad && doklad.reference) || (vzor ? 'VZOR' : await this.cisloNavrh(workerId));
+      } catch (e) {
+        if (okno) okno.close();
+        return UI.toast('Číslo zmluvy sa nepodarilo prideliť: ' + e.message, 'err');
+      }
       const zmluva = DanubraSubcontract.build({
         worker: w, supplier, rules: Danubra.cfg('subcontract'),
         signedAt: (doklad && doklad.valid_from) || undefined,
         validTo: (doklad && doklad.valid_to) || undefined,
-        number: (doklad && doklad.reference) || this.cisloNavrh(workerId),
+        number: cislo,
       });
       const chyba = DanubraSubcontract.missing({ worker: w, supplier });
 
       const html = DanubraPapers.ramcovaZmluva({ zmluva, chyba });
-      Docs.show(window.open('', '_blank'), html, { kind: 'ramcova', title: 'Rámcová zmluva',
+      Docs.show(okno, html, { kind: 'ramcova', title: 'Rámcová zmluva',
         number: zmluva && zmluva.number, who: w.full_name, lang: 'sk', worker_id: w.id });
 
       if (chyba.length) {
@@ -1632,23 +1642,26 @@
     },
 
     /**
-     * Navrhnuté číslo zmluvy pre človeka. Drží sa, kým sa zmluva nezapíše —
-     * vytlačená a zapísaná zmluva tak majú to isté číslo, a dvom ľuďom
-     * v jednom sedení sa nenavrhne to isté.
+     * Číslo zmluvy pre človeka z číselného radu „Zmluvy so živnostníkmi"
+     * (Nastavenia → Číselné rady, predvolene 2026100001). Pridelí ho databáza
+     * pri prvej tlači; drží sa, kým sa zmluva nezapíše — vytlačená a zapísaná
+     * zmluva tak majú to isté číslo a dvom ľuďom sa nepridelí to isté.
      */
     _cislaNavrh: {},
-    cisloNavrh(workerId) {
+    async cisloNavrh(workerId) {
       if (this._cislaNavrh[workerId]) return this._cislaNavrh[workerId];
-      const refs = [
-        ...this.docs.filter(d => d.kind === 'contract').map(d => d.reference),
-        ...Object.values(this._cislaNavrh),
-      ];
-      this._cislaNavrh[workerId] = DanubraSubcontract.nextNumber(refs);
-      return this._cislaNavrh[workerId];
+      const { data, error } = await DB.rpc('next_number', { p_kind: 'worker_contract' });
+      if (error || !data) throw new Error(error ? error.message : 'databáza nevrátila číslo');
+      this._cislaNavrh[workerId] = data;
+      return data;
     },
 
     /** Zapíše podpísanú zmluvu ako doklad — rovnako ako A1 alebo súhlas. */
-    zmluvaForm(workerId) {
+    async zmluvaForm(workerId) {
+      let cislo = '';
+      try { cislo = await this.cisloNavrh(workerId); } catch (e) {
+        UI.toast('Číslo zmluvy sa nepodarilo prideliť — dopíšte ho ručne: ' + e.message, 'warn');
+      }
       const dnes = new Date().toISOString().slice(0, 10);
       const koniec = DanubraSubcontract.koniecRoka(dnes);
       UI.modal('Zapísať podpísanú zmluvu', `
@@ -1659,8 +1672,8 @@
           ${this.scanFieldHtml('zml-form', workerId, { expectedKind: 'contract',
             fill: ['reference', 'valid_from', 'valid_to'] })}
           <div class="form-grid">
-            ${UI.field('reference', 'Číslo zmluvy', { value: this.cisloNavrh(workerId),
-              hint: 'Ďalšie voľné číslo — rovnaké ako na vytlačenej zmluve. Dá sa prepísať.' })}
+            ${UI.field('reference', 'Číslo zmluvy', { value: cislo,
+              hint: 'Číslo z číselného radu — rovnaké ako na vytlačenej zmluve. Pri staršej zmluve ho prepíšte jej číslom.' })}
             ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
             ${UI.field('valid_to', 'Platí do', { type: 'date', value: koniec })}
           </div>

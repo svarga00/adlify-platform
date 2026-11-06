@@ -25,7 +25,9 @@ const db = {};
 const sb = F.create(db, {
   users: { ok: { id: 'u1' }, rec: { id: 'u2' }, acc: { id: 'u3' } },
   // Počítadlo denného limitu (093) — rovnaké pravidlá ako SQL funkcie.
-  rpc: { danubra_next_number: async () => ({ data: '2026099', error: null }), ...F.sfUsageRpc() },
+  // Číselné rady (094): dobropis má vlastný rad (kód 08), faktúra kód 01.
+  rpc: { danubra_next_number: async (a) => ({ data: a && a.p_kind === 'credit_note' ? '2026080001' : '2026010099', error: null }),
+    ...F.sfUsageRpc() },
 });
 const uploads = [];
 sb.storage = {
@@ -312,6 +314,7 @@ console.log('SuperFaktúra — serverová funkcia');
     const r = parse(await call(handler, { invoice_id: 'i1', action: 'issue' }));
     const items = sfCalls('/invoices/create')[0].body.InvoiceItem;
     eq(items.map(i => [i.name, i.quantity, i.unit_price]), [['Montáž zábradlia', 12.5, 38]], 'vlastné položky, vyhodená nejde');
+    eq(items[0].unit, 'Std.', 'jednotka „h" ide na nemecký doklad ako „Std."');
     eq(r.check, 'ok', 'súčet sedí');
 
     reset({ total: 8736.01 });
@@ -321,6 +324,34 @@ console.log('SuperFaktúra — serverová funkcia');
     const it = sfCalls('/invoices/create')[0].body.InvoiceItem[0];
     eq([it.quantity, it.unit, it.unit_price], [1, 'Pauschale', 8736.01], 'hodiny × sadzba nesedia na cent → paušál s presnou sumou');
     ok(/312 Std\./.test(it.description), 'hodiny sú v popise');
+  }
+
+  // ── Jednotky po nemecky, dodávateľ z appky (MyData) ───────────────────────
+  // Skúšobná faktúra v sandboxe mala „1 | mes | 980,00 €" a v bloku Lieferant
+  // náhodný profil sandboxového účtu.
+  {
+    reset({ period_id: null, total: 980 });
+    db.danubra_invoice_items = [{ id: 'L1', invoice_id: 'i1', description: 'Weiterberechnung Unterkunft Ferienwohnung Keller, 09/2026 (2 Personen)',
+      quantity: 1, unit: 'mes', unit_price: 980 }];
+    Object.assign(db.danubra_settings[0].supplier, { address: 'Hlavná 12, 949 01 Nitra', company_id: '53941870',
+      tax_id: '2122816839', vat_id: 'SK2122816839', register: 'Obchodný register OS Nitra, odd. Sro, vl. č. 69265/N' });
+    sfCreates({ total: 980 });
+    await call(handler, { invoice_id: 'i1', action: 'issue' });
+    const p = sfCalls('/invoices/create')[0].body;
+    eq(p.InvoiceItem[0].unit, 'Monat', '„mes" ide na nemecký doklad ako „Monat"');
+    eq(db.danubra_invoice_items[0].unit, 'mes', 'v appke zostáva jednotka, ako bola napísaná');
+    eq(p.MyData, { company_name: 'Partner und Service s. r. o.', address: 'Hlavná 12', city: 'Nitra', zip: '949 01', country_id: 191,
+      ico: '53941870', dic: '2122816839', ic_dph: 'SK2122816839', business_register: 'Obchodný register OS Nitra, odd. Sro, vl. č. 69265/N' },
+    'dodávateľ (MyData) z Fakturačných údajov, nie z profilu SuperFaktúry');
+    ok(history().some(a => a.channel_meta && a.channel_meta.request && a.channel_meta.request.supplier === 'Partner und Service s. r. o.'),
+      'v histórii je, s akým dodávateľom doklad odišiel');
+
+    reset({ period_id: null, total: 980 });
+    db.danubra_invoice_items = [{ id: 'L1', invoice_id: 'i1', description: 'Unterkunft', quantity: 1, unit: 'mes', unit_price: 980 }];
+    db.danubra_settings[0].superfaktura.send_my_data = false;
+    sfCreates({ total: 980 });
+    await call(handler, { invoice_id: 'i1', action: 'issue' });
+    eq(sfCalls('/invoices/create')[0].body.MyData, undefined, 'vypnuté „Údaje dodávateľa posielať z appky" → MyData nejde');
   }
 
   // ── Kontrola súm po vystavení ─────────────────────────────────────────────
@@ -555,7 +586,9 @@ console.log('SuperFaktúra — serverová funkcia');
 
     reset(issued);
     const r = parse(await call(handler, { invoice_id: 'i1', action: 'cancel', reason: 'Nesprávna zákazka na faktúre' }));
-    eq([r.code, r.invoice_number], [200, '2026099'], 'dobropis sa pripraví s novým číslom');
+    eq([r.code, r.invoice_number], [200, '2026080001'], 'dobropis sa pripraví s novým číslom');
+    const rpcKind = sb.log.filter(x => x.rpc === 'danubra_next_number').map(x => x.args.p_kind).pop();
+    eq(rpcKind, 'credit_note', 'číslo dobropisu je z radu dobropisov (094), nie z radu faktúr');
     const cn = inv(r.credit_note_id);
     eq([cn.kind, cn.parent_invoice_id, cn.status, cn.total, cn.due_date, cn.approved_by == null],
       ['credit_note', 'i1', 'pending_approval', '-8736.00', null, true], 'ako dobropis čakajúci na schválenie, so zápornou sumou');
@@ -578,11 +611,11 @@ console.log('SuperFaktúra — serverová funkcia');
     eq([iss.code, iss.check], [200, 'ok'], 'schválený dobropis sa vystaví a suma sedí');
     const p = sfCalls('/invoices/create')[0].body;
     eq([p.Invoice.type, p.Invoice.parent_id, p.Invoice.invoice_no_formatted, p.Invoice.due === p.Invoice.created],
-      ['cancel', 777, '2026099', true], 'v SuperFaktúre ako doklad typu cancel k pôvodnej faktúre (bez splatnosti)');
+      ['cancel', 777, '2026080001', true], 'v SuperFaktúre ako doklad typu cancel k pôvodnej faktúre (bez splatnosti)');
     ok(/Stornorechnung zur Rechnung Nr\. 2026042/.test(p.Invoice.comment) && /Nesprávna zákazka/.test(p.Invoice.comment), 'na doklade je, ku ktorej faktúre a prečo');
     eq(p.InvoiceItem.map(i => [i.quantity, i.unit_price]), [[-312, 28]], 'položky záporné');
     eq([inv(cn.id).status, inv().status], ['issued', 'cancelled'], 'dobropis vystavený, pôvodná faktúra stornovaná (nezmazaná)');
-    ok(history('i1').some(a => /Stornovaná dobropisom 2026099/.test(a.body)), 'v histórii pôvodnej faktúry');
+    ok(history('i1').some(a => /Stornovaná dobropisom 2026080001/.test(a.body)), 'v histórii pôvodnej faktúry');
   }
 
   // ── Kľúč neodíde nikam ────────────────────────────────────────────────────

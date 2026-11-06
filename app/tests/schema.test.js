@@ -178,12 +178,59 @@ t('appka si nepýta nič, čo v databáze nie je', problems.length === 0);
   t('obdobie s faktúrou sa neotvorí späť', /create trigger danubra_period_reopen_guard/.test(m));
   t('príjem sa spáruje len pri sedí aj suma, nie len VS',
     /abs\(coalesce\(i\.amount_net, i\.total\) - tx\.amount\) <= 0\.01/.test(m));
-  // Neskoršia migrácia by funkciu mohla prepísať starou verziou.
+  // Neskoršia migrácia by funkciu mohla prepísať starou verziou. Číslovanie
+  // zámerne prepisuje 094 (formát z nastavení) — tá sa stráži nižšie.
   const neskorsie = fs.readdirSync(migDir).filter(x => x.endsWith('.sql') && parseInt(x, 10) > 70)
-    .filter(x => /function danubra_(next_number|invoice_from_period|bank_automatch)\b/
-      .test(fs.readFileSync(path.join(migDir, x), 'utf8')));
-  t('žiadna neskoršia migrácia neprepisuje číslovanie, faktúru z obdobia ani párovanie',
-    neskorsie.length === 0);
+    .filter(x => {
+      const txt = fs.readFileSync(path.join(migDir, x), 'utf8');
+      if (/function danubra_(invoice_from_period|bank_automatch)\b/.test(txt)) return true;
+      return /function danubra_next_number\b/.test(txt) && !x.startsWith('094_');
+    });
+  t('žiadna neskoršia migrácia neprepisuje číslovanie (okrem 094), faktúru z obdobia ani párovanie',
+    neskorsie.length === 0, neskorsie.join(', '));
+}
+
+// ── Číselné rady (migrácia 094) ─────────────────────────────────────────────
+// Overené na skutočnom Postgres 16 pri písaní migrácie (pridelenie, preskočenie
+// obsadeného čísla, nový rok, nižšie číslo, kolízia, kód iného radu, práva).
+{
+  const f = path.join(migDir, '094_ciselne_rady.sql');
+  const m = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  const fn = (name) => { const i = m.indexOf(`create or replace function ${name}(`); return i < 0 ? '' : m.slice(i, m.indexOf('$$;', m.indexOf('$$', i) + 2)); };
+  t('094: číslo sa doplní nulami, nikdy sa neoreže (lpad s greatest)',
+    /lpad\(v_seq, greatest\(v_digits, length\(v_seq\)\), '0'\)/.test(fn('danubra_series_format')));
+  t('094: pridelenie je atomické (FOR UPDATE nad riadkom nastavení)',
+    /from danubra_settings order by created_at limit 1 for update/.test(fn('danubra_series_take')));
+  t('094: číslo si vypýta len člen appky, faktúru za živnostníka nie',
+    /if not danubra_is_member\(\)/.test(fn('danubra_next_number')) && /p_kind = 'self_bill'/.test(fn('danubra_next_number')));
+  t('094: rad mení len admin a nižšie než použité číslo odmietne',
+    /if not danubra_is_admin\(\)/.test(fn('danubra_set_series')) && /if p_next <= v_used then/.test(fn('danubra_set_series')));
+  t('094: zmena radu kontroluje číslo iného dokladu a kód iného radu',
+    /danubra_number_taken\(p_kind, v_number\)/.test(fn('danubra_set_series')) && /Každý druh dokladu potrebuje vlastný kód/.test(fn('danubra_set_series')));
+  t('094: zmena radu sa zapíše do histórie', /insert into danubra_activities/.test(fn('danubra_set_series')));
+  t('094: obsadené číslo sa preskočí (aj ručne zapísané alebo vzorové)',
+    /exit when not danubra_number_taken\(p_kind, number\)/.test(fn('danubra_series_next')));
+  t('094: s rokom v čísle sa rad v januári vynuluje, bez roka nie',
+    /v_fmt->>'year_style' <> 'none' and coalesce\(\(p_series->>'year'\)::int, 0\) <> p_year/.test(fn('danubra_series_next')));
+  t('094: variabilný symbol najviac 10 číslic', /length\(v_vs\) > 10/.test(fn('danubra_set_series')));
+  t('094: priamy zápis do radov stráži spúšťač',
+    /create trigger danubra_settings_series_guard before update on danubra_settings/.test(m));
+  t('094: kontrola duplicity pozná všetky tabuľky dokladov',
+    ['danubra_invoices', 'danubra_orders', 'danubra_work_orders', 'danubra_subcontracts', 'danubra_quotes',
+      'danubra_contracts', 'danubra_contract_amendments', 'danubra_worker_documents', 'danubra_bills']
+      .every(tb => fn('danubra_number_taken').includes(tb)));
+  t('094: rad faktúr od 1 len bez iných než vzorových faktúr v roku',
+    /invoice_number not ilike '%VZOR%'/.test(m) && /if v_real = 0 then/.test(m));
+  t('094: anonymný nesmie volať nič z číselných radov',
+    /revoke execute on function %s from public, anon/.test(m));
+  // Kódy druhov v SQL a v lib/numbering.js musia sedieť (náhľad = skutočné číslo).
+  const N = require(path.join(root, 'lib', 'numbering.js'));
+  const sqlCodes = Object.fromEntries([...fn('danubra_series_defaults').matchAll(/when '(\w+)' then '(\d{2})'/g)].map(x => [x[1], x[2]]));
+  t('094: kódy druhov dokladov sú v SQL aj v appke rovnaké',
+    N.SERIES.every(s => sqlCodes[s.kind] === s.defaults.code) && Object.keys(sqlCodes).length === N.SERIES.length);
+  t('094: kódy druhov sú jedinečné', new Set(Object.values(sqlCodes)).size === Object.keys(sqlCodes).length);
+  const kinds = (fn('danubra_series_kinds').match(/array\[([^\]]+)\]/) || [, ''])[1].match(/'(\w+)'/g) || [];
+  t('094: zoznam radov v SQL = zoznam v appke', kinds.map(k => k.replace(/'/g, '')).sort().join() === N.SERIES.map(s => s.kind).sort().join());
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);

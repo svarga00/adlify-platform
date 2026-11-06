@@ -4566,7 +4566,8 @@ console.log('Prehliadač');
         const zapisy = [];
         DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
         DB.count = async () => 0;
-        DB.rpc = async () => ({ data: null, error: null });
+        // Číslo zmluvy so živnostníkom prideľuje databáza (094, rad worker_contract).
+        DB.rpc = async (fn, a) => ({ data: fn === 'next_number' && a && a.p_kind === 'worker_contract' ? '2026100007' : null, error: null });
         DB.update = async (t, id, patch) => { zapisy.push({ t, id, patch }); return { error: null }; };
         DB.signedDocUrls = async () => new Map();
         Danubra.user = { id: 'test', email: 'test@firma.sk' };
@@ -4638,6 +4639,7 @@ console.log('Prehliadač');
       ok(out.otvoreneSkor === 0, 'a papier dovtedy neotvorí');
       ok(/Cyril Demeter/.test(out.zmluva) && /53941870/.test(out.zmluva) && /Brekov 81/.test(out.zmluva),
         'po uložení sa zmluva otvorí s menom, IČO aj adresou');
+      ok(/2026100007/.test(out.zmluva), 'zmluva má číslo z číselného radu (2026100007)');
       ok(out.zapisy.some(z => z.t === 'workers' && z.id === 'w1' && z.patch.company_id === '53941870'),
         'a údaje sa uložia k človeku');
       ok(out.znova, 'nabudúce sa už nepýta');

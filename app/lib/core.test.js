@@ -42,19 +42,19 @@ eq(sm.SIDE_EFFECTS.paid.includes('create_first_service_period'), true, 'paid →
 
 // ── ČÍSELNÉ RADY (§6.1) ─────────────────────────────────────────────────────
 console.log('\nnumbering (§6.1)');
-eq(num.formatOrderNumber(2026, 42), 'OBJ-2026-0042', 'formát objednávky OBJ-2026-0042');
-eq(num.formatInvoiceNumber(2026, 1), '202600001', 'formát faktúry 202600001 (rok + 5 číslic, 094)');
-eq(num.formatInvoiceNumber(2026, 137), '202600137', 'formát faktúry 202600137');
-eq(num.formatInvoiceNumber(2026, 123456), '2026123456', 'faktúra sa neoreže (100 000+ v roku)');
+eq(num.formatOrderNumber(2026, 42), '2026020042', 'formát objednávky 2026020042 (rok + kód 02 + 4 číslice, 094)');
+eq(num.formatInvoiceNumber(2026, 1), '2026010001', 'formát faktúry 2026010001 (rok + kód 01 + 4 číslice, 094)');
+eq(num.formatInvoiceNumber(2026, 137), '2026010137', 'formát faktúry 2026010137');
+eq(num.formatInvoiceNumber(2026, 12345), '20260112345', 'faktúra sa neoreže (10 000+ v roku)');
 
 // prvý v roku
-eq(num.nextOrderNumber({ year: 2026, current: 0 }, 2026).number, 'OBJ-2026-0001', 'prvá objednávka roka');
+eq(num.nextOrderNumber({ year: 2026, current: 0 }, 2026).number, '2026020001', 'prvá objednávka roka');
 // inkrement
-eq(num.nextOrderNumber({ year: 2026, current: 41 }, 2026).number, 'OBJ-2026-0042', 'inkrement na 42');
+eq(num.nextOrderNumber({ year: 2026, current: 41 }, 2026).number, '2026020042', 'inkrement na 42');
 // reset pri zmene roka
 {
   const r = num.nextOrderNumber({ year: 2025, current: 999 }, 2026);
-  eq(r.number, 'OBJ-2026-0001', 'reset série pri novom roku');
+  eq(r.number, '2026020001', 'reset série pri novom roku');
   eq(r.newSeries, { year: 2026, current: 1 }, 'nový stav série po resete');
 }
 
@@ -68,7 +68,7 @@ eq(num.nextOrderNumber({ year: 2026, current: 41 }, 2026).number, 'OBJ-2026-0042
     issued.push(r.number);
     series = r.newSeries; // stav sa prenáša (transakčne serializované)
   }
-  eq(issued, ['202600001', '202600002', '202600003', '202600004', '202600005'], 'súbežnosť: 5 faktúr bez diery/duplicity');
+  eq(issued, ['2026010001', '2026010002', '2026010003', '2026010004', '2026010005'], 'súbežnosť: 5 faktúr bez diery/duplicity');
   const unique = new Set(issued);
   eq(unique.size, 5, 'súbežnosť: všetkých 5 čísel unikátnych');
 }

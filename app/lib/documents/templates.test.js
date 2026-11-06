@@ -208,6 +208,18 @@ console.log('Dokumenty');
     invoice: { invoice_number: 'x', total: 1, currency: 'EUR' },
     items: [], client: sk, supplier, lang: 'de' })), 'jazyk sa dá určiť ručne');
 
+  // 4. Merné jednotky v jazyku dokladu. Uložené sú, ako ich človek napísal
+  //    („mes", „h") — na nemecký doklad ide „Monat", „Std." (ten istý preklad
+  //    ako do SuperFaktúry). Slovenský doklad ich nechá.
+  const jedn = [{ description: 'Weiterberechnung Unterkunft', quantity: 1, unit: 'mes', unit_price: 980, total: 980 },
+    { description: 'Montage', quantity: 2, unit: 'ks', unit_price: 10, total: 20 }];
+  const deJ = P.invoice({ invoice: { invoice_number: '2026010001', total: 1000, currency: 'EUR' }, items: jedn, client: de, supplier });
+  ok(/>Monat</.test(deJ) && />Stk\.</.test(deJ) && !/>mes</.test(deJ), 'nemecký doklad: mes → Monat, ks → Stk.');
+  ok(/>Std\.</.test(so), 'hodiny „h" → „Std."');
+  const skJ = P.invoice({ invoice: { invoice_number: '2026010002', total: 1000, currency: 'EUR' }, items: jedn, client: sk, supplier });
+  ok(/>mes</.test(skJ) && />ks</.test(skJ), 'slovenský doklad: jednotky, ako boli napísané');
+  ok(/2026010001/.test(deJ.slice(deJ.indexOf('Verwendungszweck'))), 'Verwendungszweck = celé číslo faktúry 2026010001');
+
   // Rozpad sumy je vlastná funkcia, lebo ju potrebuje aj QR kód.
   eq(P.payable({ total: 5280, amount_net: 4488, withholding_amount: 792 }),
     { total: 5280, held: 792, net: 4488 }, 'rozpad sumy');

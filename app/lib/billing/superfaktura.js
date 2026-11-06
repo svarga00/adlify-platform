@@ -23,6 +23,10 @@
 (function () {
   const M = (typeof require !== 'undefined' && typeof module !== 'undefined')
     ? require('../money.js') : window.Money;
+  // Preklad merných jednotiek (mes → Monat) je jeden pre SuperFaktúru aj PDF z appky.
+  const IV = (typeof require !== 'undefined' && typeof module !== 'undefined')
+    ? require('./invoice.js') : window.DanubraInvoice;
+  const unitFor = (u, lang) => (IV && IV.unitFor ? IV.unitFor(u, lang) : u);
 
   // ── Prostredie ────────────────────────────────────────────────────────────
   const BASE = {
@@ -121,7 +125,8 @@
       return own.map(i => ({
         name: String(i.description || '').slice(0, 250) || t.service,
         quantity: Number(i.quantity) || 0,
-        unit: i.unit || 'ks',
+        // Uložené je, čo človek napísal („mes"); na nemecký doklad ide „Monat".
+        unit: unitFor(i.unit || 'ks', lang),
         unit_price: amount(M.toCents(i.unit_price || 0)),
         tax,
       }));
@@ -158,6 +163,39 @@
       return `${what} — ${m}/${y}`;
     }
     return what;
+  }
+
+  // ── Dodávateľ na doklade (MyData) ─────────────────────────────────────────
+  // SuperFaktúra berie údaje dodávateľa (blok „Lieferant") z profilu účtu
+  // (Nastavenia → Moja firma). Sandbox má profil vygenerovaný náhodne — na
+  // skúšobnej faktúre preto stálo nezmyselné meno a adresa. `MyData`
+  // v /invoices/create ich prebije údajmi z appky (Nastavenia → Fakturačné
+  // údaje), takže doklad má našu firmu bez ohľadu na profil účtu. Vypína sa
+  // nastavením `send_my_data: false`. Logo, telefón, e-mail a web zostávajú
+  // z profilu SuperFaktúry.
+
+  /** „Hlavná 12, 949 01 Nitra" → { address, zip, city }. Bez PSČ len address. */
+  function splitAddress(addr) {
+    const a = String(addr || '').replace(/\s+/g, ' ').trim();
+    if (!a) return {};
+    const m = a.match(/^(.*?)[,\s]+(\d{3} ?\d{2})\s+([^,]+?)(?:\s*,\s*(?:Slovensko|Slovakia|Slowakei|Slovenská republika|SK))?\s*$/i);
+    if (!m || !m[1].trim()) return { address: a };
+    return { address: m[1].replace(/,\s*$/, '').trim(), zip: m[2].replace(/\s/g, '').replace(/^(\d{3})(\d{2})$/, '$1 $2'), city: m[3].trim() };
+  }
+
+  /** MyData z Fakturačných údajov. Bez názvu firmy nič (radšej profil SF než prázdny blok). */
+  function myData(sup = {}) {
+    const name = String(sup.name || '').trim();
+    if (!name) return null;
+    const adr = { ...splitAddress(sup.address), ...(sup.city ? { city: sup.city } : {}), ...(sup.zip ? { zip: sup.zip } : {}) };
+    const country = String(sup.country || 'SK').toUpperCase();
+    return strip({
+      company_name: name,
+      address: adr.address, city: adr.city, zip: adr.zip,
+      country_id: IV && IV.COUNTRY_ID ? IV.COUNTRY_ID[country] : undefined,
+      ico: sup.company_id, dic: sup.tax_id, ic_dph: sup.vat_id,
+      business_register: sup.register,
+    });
   }
 
   // ── Payload pre POST /invoices/create ─────────────────────────────────────
@@ -247,12 +285,16 @@
     };
     if (o.sfClientId) Client.id = Number(o.sfClientId) || o.sfClientId;
 
-    return {
+    const out = {
       Invoice: strip(Invoice),
       Client: strip(Client),
       InvoiceItem: buildItems({ invoice: inv, subcontract: sub, period, items: o.items, lang }),
       InvoiceSetting: { language: lang, bysquare: 1, payment_info: 1, online_payment: 0 },
     };
+    // Dodávateľ z appky, nie z profilu účtu SuperFaktúry (predvolene zapnuté).
+    const md = s.send_my_data === false ? null : myData(sup);
+    if (md) out.MyData = md;
+    return out;
   }
 
   /** Klient pre POST /clients/create — tie isté údaje ako v doklade. */
@@ -480,7 +522,7 @@
   const API = {
     BASE, envOf, baseUrl, maskEmail,
     LANG, LANGS, sfLang, TXT, txt, reverseChargeNote, RC_DE, RC_EU,
-    isCreditNote, expectedCents, buildItems, itemsCents, buildInvoice, buildClient,
+    isCreditNote, expectedCents, buildItems, itemsCents, buildInvoice, buildClient, splitAddress, myData, unitFor,
     readInvoice, readList, paymentState, reconcile, findInList, findClient,
     flatMessage, clip, chips, idempotencyKey, b64, usageText, usagePct, syncExhausted,
   };

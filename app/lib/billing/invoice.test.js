@@ -401,5 +401,26 @@ console.log('\nVOĽNÁ FAKTÚRA, POLOŽKY, ÚPRAVA NÁVRHU');
   ok(!r2.reasons.some(x => x.rule === 'invoice_items_mismatch'), 'keď sedia, nie');
 }
 
+
+// ── Merné jednotky podľa jazyka dokladu ───────────────────────────────────
+// Skúšobná faktúra v sandboxe: „Weiterberechnung Unterkunft … | 1 | mes | 980,00 €".
+console.log('\nmerné jednotky podľa jazyka dokladu');
+{
+  const DE = { mes: 'Monat', mesiac: 'Monat', hod: 'Std.', h: 'Std.', hodina: 'Std.', ks: 'Stk.', 'deň': 'Tag', den: 'Tag',
+    noc: 'Nacht', km: 'km', 'paušál': 'Pauschale', pausal: 'Pauschale', 'týždeň': 'Woche', osoba: 'Person', 'os./deň': 'Personentag' };
+  for (const [sk, de] of Object.entries(DE)) eq(I.unitFor(sk, 'de'), de, `SK „${sk}" → DE „${de}"`);
+  const EN = { mes: 'month', hod: 'hrs', ks: 'pcs', 'deň': 'day', noc: 'night', km: 'km', 'paušál': 'lump sum', 'týždeň': 'week', osoba: 'person' };
+  for (const [sk, en] of Object.entries(EN)) eq(I.unitFor(sk, 'eng'), en, `SK „${sk}" → EN „${en}"`);
+  eq(I.unitFor('mes', 'deu'), 'Monat', 'kód SuperFaktúry „deu" = nemčina');
+  eq(I.unitFor('MES.', 'de'), 'Monat', 'veľké písmená a bodka na konci nevadia');
+  eq(I.unitFor('mes', 'sk'), 'mes', 'slovenský doklad: jednotka, ako bola napísaná');
+  eq(I.unitFor('Std.', 'de'), 'Std.', 'už nemecká zostane');
+  eq(I.unitFor('Std.', 'slo'), 'h', 'nemecká na slovenskom doklade → „h" (dobropis kopíruje položky)');
+  eq(I.unitFor('m2', 'de'), 'm2', 'neznáma jednotka zostane, ako bola');
+  eq(I.unitFor('mes', 'hun'), 'mes', 'iný jazyk dokladu: bez prekladu');
+  eq(I.unitFor('', 'de'), '', 'prázdna zostane prázdna');
+  eq(I.unitFor(null, 'de'), '', 'chýbajúca nezhodí');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

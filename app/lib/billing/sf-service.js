@@ -127,6 +127,7 @@ function summarize(payload = {}) {
     parent_id: I.parent_id, items: items.length, items_total: items.length ? M.toNumeric(SF.itemsCents(items)) : null,
     client: payload.Client ? { id: payload.Client.id || null, name: payload.Client.name, ic_dph: payload.Client.ic_dph || null } : null,
     language: payload.InvoiceSetting && payload.InvoiceSetting.language,
+    supplier: payload.MyData ? payload.MyData.company_name : null,
   });
 }
 
@@ -937,7 +938,8 @@ function createService({ supabase, fetch: fetchImpl, env: ENV = process.env, sle
       .eq('parent_invoice_id', inv.id).eq('kind', 'credit_note').neq('status', 'cancelled').limit(1);
     if (ex && ex.length) return no(409, `K faktúre už je dobropis ${ex[0].invoice_number || ''} („${ex[0].status}").`.replace(/\s+\(/, ' ('));
 
-    const { data: num, error: ne } = await supabase.rpc('danubra_next_number', { p_kind: 'invoice' });
+    // Dobropis má vlastný číselný rad (094: kód 08, napr. 2026080001).
+    const { data: num, error: ne } = await supabase.rpc('danubra_next_number', { p_kind: 'credit_note' });
     if (ne || !num) throw new Error('Číslo dobropisu sa nepodarilo prideliť: ' + (ne ? ne.message : 'prázdne'));
 
     // Položky ako na pôvodnom doklade, so záporným množstvom.
