@@ -403,20 +403,34 @@ exports.handler = async (event) => {
       } catch (e) { s.errors.push(`leads refresh: ${e.message}`); }
     }
 
-    // ── 10. SuperFaktúra: stav úhrad (092) ──────────────────────────────
+    // ── 10. SuperFaktúra: stav úhrad (092, 093) ─────────────────────────
     // Len keď sú kľúče nastavené a nastavenie to nevyplo. Nič sa neprepisuje
     // naslepo: „zaplatená" len pri úplnej úhrade v SuperFaktúre a len keď
     // platbu ešte nespárovala Banka; ostatné rozdiely idú do histórie faktúry.
+    // Účet má limit 1000 požiadaviek denne (093): synchronizácia beží len raz
+    // za deň (cron_sync_at v danubra_sf_usage), číta zoznam po 100 dokladoch,
+    // preskočí faktúry synchronizované za posledných 20 h a skončí, keď sa
+    // minie jej denný rozpočet (SF_SYNC_BUDGET).
     if (process.env.SF_EMAIL && process.env.SF_API_KEY) {
       try {
         const { data: cfg } = await supabase.from('danubra_settings').select('superfaktura').limit(1);
         const sfCfg = ((cfg || [])[0] || {}).superfaktura || {};
         if (sfCfg.sync_daily === false) s.sfSync = 'vypnuté v nastaveniach';
         else {
-          const r = await SfService.createService({ supabase, env: process.env }).syncAll({});
-          const b = r.body || {};
-          s.sfSync = { checked: b.checked, paid: b.paid, partial: b.partial, mismatch: b.mismatch, env: b.environment };
-          for (const e of (b.errors || []).slice(0, 5)) s.errors.push(`superfaktura: ${e}`);
+          const svc = SfService.createService({ supabase, env: process.env });
+          const claim = await svc.claimDailySync();
+          if (!claim.ok) {
+            s.sfSync = claim.reason === 'done' ? 'dnes už prebehla'
+              : claim.reason === 'missing' ? 'chýba migrácia 093 — synchronizácia sa nespustila' : 'počítadlo nedostupné — synchronizácia sa nespustila';
+          } else {
+            const r = await svc.syncAll({});
+            const b = r.body || {};
+            s.sfSync = { checked: b.checked, paid: b.paid, partial: b.partial, mismatch: b.mismatch, env: b.environment,
+              requests: b.requests, skipped_recent: b.skipped_recent, pending: b.pending, budget_stopped: b.budget_stopped || undefined,
+              used_today: b.usage && b.usage.used };
+            if (b.error) s.errors.push(`superfaktura: ${b.error}`);
+            for (const e of (b.errors || []).slice(0, 5)) s.errors.push(`superfaktura: ${e}`);
+          }
         }
       } catch (e) { s.errors.push(`superfaktura: ${e.message}`); }
     }

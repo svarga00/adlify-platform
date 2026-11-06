@@ -68,13 +68,15 @@ console.log('SuperFaktúra — rozhranie');
   const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
   /** Stránka s podstrčenou databázou a serverovou funkciou. */
-  async function open(role = 'admin', env = 'sandbox') {
+  const USAGE = { available: true, day: '2026-11-06', limit: 1000, hard_cap: 950, margin: 50, used: 123, remaining: 827,
+    sync_used: 80, sync_budget: 300, sync_remaining: 220, write_used: 43, write_reserve: 100, blocked: false };
+  async function open(role = 'admin', env = 'sandbox', usage = USAGE) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const chyby = [];
     page.on('pageerror', e => chyby.push(e.message));
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000);
-    await page.evaluate(({ role, env }) => {
+    await page.evaluate(({ role, env, usage }) => {
       const DATA = {
         partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE', ust_idnr: 'DE287451936', email: 'bau@gu-ulm.de', invoice_language: 'de' }],
         invoices: [
@@ -109,14 +111,14 @@ console.log('SuperFaktúra — rozhranie');
       Danubra.loadCfg = async () => DATA.settings[0];
       const STATUS = { ok: true, environment: env, sandbox: env !== 'production',
         base: env === 'production' ? 'https://moja.superfaktura.sk' : 'https://sandbox.superfaktura.sk',
-        configured: true, email_set: true, key_set: true, company_set: false, account: 's…@punds.eu' };
+        configured: true, email_set: true, key_set: true, company_set: false, account: 's…@punds.eu', usage };
       window.fetch = async (u, o = {}) => {
         const b = o.body ? JSON.parse(o.body) : {};
         __T.calls.push(b);
         const R = (code, j) => new Response(JSON.stringify(j), { status: code, headers: { 'Content-Type': 'application/json' } });
         if (b.action === 'status') return R(200, STATUS);
         if (b.action === 'ping') return R(200, { ok: true, environment: env, company: 'Partner und Service s. r. o.', account: 's…@punds.eu' });
-        if (b.action === 'sync') return R(200, { ok: true, checked: 2, paid: 1, partial: 0, mismatch: 0, errors: [] });
+        if (b.action === 'sync') return R(200, { ok: true, checked: 2, paid: 1, partial: 0, mismatch: 0, errors: [], requests: 1, skipped_recent: 3 });
         if (b.action === 'issue') return R(200, { ok: true, sf_invoice_id: 901, check: 'ok' });
         if (b.action === 'cancel') return R(200, { ok: true, credit_note_id: 'cn1', invoice_number: '2026099' });
         return R(400, { error: 'Neznáma akcia.', hint: 'x' });
@@ -127,7 +129,7 @@ console.log('SuperFaktúra — rozhranie');
       Danubra.cfgRow = DATA.settings[0];
       document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
       Danubra._buildNav();
-    }, { role, env });
+    }, { role, env, usage });
     return { page, chyby };
   }
   const txt = (page, sel) => page.evaluate((s) => { const n = document.querySelector(s); return n ? n.innerText.replace(/\s+/g, ' ') : ''; }, sel);
@@ -145,6 +147,9 @@ console.log('SuperFaktúra — rozhranie');
       const lang = await page.$eval('#cfg-superfaktura [name=default_language]', el => el.value);
       const own = await page.$eval('#cfg-superfaktura [name=use_own_number]', el => el.checked);
       ok(lang === 'deu' && own, 'predvolene: doklad po nemecky (deu), číslo z appky');
+      ok(/Dnes použité: 123 z 1000 \(synchronizácia 80 z 300\)/.test(card), 'počítadlo: Dnes použité: 123 z 1000 (synchronizácia 80 z 300)', card.slice(0, 600));
+      const bar = await page.evaluate(() => { const b = document.querySelector('#sf-card .sf-usage-bar > span'); return b ? b.style.width : null; });
+      ok(bar === '12%', 'a pásik podľa použitia (12 %)', String(bar));
       await page.click('#sf-ping');
       await page.waitForTimeout(300);
       const ping = await txt(page, '#sf-ping-out');
@@ -158,6 +163,7 @@ console.log('SuperFaktúra — rozhranie');
         && up[2].superfaktura.use_own_number === true, 'uloží sa do nastavení superfaktura (čísla ako čísla)', JSON.stringify(up && up[2]));
       const calls = await page.evaluate(() => __T.calls.map(c => c.action));
       ok(calls.includes('status') && calls.includes('ping'), 'stav aj test idú cez serverovú funkciu', calls.join(','));
+      ok(calls.lastIndexOf('status') > calls.indexOf('ping'), 'po teste spojenia sa počítadlo načíta znova', calls.join(','));
       ok(chyby.length === 0, 'nič nespadne', chyby.join('; '));
       await page.close();
     }
@@ -185,6 +191,11 @@ console.log('SuperFaktúra — rozhranie');
       const akcie = await txt(page, '.sf-bar');
       ok(/SANDBOX/.test(akcie) && /Vystaviť schválené v SuperFaktúre \(1\)/.test(akcie) && /Synchronizovať so SuperFaktúrou/.test(akcie)
         && /1 nesúhlasí/.test(akcie), 'nad zoznamom: SANDBOX, Vystaviť schválené (1), Synchronizovať, počet nesúhlasiacich', akcie);
+      const req = await page.evaluate(() => { const n = document.querySelector('.sf-bar .sf-req'); return n ? [n.textContent, n.getAttribute('data-tip')] : null; });
+      ok(req && /dnes 123\/1000/.test(req[0]) && /Dnes zostáva 827 z 1000 požiadaviek na SuperFaktúru \(synchronizácia 220 z 300\)/.test(req[1]),
+        'v páse: požiadavky dnes, zostatok v tooltipe', JSON.stringify(req));
+      const syncOff = await page.evaluate(() => { const b = document.querySelector('.sf-bar .sf-sync-btn'); return b ? b.disabled : null; });
+      ok(syncOff === false, 'synchronizácia je zapnutá, kým má rozpočet');
       const zoznam = await txt(page, '#dl-faktury');
       ok(/SF · sandbox/.test(zoznam) && /SF · nesúhlasí/.test(zoznam), 'v zozname značka SF (a nesúhlasí)', zoznam.slice(0, 300));
 
@@ -230,6 +241,31 @@ console.log('SuperFaktúra — rozhranie');
       await page.waitForTimeout(300);
       const sync = await page.evaluate(() => __T.calls.filter(x => x.action === 'sync'));
       ok(sync.length === 1 && !sync[0].invoice_id, 'Synchronizovať so SuperFaktúrou = všetky naraz');
+      const statusPo = await page.evaluate(() => __T.calls.map(c => c.action).lastIndexOf('status') > __T.calls.map(c => c.action).lastIndexOf('sync'));
+      ok(statusPo, 'po synchronizácii sa počítadlo načíta znova');
+      ok(chyby.length === 0, 'nič nespadne', chyby.join('; '));
+      await page.close();
+    }
+    {
+      // Rozpočet synchronizácie je na dnes minutý: tlačidlá vypnuté s vysvetlením.
+      const { page, chyby } = await open('admin', 'sandbox', { ...USAGE, used: 380, remaining: 570, sync_used: 300, sync_remaining: 0 });
+      await page.evaluate(async () => { Inv.loaded = false; Inv.v2.loaded = false; SFUI.status = null; Danubra.route = 'invoices'; await Danubra.renderRoute(); });
+      await page.waitForTimeout(500);
+      const b = await page.evaluate(() => { const x = document.querySelector('.sf-bar .sf-sync-btn'); return x ? [x.disabled, x.parentElement.innerHTML] : null; });
+      ok(b && b[0] === true && /Synchronizácia je na dnes vyčerpaná \(300 z 300 požiadaviek\)/.test(b[1]) && /vyhradenú rezervu/.test(b[1]),
+        'vyčerpaná synchronizácia: „Synchronizovať so SuperFaktúrou" vypnuté a vysvetlené', b && b[1].slice(0, 300));
+      const tip = await page.evaluate(() => { const n = document.querySelector('.sf-bar .sf-req'); return n ? n.getAttribute('data-tip') : ''; });
+      ok(/Dnes zostáva 570 z 1000/.test(tip) && /synchronizácia 0 z 300/.test(tip), 'tooltip: zostáva 570, synchronizácia 0', tip);
+      await page.evaluate(() => Inv.detail('i1'));
+      await page.waitForTimeout(300);
+      const d = await page.evaluate(() => { const x = document.querySelector('#ui-modal .sf-panel .sf-sync-btn'); return x ? x.disabled : null; });
+      ok(d === true, 'aj v detaile faktúry je „Synchronizovať" vypnuté');
+      const iss = await page.evaluate(() => { const x = [...document.querySelectorAll('.sf-bar button')].find(y => /Vystaviť schválené/.test(y.textContent)); return x ? x.disabled : null; });
+      ok(iss === false, 'vystavovanie zostáva zapnuté (má rezervu)');
+      await page.evaluate(async () => { Cfg.loaded = false; Danubra.route = 'settings'; await Danubra.renderRoute(); });
+      await page.waitForTimeout(400);
+      const card = await txt(page, '#sf-card');
+      ok(/Dnes použité: 380 z 1000 \(synchronizácia 300 z 300\)/.test(card) && /pokračuje zajtra/i.test(card), 'v Nastaveniach: 380 z 1000 a že synchronizácia pokračuje zajtra', card.slice(0, 700));
       ok(chyby.length === 0, 'nič nespadne', chyby.join('; '));
       await page.close();
     }

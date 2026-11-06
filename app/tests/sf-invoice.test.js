@@ -24,7 +24,8 @@ process.env.SF_RETRY_DELAY_MS = '0';
 const db = {};
 const sb = F.create(db, {
   users: { ok: { id: 'u1' }, rec: { id: 'u2' }, acc: { id: 'u3' } },
-  rpc: { danubra_next_number: async () => ({ data: '2026099', error: null }) },
+  // Počítadlo denného limitu (093) — rovnaké pravidlá ako SQL funkcie.
+  rpc: { danubra_next_number: async () => ({ data: '2026099', error: null }), ...F.sfUsageRpc() },
 });
 const uploads = [];
 sb.storage = {
@@ -113,6 +114,7 @@ function reset(inv = {}, partner = {}) {
   db.danubra_tasks = [];
   db.danubra_archive = [];
   db.danubra_bank_transactions = [];
+  db.danubra_sf_usage = [];
   calls = []; routes = []; uploads.length = 0;
 }
 const inv = (id = 'i1') => db.danubra_invoices.find(x => x.id === id);

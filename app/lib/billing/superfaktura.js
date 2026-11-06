@@ -305,7 +305,9 @@
       number: I.invoice_no_formatted || null,
       type: I.type || null,
       variable: I.variable != null ? String(I.variable) : null,
-      totalCents: cents(first(I.total, summary.invoice_total, I.amount_with_vat)),
+      // Zoznam (index.json) a getInvoiceDetails nemajú `Invoice.total` — suma je
+      // v `Summary.invoice_total`, prípadne v nepomenovanom kľúči „0".
+      totalCents: cents(first(I.total, summary.invoice_total, I.amount_with_vat, (d['0'] || {}).total)),
       paidCents: cents(first(I.amount_paid, I.paid)) ?? paysCents,
       status: I.status != null ? String(I.status) : null,
       due: day(I.due),
@@ -366,6 +368,36 @@
     }
     return null;
   }
+
+  /**
+   * Strana zoznamu faktúr (GET /invoices/index.json/listinfo:1/…) → doklady
+   * v tvare readInvoice + stránkovanie. Jedna požiadavka = až 100 dokladov,
+   * namiesto jednej požiadavky /invoices/view na každý.
+   * @returns {{ items:Array, page:number, pageCount:number|null, itemCount:number|null }}
+   */
+  function readList(json) {
+    const list = Array.isArray(json) ? json : (json && (json.items || json.data || json.invoices)) || [];
+    const items = (Array.isArray(list) ? list : []).filter(r => r && r.Invoice).map(r => readInvoice(r));
+    const num = (v) => (v === undefined || v === null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+    return { items, page: num(json && json.page), pageCount: num(json && json.pageCount), itemCount: num(json && json.itemCount) };
+  }
+
+  // ── Denný limit požiadaviek (sf-budget.js) ────────────────────────────────
+  /**
+   * „Dnes použité: 123 z 1000 (synchronizácia 80 z 300)". Prázdne, keď stav
+   * počítadla nie je známy.
+   */
+  function usageText(u) {
+    if (!u || u.available === false || u.used == null) return '';
+    return `Dnes použité: ${u.used} z ${u.limit} (synchronizácia ${u.sync_used} z ${u.sync_budget})`;
+  }
+  /** Koľko percent denného limitu je použitých (0–100). */
+  function usagePct(u) {
+    if (!u || !u.limit) return 0;
+    return Math.max(0, Math.min(100, Math.round((Number(u.used) || 0) * 100 / u.limit)));
+  }
+  /** Synchronizácia je na dnes vyčerpaná? */
+  function syncExhausted(u) { return !!(u && u.available !== false && u.sync_remaining != null && u.sync_remaining <= 0); }
 
   /** Klient podľa USt-IdNr / názvu v zozname (GET /clients/index.json). */
   function findClient(json, partner = {}) {
@@ -433,18 +465,24 @@
   /** Kľúč pokusu o vystavenie: faktúra + prostredie. */
   function idempotencyKey(inv = {}, env) { return `${inv.id}:${envOf(env)}`; }
 
-  /** Base64 pre parametre zoznamov SuperFaktúry (search:…). Funguje v Node aj v prehliadači. */
+  /**
+   * Base64 pre parametre zoznamov SuperFaktúry (search:…). Funguje v Node aj v prehliadači.
+   * SuperFaktúra chce variant bezpečný v adrese: „+" → „-", „/" → „_", „=" → „,".
+   * Bez toho číslo ako „2026042" (končí na „==") vyhľadávanie nenájde.
+   */
   function b64(s) {
-    if (typeof Buffer !== 'undefined') return Buffer.from(String(s), 'utf8').toString('base64');
-    return btoa(unescape(encodeURIComponent(String(s))));
+    const raw = typeof Buffer !== 'undefined'
+      ? Buffer.from(String(s), 'utf8').toString('base64')
+      : btoa(unescape(encodeURIComponent(String(s))));
+    return raw.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ',');
   }
 
   const API = {
     BASE, envOf, baseUrl, maskEmail,
     LANG, LANGS, sfLang, TXT, txt, reverseChargeNote, RC_DE, RC_EU,
     isCreditNote, expectedCents, buildItems, itemsCents, buildInvoice, buildClient,
-    readInvoice, paymentState, reconcile, findInList, findClient,
-    flatMessage, clip, chips, idempotencyKey, b64,
+    readInvoice, readList, paymentState, reconcile, findInList, findClient,
+    flatMessage, clip, chips, idempotencyKey, b64, usageText, usagePct, syncExhausted,
   };
   if (typeof window !== 'undefined') window.DanubraSF = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

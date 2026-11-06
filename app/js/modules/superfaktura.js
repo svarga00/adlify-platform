@@ -11,6 +11,10 @@
 //     uhradená", PDF zo SuperFaktúry, synchronizácia, dobropis, história.
 //   Vydané faktúry → hore: „Vystaviť schválené v SuperFaktúre" (každá
 //     zvlášť schválená adminom) a „Synchronizovať so SuperFaktúrou".
+//   Denný limit požiadaviek (093): „Dnes použité: 123 z 1000 (synchronizácia
+//     80 z 300)" v Nastaveniach, zostatok v tooltipe pásu nad faktúrami.
+//     Keď sa minie rozpočet synchronizácie, tlačidlá synchronizácie sú vypnuté
+//     s vysvetlením — vystavovanie a odosielanie majú vyhradenú rezervu.
 // ============================================================================
 (function () {
   const S = () => window.DanubraSF;
@@ -53,14 +57,69 @@
 
     /** Stav pripojenia — raz za návštevu, bez kľúčov (akcia `status`). */
     async ensureStatus(force) {
+      // Práve sa načítava (napr. po akcii) → počká sa na čerstvý stav, nie na starý.
+      if (this._statusP && !force) return this._statusP;
       if (this.status && !force) return this.status;
-      // Jedna požiadavka naraz; po odpovedi sa prísľub zahodí, aby sa stav dal načítať znova.
-      if (!this._statusP) {
-        this._statusP = this.call('status').then(r => { this.status = r.ok ? r.json : { error: true }; return this.status; })
-          .catch(() => { this.status = { error: true }; return this.status; })
-          .finally(() => { this._statusP = null; });
+      // Jedna požiadavka naraz (force = nová, napr. po akcii, ktorá minula požiadavky).
+      // Platí len odpoveď na poslednú — staršia neskôr doručená stav neprepíše.
+      const seq = (this._statusSeq = (this._statusSeq || 0) + 1);
+      const p = this.call('status')
+        .then(r => { if (seq === this._statusSeq) this.status = r.ok ? r.json : { error: true }; return this.status; })
+        .catch(() => { if (seq === this._statusSeq) this.status = { error: true }; return this.status; })
+        .finally(() => { if (this._statusP === p) this._statusP = null; });
+      this._statusP = p;
+      return p;
+    },
+
+    /** Dnešné počítadlo požiadaviek zo stavu (akcia `status`), alebo null. */
+    usage(st = this.status) { return (st && !st.error && st.usage) || null; },
+    /** Synchronizácia je na dnes vyčerpaná → tlačidlá synchronizácie sú vypnuté. */
+    syncBlocked(st = this.status) { return !!(S() && S().syncExhausted(this.usage(st))); },
+    syncBlockedText(st = this.status) {
+      const u = this.usage(st) || {};
+      return `Synchronizácia je na dnes vyčerpaná (${u.sync_used != null ? u.sync_used : '?'} z ${u.sync_budget || '?'} požiadaviek). `
+        + 'Pokračuje zajtra ráno sama. Vystavovanie a odosielanie faktúr má vyhradenú rezervu'
+        + `${u.remaining != null ? ` (dnes ešte ${u.remaining})` : ''}.`;
+    },
+
+    /** Počítadlo v Nastaveniach: text a pásik. */
+    usageHtml(st = this.status) {
+      const u = this.usage(st);
+      if (!u) return '';
+      if (u.available === false) {
+        return `<div class="sf-usage is-red">${Icon('alert', 13)} Počítadlo požiadaviek na SuperFaktúru nie je dostupné — v databáze chýba
+          migrácia 093. Kým sa nespustí, appka do SuperFaktúry nevolá, aby neprekročila denný limit.</div>`;
       }
-      return this._statusP;
+      const pct = S().usagePct(u);
+      const cap = u.limit ? Math.round((u.hard_cap || u.limit) * 100 / u.limit) : 100;
+      const tone = u.remaining <= 0 || u.blocked ? ' is-red' : (this.syncBlocked(st) || pct >= 70 ? ' is-amber' : '');
+      return `<div class="sf-usage${tone}" id="sf-usage">
+          <div class="sf-usage-t"><span>${UI.esc(S().usageText(u))}</span>${UI.tip(`SuperFaktúra povoľuje ${u.limit} požiadaviek denne. `
+            + `Appka ich nikdy nepošle viac než ${u.hard_cap}; synchronizácia a PDF smú najviac ${u.sync_budget}, zvyšok je rezerva `
+            + 'na vystavovanie a odosielanie. Rátajú sa aj opakované pokusy. Počítadlo sa vynuluje o polnoci (slovenský čas).')}</div>
+          <div class="sf-usage-bar" role="progressbar" aria-label="Požiadavky na SuperFaktúru dnes" aria-valuemin="0"
+            aria-valuemax="${u.limit}" aria-valuenow="${u.used}"><span style="width:${pct}%"></span><i style="left:${cap}%"></i></div>
+          ${u.blocked ? '<div class="muted-sm tx-red">SuperFaktúra hlási vyčerpaný limit — do polnoci appka do nej nič nepošle.</div>'
+            : this.syncBlocked(st) ? `<div class="muted-sm">${UI.esc(this.syncBlockedText(st))}</div>` : ''}
+        </div>`;
+    },
+
+    /** Malý ukazovateľ v páse nad faktúrami — zostatok je v tooltipe. */
+    usageMini(st = this.status) {
+      const u = this.usage(st);
+      if (!u || u.available === false) return '';
+      const tip = `Dnes zostáva ${u.remaining} z ${u.limit} požiadaviek na SuperFaktúru (synchronizácia ${u.sync_remaining} z ${u.sync_budget}). `
+        + 'Vystavovanie a odosielanie má vyhradenú rezervu; počítadlo sa vynuluje o polnoci.';
+      const tone = u.remaining <= 0 ? ' is-red' : this.syncBlocked(st) ? ' is-amber' : ' is-gray';
+      return `<span class="sf-chip sf-req${tone}" data-tip="${UI.esc(tip)}" aria-label="${UI.esc(tip)}">dnes ${u.used}/${u.limit}</span>`;
+    },
+
+    /** Pás nad faktúrami po načítaní stavu: odznak, zostatok, vypnutá synchronizácia. */
+    paintBar(el, items) {
+      const bar = el && el.querySelector('.sf-bar');
+      if (!bar) return;
+      const html = this.barHtml(items);
+      if (html) bar.outerHTML = html;
     },
 
     isProd(st = this.status) { return !!(st && st.environment === 'production'); },
@@ -103,7 +162,7 @@
       const admin = Danubra.isAdmin();
       const bad = (items || []).filter(x => x.sf_check === 'mismatch').length;
       return `<div class="sf-bar card">
-        <span class="sf-bar-t"><b>SuperFaktúra</b>${window.Help ? Help.btn('card.inv.sfbar', { size: 13 }) : ''}<span class="sf-env-slot">${this.envBadge()}</span>
+        <span class="sf-bar-t"><b>SuperFaktúra</b>${window.Help ? Help.btn('card.inv.sfbar', { size: 13 }) : ''}<span class="sf-env-slot">${this.envBadge()}</span>${this.usageMini()}
           <span class="muted-sm">${inSf} ${Shell.plural(inSf, 'doklad', 'doklady', 'dokladov')} v SuperFaktúre${
             ready ? ` · ${ready} ${Shell.plural(ready, 'schválená čaká', 'schválené čakajú', 'schválených čaká')} na vystavenie` : ''}${
             bad ? ` · <b class="tx-red">${bad} nesúhlasí</b>` : ''}</span></span>
@@ -111,9 +170,13 @@
           ${admin && ready ? `<button class="btn btn-outline btn-sm" onclick="SFUI.bulkIssue()">${Icon('invoices', 14)} Vystaviť schválené v SuperFaktúre (${ready})</button>${
             UI.tip('Schválené faktúry (každú schválil admin) vystaví v SuperFaktúre naraz. Server pri každej overí schválenie '
               + 'v databáze. Odberateľom zatiaľ nič neodíde.')}` : ''}
-          ${inSf ? `<button class="btn btn-outline btn-sm" onclick="SFUI.sync()">${Icon('repeat', 14)} Synchronizovať so SuperFaktúrou</button>${
-            UI.tip('Načíta zo SuperFaktúry stav úhrad vystavených faktúr. Plnú úhradu (ak ju Banka ešte nespárovala) zapíše '
-              + 'ako zaplatenú, ostatné rozdiely len do histórie faktúry. To isté robí appka každé ráno sama.')}` : ''}
+          ${inSf ? (this.syncBlocked()
+            ? `<button class="btn btn-outline btn-sm sf-sync-btn" disabled aria-disabled="true">${Icon('repeat', 14)} Synchronizovať so SuperFaktúrou</button>${
+              UI.tip(this.syncBlockedText())}`
+            : `<button class="btn btn-outline btn-sm sf-sync-btn" onclick="SFUI.sync()">${Icon('repeat', 14)} Synchronizovať so SuperFaktúrou</button>${
+              UI.tip('Načíta zo SuperFaktúry stav úhrad vystavených faktúr — zoznamom, 100 dokladov na jednu požiadavku. Faktúry '
+                + 'synchronizované za posledných 20 hodín preskočí. Plnú úhradu (ak ju Banka ešte nespárovala) zapíše ako zaplatenú, '
+                + 'ostatné rozdiely len do histórie faktúry. To isté robí appka každé ráno sama.')}`) : ''}
         </span>
       </div>`;
     },
@@ -194,6 +257,7 @@
           ${row('API kľúč', yes(st.key_set))}
           ${row('Id firmy (SF_COMPANY_ID)', st.company_set ? yes(true) : '<em class="muted-sm sf-val">nepovinné, nenastavené</em>')}
         </div>
+        ${this.usageHtml(st)}
         ${st.configured ? '' : `<div class="regimebox">Kľúče sa nastavujú v Netlify (Site configuration → Environment variables),
           nie tu — do prehliadača sa nikdy nedostanú. Bez nich faktúry zostanú schválené a vystavia sa, keď kľúče pribudnú.</div>`}`;
     },
@@ -214,6 +278,8 @@
       if (out) out.innerHTML = '<span class="muted-sm">Prihlasujem sa do SuperFaktúry…</span>';
       const r = await this.call('ping');
       if (btn) btn.disabled = false;
+      // Test spojenia je jedna požiadavka z denného limitu — počítadlo sa obnoví.
+      this.paintStatus(true).catch(() => {});
       if (!out) return r;
       if (r.ok) {
         const j = r.json;
@@ -237,9 +303,14 @@
       if (has) {
         buttons.push(btn('Stiahnuť PDF zo SuperFaktúry', 'download', `SFUI.pdf('${x.id}')`,
           'Stiahne doklad presne tak, ako je v SuperFaktúre, a uloží ho do Dokumentov k odberateľovi.'));
-        buttons.push(btn('Synchronizovať', 'repeat', `SFUI.sync('${x.id}')`,
-          'Načíta zo SuperFaktúry, či a koľko je uhradené. Plnú úhradu (ak ju Banka ešte nespárovala) zapíše ako zaplatenú; '
-            + 'ostatné rozdiely len zapíše do histórie.'));
+        if (this.syncBlocked()) {
+          buttons.push(`<button type="button" class="btn btn-outline btn-sm sf-sync-btn" disabled aria-disabled="true">${Icon('repeat', 14)} Synchronizovať</button>${
+            UI.tip(this.syncBlockedText())}`);
+        } else {
+          buttons.push(btn('Synchronizovať', 'repeat', `SFUI.sync('${x.id}')`,
+            'Načíta zo SuperFaktúry (1 požiadavka), či a koľko je uhradené. Plnú úhradu (ak ju Banka ešte nespárovala) zapíše ako zaplatenú; '
+              + 'ostatné rozdiely len zapíše do histórie.'));
+        }
         if (x.status === 'paid' && !x.sf_paid_at && !credit) {
           buttons.push(btn('Zapísať úhradu do SuperFaktúry', 'check', `Inv.sfAction('${x.id}','pay')`,
             'V appke je faktúra zaplatená, v SuperFaktúre nie. Zapíše tam zostávajúcu sumu — nič nezapíše dvakrát.'));
@@ -320,14 +391,20 @@
       return this.guarded(id || 'all', async () => {
         UI.toast(id ? 'Synchronizujem so SuperFaktúrou…' : 'Synchronizujem všetky faktúry so SuperFaktúrou…');
         const r = await this.call('sync', id ? { invoice_id: id } : {});
-        if (!r.ok) return this.toastErr(r.json);
+        // Synchronizácia minula požiadavky z denného limitu — počítadlo sa načíta znova.
+        await this.ensureStatus(true).catch(() => {});
+        if (!r.ok) { this.toastErr(r.json); if (r.json && r.json.code === 'budget') Danubra.renderRoute(); return; }
         const j = r.json;
         if (id) {
           const ch = (j.result && j.result.changes) || [];
           UI.toast(ch.includes('paid') ? 'Zaplatená podľa SuperFaktúry' : ch.length ? 'Rozdiely sú zapísané v histórii faktúry' : 'Bez zmeny', ch.includes('mismatch') ? 'err' : 'ok');
         } else {
+          const req = j.requests != null ? ` · požiadavky na SuperFaktúru: ${j.requests}` : '';
           UI.toast(`Skontrolované ${j.checked || 0} · zaplatené ${j.paid || 0} · čiastočne ${j.partial || 0}${j.mismatch ? ` · nesúhlasí ${j.mismatch}` : ''}`
-            + ((j.errors || []).length ? ` · chyby ${j.errors.length}` : ''), (j.errors || []).length || j.mismatch ? 'warn' : 'ok');
+            + ((j.errors || []).length ? ` · chyby ${j.errors.length}` : '')
+            + (j.skipped_recent ? ` · ${j.skipped_recent} synchronizovaných za posledných 20 h preskočených` : '')
+            + (j.budget_stopped ? ` · ${j.pending || 0} počká na zajtra (denný limit)` : '') + req,
+          (j.errors || []).length || j.mismatch || j.budget_stopped ? 'warn' : 'ok');
         }
         await this.refresh(id);
       });
@@ -403,7 +480,8 @@
         const x = Inv.items.find(i => i.id === id);
         const p = (Inv.v2.partners || []).find(z => z.id === x.partner_id) || {};
         UI.toast('Pripravujem PDF zo SuperFaktúry…');
-        const r = await this.call('pdf', { invoice_id: id });
+        // PDF na odoslanie ide z rezervy na odosielanie, nie z rozpočtu synchronizácie.
+        const r = await this.call('pdf', { invoice_id: id, purpose: 'send' });
         if (!r.ok) return this.toastErr(r.json);
         const t = S().txt(S().sfLang(p.invoice_language, 'deu'));
         const credit = x.kind === 'credit_note';
@@ -461,7 +539,7 @@
         const r = await this.call('issue', { invoice_id: id });
         out.push({ x, ok: r.ok, json: r.json });
         // Pri zlom kľúči alebo limite by ďalšie dopadli rovnako.
-        if (!r.ok && r.json && ['auth', 'rate_limit'].includes(r.json.code)) break;
+        if (!r.ok && r.json && ['auth', 'rate_limit', 'budget'].includes(r.json.code)) break;
         if (r.skipped) break;
       }
       Inv.loaded = false; await Inv.load(); Danubra.renderRoute();

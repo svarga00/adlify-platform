@@ -437,6 +437,7 @@
         'Odznak **SANDBOX** znamená skúšobný účet — doklady nie sú ostré. **PRODUKCIA** je ostrý účet. Prepína sa jedine premennou SF_ENV=production v Netlify, a to až po odsúhlasení majiteľom.',
         'Číslo faktúry je vždy to z appky (zákonné číslo z Číselných radov). Do SuperFaktúry ide ako číslo dokladu; variabilný symbol sú jeho číslice.',
         'Nemeckému odberateľovi ide doklad bez DPH s prenesením daňovej povinnosti a vetou „Steuerschuldnerschaft des Leistungsempfängers (§13b UStG)." Odberateľovi z inej krajiny EÚ veta podľa článku 196 smernice o DPH.',
+        '**Dnes použité: … z 1000** — SuperFaktúra povoľuje účtu 1000 požiadaviek denne. Appka ich nikdy nepošle viac než 950, synchronizácia a PDF smú najviac 300 a zvyšok je rezerva na vystavovanie a odosielanie. Počítadlo sa vynuluje o polnoci (slovenský čas).',
       ],
       how: [
         'Kliknite **Otestovať spojenie**. Keď appka vypíše názov firmy, kľúče sú správne. Nič sa pri tom nevystaví ani neodošle.',
@@ -471,7 +472,8 @@
       what: ['Pás ukazuje prostredie (SANDBOX alebo PRODUKCIA), počet schválených faktúr na vystavenie a doklady, ktoré so SuperFaktúrou nesúhlasia.'],
       how: [
         '**Vystaviť schválené v SuperFaktúre (n)** — len administrátor. Ponúkne iba faktúry, ktoré admin schválil; každú server overí znova. Odberateľom pri tom nič neodíde — odosiela sa zvlášť.',
-        '**Synchronizovať so SuperFaktúrou** — všetky vystavené faktúry naraz (to isté robí appka každé ráno).',
+        '**Synchronizovať so SuperFaktúrou** — všetky vystavené faktúry naraz (to isté robí appka každé ráno). Číta zoznam, 100 dokladov na jednu požiadavku, a faktúry synchronizované za posledných 20 hodín preskočí. Po skončení povie, koľko požiadaviek minula.',
+        'Údaj **dnes …/1000** ukazuje požiadavky na SuperFaktúru za dnešok; zostatok je v bublinke. Keď sa minie rozpočet synchronizácie, tlačidlo je vypnuté do zajtra — vystavovanie a odosielanie má vyhradenú rezervu.',
       ],
       why: ['Pri mesačnej fakturácii je faktúr veľa naraz; vystaviť ich jedným klikom šetrí čas, no schválenie ostáva pri každej zvlášť.'],
       links: [['invoices', 'Vydané faktúry']],
