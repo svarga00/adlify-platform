@@ -467,12 +467,12 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
   }
 
   // 5. Aktualizuj prospect + enrollment
-  const now = new Date();
+  const sentAt = new Date();
   const prospectPatch = {
-    outreach_last_contacted_at: now.toISOString(),
+    outreach_last_contacted_at: sentAt.toISOString(),
   };
   if (nextStepOrder === 1) {
-    prospectPatch.outreach_email_sent_at = now.toISOString();
+    prospectPatch.outreach_email_sent_at = sentAt.toISOString();
     prospectPatch.outreach_stage = 'email_sent';
   }
   await supabase.from('prospects').update(prospectPatch).eq('id', prospect.id);
@@ -484,12 +484,12 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
   if (futureStep) {
     const delayMs = (futureStep.delay_days || 0) * 24 * 60 * 60 * 1000;
     // Cieľový čas + window check + jitter (aby každý prospekt mal mierne iný plán)
-    const targetTime = new Date(now.getTime() + delayMs);
+    const targetTime = new Date(sentAt.getTime() + delayMs);
     const inWindow = nextSendingWindow(targetTime);
     const scheduled = applyJitter(inWindow);
     enrollPatch = {
       current_step: nextStepOrder,
-      last_sent_at: now.toISOString(),
+      last_sent_at: sentAt.toISOString(),
       next_send_at: scheduled.toISOString(),
       variant_history: variantHistoryPatch,
       last_sender_id: senderId,
@@ -497,9 +497,9 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
   } else {
     enrollPatch = {
       current_step: nextStepOrder,
-      last_sent_at: now.toISOString(),
+      last_sent_at: sentAt.toISOString(),
       status: 'completed',
-      completed_at: now.toISOString(),
+      completed_at: sentAt.toISOString(),
       next_send_at: null,
       variant_history: variantHistoryPatch,
       last_sender_id: senderId,
