@@ -994,9 +994,9 @@
         <div class="form-section">Položky</div>
         ${riadky.map(i => this.lineRow(i)).join('') || '<div class="js-empty">Bez položiek.</div>'}
 
-        <div class="form-section">Suma${UI.tip('Fakturovaná suma je celá suma na faktúre. Pri stavebných '
-          + 'prácach bez platnej Freistellungsbescheinigung (§48b) odberateľ 15 % zrazí a pošle nemeckému '
-          + 'finančnému úradu — na účet nám príde menej.')}</div>
+        <div class="form-section">Suma${UI.tip('Fakturovaná suma je celá suma na faktúre. Zrážka §48b '
+          + '(Bauabzugsteuer) sa neuplatňuje sama — zapína sa zaškrtnutím v návrhu (Upraviť). Keď je zapnutá, '
+          + 'odberateľ zrazí 15 % a pošle ich nemeckému finančnému úradu, na účet nám príde menej.')}</div>
         ${Shell.sums({
           lines: DanubraInvoice.sumLines(x),
           totalLabel: w.withheld ? 'Na účet príde' : 'Na úhradu',
@@ -1255,6 +1255,12 @@
      * Formulár na novú voľnú faktúru aj na úpravu návrhu. Faktúra z podkladu
      * má sumu z hodín — pri nej sa upravujú len dátumy; suma sa mení v hodinách.
      */
+    /** Percento zrážky §48b z Nastavení (zo zákona 15 %). */
+    withholdingPct() {
+      const st = (window.Danubra && Danubra.cfg) ? Danubra.cfg('staffing') : {};
+      return Number(st.withholding_pct) || 15;
+    },
+
     async freeForm(id) {
       await this.loadV2();
       const x = id ? this.items.find(i => i.id === id) : null;
@@ -1284,6 +1290,12 @@
               hint: x ? '' : 'Prázdne = podľa odberateľa (inak 30 dní).' })}
           </div>
           <div id="regime-hint" class="regimebox"></div>
+          ${UI.field('withholding_on', 'Zrážka §48b (Bauabzugsteuer)', { type: 'checkbox',
+            value: !!(x && Number(x.withholding_pct)),
+            placeholder: `Uplatniť zrážku ${UI.pct(this.withholdingPct())} (predvolene nie)`,
+            tip: 'Neuplatňujeme ju, preto je predvolene vypnutá. Zaškrtnite, len keď odberateľ zráža '
+              + 'Bauabzugsteuer podľa §48 EStG — na faktúre bude rozpis a na účet príde suma po zrážke. '
+              + 'Percento je v Nastaveniach.' })}
           ${zPodkladu ? `<div class="notebox">Suma tejto faktúry je z uzavretého obdobia (${UI.money(x.total)}).${
             UI.tip('Uzavreté obdobie = hodiny za tieto dni sú schválené a zmrazené aj so sadzbou. '
               + 'Kým z neho nie je faktúra, dá sa v zákazke znova otvoriť.')}
@@ -1352,7 +1364,8 @@
       if (!x) {
         const { data: n, error: ne } = await DB.rpc('next_number', { p_kind: 'invoice' });
         if (ne) return UI.toast('Číslo sa nepodarilo prideliť: ' + ne.message, 'err');
-        const { data: inv, error } = await DB.insert('invoices', { ...f.invoice, ...datumy, invoice_number: n });
+        const { data: inv, error } = await DB.insert('invoices', { ...f.invoice, ...datumy, invoice_number: n,
+          ...DanubraInvoice.withholdingPatch(f.invoice.total, !!d.withholding_on, this.withholdingPct()) });
         if (error) return UI.toast('Chyba: ' + error.message, 'err');
         const { error: e2 } = await DB.insertMany('invoice_items', f.items.map(i => ({ ...i, invoice_id: inv.id })));
         if (e2) return UI.toast('Faktúra vznikla, ale položky sa nezapísali: ' + e2.message, 'err');
@@ -1366,8 +1379,9 @@
       // Režim sa berie z odberateľa aj pri faktúre z podkladu — keď mu niekto
       // zapne reverse charge, uložený návrh sa tým opraví.
       const patch = { ...datumy, partner_id: partner.id, subcontract_id: d.subcontract_id || null,
-        vat_regime: f.invoice.vat_regime };
-      if (!zPodkladu) Object.assign(patch, { total: f.invoice.total, amount_net: f.invoice.total });
+        vat_regime: f.invoice.vat_regime,
+        ...DanubraInvoice.withholdingPatch(zPodkladu ? x.total : f.invoice.total, !!d.withholding_on, this.withholdingPct()) };
+      if (!zPodkladu) patch.total = f.invoice.total;
       const { error } = await DB.update('invoices', x.id, patch);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       if (!zPodkladu) {
@@ -1403,7 +1417,7 @@
       const supplier = Danubra.supplier();
       const items = DanubraInvoice.docItems({ invoice: x, items: this.linesOf(x.id), subcontract: ctx.subcontract, period: ctx.period });
       const notes = [];
-      if (x.vat_regime === 'reverse_charge') notes.push('Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).');
+      if (x.vat_regime === 'reverse_charge') notes.push(...DanubraInvoice.reverseChargeLines(p.country));
       if (ctx.subcontract.work_type === 'construction' && ctx.freistellung && ctx.freistellung.ok && !Number(x.withholding_amount)) {
         notes.push(DanubraInvoice.freistellungNote(ctx.freistellung.doc));
       }
@@ -1417,7 +1431,7 @@
       } catch (e) { /* bez QR sa dá zaplatiť podľa IBAN */ }
       const client = { name: p.name, country: p.country || 'DE', vat_id: p.ust_idnr, company_id: p.registration_no,
         contact_person: p.contact_person, address: [p.address, [p.postal_code, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') };
-      const html = DanubraPapers.invoice({ invoice: x, items, client, supplier, qrSvg, vatNote: notes.join(' '), lang: 'de' });
+      const html = DanubraPapers.invoice({ invoice: x, items, client, supplier, qrSvg, vatNote: notes.join('\n'), lang: 'de' });
       const cn = x.kind === 'credit_note';
       Invoicing._openHtml(html, { kind: cn ? 'storno' : 'rechnung', title: cn ? 'Stornorechnung' : 'Rechnung', number: x.invoice_number, who: p.name,
         lang: 'de', partner_id: x.partner_id || null, subcontract_id: x.subcontract_id || null });

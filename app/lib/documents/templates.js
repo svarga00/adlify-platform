@@ -478,7 +478,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           <span>${money(p.net, inv.currency, loc)}</span></div>
       </div></div>
       ${p.held ? `<div class="note">${esc(L.holdNote(pct || 15))}</div>` : ''}
-      ${vatNote ? `<div class="note">${esc(vatNote)}</div>` : ''}
+      ${String(vatNote || '').split('\n').map(t => t.trim()).filter(Boolean)
+        .map(t => `<div class="note">${esc(t)}</div>`).join('')}
       <div class="pay">
         <div style="flex:1">
           <div class="lbl">${esc(L.payInfo)}</div>

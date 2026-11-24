@@ -179,14 +179,21 @@ console.log('Vydaná faktúra');
     subcontract: SUB, period: PERIOD }).reasons
     .some(r => r.rule === 'invoice_no_number'), 'bez čísla to nejde');
 
-  // Stavba bez Freistellungu, ale zrážka nula — na to treba upozorniť.
+  // Zrážku neuplatňujeme automaticky — stavba bez nej je bežný stav, nie varovanie.
   const noWh = I.reviewBeforeApproval({
     invoice: { ...INV, withholding_pct: 0 }, partner: PARTNER,
     subcontract: SUB, period: PERIOD,
   });
   eq(noWh.ok, true, 'nulová zrážka neblokuje');
-  ok(noWh.warnings.some(w => w.rule === 'invoice_missing_withholding'),
-    'ale upozorní, že odberateľ pravdepodobne zrazí aj tak');
+  ok(!noWh.warnings.some(w => /withholding/.test(w.rule)),
+    'a ani nevaruje — zrážka je len na zaškrtnutie');
+
+  // Zaškrtávatko „Zrážka §48b": vypnuté = nula, zapnuté = 15 % z celej sumy.
+  eq(I.withholdingPatch(8736, false), { withholding_pct: 0, withholding_amount: 0, amount_net: 8736 },
+    'nezaškrtnutá zrážka: celá suma');
+  eq(I.withholdingPatch(8736, true, 15), { withholding_pct: 15, withholding_amount: 1310.4, amount_net: 7425.6 },
+    'zaškrtnutá: 15 % a suma po zrážke');
+  eq(I.withholdingPatch('2726.00', true).withholding_pct, 15, 'bez percenta zo zákona 15 %');
 
   ok(I.reviewBeforeApproval({ invoice: INV, partner: { ...PARTNER, email: null },
     subcontract: SUB, period: PERIOD }).warnings
@@ -208,8 +215,11 @@ console.log('Vydaná faktúra');
 
   // Reverse charge = nulová sadzba a povinná veta po nemecky.
   eq(p.InvoiceItem[0].tax, 0, 'reverse charge má nulovú sadzbu');
-  ok(p.Invoice.comment.includes('Steuerschuldnerschaft des Leistungsempfängers'),
-    'povinná veta §13b');
+  ok(p.Invoice.comment.includes('Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.'),
+    'povinná veta §13b presne ako na faktúre z Pohody');
+  ok(p.Invoice.comment.includes('Miestom dodania služby je podľa § 15 resp. § 16 zákona o dani z pridanej hodnoty iný členský štát.'),
+    'aj slovenská veta o prenesení daňovej povinnosti');
+  eq(I.reverseChargeLines('AT')[0], I.RC_LINE_EU, 'iný štát EÚ: článok 196 smernice');
   ok(p.Invoice.comment.includes('§48b'), 'a poznámka o zrážke');
   ok(p.Invoice.comment.includes('1.310,40'), 'v nemeckom zápise čísla');
   ok(p.Invoice.comment.includes('7.425,60'), 'aj s tým, koľko príde na účet');

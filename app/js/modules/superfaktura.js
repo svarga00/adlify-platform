@@ -226,9 +226,11 @@
               ${f('send_mode', 'Predvolené odoslanie', { def: 'sf', options: [['sf', 'Cez SuperFaktúru'], ['mail', 'Z našej schránky (Správy)']],
                 tip: 'Pri odoslaní sa dá vybrať vždy. Toto je len to, čo je ponúknuté ako prvé.' })}
               <div class="fld-full">${f('reverse_charge_note', 'Veta k reverse charge na doklade', { placeholder: S().RC_DE,
-                tip: 'Prázdne = nemecká veta „Steuerschuldnerschaft des Leistungsempfängers (§13b UStG)." pre nemeckých '
-                  + 'odberateľov a článok 196 smernice pre ostatných z EÚ. Doklad má sadzbu 0 % a v SuperFaktúre '
-                  + 'označené prenesenie daňovej povinnosti.' })}</div>
+                tip: 'Prázdne = text ako na faktúrach z Pohody: „Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger '
+                  + 'geschuldet." (pri ostatných z EÚ článok 196 smernice) a pod ním slovenská veta „Prenesenie daňovej '
+                  + 'povinnosti. Miestom dodania služby je podľa § 15 resp. § 16 zákona o dani z pridanej hodnoty iný členský '
+                  + 'štát…". Vlastný text ich nahradí oba. Doklad má sadzbu 0 % a v SuperFaktúre označené prenesenie '
+                  + 'daňovej povinnosti.' })}</div>
               ${UI.field('use_own_number', 'Číslo dokladu z appky', { type: 'checkbox', value: val('use_own_number', true),
                 placeholder: 'Do SuperFaktúry posielať naše číslo faktúry',
                 tip: 'Zapnuté: doklad v SuperFaktúre dostane presne číslo z appky (zákonné číslo). Vypnuté: číslo pridelí '

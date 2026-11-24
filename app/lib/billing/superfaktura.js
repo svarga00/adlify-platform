@@ -83,12 +83,20 @@
   };
   const txt = (lang) => TXT[lang] || TXT.deu;
 
-  /** Veta k reverse charge. Nemecký odberateľ §13b UStG, iný z EÚ čl. 196 smernice. */
-  const RC_DE = 'Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).';
-  const RC_EU = 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL 2006/112/EG).';
+  /**
+   * Text k reverse charge — presne ako na faktúrach z Pohody (invoice.js):
+   * nemecký odberateľ „Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger
+   * geschuldet.", iný z EÚ čl. 196 smernice, a vždy slovenská veta o prenesení
+   * daňovej povinnosti podľa § 15/§ 16 zákona o DPH. Vlastný text
+   * z Nastavení SuperFaktúry (`reverse_charge_note`) ich nahradí celé.
+   */
+  const RC_DE = (IV && IV.RC_LINE_DE) || 'Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.';
+  const RC_EU = (IV && IV.RC_LINE_EU) || 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL 2006/112/EG).';
+  const RC_SK = (IV && IV.RC_LINE_SK) || '';
   function reverseChargeNote(partner = {}, settings = {}) {
     if (settings && String(settings.reverse_charge_note || '').trim()) return String(settings.reverse_charge_note).trim();
-    return String(partner.country || 'DE').toUpperCase() === 'DE' ? RC_DE : RC_EU;
+    const first = String(partner.country || 'DE').toUpperCase() === 'DE' ? RC_DE : RC_EU;
+    return [first, RC_SK].filter(Boolean).join('\n');
   }
 
   function de(n) { return String(n).replace('.', ','); }
@@ -256,7 +264,7 @@
       due,
       delivery: day(inv.delivery_date) || created,
       payment_type: s.payment_type || 'transfer',
-      comment: comments.join(' ') || undefined,
+      comment: comments.join('\n') || undefined,
       internal_comment: o.key ? `HUB-KEY ${o.key}` : undefined,
       vat_transfer: reverse ? 1 : 0,
       issued_by: sup.issued_by || sup.contact_person || undefined,
@@ -521,7 +529,7 @@
 
   const API = {
     BASE, envOf, baseUrl, maskEmail,
-    LANG, LANGS, sfLang, TXT, txt, reverseChargeNote, RC_DE, RC_EU,
+    LANG, LANGS, sfLang, TXT, txt, reverseChargeNote, RC_DE, RC_EU, RC_SK,
     isCreditNote, expectedCents, buildItems, itemsCents, buildInvoice, buildClient, splitAddress, myData, unitFor,
     readInvoice, readList, paymentState, reconcile, findInList, findClient,
     flatMessage, clip, chips, idempotencyKey, b64, usageText, usagePct, syncExhausted,

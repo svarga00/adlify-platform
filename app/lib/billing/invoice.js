@@ -106,6 +106,34 @@
     return { gross, withheld, net: gross - withheld, pct };
   }
 
+  /**
+   * Polia faktúry pre zaškrtávatko „Zrážka §48b". Predvolene vypnutá —
+   * zapne ju človek v návrhu; percento je z Nastavení (zo zákona 15 %).
+   * @returns {{ withholding_pct:number, withholding_amount:number, amount_net:number }}
+   */
+  function withholdingPatch(total, on, pct = 15) {
+    const gross = M.toCents(total || 0);
+    const p = on ? (Number(pct) || 15) : 0;
+    const withheld = p ? M.pct(gross, p) : 0;
+    return { withholding_pct: p, withholding_amount: M.fromCents(withheld), amount_net: M.fromCents(gross - withheld) };
+  }
+
+  // ── Prenesenie daňovej povinnosti — text na doklade ───────────────────────
+  // Presne ako na faktúrach z Pohody (Rechnung Nr. 260100152) — majiteľ chce
+  // text neupravený: nemecká veta podľa §13b UStG a slovenská podľa §15/§16
+  // zákona o DPH (miesto dodania v inom členskom štáte).
+  const RC_LINE_DE = 'Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.';
+  const RC_LINE_SK = 'Prenesenie daňovej povinnosti. Miestom dodania služby je podľa § 15 resp. § 16 '
+    + 'zákona o dani z pridanej hodnoty iný členský štát. Osobou povinnou platiť daň je osoba, '
+    + 'ktorej je služba dodaná.';
+  const RC_LINE_EU = 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL 2006/112/EG).';
+
+  /** Riadky textu k reverse charge: nemecký odberateľ §13b, iný z EÚ čl. 196 — vždy aj slovenská veta. */
+  function reverseChargeLines(country) {
+    const c = String(country || 'DE').trim().toUpperCase() || 'DE';
+    return [c === 'DE' ? RC_LINE_DE : RC_LINE_EU, RC_LINE_SK];
+  }
+
   // ── Čo na faktúrach čaká na nás ───────────────────────────────────────────
 
   /**
@@ -322,15 +350,9 @@
     // §48b — nie je to prekážka, ale musí to byť vidieť pred kliknutím.
     // Dobropis zrážku nerieši: vracia celú pôvodnú sumu.
     if (isCreditNote(inv)) return { ok: reasons.length === 0, reasons, warnings, withholding: w };
-    if (withholdingApplies(sub, o.freistellung) && !w.withheld) {
-      warnings.push({
-        rule: 'invoice_missing_withholding',
-        label: 'Stavebné práce bez Freistellungsbescheinigung, ale zrážka je nulová',
-        detail: 'Odberateľ pravdepodobne zrazí 15 % a na účet príde menej, '
-          + 'než faktúra hovorí. Skontrolujte §48b.',
-        severity: 'warn',
-      });
-    }
+    // Zrážku neuplatňujeme automaticky (majiteľ: „nech je to na zaškrtnutie
+    // a nie defaultne"). Pri stavbe bez Freistellung preto žiadne varovanie,
+    // že je nulová — zapína sa zaškrtnutím v návrhu.
     // Máme platnú Freistellung, ale faktúra zrážku ráta — to je chyba v sume.
     if (w.withheld && o.freistellung && o.freistellung.ok) {
       warnings.push({
@@ -388,9 +410,7 @@
     const reverse = inv.vat_regime === 'reverse_charge';
 
     const comments = [];
-    if (reverse) {
-      comments.push('Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).');
-    }
+    if (reverse) comments.push(...reverseChargeLines(partner.country));
     if (w.withheld) {
       // Poznámka po nemecky — dokument ide partnerovi.
       comments.push(
@@ -423,7 +443,7 @@
         delivery: inv.delivery_date || undefined,
         payment_type: 'transfer',
         issued_by: (o.supplier && o.supplier.name) || undefined,
-        comment: comments.join(' ') || undefined,
+        comment: comments.join('\n') || undefined,
       },
       Client: {
         name: partner.name,
@@ -625,7 +645,8 @@
 
   const API = {
     FLOW, canGo, nextSteps, queue, SCHVALENIE, STATUS_LABEL, statusLabel, becameOverdue,
-    withholding, withholdingApplies, sumLines,
+    withholding, withholdingApplies, withholdingPatch, sumLines,
+    RC_LINE_DE, RC_LINE_SK, RC_LINE_EU, reverseChargeLines,
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe, TAX,
     liveItems, itemsTotal, docItems, editable, freeInvoice, isCreditNote,

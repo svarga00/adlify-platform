@@ -268,7 +268,8 @@ console.log('SuperFaktúra — serverová funkcia');
     eq(p.Client.id, 55, 'doklad ide na založeného odberateľa');
     eq([p.Invoice.invoice_no_formatted, p.Invoice.variable], ['2026042', '2026042'], 'zákonné číslo z appky, VS = číslice čísla');
     eq([p.Invoice.vat_transfer, p.InvoiceItem.map(i => i.tax)], [1, [0]], 'reverse charge: prenesenie daňovej povinnosti, sadzba 0 %');
-    ok(/Steuerschuldnerschaft des Leistungsempfängers \(§13b UStG\)/.test(p.Invoice.comment), 'nemecká veta §13b na doklade');
+    ok(p.Invoice.comment.includes('Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.\nPrenesenie daňovej povinnosti. Miestom dodania služby je podľa § 15 resp. § 16 zákona o dani z pridanej hodnoty iný členský štát. Osobou povinnou platiť daň je osoba, ktorej je služba dodaná.'),
+      'text k §13b presne ako na faktúre z Pohody, každá veta na svojom riadku');
     eq(p.InvoiceSetting.language, 'deu', 'jazyk „de" z karty odberateľa → „deu" pre SuperFaktúru');
     eq([p.InvoiceItem[0].quantity, p.InvoiceItem[0].unit_price, p.InvoiceItem[0].unit], [312, 28, 'Std.'], 'položka: hodiny × sadzba zo zákazky');
     eq([p.Invoice.due, p.Invoice.created, p.Invoice.delivery], ['2026-12-02', '2026-11-02', '2026-10-31'], 'splatnosť, vystavenie, dodanie z faktúry');

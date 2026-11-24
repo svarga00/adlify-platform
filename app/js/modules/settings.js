@@ -202,7 +202,8 @@
             'Všeobecná minimálna mzda v Nemecku na hodinu. Platí pri práci, ktorá nie je stavba.'],
           ['withholding_pct', 'Zrážka bez §48b %', 'number', 15, '', null,
             'Koľko % zrazí nemecký odberateľ zo stavebnej faktúry, keď nemáme platnú '
-              + 'Freistellungsbescheinigung §48b. Zo zákona 15 %. Appka to použije pri faktúre z obdobia.'],
+              + 'Freistellungsbescheinigung §48b. Zo zákona 15 %. Na faktúru sa nedáva sama — len keď '
+              + 'v návrhu faktúry zaškrtnete „Zrážka §48b".'],
         ]) +
 
         this.section('Prahy pre rozhodovanie',

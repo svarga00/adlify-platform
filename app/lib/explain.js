@@ -436,7 +436,7 @@
         'Appka volá SuperFaktúru len cez server. API kľúč je v Netlify, nikdy nie v prehliadači ani v histórii faktúry.',
         'Odznak **SANDBOX** znamená skúšobný účet — doklady nie sú ostré. **PRODUKCIA** je ostrý účet. Prepína sa jedine premennou SF_ENV=production v Netlify, a to až po odsúhlasení majiteľom.',
         'Číslo faktúry je vždy to z appky (zákonné číslo z Číselných radov). Do SuperFaktúry ide ako číslo dokladu; variabilný symbol sú jeho číslice.',
-        'Nemeckému odberateľovi ide doklad bez DPH s prenesením daňovej povinnosti a vetou „Steuerschuldnerschaft des Leistungsempfängers (§13b UStG)." Odberateľovi z inej krajiny EÚ veta podľa článku 196 smernice o DPH.',
+        'Nemeckému odberateľovi ide doklad bez DPH s prenesením daňovej povinnosti a textom ako na faktúrach z Pohody: „Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet." a slovenská veta o prenesení daňovej povinnosti podľa § 15 resp. § 16 zákona o DPH. Odberateľovi z inej krajiny EÚ namiesto nemeckej vety článok 196 smernice o DPH.',
         '**Dnes použité: … z 1000** — SuperFaktúra povoľuje účtu 1000 požiadaviek denne. Appka ich nikdy nepošle viac než 950, synchronizácia a PDF smú najviac 300 a zvyšok je rezerva na vystavovanie a odosielanie. Počítadlo sa vynuluje o polnoci (slovenský čas).',
       ],
       how: [

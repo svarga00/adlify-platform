@@ -183,11 +183,24 @@ t('appka si nepýta nič, čo v databáze nie je', problems.length === 0);
   const neskorsie = fs.readdirSync(migDir).filter(x => x.endsWith('.sql') && parseInt(x, 10) > 70)
     .filter(x => {
       const txt = fs.readFileSync(path.join(migDir, x), 'utf8');
-      if (/function danubra_(invoice_from_period|bank_automatch)\b/.test(txt)) return true;
+      if (/function danubra_bank_automatch\b/.test(txt)) return true;
+      // 095 zámerne vypína automatickú zrážku §48b — stráži sa nižšie.
+      if (/function danubra_invoice_from_period\b/.test(txt) && !x.startsWith('095_')) return true;
       return /function danubra_next_number\b/.test(txt) && !x.startsWith('094_');
     });
-  t('žiadna neskoršia migrácia neprepisuje číslovanie (okrem 094), faktúru z obdobia ani párovanie',
+  t('žiadna neskoršia migrácia neprepisuje číslovanie (okrem 094), faktúru z obdobia (okrem 095) ani párovanie',
     neskorsie.length === 0, neskorsie.join(', '));
+
+  // 095: faktúra z obdobia bez automatickej zrážky — zámok, centy a číslo ostali.
+  const f95 = path.join(migDir, '095_zrazka_na_zaskrtnutie.sql');
+  const m95 = fs.existsSync(f95) ? fs.readFileSync(f95, 'utf8') : '';
+  t('095: faktúra z obdobia stále zamkne obdobie, zaokrúhli na centy a vezme číslo z radu',
+    /from danubra_periods where id = p_period_id for update/.test(m95)
+    && /round\(coalesce\(per\.amount_charged, 0\), 2\)/.test(m95)
+    && /danubra_next_number\('invoice'\)/.test(m95)
+    && /status <> 'cancelled'/.test(m95));
+  t('095: zrážka §48b sa nedáva sama (0, 0, celá suma)',
+    /'draft',\s*0, 0, v_amount\s*\)/.test(m95) && !/withholding_pct'\)::numeric/.test(m95));
 }
 
 // ── Číselné rady (migrácia 094) ─────────────────────────────────────────────
