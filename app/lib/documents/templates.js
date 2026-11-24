@@ -405,6 +405,10 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       gross: 'Fakturovaná suma', hold: 'Zrážka §48b', pay: 'Na úhradu',
       payInfo: 'Platobné údaje', ref: 'Variabilný symbol', amount: 'Suma',
       scan: 'Zaplatiť naskenovaním', empty: 'Bez položiek',
+      vs: 'Variabilný symbol', ks: 'Konštantný symbol', bic: 'SWIFT / BIC', bank: 'Banka',
+      order: 'Objednávka č.', payWay: 'Forma úhrady', issuedBy: 'Vystavil',
+      sId: 'IČO', sTax: 'DIČ', sVat: 'IČ DPH', sTaxDe: 'Steuernummer', phone: 'Tel.',
+      recap: (c) => `Rekapitulácia DPH v ${c}`, base: 'Základ', rate: 'Sadzba', vat: 'DPH', gesamt: 'Spolu',
       holdNote: (pct) => `Odberateľ zrazí ${pct} % podľa §48 EStG a odvedie ich nemeckému `
         + 'finančnému úradu. Neexistuje potvrdenie o oslobodení podľa §48b EStG. '
         + 'Prevádza sa teda suma po zrážke.',
@@ -417,6 +421,10 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       gross: 'Rechnungsbetrag', hold: 'Bauabzugsteuer §48 EStG', pay: 'Zahlbetrag',
       payInfo: 'Zahlungsinformationen', ref: 'Verwendungszweck', amount: 'Betrag',
       scan: 'Zahlen per Scan', empty: 'Keine Positionen',
+      vs: 'Variables Symbol', ks: 'Konstantes Symbol', bic: 'SWIFT / BIC', bank: 'Bank',
+      order: 'Bestellung Nr.', payWay: 'Zahlungsart', issuedBy: 'Ausgestellt von',
+      sId: 'Id.-Nr. (IČO)', sTax: 'St.-Nr. (DIČ)', sVat: 'USt-IdNr.', sTaxDe: 'Steuernummer', phone: 'Tel.',
+      recap: (c) => `Zusammenfassung in ${c}`, base: 'Grundlage', rate: '% USt.', vat: 'USt.', gesamt: 'Gesamt',
       holdNote: (pct) => `Der Auftraggeber behält ${pct} % Bauabzugsteuer gemäß §48 EStG `
         + 'ein und führt sie an das zuständige Finanzamt ab. Eine Freistellungs'
         + 'bescheinigung nach §48b EStG liegt nicht vor. Zu überweisen ist der Zahlbetrag.',
@@ -438,6 +446,26 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
    *    zmluva sú po nemecky; faktúra nie, hoci ju číta ten istý človek.
    *    Jazyk sa odvodí od krajiny odberateľa a dá sa prebiť.
    */
+  /** Veta o úroku z omeškania — doslova ako na faktúrach z Pohody. */
+  const INV_LATE = 'Dovoľujeme si Vás upozorniť, že v prípade nedodržania termínu splatnosti uvedeného '
+    + 'na faktúre, Vám môžeme účtovať úrok z omeškania v dohodnutej, resp. zákonnej výške a zmluvnú '
+    + 'pokutu (ak bola dohodnutá).';
+  /** Sadzby v rekapitulácii (ako na faktúrach z Pohody). Firma fakturuje 0 %. */
+  const INV_RATES = [0, 5, 19, 23];
+  const INV_PAY = {
+    transfer: { sk: 'Prevodom', de: 'Überweisung' }, cash: { sk: 'V hotovosti', de: 'Barzahlung' },
+    card: { sk: 'Kartou', de: 'Kartenzahlung' }, cod: { sk: 'Dobierka', de: 'Nachnahme' },
+    offset: { sk: 'Zápočtom', de: 'Verrechnung' },
+  };
+  const INV_CSS = `
+    .inv-recap{width:auto;margin:14px 0 0 auto;font-size:11.5px}
+    .inv-recap caption{caption-side:top;text-align:left;font-weight:600;color:#55607A;padding:0 0 4px;font-size:11px}
+    .inv-recap th,.inv-recap td{padding:3px 10px;text-align:right}
+    .inv-issued{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-top:14px}
+    .inv-issued .lbl{margin-bottom:2px}
+    .inv-small{margin-top:14px;font-size:10px;line-height:1.5;color:#55607A}
+    .inv-small p{margin:0 0 4px}`;
+
   function invoice({ invoice: inv, items, client, supplier, qrSvg, vatNote, lang }) {
     const de = (lang || ((client?.country || 'SK').toUpperCase() === 'SK' ? 'sk' : 'de')) === 'de';
     const L = de ? INV_L.de : INV_L.sk;
@@ -445,6 +473,11 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const p = payable(inv);
     const pct = Number(inv.withholding_pct)
       || (p.total ? Math.round((p.held / p.total) * 100) : 0);
+    const sup = supplier || {};
+    const vs = String(inv.variable_symbol || '').replace(/\D/g, '') || String(inv.invoice_number || '').replace(/\D/g, '');
+    const ks = String(inv.constant_symbol || '').trim();
+    const platba = (INV_PAY[inv.payment_method || 'transfer'] || INV_PAY.transfer)[de ? 'de' : 'sk'];
+    const cur = inv.currency || 'EUR';
 
     // Jednotka sa ukladá, ako ju človek napísal („mes"); na nemecký doklad
     // ide „Monat" — ten istý preklad ako v SuperFaktúre (invoice.js unitFor).
@@ -455,14 +488,48 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       <td class="r">${money(i.unit_price, inv.currency, loc)}</td>
       <td class="r"><strong>${money(i.total, inv.currency, loc)}</strong></td></tr>`).join('');
 
+    // Dodávateľ s daňovými číslami ako na faktúre z Pohody: IČO, DIČ, IČ DPH
+    // (a nemecká Steuernummer, keď ju máme). Odberateľ s USt-IdNr. a krajinou.
+    const riadky = (a) => a.filter(Boolean).map(x => `${x}<br>`).join('');
+    const strany = `<div class="cols">
+      <div class="col"><div class="lbl">${esc(de ? 'Lieferant' : 'Dodávateľ')}</div><div class="val">
+        <strong>${esc(sup.name || '—')}</strong><br>
+        ${riadky([sup.address && esc(sup.address),
+          sup.company_id && `${esc(L.sId)}: ${esc(sup.company_id)}`,
+          sup.tax_id && `${esc(L.sTax)}: ${esc(sup.tax_id)}`,
+          sup.vat_id && `${esc(L.sVat)}: ${esc(sup.vat_id)}`,
+          de && sup.tax_number_de && `${esc(L.sTaxDe)}: ${esc(sup.tax_number_de)}`,
+          sup.phone && `${esc(L.phone)} ${esc(sup.phone)}`])}${sup.email ? esc(sup.email) : ''}
+      </div></div>
+      <div class="col"><div class="lbl">${esc(de ? 'Abnehmer' : 'Odberateľ')}</div><div class="val">
+        <strong>${esc(client?.name || '—')}</strong><br>
+        ${riadky([client?.address && esc(client.address), client?.contact_person && esc(client.contact_person),
+          client?.company_id && `${esc(L.sId)}: ${esc(client.company_id)}`,
+          client?.tax_id && `${esc(L.sTax)}: ${esc(client.tax_id)}`,
+          client?.vat_id && `${esc(L.sVat)}: ${esc(client.vat_id)}`])}${client?.country ? esc(client.country) : ''}
+      </div></div>
+    </div>`;
+
+    // Rekapitulácia DPH: celá suma je v sadzbe 0 % (reverse charge / neplatiteľ).
+    const nula = money(0, cur, loc);
+    const recap = `<table class="inv-recap"><caption>${esc(L.recap(cur))}</caption>
+      <thead><tr><th>${esc(L.base)}</th><th>${esc(L.rate)}</th><th>${esc(L.vat)}</th><th>${esc(L.gesamt)}</th></tr></thead>
+      <tbody>${INV_RATES.map(r => `<tr><td>${r === 0 ? money(p.total, cur, loc) : nula}</td><td>${r} %</td>
+        <td>${nula}</td><td>${r === 0 ? money(p.total, cur, loc) : nula}</td></tr>`).join('')}</tbody></table>`;
+
+    const male = [String(sup.invoice_footer || '').trim() || INV_LATE, sup.register]
+      .filter(Boolean).map(t => `<p>${esc(t)}</p>`).join('');
+
     const body = `
       ${header(L.title, inv.invoice_number, [
         `${L.issued}: ${date(inv.issue_date)}`,
         `${L.due}: ${date(inv.due_date)}`,
         inv.delivery_date ? `${L.delivery}: ${date(inv.delivery_date)}` : '',
         inv.billing_period_from ? `${L.period}: ${date(inv.billing_period_from)} – ${date(inv.billing_period_to)}` : '',
+        inv.order_reference ? `${L.order}: ${inv.order_reference}` : '',
+        `${L.payWay}: ${platba}`,
       ], supplier, de ? 'de' : 'sk')}
-      ${parties(supplier, client, [], de ? 'de' : 'sk')}
+      ${strany}
       <table><thead><tr>
         <th>${esc(L.desc)}</th><th class="r">${esc(L.qty)}</th><th class="r">${esc(L.unit)}</th>
         <th class="r">${esc(L.price)}</th><th class="r">${esc(L.sum)}</th>
@@ -477,26 +544,35 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         <div class="total-row sum"><span>${esc(L.pay)}</span>
           <span>${money(p.net, inv.currency, loc)}</span></div>
       </div></div>
+      ${recap}
       ${p.held ? `<div class="note">${esc(L.holdNote(pct || 15))}</div>` : ''}
       ${String(vatNote || '').split('\n').map(t => t.trim()).filter(Boolean)
         .map(t => `<div class="note">${esc(t)}</div>`).join('')}
+      ${inv.note ? `<div class="note">${esc(inv.note)}</div>` : ''}
       <div class="pay">
         <div style="flex:1">
           <div class="lbl">${esc(L.payInfo)}</div>
           <div class="val" style="line-height:1.9">
-            IBAN: <strong style="font-family:ui-monospace,monospace">${esc(supplier?.iban || '—')}</strong><br>
-            ${esc(L.ref)}: <strong style="font-family:ui-monospace,monospace">${esc(String(inv.invoice_number || '').replace(/\D/g, ''))}</strong><br>
+            ${sup.bank_name ? `${esc(L.bank)}: <strong>${esc(sup.bank_name)}</strong><br>` : ''}
+            IBAN: <strong style="font-family:ui-monospace,monospace">${esc(sup.iban || '—')}</strong><br>
+            ${sup.bic ? `${esc(L.bic)}: <strong style="font-family:ui-monospace,monospace">${esc(sup.bic)}</strong><br>` : ''}
+            ${esc(L.vs)}: <strong style="font-family:ui-monospace,monospace">${esc(vs)}</strong><br>
+            ${ks ? `${esc(L.ks)}: <strong style="font-family:ui-monospace,monospace">${esc(ks)}</strong><br>` : ''}
             ${esc(L.amount)}: <strong>${money(p.net, inv.currency, loc)}</strong><br>
             ${esc(L.due)}: <strong>${date(inv.due_date)}</strong>
           </div>
         </div>
         ${qrSvg ? `<div style="text-align:center">
           <div class="lbl">${esc(L.scan)}</div>${qrSvg}
-          <div style="font-size:9.5px;color:#8C97AD;margin-top:4px">SEPA QR</div></div>` : ''}
+          <div style="font-size:9.5px;color:#8C97AD;margin-top:4px">SEPA QR (GiroCode)</div></div>` : ''}
       </div>
-      ${stamp(supplier) ? `<div class="stamp-inv">${stamp(supplier, 'st')}</div>` : ''}
+      ${sup.issued_by || stamp(supplier) ? `<div class="inv-issued">
+        <div><div class="lbl">${esc(L.issuedBy)}</div><div class="val">${esc(sup.issued_by || '')}</div></div>
+        ${stamp(supplier) ? `<div class="stamp-inv">${stamp(supplier, 'st')}</div>` : ''}
+      </div>` : ''}
+      <div class="inv-small">${male}</div>
       ${foot(supplier, de ? 'de' : 'sk')}`;
-    return shell(`${L.title} ${inv.invoice_number || ''}`, body, { editable: false, lang: de ? 'de' : 'sk' });
+    return shell(`${L.title} ${inv.invoice_number || ''}`, body, { editable: false, lang: de ? 'de' : 'sk', css: INV_CSS });
   }
 
   // ── FAKTÚRA ZA ŽIVNOSTNÍKA (vyhotovenie faktúry odberateľom) ─────────────

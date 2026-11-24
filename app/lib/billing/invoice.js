@@ -118,6 +118,30 @@
     return { withholding_pct: p, withholding_amount: M.fromCents(withheld), amount_net: M.fromCents(gross - withheld) };
   }
 
+  // ── Platobné údaje faktúry ────────────────────────────────────────────────
+  /**
+   * Variabilný symbol: zapísaný na faktúre, inak číslice z čísla faktúry
+   * (2026010001 → 2026010001, „VZOR-2026-0007" → 20260007). Ten istý VS ide
+   * do SuperFaktúry, na doklad, do QR platby aj do párovania platieb.
+   */
+  function variableSymbol(inv = {}) {
+    const own = String((inv && inv.variable_symbol) || '').replace(/\D/g, '');
+    return own || String((inv && inv.invoice_number) || '').replace(/\D/g, '');
+  }
+
+  /** Spôsob úhrady: kód v databáze → text na doklade. */
+  const PAYMENT = {
+    transfer: { sk: 'Prevodom', de: 'Überweisung', sf: 'transfer' },
+    cash: { sk: 'V hotovosti', de: 'Barzahlung', sf: 'cash' },
+    card: { sk: 'Kartou', de: 'Kartenzahlung', sf: 'card' },
+    cod: { sk: 'Dobierka', de: 'Nachnahme', sf: 'cod' },
+    offset: { sk: 'Zápočtom', de: 'Verrechnung', sf: 'accreditation' },
+  };
+  function paymentLabel(code, lang = 'sk') {
+    const p = PAYMENT[code || 'transfer'] || PAYMENT.transfer;
+    return p[lang === 'de' ? 'de' : 'sk'];
+  }
+
   // ── Prenesenie daňovej povinnosti — text na doklade ───────────────────────
   // Presne ako na faktúrach z Pohody (Rechnung Nr. 260100152) — majiteľ chce
   // text neupravený: nemecká veta podľa §13b UStG a slovenská podľa §15/§16
@@ -290,6 +314,20 @@
       });
     }
 
+    // Vlastný VS a KS: banka berie najviac 10, resp. 4 číslice.
+    if (inv.variable_symbol && !/^\d{1,10}$/.test(String(inv.variable_symbol))) {
+      reasons.push({ rule: 'invoice_vs', label: 'Variabilný symbol nie je platný',
+        detail: 'Variabilný symbol sú len číslice, najviac 10.', severity: 'block' });
+    } else if (!inv.variable_symbol && variableSymbol(inv).length > 10) {
+      reasons.push({ rule: 'invoice_vs', label: 'Variabilný symbol by mal viac ako 10 číslic',
+        detail: `Z čísla faktúry vychádza ${variableSymbol(inv)} — banka berie najviac 10 číslic. Zapíšte VS v návrhu (Upraviť).`,
+        severity: 'block' });
+    }
+    if (inv.constant_symbol && !/^\d{1,4}$/.test(String(inv.constant_symbol))) {
+      reasons.push({ rule: 'invoice_ks', label: 'Konštantný symbol nie je platný',
+        detail: 'Konštantný symbol sú najviac 4 číslice (napr. 0308 za služby).', severity: 'block' });
+    }
+
     // Nemeckému odberateľovi fakturujeme vždy v režime reverse charge §13b
     // a USt-IdNr je povinné — pri každej faktúre, nie len pri tej, ktorá má
     // režim zapísaný. Inak stačilo prepnúť odberateľovi „reverse charge"
@@ -437,7 +475,7 @@
         name: itemName(sub, period),
         type: 'regular',
         invoice_currency: inv.currency || 'EUR',
-        variable: String(inv.invoice_number || '').replace(/\D/g, '') || undefined,
+        variable: variableSymbol(inv) || undefined,
         created: inv.issue_date || undefined,
         due: inv.due_date || undefined,
         delivery: inv.delivery_date || undefined,
@@ -647,6 +685,7 @@
     FLOW, canGo, nextSteps, queue, SCHVALENIE, STATUS_LABEL, statusLabel, becameOverdue,
     withholding, withholdingApplies, withholdingPatch, sumLines,
     RC_LINE_DE, RC_LINE_SK, RC_LINE_EU, reverseChargeLines,
+    variableSymbol, PAYMENT, paymentLabel,
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe, TAX,
     liveItems, itemsTotal, docItems, editable, freeInvoice, isCreditNote,

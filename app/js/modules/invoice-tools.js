@@ -64,8 +64,8 @@
       let qrSvg = '';
       try {
         if (supplier.iban && supplier.name) {
-          qrSvg = DanubraQR.svg(DanubraQR.sepaPayload({ name: supplier.name, iban: supplier.iban, amount: net,
-            reference: String(x.invoice_number || '').replace(/\D/g, ''), note: `Rechnung ${x.invoice_number}` }), { px: 120 });
+          qrSvg = DanubraQR.svg(DanubraQR.sepaPayload({ name: supplier.name, iban: supplier.iban, bic: supplier.bic || '', amount: net,
+            reference: DanubraInvoice.variableSymbol(x), note: `Rechnung ${x.invoice_number}` }), { px: 120 });
         }
       } catch (e) { /* bez QR */ }
       const client = { name: p.name, country: p.country || 'DE', vat_id: p.ust_idnr, contact_person: p.contact_person,

@@ -202,7 +202,7 @@ console.log('Dokumenty');
   ok(/Variabilný symbol/.test(slovenska), 'aj platobné údaje');
   ok(slovenska.includes('1\u00a0000,00'),
     'a slovenský doklad má slovenský tvar čísel — s nezlomiteľnou medzerou');
-  ok(/Verwendungszweck/.test(so), 'a po nemecky je to Verwendungszweck');
+  ok(/Variables Symbol/.test(so), 'a po nemecky je to Variables Symbol (ako na faktúre z Pohody)');
   // Dá sa prebiť — odberateľ v Rakúsku môže chcieť nemecký doklad aj tak.
   ok(/Rechnung/.test(P.invoice({
     invoice: { invoice_number: 'x', total: 1, currency: 'EUR' },
@@ -218,7 +218,28 @@ console.log('Dokumenty');
   ok(/>Std\.</.test(so), 'hodiny „h" → „Std."');
   const skJ = P.invoice({ invoice: { invoice_number: '2026010002', total: 1000, currency: 'EUR' }, items: jedn, client: sk, supplier });
   ok(/>mes</.test(skJ) && />ks</.test(skJ), 'slovenský doklad: jednotky, ako boli napísané');
-  ok(/2026010001/.test(deJ.slice(deJ.indexOf('Verwendungszweck'))), 'Verwendungszweck = celé číslo faktúry 2026010001');
+  ok(/2026010001/.test(deJ.slice(deJ.indexOf('Variables Symbol'))), 'Variables Symbol = celé číslo faktúry 2026010001');
+
+  // 5. Údaje ako na faktúre z Pohody: rekapitulácia DPH, vlastný VS a KS,
+  //    banka a BIC, kto vystavil, malé texty (úrok z omeškania, register).
+  const plna = P.invoice({
+    invoice: { invoice_number: '260100152', variable_symbol: '260100152', constant_symbol: '0308',
+      order_reference: 'B-77', total: 2726, currency: 'EUR' },
+    items: jedn, client: de,
+    supplier: { ...supplier, bank_name: 'Tatra banka, a.s.', bic: 'TATRSKBX', issued_by: 'Štefan Varga',
+      register: 'OR OS Nitra, Oddiel: S.r.o., Vložka číslo: 69265/N' },
+  });
+  ok(/Zusammenfassung in EUR/.test(plna) && /19 %/.test(plna) && /23 %/.test(plna), 'rekapitulácia DPH so sadzbami 0, 5, 19, 23 %');
+  ok(/Konstantes Symbol/.test(plna) && /0308/.test(plna), 'konštantný symbol');
+  ok(/Bestellung Nr\./.test(plna) && /B-77/.test(plna), 'číslo objednávky');
+  ok(/TATRSKBX/.test(plna) && /Tatra banka/.test(plna), 'banka a BIC');
+  ok(/Ausgestellt von/.test(plna) && /Štefan Varga/.test(plna), 'kto vystavil');
+  ok(plna.includes('úrok z omeškania v dohodnutej, resp. zákonnej výške a zmluvnú pokutu (ak bola dohodnutá).'),
+    'veta o úroku z omeškania doslova ako v Pohode');
+  ok(/Vložka číslo: 69265\/N/.test(plna), 'zápis v registri');
+  const vlastnyVs = P.invoice({ invoice: { invoice_number: 'F-2026-7', variable_symbol: '777', total: 1, currency: 'EUR' },
+    items: [], client: de, supplier });
+  ok(/>777</.test(vlastnyVs), 'vlastný VS z návrhu má prednosť pred číslom faktúry');
 
   // Rozpad sumy je vlastná funkcia, lebo ju potrebuje aj QR kód.
   eq(P.payable({ total: 5280, amount_net: 4488, withholding_amount: 792 }),

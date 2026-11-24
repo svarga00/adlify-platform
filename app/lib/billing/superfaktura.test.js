@@ -163,5 +163,16 @@ console.log('\njednotky a dodávateľ na doklade');
     'bez názvu firmy MyData nejde (radšej profil SuperFaktúry než prázdny blok)');
 }
 
+// Údaje z návrhu faktúry: vlastný VS, KS, objednávka, forma úhrady.
+{
+  const p = SF.buildInvoice({ invoice: { invoice_number: 'F-2026/7', variable_symbol: '777', constant_symbol: '0308',
+    order_reference: 'B-77', payment_method: 'cash', total: 10 }, partner: { name: 'X' } });
+  eq([p.Invoice.variable, p.Invoice.constant, p.Invoice.order_no, p.Invoice.payment_type],
+    ['777', '0308', 'B-77', 'cash'], 'vlastný VS, KS, objednávka a forma úhrady idú do SuperFaktúry');
+  const bez = SF.buildInvoice({ invoice: { invoice_number: '2026010001', total: 10 }, partner: { name: 'X' } });
+  eq([bez.Invoice.variable, bez.Invoice.constant, bez.Invoice.payment_type], ['2026010001', undefined, 'transfer'],
+    'bez nich: VS z čísla, KS nie, prevodom');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

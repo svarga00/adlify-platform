@@ -432,5 +432,23 @@ console.log('\nmerné jednotky podľa jazyka dokladu');
   eq(I.unitFor(null, 'de'), '', 'chýbajúca nezhodí');
 }
 
+// Variabilný symbol: zapísaný, inak číslice z čísla faktúry.
+{
+  eq(I.variableSymbol({ invoice_number: '2026010001' }), '2026010001', 'VS z čísla faktúry');
+  eq(I.variableSymbol({ invoice_number: 'VZOR-2026-0007' }), '20260007', 'len číslice');
+  eq(I.variableSymbol({ invoice_number: '2026010001', variable_symbol: '260100153' }), '260100153', 'zapísaný VS má prednosť');
+  const zly = I.reviewBeforeApproval({ invoice: { invoice_number: '1', total: 10, partner_id: 'p', variable_symbol: '12345678901' },
+    partner: { id: 'p', ust_idnr: 'DE1', email: 'a@b.de' } });
+  ok(zly.reasons.some(r => r.rule === 'invoice_vs'), 'VS dlhší ako 10 číslic zablokuje schválenie');
+  const dlhe = I.reviewBeforeApproval({ invoice: { invoice_number: 'R-2026-01-000001', total: 10, partner_id: 'p' },
+    partner: { id: 'p', ust_idnr: 'DE1', email: 'a@b.de' } });
+  ok(dlhe.reasons.some(r => r.rule === 'invoice_vs'), 'aj keď by ho z čísla vyšlo viac ako 10');
+  const ks = I.reviewBeforeApproval({ invoice: { invoice_number: '1', total: 10, partner_id: 'p', constant_symbol: '03081' },
+    partner: { id: 'p', ust_idnr: 'DE1', email: 'a@b.de' } });
+  ok(ks.reasons.some(r => r.rule === 'invoice_ks'), 'KS najviac 4 číslice');
+  eq([I.paymentLabel('transfer', 'de'), I.paymentLabel('offset', 'sk'), I.paymentLabel(null, 'sk')],
+    ['Überweisung', 'Zápočtom', 'Prevodom'], 'forma úhrady na doklade');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

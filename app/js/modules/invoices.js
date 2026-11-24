@@ -960,6 +960,13 @@
         ['Splatnosť', x.due_date ? UI.date(x.due_date) : null,
           'Do tohto dňa má odberateľ zaplatiť. Počet dní sa berie z karty odberateľa, inak 30 dní '
             + 'od vystavenia. Potom appka faktúru označí „Po splatnosti".'],
+        ['Variabilný symbol', DanubraInvoice.variableSymbol(x) || null,
+          x.variable_symbol ? 'Zapísaný v návrhu faktúry. Podľa neho appka spáruje platbu z banky.'
+            : 'Číslice z čísla faktúry. Podľa neho appka spáruje platbu z banky. Dá sa zmeniť v návrhu (Upraviť).'],
+        ['Konštantný symbol', x.constant_symbol || null],
+        ['Objednávka č.', x.order_reference || null],
+        ['Forma úhrady', x.payment_method && x.payment_method !== 'transfer' ? DanubraInvoice.paymentLabel(x.payment_method, 'sk') : null],
+        ['Text na faktúre', x.note || null],
         ['Režim DPH', x.vat_regime === 'reverse_charge'
           ? 'Reverse charge §13b' : 'Bežný',
           x.vat_regime === 'reverse_charge'
@@ -1289,6 +1296,28 @@
             ${UI.field('due_date', 'Splatnosť', { type: 'date', value: x ? x.due_date : '' ,
               hint: x ? '' : 'Prázdne = podľa odberateľa (inak 30 dní).' })}
           </div>
+          <div class="form-section">Údaje na faktúre${UI.tip('Všetko, čo je na faktúre, sa dá v návrhu zmeniť. '
+            + 'Po schválení sa už nemení — vtedy „Vrátiť do návrhu", alebo opraviť dobropisom.')}</div>
+          <div class="form-grid">
+            ${UI.field('invoice_number', 'Číslo faktúry', { value: x ? x.invoice_number || '' : '',
+              placeholder: x ? '' : 'prázdne = ďalšie číslo z radu',
+              tip: 'Zákonné číslo faktúry. Pri novej faktúre ho appka pridelí z číselného radu (Nastavenia → Číselné rady). '
+                + 'Môžete ho prepísať — dve faktúry s rovnakým číslom databáza nepustí.' })}
+            ${UI.field('variable_symbol', 'Variabilný symbol', { value: x ? x.variable_symbol || '' : '',
+              placeholder: 'prázdne = číslice z čísla faktúry', inputmode: 'numeric',
+              tip: 'Podľa VS appka spáruje platbu z banky. Najviac 10 číslic. Prázdne = číslice z čísla faktúry.' })}
+            ${UI.field('constant_symbol', 'Konštantný symbol', {
+              value: x ? x.constant_symbol || '' : ((Danubra.cfg ? Danubra.cfg('supplier') : {}).constant_symbol || ''),
+              placeholder: 'napr. 0308', inputmode: 'numeric',
+              tip: 'Nepovinné, najviac 4 číslice. 0308 = platba za služby. Predvolený sa nastavuje v Nastavenia → Fakturačné údaje.' })}
+            ${UI.field('order_reference', 'Objednávka č. (Bestellung Nr.)', { value: x ? x.order_reference || '' : '',
+              tip: 'Číslo objednávky odberateľa, ak ho chce mať na faktúre.' })}
+            ${UI.field('payment_method', 'Forma úhrady', { value: x ? x.payment_method || 'transfer' : 'transfer',
+              options: Object.keys(DanubraInvoice.PAYMENT).map(k => [k, `${DanubraInvoice.paymentLabel(k, 'sk')} — ${DanubraInvoice.paymentLabel(k, 'de')}`]) })}
+          </div>
+          ${UI.field('note', 'Text na faktúru', { type: 'textarea', rows: 2, value: x ? x.note || '' : '',
+            placeholder: 'napr. Projekt Blaubeuren, KW 46',
+            tip: 'Vidí ho odberateľ — tlačí sa na faktúru pod sumu a ide aj do SuperFaktúry. Text k §13b sa pridáva sám.' })}
           <div id="regime-hint" class="regimebox"></div>
           ${UI.field('withholding_on', 'Zrážka §48b (Bauabzugsteuer)', { type: 'checkbox',
             value: !!(x && Number(x.withholding_pct)),
@@ -1360,13 +1389,32 @@
       if (!zPodkladu && !f.items.length) return UI.toast('Pridajte aspoň jednu položku s popisom a množstvom', 'err');
       const datumy = { issue_date: d.issue_date || f.invoice.issue_date, delivery_date: d.delivery_date || f.invoice.delivery_date,
         due_date: d.due_date || f.invoice.due_date };
+      // Údaje na faktúre — všetko sa dá v návrhu prepísať.
+      const cislo = String(d.invoice_number || '').trim();
+      const vs = String(d.variable_symbol || '').replace(/\s/g, '');
+      const ks = String(d.constant_symbol || '').replace(/\s/g, '');
+      if (vs && !/^\d{1,10}$/.test(vs)) return UI.toast('Variabilný symbol sú len číslice, najviac 10', 'err');
+      if (ks && !/^\d{1,4}$/.test(ks)) return UI.toast('Konštantný symbol sú najviac 4 číslice', 'err');
+      if (x && !cislo) return UI.toast('Faktúra musí mať číslo', 'err');
+      if (!vs && String(cislo || (x && x.invoice_number) || '').replace(/\D/g, '').length > 10) {
+        return UI.toast('Z čísla faktúry by bol VS dlhší ako 10 číslic — zapíšte variabilný symbol', 'err');
+      }
+      const udaje = { variable_symbol: vs || null, constant_symbol: ks || null,
+        order_reference: String(d.order_reference || '').trim() || null,
+        payment_method: d.payment_method || 'transfer', note: String(d.note || '').trim() || null };
+      const chybaCisla = (e) => /duplicate|unique/i.test(e.message || '')
+        ? `Číslo ${cislo} už má iná faktúra — zvoľte iné` : 'Chyba: ' + e.message;
 
       if (!x) {
-        const { data: n, error: ne } = await DB.rpc('next_number', { p_kind: 'invoice' });
-        if (ne) return UI.toast('Číslo sa nepodarilo prideliť: ' + ne.message, 'err');
-        const { data: inv, error } = await DB.insert('invoices', { ...f.invoice, ...datumy, invoice_number: n,
+        let n = cislo;
+        if (!n) {
+          const { data: pridelene, error: ne } = await DB.rpc('next_number', { p_kind: 'invoice' });
+          if (ne) return UI.toast('Číslo sa nepodarilo prideliť: ' + ne.message, 'err');
+          n = pridelene;
+        }
+        const { data: inv, error } = await DB.insert('invoices', { ...f.invoice, ...datumy, ...udaje, invoice_number: n,
           ...DanubraInvoice.withholdingPatch(f.invoice.total, !!d.withholding_on, this.withholdingPct()) });
-        if (error) return UI.toast('Chyba: ' + error.message, 'err');
+        if (error) return UI.toast(chybaCisla(error), 'err');
         const { error: e2 } = await DB.insertMany('invoice_items', f.items.map(i => ({ ...i, invoice_id: inv.id })));
         if (e2) return UI.toast('Faktúra vznikla, ale položky sa nezapísali: ' + e2.message, 'err');
         UI.closeModal();
@@ -1378,12 +1426,12 @@
       // Úprava návrhu: hlavička, potom položky — nič sa nemaže, vyhodené dostanú removed_at.
       // Režim sa berie z odberateľa aj pri faktúre z podkladu — keď mu niekto
       // zapne reverse charge, uložený návrh sa tým opraví.
-      const patch = { ...datumy, partner_id: partner.id, subcontract_id: d.subcontract_id || null,
+      const patch = { ...datumy, ...udaje, invoice_number: cislo, partner_id: partner.id, subcontract_id: d.subcontract_id || null,
         vat_regime: f.invoice.vat_regime,
         ...DanubraInvoice.withholdingPatch(zPodkladu ? x.total : f.invoice.total, !!d.withholding_on, this.withholdingPct()) };
       if (!zPodkladu) patch.total = f.invoice.total;
       const { error } = await DB.update('invoices', x.id, patch);
-      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (error) return UI.toast(chybaCisla(error), 'err');
       if (!zPodkladu) {
         const at = new Date().toISOString();
         const ops = [];
@@ -1425,8 +1473,8 @@
       try {
         if (supplier.iban && supplier.name) {
           const { net } = DanubraPapers.payable(x);
-          qrSvg = DanubraQR.svg(DanubraQR.sepaPayload({ name: supplier.name, iban: supplier.iban, amount: net,
-            reference: String(x.invoice_number || '').replace(/\D/g, ''), note: `Rechnung ${x.invoice_number}` }), { px: 132 });
+          qrSvg = DanubraQR.svg(DanubraQR.sepaPayload({ name: supplier.name, iban: supplier.iban, bic: supplier.bic || '', amount: net,
+            reference: DanubraInvoice.variableSymbol(x), note: `Rechnung ${x.invoice_number}` }), { px: 132 });
         }
       } catch (e) { /* bez QR sa dá zaplatiť podľa IBAN */ }
       const client = { name: p.name, country: p.country || 'DE', vat_id: p.ust_idnr, company_id: p.registration_no,

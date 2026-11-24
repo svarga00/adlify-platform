@@ -422,6 +422,17 @@
           ['bic', 'BIC / SWIFT', 'text', '', 'napr. TATRSKBX', null,
             'BIC (SWIFT) je medzinárodný kód banky, napr. TATRSKBX = Tatra banka. '
               + 'Tlačí sa na faktúru vedľa IBAN-u.'],
+          ['bank_name', 'Banka', 'text', '', 'napr. Tatra banka, a.s.', null,
+            'Názov banky k IBAN-u. Tlačí sa na faktúru do platobných údajov.'],
+          ['issued_by', 'Faktúru vystavil', 'text', '', 'napr. Štefan Varga', null,
+            'Meno pri „Vystavil / Ausgestellt von" na faktúre, vedľa pečiatky a podpisu. '
+              + 'Ide aj do SuperFaktúry.'],
+          ['constant_symbol', 'Konštantný symbol (predvolený)', 'text', '', 'napr. 0308', null,
+            'Konštantný symbol na nových faktúrach (0308 = platba za služby). V návrhu faktúry sa dá zmeniť.'],
+          ['invoice_footer', 'Text dolu na faktúre', 'textarea', '', 'Prázdne = veta o úroku z omeškania ako na faktúrach z Pohody', null,
+            'Malý text na konci faktúry. Prázdne = „Dovoľujeme si Vás upozorniť, že v prípade nedodržania termínu '
+              + 'splatnosti uvedeného na faktúre, Vám môžeme účtovať úrok z omeškania…" (ako na faktúrach z Pohody). '
+              + 'Pod ním sa vždy tlačí zápis v registri.'],
           ['vat_note', 'Poznámka k DPH', 'text', 'Nie sme platiteľmi DPH.'],
         ]) +
 
