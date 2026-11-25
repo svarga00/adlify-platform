@@ -64,7 +64,7 @@ console.log('\nAppka');
 {
   const html = read('app/index.html');
   ok(/class="login-brand">\s*<img class="logo-full" src="\.\/icons\/danubra-logo\.svg"[^>]*alt="DANUBRA">\s*<\/div>/.test(html), 'prihlásenie: celé logo s tmavými písmenami');
-  ok(/class="sidebar-brand">\s*<img class="logo-full" src="\.\/icons\/danubra-logo-white\.svg"[^>]*alt="DANUBRA">\s*<\/div>/.test(html), 'bočný panel (tmavý): logo s bielymi písmenami');
+  ok(/class="sidebar-brand">\s*<img class="logo-full" src="\.\/icons\/danubra-logo\.svg"[^>]*alt="DANUBRA">\s*<\/div>/.test(html), 'bočný panel (svetlý): logo s tmavomodrými písmenami');
   ok(html.indexOf('lib/brand-logo.js') > 0 && html.indexOf('lib/brand-logo.js') < html.indexOf('lib/documents/templates.js'), 'brand-logo.js sa načíta pred dokumentmi');
   ok(read('app/icons/danubra-logo.svg').includes('fill="#0A1B3D"') && read('app/icons/danubra-logo-white.svg').includes('fill="#FFFFFF"'), 'súbory loga v appke');
   const icon = read('app/icons/icon.svg');

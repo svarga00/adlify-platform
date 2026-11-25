@@ -5882,3 +5882,171 @@ a.ld-g-v:hover { text-decoration: underline; }
 @media (max-width: 560px) {
   .ser-next { align-items: flex-start; min-width: 0; }
 }
+
+/* ══ Vzhľad 2026 ═════════════════════════════════════════════════════════════
+   „Nová verzia Adlify sa mi extrémne páči … hlavne modaly a že je to
+   prehľadnejšie a oveľa modernejšie." Preto rovnaký princíp, ale vo farbách
+   a písme DANUBRA (Hanken Grotesk ako na dokumentoch; Outfit má po „ľ"
+   dieru — „Prehľ ad" — preto nadpisy tiež Hanken):
+     * svetlá plocha, biele karty bez rámčekov, mäkké zaoblenie,
+     * tlačidlá ako kapsule, výrazné a tesné nadpisy,
+     * okno = veľká biela karta: veľký nadpis, okrúhly krížik, pole bez
+       rámčeka na sivom podklade, päta s tlačidlami prilepená dole.
+   Celé je to jeden blok na konci súboru — zapína sa tokenmi hore a dá sa
+   vrátiť zmazaním bloku. */
+:root {
+  --bg:          #F3F4F7;
+  --card:        #FFFFFF;
+  --border:      #E4E8EF;
+  --border-soft: #EEF1F5;
+  --field:       #F1F3F7;
+  --ink-sub:     #5B6780;   /* 5.6:1 na bielej — sivý text musí byť čitateľný */
+  --ink-mute:    #7D889E;   /* 3.6:1 — len pre doplnky, nie pre vetu */
+  --radius-sm:   10px;      /* pole, tlačidlo v riadku, položka menu */
+  --radius:      12px;      /* štítok, prepínač */
+  --radius-lg:   20px;      /* karta */
+  --radius-xl:   28px;      /* okno */
+  --shadow-sm:   0 1px 2px rgba(10,27,61,.04), 0 0 0 1px rgba(10,27,61,.035);
+  --shadow-md:   0 18px 40px -24px rgba(10,27,61,.35);
+  --font-text:   'Hanken Grotesk', Inter, system-ui, sans-serif;
+  --font-head:   'Hanken Grotesk', Inter, system-ui, sans-serif;
+}
+html, body { font-family: var(--font-text); }
+body { font-size: 14.5px; }
+input, select, textarea, button { font-family: inherit; }
+:is(h1, h2, h3, .page-title, .card-title, .modal-head h3, .ask-body h3, .fly-head b) {
+  font-family: var(--font-head);
+}
+.page-title { font-size: 34px; font-weight: 700; letter-spacing: -.035em; line-height: 1.05; }
+.page-sub { font-size: 14px; margin-top: 8px; }
+.page-head { margin-bottom: 24px; }
+.card-title { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+
+/* ── Tlačidlá: kapsule ─────────────────────────────────────────────────── */
+.btn { border-radius: 999px; padding: 10px 18px; font-weight: 600; letter-spacing: -.005em; }
+.btn-sm { padding: 7px 14px; }
+.btn-primary { background: var(--navy); }
+.btn-primary:hover { background: #16305F; }
+/* Oranžová zostáva pre to jedno najdôležitejšie (Pridať, Uložiť, Vystaviť)
+   v okne — na ploche je hlavné tlačidlo tmavé, ako v predlohe. */
+.modal-actions .btn-primary, .ask-card .btn-primary { background: var(--brand); }
+.modal-actions .btn-primary:hover, .ask-card .btn-primary:hover { background: var(--brand-dark); }
+.btn-outline { border-color: #D9DFEA; }
+.btn-outline:hover { border-color: #B9C3D6; background: #fff; }
+.btn-ghost:hover { background: rgba(10,27,61,.06); }
+
+/* ── Karty: biele, bez rámčeka ─────────────────────────────────────────── */
+.card { border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-pad { padding: 20px 22px; }
+.badge, .nav-badge { border-radius: 999px; }
+.pillbar { background: #E8EBF1; border: 0; padding: 3px; border-radius: 12px; }
+.pill { border-radius: 9px; padding: 7px 14px; font-size: 13px; }
+.chip { border-radius: 999px; }
+
+/* ── Polia: bez rámčeka, na sivom podklade ─────────────────────────────── */
+.fld { gap: 7px; font-size: 13px; }
+.fld > span { color: var(--ink-sub); font-weight: 600; }
+.fld input, .fld select, .fld textarea, .searchbox, .verif-sel {
+  border: 1px solid transparent; border-radius: 12px; background: var(--field);
+}
+.fld input, .fld select, .fld textarea { padding: 11px 14px; font-size: 14.5px; }
+.fld input:hover, .fld select:hover, .fld textarea:hover { background: #EBEEF4; }
+.fld input:focus, .fld select:focus, .fld textarea:focus {
+  background: #fff; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(240,126,34,.14);
+}
+.pick-add { border-radius: 12px; border-color: transparent; background: var(--field); }
+/* Nadpis časti formulára: malý štítok strojovým písmom, ako v predlohe. */
+.form-section {
+  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  color: var(--ink-sub); margin: 28px 0 12px;
+}
+.form-section::after { background: var(--border-soft); }
+.notebox { border-radius: 14px; }
+.warnbox { border-radius: 14px; border: 0; }
+
+/* ── Bočné menu: svetlé, aktívna položka je biela karta ────────────────── */
+.sidebar { background: var(--bg); border-right: 1px solid var(--border-soft); padding: 20px 12px 16px; }
+.sidebar-brand { padding: 6px 12px 20px; }
+.sidebar-scroll::after { background: linear-gradient(transparent, var(--bg)); }
+.sidebar-nav { gap: 2px; scrollbar-color: #CBD2DF transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #CBD2DF; }
+.nav-group { color: var(--ink-mute); padding: 16px 12px 6px; }
+.nav-item {
+  color: #33415C; border-radius: 12px; padding: 10px 12px; font-size: 14.5px; font-weight: 500;
+}
+.nav-item svg { opacity: .7; }
+.nav-item:hover { background: rgba(10,27,61,.05); color: var(--ink); }
+.nav-item.active {
+  background: #fff; color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(10,27,61,.06), 0 0 0 1px rgba(10,27,61,.04);
+}
+.nav-item.is-fly { background: rgba(10,27,61,.06); color: var(--ink); }
+.nav-toggle { color: var(--ink-sub); border-radius: 10px; }
+.nav-toggle:hover, .nav-toggle:focus-visible { background: rgba(10,27,61,.07); color: var(--ink); }
+.nav-sub { border-left-color: var(--border); margin-left: 21px; }
+.nav-sub-item { font-family: var(--font-text); font-size: 14px; color: #44516B; border-radius: 10px; padding: 8px 10px; }
+.nav-sub-item:hover { background: rgba(10,27,61,.05); color: var(--ink); }
+.nav-sub-item.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(10,27,61,.06); }
+.sidebar-foot { border-top-color: var(--border); }
+.sidebar-foot .who b { color: var(--ink); }
+.sidebar-foot .who span { color: var(--ink-sub); }
+.sidebar-foot .btn-ghost { color: var(--ink-sub); }
+.sidebar-foot .btn-ghost:hover { background: rgba(10,27,61,.06); color: var(--ink); }
+.nav-fly { border: 0; border-radius: 20px; }
+
+/* Horný pruh splýva s plochou — žiadna biela lišta s linkou. */
+.topbar { background: rgba(243,244,247,.88); backdrop-filter: saturate(1.4) blur(10px); border-bottom-color: transparent; }
+.searchbox { background: #fff; box-shadow: var(--shadow-sm); border-radius: 999px; padding: 10px 16px; }
+
+/* ── Okno ───────────────────────────────────────────────────────────────── */
+.modal-backdrop { background: rgba(10,27,61,.38); backdrop-filter: blur(6px); }
+.modal-card { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.modal-head { border-bottom: 0; padding: 22px 22px 6px; gap: 12px; }
+.modal-head h3 { font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; }
+.modal-x {
+  flex: none; width: 40px; height: 40px; border-radius: 999px; background: var(--field);
+  color: var(--ink-sub); display: inline-flex; align-items: center; justify-content: center;
+}
+.modal-x:hover { background: #E4E8EF; color: var(--ink); }
+.modal-body { padding: 14px 22px 26px; }
+.modal-actions .btn { padding: 12px 22px; font-size: 14.5px; }
+@media (max-width: 860px) {
+  .modal-body > .modal-actions:last-child,
+  .modal-body > form > .modal-actions:last-child {
+    margin: 22px -22px -26px; padding: 14px 22px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top-color: var(--border-soft);
+  }
+}
+@media (min-width: 861px) {
+  .modal-backdrop { padding: 4dvh 32px; }
+  .modal-card {
+    border-radius: var(--radius-xl);
+    box-shadow: 0 40px 100px -40px rgba(10,27,61,.6), 0 0 0 1px rgba(10,27,61,.04);
+  }
+  .modal-head { padding: 30px 36px 8px; }
+  .modal-head h3 { font-size: 28px; }
+  .modal-x { width: 44px; height: 44px; }
+  .modal-body { padding: 16px 36px 32px; font-size: 14.5px; }
+  .modal-body .form-grid { gap: 18px 20px; }
+  .modal-body > .modal-actions:last-child,
+  .modal-body > form > .modal-actions:last-child {
+    margin: 28px -36px -32px; padding: 18px 36px;
+    background: #fff; border-top-color: var(--border-soft);
+  }
+}
+.ask-card { border-radius: 24px; }
+.ask-body { padding: 28px 28px 20px; }
+/* Potvrdenie („Zmazať záznam?") — rovnaká reč ako veľké okno. */
+.ask-body h3 { font-size: 22px; letter-spacing: -.03em; margin-bottom: 12px; }
+.ask-q { font-size: 17px; letter-spacing: -.01em; }
+.ask-hint { font-size: 14px; margin-top: 10px; }
+.ask-body input, .ask-body textarea { border-color: transparent; border-radius: 12px; }
+.ask-body input:focus, .ask-body textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(240,126,34,.14); }
+.ask-actions { border-top: 0; padding: 6px 28px 26px; }
+.ask-actions .btn { padding: 12px 22px; font-size: 14.5px; }
+@media (max-width: 560px) {
+  .ask-card { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+}
+@media (max-width: 860px) {
+  .page-title { font-size: 28px; }
+}
