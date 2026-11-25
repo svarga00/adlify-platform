@@ -6223,3 +6223,28 @@ input, select, textarea, button { font-family: inherit; }
 .kpi-grid + .dashbar, .headline + .dashbar { margin-top: 14px; }
 .mobile-head .kw-badge, .mobile-head .kw-badge:hover { background: #fff; color: var(--ink); border: 0; box-shadow: var(--shadow-sm); }
 .bl-hard { margin-top: 10px; font-size: 13.5px; color: var(--ink-sub); }
+
+/* 8 · Riadok zoznamu pod myšou. „Aby som videl, na čo idem klikať": riadok sa
+   podfarbí, dostane modrý pruh, názov zmodrie a šípka na konci sa vyplní.
+   Keď je myš na odkaze vnútri riadku (firma, zákazka), svieti len ten odkaz —
+   inak by nebolo jasné, či sa otvorí riadok alebo firma. */
+.dl-row.is-click { transition: background .12s, box-shadow .12s; }
+.dl-row.is-click .dl-title b { transition: color .12s; }
+.dl-acts .dl-act { transition: background .12s, color .12s, transform .12s; }
+@media (hover: hover) {
+  .dl-row.is-click:hover { background: #EDF2FC; }
+  .dl-row.is-click:not(.is-hot):hover,
+  .dl-row.is-click:not(.is-hot):hover > .dl-c:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+  .dl-row.is-click:hover:not(:has(:is(.link-chip:not(.is-static), a[href], .tip-btn, .dl-acts .dl-act:not(:last-child)):hover)) .dl-title b { color: var(--blue); }
+  .dl-row.is-click:hover:not(:has(:is(.link-chip:not(.is-static), a[href], .tip-btn, .dl-acts .dl-act:not(:last-child)):hover)) .dl-acts .dl-act:last-child {
+    background: var(--navy); border-color: var(--navy); color: #fff; transform: translateX(2px);
+  }
+  .dl-row.is-click:has(:is(.link-chip:not(.is-static), a[href], .tip-btn, .dl-acts .dl-act:not(:last-child)):hover) { background: #F6F8FD; }
+  .list-row:is(button, a, [onclick], [role="button"]):not(.is-static):hover { background: #EDF2FC; box-shadow: inset 3px 0 0 var(--blue); }
+  .link-chip:not(.is-static):hover { background: #fff; border-color: var(--blue); color: var(--blue); box-shadow: 0 0 0 3px rgba(30,79,216,.12); }
+}
+.dl-row.is-click:active, .list-row:is(button, a, [onclick], [role="button"]):not(.is-static):active { background: #E2E9F8; }
+@media (prefers-reduced-motion: reduce) {
+  .dl-acts .dl-act { transition: none; }
+  .dl-row.is-click:hover .dl-acts .dl-act:last-child { transform: none; }
+}
