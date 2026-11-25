@@ -1028,6 +1028,10 @@ console.log('Prehliadač');
         Guide.segments = Guide.buildSegments('trockenbau', 'ad1');
         res.kratkySegmentov = Guide.segments.length;
         res.kratkyPolia = Guide.segments[0].chips.map(c => c.segment);
+        // Hovor je jedna obrazovka: čo povedať, na čo sa opýtať, overenie remesla.
+        Guide.mode = 'quick'; Guide.segIndex = 0; Guide.answers = new Map(); Guide.notes = new Map();
+        Guide.render();
+        res.hovor = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
 
         // Plný pohovor má častí viac.
         Guide.mode = 'full';
@@ -1062,9 +1066,14 @@ console.log('Prehliadač');
         return res;
       });
 
-      ok(out.start.includes('Krátky hovor') && out.start.includes('Plný pohovor'),
-        'pred hovorom sa dá vybrať krátky alebo plný');
-      ok(out.start.includes('Do troch minút'), 'a je napísané, čím sa líšia');
+      ok(!out.start.includes('Plný pohovor') && out.start.includes('Začať hovor'),
+        'pred hovorom sa nič nevyberá — hovor je jeden', out.start.slice(0, 200));
+      ok(/Povedzte mu/.test(out.hovor) && /Opýtajte sa/.test(out.hovor) && /Ukončiť hovor/.test(out.hovor),
+        'hovor je jedna obrazovka: povedzte mu, opýtajte sa, ukončiť', out.hovor.slice(0, 200));
+      ok(/Robí sa na živnosť/.test(out.hovor) && /Faktúru vystavujete/.test(out.hovor) && /A1 ako živnostník/.test(out.hovor),
+        'ponuka sedí so zmluvami: živnosť, vlastná faktúra, A1 ako živnostník');
+      ok(/Máte živnosť\?/.test(out.hovor) && !/turnus/i.test(out.hovor) && /Podrobný pohovor/.test(out.hovor),
+        'otázky sú jadro podľa konceptu; podrobný pohovor je len na požiadanie');
 
       ok(out.kratkySegmentov === 1, 'krátky hovor je jedna obrazovka',
         `${out.kratkySegmentov}`);
@@ -1075,8 +1084,8 @@ console.log('Prehliadač');
       ok(out.plnySegmentov > out.kratkySegmentov,
         'plný pohovor má častí viac', `${out.plnySegmentov} vs ${out.kratkySegmentov}`);
 
-      ok(out.zaver.includes('Pokračovať plným pohovorom'),
-        'zo záveru krátkeho hovoru sa dá prejsť na plný');
+      ok(out.zaver.includes('Čo nasleduje') && out.zaver.includes('rámcovú zmluvu o dielo'),
+        'záver povie, čo nasleduje: preveriť, doklady, zmluva a objednávka');
       ok(!out.zaver.includes('Zavolať neskôr'),
         'pri vysokom skóre sa nehovorí „zavolať neskôr"', out.zaver.slice(0, 200));
       ok(out.sVlajkou.includes('Nepokračovať'),

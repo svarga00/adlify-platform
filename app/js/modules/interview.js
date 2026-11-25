@@ -28,6 +28,11 @@
       await this.loadContext();
       this.cand = null; this.trade = null; this.plan = null; this.ad = null;
       this.setup = true; this.segIndex = 0;
+      // Hovor je jeden a jednoduchý; podrobný pohovor sa dá zapnúť v ňom.
+      this.mode = 'quick';
+      // Volá na jediný bežiaci inzerát? Netreba ho vyberať.
+      const bezia = this.ads.filter(a => a.running);
+      if (bezia.length === 1) this._autoAd = bezia[0].id; else this._autoAd = null;
       // Inzerát je prvá otázka. Keď žiadny nebeží, pýta sa to po starom.
       this.pickMode = this.ads.some(a => a.running) ? 'ad'
         : (this.plans.length ? 'plan' : 'trade');
@@ -36,6 +41,7 @@
       // Meno a telefón sa držia tu, nie len v políčku — inak ich každé
       // klepnutie na nábor alebo typ hovoru zmazalo (okno sa prekreslí).
       this.draft = { name: '', phone: '', crew: false };
+      if (this._autoAd) this.pickAd(this._autoAd);
       this.open();
     },
 
@@ -299,8 +305,8 @@
       const seg = done ? null : this.segments[this.segIndex];
       el.innerHTML = this.shell({
         title: this.cand.full_name,
-        sub: done ? 'záver hovoru' : seg.title,
-        count: done ? '' : `${this.segIndex + 1}/${this.segments.length}`,
+        sub: done ? 'záver hovoru' : (this.mode !== 'full' ? 'náborový hovor' : seg.title),
+        count: done || this.mode !== 'full' ? '' : `${this.segIndex + 1}/${this.segments.length}`,
         progress: Math.round((Math.min(this.segIndex, this.segments.length) / this.segments.length) * 100),
         body: done ? this.callSummary() : this.segmentHtml(seg),
         aside: this.asideHtml(),
@@ -386,13 +392,13 @@
             ${row('Navyše', ((p?.analysis || {})._extra || {}).benefits || null)}
           </div>
           ${p ? `<div class="aside-tags">
-            ${p.accommodation_provided && !fakt('housing') ? '<span class="atag">ubytovanie platíme</span>' : ''}
+            ${p.accommodation_provided && !fakt('housing') ? '<span class="atag">ubytovanie zabezpečíme</span>' : ''}
             ${p.transport_provided ? '<span class="atag">doprava zabezpečená</span>' : ''}
             ${p.advance_possible ? '<span class="atag">záloha možná</span>' : ''}
           </div>` : ''}
         </div>
 
-        ${sub ? `<div class="aside-card">
+        ${sub && this.mode === 'full' ? `<div class="aside-card">
           <div class="aside-title">${Icon('doc', 14)} ${UI.esc(sub.contract_number || 'Zákazka')}</div>
           <div class="aside-kv">
             ${row('Zákazka', sub.title)}
@@ -405,7 +411,7 @@
             ? `<div class="aside-note">Stavebné práce — platí Bau-Mindestlohn, SOKA a hlásenie Zoll.${UI.tip('Na nemeckej stavbe platia osobitné pravidlá. Bau-Mindestlohn = minimálna hodinová mzda v stavebníctve. SOKA-BAU = stavebná pokladnica (dovolenky). Zoll = nemecká colná správa, ktorá na stavbách kontroluje papiere a kam sa ľudia vopred hlásia.')}</div>` : ''}
         </div>` : ''}
 
-        ${(this.trade?.pitch || []).length ? `<div class="aside-card">
+        ${(this.trade?.pitch || []).length && this.mode === 'full' ? `<div class="aside-card">
           <div class="aside-title">${Icon('note', 14)} Čo mu povedať</div>
           <ul class="aside-list">${this.trade.pitch.map(x => `<li>${UI.esc(x)}</li>`).join('')}</ul>
         </div>` : ''}`;
@@ -518,24 +524,8 @@
           ${UI.tip('Zaškrtnite, keď volá za celú skupinu ľudí, ktorí chcú robiť spolu (napr. „sme traja murári"). Založí sa ako jedna partia, nie ako jeden človek.')}
         </label>
 
-        <div class="call-mode">
-          <button class="call-mode-btn${this.mode !== 'full' ? ' active' : ''}"
-            onclick="Guide.setMode('quick')">
-            <b>Krátky hovor</b>
-            <span>Do troch minút: remeslo, papiere, kedy môže, peniaze.
-              Toľko stačí na rozhodnutie, či sa oplatí pokračovať.</span>
-          </button>
-          <button class="call-mode-btn${this.mode === 'full' ? ' active' : ''}"
-            onclick="Guide.setMode('full')">
-            <b>Plný pohovor</b>
-            <span>Šesť častí, dvadsať minút. Keď už viete, že má zmysel sa
-              s ním baviť — alebo keď má teraz čas.</span>
-          </button>
-        </div>
-
         <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:14px;"
-          onclick="Guide.beginCall()">${Icon('phone', 20)} ${
-          this.mode === 'full' ? 'Začať pohovor' : 'Začať hovor'}</button>
+          onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>
         <div class="guide-note-hint">Čo sa stane po kliknutí${UI.tip('Kandidát sa hneď založí v zozname Kandidáti so stavom Kontaktovaný a časom prvého kontaktu „teraz". Potom sa ukážu otázky. Všetko sa ukladá priebežne, takže keď hovor spadne, nič sa nestratí.')}</div>
         ${!this.trade && !this.plan && !this.ad ? `<div class="guide-note-hint">Vyberte inzerát, nábor
           alebo remeslo — podľa toho sa poskladajú polia aj otázky a vpravo uvidíte,
@@ -543,7 +533,87 @@
     },
 
     // ── Jedna obrazovka = jeden segment ───────────────────────────────────
+    // ── Jeden hovor na jednej obrazovke ───────────────────────────────────
+    // „Treba ten telefonát zjednodušiť … nech to nie je takéto komplikované."
+    // Dovtedy sa hovor preklikával otázka po otázke v šiestich častiach.
+    // Teraz je to jedna obrazovka v poradí, v akom hovor ide:
+    //   1. Povedzte mu  — ponuka v pár vetách, presne podľa zmlúv,
+    //   2. Opýtajte sa  — jadro otázok, odpoveď na klik,
+    //   3. Overte remeslo — dve-tri otázky z príručky a čo chceme počuť,
+    //   poznámka a „Ukončiť hovor".
+    // Podrobný pohovor (šesť častí) ostáva na druhý telefonát.
+
+    /** Čísla z ponuky do otázok a do toho, čo má povedať. */
+    offerTerms() {
+      const t = (window.Danubra && Danubra.cfg ? Danubra.cfg('subcontract') : null) || {};
+      return { fakturacia_dni: Number(t.fakturacia_dni) || 14, splatnost_dni: Number(t.splatnost_dni) || 14 };
+    },
+    offerVars() {
+      const t = this.offerTerms();
+      const rate = this.plan?.offer_rate ?? this.ad?.rate_offered ?? null;
+      return { rate: rate == null || rate === '' ? null : String(rate).replace('.', ','),
+        weeks: Math.max(1, Math.round(t.fakturacia_dni / 7)), due: t.splatnost_dni };
+    },
+
+    simpleHtml(seg) {
+      this._stepCtx = null;
+      const CQ = window.DanubraCallQ;
+      const g = this.callQ(seg);
+      const pevne = g.questions.filter(q => !q.dbId);
+      const remeslo = g.questions.filter(q => q.dbId);
+      const ponuka = CQ.offer({ plan: this.plan, ad: this.ad, trade: this.trade, terms: this.offerTerms() });
+      // O práci samotnej — z príručky remesla, bez viet o peniazoch (tie sú v ponuke).
+      const praca = (this.trade?.pitch || []).filter(x => !/ubytovan|v[ýy]plat|plat[ií]me/i.test(x)).slice(0, 3);
+      const spory = this.ad ? CQ.offerConflicts(AD().promiseLines(this.ad)) : [];
+      const note = this.notes.get(seg.key) || '';
+      const kam = window.DanubraRoute ? DanubraRoute.destinationOf(this.plan || {}, this.subcontract() || {}) : '';
+      const hotovo = pevne.filter(q => this.callQState(q) != null).length + remeslo.filter(q => this.callQState(q) != null).length;
+      return `
+        <section class="sc-sec">
+          <h3 class="sc-h"><span>1</span>Povedzte mu</h3>
+          <ul class="sc-offer">${ponuka.map(x => `<li>${UI.esc(x.text)}</li>`).join('')}</ul>
+          ${praca.length ? `<details class="sc-more"><summary>O práci na stavbe</summary>
+            <ul class="sc-offer is-soft">${praca.map(x => `<li>${UI.esc(x)}</li>`).join('')}</ul></details>` : ''}
+          ${spory.length ? `<div class="warnbox br-warn">${spory.map(x => `<div>${Icon('alert', 13)} ${UI.esc(x)}</div>`).join('')}</div>` : ''}
+        </section>
+
+        <section class="sc-sec">
+          <h3 class="sc-h"><span>2</span>Opýtajte sa</h3>
+          <div class="cq2-list sc-grid">${pevne.map(q => this.callQHtml(seg.key, q)).join('')}</div>
+          ${kam ? `<details class="sc-more"${this.route ? ' open' : ''}><summary>Odkiaľ by cestoval — vypočítať cestu na stavbu</summary>
+            ${this.routeStepHtml(seg, { type: 'route', key: '_route', kam })}</details>` : ''}
+        </section>
+
+        ${remeslo.length ? `<section class="sc-sec">
+          <h3 class="sc-h"><span>3</span>Overte remeslo${this.trade ? ` — ${UI.esc(this.trade.name_sk)}` : ''}</h3>
+          <p class="sc-lead">Znie to ako bežná otázka. Kto remeslo robil, odpovie hneď a číslom.</p>
+          <div class="cq2-list sc-trade">${remeslo.map(q => this.callQHtml(seg.key, q)).join('')}</div>
+        </section>` : ''}
+
+        <section class="sc-sec">
+          <details class="sc-more"><summary>Ďalšie postrehy a vlastné polia (${g.rest.length})</summary>
+            <div class="chip-list">
+              ${g.rest.map(c => this.chipHtml(c)).join('')}
+              <button class="chip chip-add" onclick="Guide.addChipPrompt('${seg.key}')">${Icon('plus', 14)} pridať vlastné</button>
+            </div>
+            ${this.questionsHtml(seg)}
+          </details>
+          <textarea id="seg-note" class="guide-note guide-textarea" rows="3"
+            placeholder="Poznámka z hovoru — vlastnými slovami…"
+            oninput="Guide.noteChanged('${seg.key}', this.value)">${UI.esc(note)}</textarea>
+        </section>
+
+        <div class="guide-nav sc-nav">
+          <button class="guide-nav-btn" onclick="Guide.goFull()" title="Šesť častí, asi dvadsať minút — na druhý telefonát alebo keď má čas">
+            Podrobný pohovor</button>
+          <span class="guide-nav-mid" id="tick-count">${hotovo} z ${pevne.length + remeslo.length} otázok</span>
+          <button class="guide-nav-btn guide-nav-next" onclick="Guide.nextSegment()">
+            Ukončiť hovor ${Icon('chevron', 16)}</button>
+        </div>`;
+    },
+
     segmentHtml(seg) {
+      if (this.mode !== 'full') return this.simpleHtml(seg);
       // Otázka po otázke: kým nie sú všetky prejdené, je na obrazovke len
       // jedna — veľká, s odpoveďami na klik alebo na klávesy 1–3.
       const kroky = this.steps(seg);
@@ -920,7 +990,7 @@
       const CQ = window.DanubraCallQ;
       if (!CQ) return { questions: [], rest: seg.chips };
       const usable = this.chips.filter(c => !c.trade_key || c.trade_key === this.trade?.key);
-      const g = CQ.group(seg.key, usable, seg.chips);
+      const g = CQ.group(seg.key, usable, seg.chips, this.offerVars());
       // Odborné otázky k remeslu / inzerátu idú za pevnými — tiež na klik
       // („odpovedal dobre / čiastočne / zle"), nielen na čítanie.
       g.questions = [...g.questions, ...(seg.questions || []).map(CQ.fromDbQuestion)];
@@ -941,7 +1011,8 @@
       const a = this.answers && this.answers.get(q.key);
       return `<div class="cq2" id="cq2-${q.key}">
         <div class="cq2-q">${UI.esc(q.q)}</div>
-        ${q.dbId ? `<details class="cq2-judge"><summary>čo chceme počuť</summary>${this.judgeHtml(q)}</details>` : ''}
+        ${q.dbId ? (this.mode !== 'full' ? `<div class="cq2-judge is-open">${this.judgeHtml(q)}</div>`
+          : `<details class="cq2-judge"><summary>čo chceme počuť</summary>${this.judgeHtml(q)}</details>`) : ''}
         ${this.dateHtml(segKey, q)}
         <div class="cq2-ans">
           ${q.answers.map((ans, i) => `<button class="cq2-a pol-${ans.chip ? ans.chip.polarity : (ans.polarity || 'neutral')}${
@@ -1218,10 +1289,14 @@
               <span>${UI.esc(n.why)}</span>`; })()}
           </div>` : ''}
 
-          ${this.mode !== 'full' && r.nextAction.key !== 'reject'
-            ? `<button class="guide-btn guide-btn-yes" style="margin-bottom:10px;"
-                 onclick="Guide.goFull()">${Icon('chevron', 18)}
-                 Pokračovať plným pohovorom</button>` : ''}
+          ${r.nextAction.key !== 'reject' ? `<div class="sc-next">
+            <b>Čo nasleduje</b>
+            <ol>
+              <li>Preveriť: zavolať tomu, pre koho robil, a pozrieť živnosť v registri.</li>
+              <li>Vypýtať doklady: občiansky alebo pas, živnostenský list, A1 (ak má).</li>
+              <li>Poslať súhlas GDPR, rámcovú zmluvu o dielo a objednávku na stavbu.</li>
+            </ol>
+          </div>` : ''}
 
           <div class="guide-note-hint" style="text-align:left;">Čo robia tlačidlá dole${UI.tip('Každé tlačidlo uloží skóre a hovor zavrie. Ísť preveriť: kandidát prejde do stavu Pohovor a otvorí sa krok Preveriť. Uložiť a pokračovať neskôr: tiež stav Pohovor, ale nič ďalšie sa neotvorí. Zamietnuť: opýta sa na dôvod a kandidát odíde z procesu.')}</div>
           <div class="guide-end-actions">

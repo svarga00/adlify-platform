@@ -145,5 +145,32 @@ const CHIPS = [
     'len dátum, bez hodnotenia');
 }
 
+// ── Jeden hovor podľa konceptu ──────────────────────────────────────────────
+{
+  const C = require('./callq');
+  const g = C.group('quick', [{ id: 'c1', label: 'Sadzba sedí s ponukou' }, { id: 'c2', label: 'Pýtal zálohu vopred' }], [], { rate: '21', weeks: 2, due: 14 });
+  ok(g.questions.length === C.CORE.length && g.questions.length <= 12, 'hovor má jedno jadro otázok — najviac dvanásť', String(g.questions.length));
+  const sad = g.questions.find(q => q.key === 'sadzba');
+  ok(/21 €\/h/.test(sad.q) && sad.answers[0].chip && sad.answers[0].chip.id === 'c1', 'otázka na sadzbu povie sumu z ponuky a odpoveď zaškrtne pole', sad.q);
+  const fak = g.questions.find(q => q.key === 'faktura');
+  ok(/každé 2 týždne/.test(fak.q) && /14 dní od doručenia/.test(fak.q) && fak.answers[2].chip.id === 'c2', 'fakturácia podľa zmluvy: 2 týždne, 14 dní od doručenia', fak.q);
+  const bez = C.group('quick', [], [], {}).questions.find(q => q.key === 'sadzba');
+  ok(bez.q === 'Koľko si predstavujete na hodinu?', 'bez sadzby v ponuke sa pýta otvorene', bez.q);
+  ok(!C.CORE.some(q => /turnus|výplat/i.test(q.q)), 'v jadre nie je turnus ani výplata — to nie je náš model');
+
+  const o = C.offer({ plan: { offer_rate: 21, city: 'München', start_date: '2026-12-05', accommodation_provided: true },
+    trade: { name_sk: 'Sadrokartonár' }, terms: { fakturacia_dni: 14, splatnost_dni: 14 } });
+  const text = o.map(x => x.text).join(' ');
+  ok(/na živnosť/.test(text) && /zmluvu o dielo/.test(text) && /Nie je to zamestnanie/.test(text), 'ponuka povie, že je to živnosť a zmluva o dielo');
+  ok(/21 €\/h/.test(text) && /potvrdí majster/.test(text), 'sadzba a výkaz podpísaný majstrom');
+  ok(/každé 2 týždne/.test(text) && /do 14 dní od doručenia/.test(text) && /vystaviť aj za Vás/.test(text), 'faktúra za 2 týždne, splatnosť od doručenia, vieme ju vystaviť my');
+  ok(/odpočíta z Vašej faktúry/.test(text) && !/Ubytovanie[^.]*platíme/.test(text), 'ubytovanie zabezpečíme, platí si ho on');
+  ok(/A1 ako živnostník/.test(text), 'A1 ako živnostník');
+  ok(!C.offer({ plan: {}, terms: {} }).some(x => x.key === 'ubytovanie'), 'keď nábor o ubytovaní nič nehovorí, ponuka ho nesľubuje');
+
+  const k = C.offerConflicts(['Ubytovanie zabezpečíme a platíme', 'Výplata každý mesiac načas', 'A1 vybavíme s Vami', '21 €/h']);
+  ok(k.length === 2 && /odpočíta sa z faktúry/.test(k[0]) && /vystavuje faktúru/.test(k[1]), 'sľuby z inzerátu, ktoré nesedia so zmluvou, sa ukážu', k.join(' | '));
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

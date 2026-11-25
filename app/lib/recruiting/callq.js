@@ -22,7 +22,7 @@
 // Testy: node app/lib/recruiting/callq.test.js
 // ============================================================================
 (function () {
-  const Q = (key, q, answers) => ({ key, q, answers: answers.map(([label, chip]) => ({ label, chip: chip || null })) });
+  const Q = (key, q, answers, alt) => ({ key, q, alt: alt || null, answers: answers.map(([label, chip]) => ({ label, chip: chip || null })) });
 
   const QUESTIONS = {
     intro: [
@@ -100,19 +100,113 @@
     ],
   };
 
-  // Krátky hovor: najdôležitejšie otázky zo všetkých častí, do troch minút.
-  const QUICK = ['intro:zivnost', 'intro:nastup', 'legal:a1', 'logistics:dlzka',
-    'money:sadzba', 'money:zaloha'];
+  // ── Jeden hovor podľa konceptu ───────────────────────────────────────────
+  // „Treba ten telefonát zjednodušiť … nech to sedí s konceptom."
+  // Koncept (zmluvy z Drive): človek robí **na živnosť** ako dodávateľ diela
+  // (rámcová zmluva o dielo + objednávka, nie zamestnanie), hodiny mu každý
+  // týždeň potvrdí majster na výkaze, **faktúru vystavuje on za 2 týždne**
+  // (alebo ju vystavíme za neho) so splatnosťou od doručenia, ubytovanie
+  // mu zabezpečíme a **odpočíta sa z faktúry**, A1 má ako živnostník.
+  //
+  // Hovor má preto tri veci na jednej obrazovke: čo mu povedať (`offer`),
+  // na čo sa opýtať (toto jadro) a overenie remesla (otázky z príručky).
+  // Ostatné otázky ostávajú — sú pod „Ďalšie otázky" a v podrobnom pohovore.
+  const CORE = [
+    Q('zivnost', 'Máte živnosť?', [
+      ['Áno, aktívnu', 'Má aktívnu živnosť'],
+      ['Nie, ale založí si', 'Živnosť si založí'],
+      ['Nie a nechce', 'Nemá a nechce živnosť']]),
+    Q('nastup', 'Kedy viete nastúpiť?', [
+      ['Do dvoch týždňov', 'Vie nastúpiť do dvoch týždňov'], ['Neskôr']]),
+    Q('dlzka', 'Na ako dlho by ste išli?', [
+      ['Dlhodobo, aspoň 3 mesiace', 'Nastúpi dlhodobo, aspoň tri mesiace'],
+      ['Len pár týždňov', 'Len na pár týždňov']]),
+    Q('sadzba', 'Sadzba je {rate} €/h, hodiny každý týždeň potvrdí majster. Sedí Vám to?', [
+      ['Sedí', 'Sadzba sedí s ponukou'],
+      ['Chce výrazne viac', 'Chce výrazne viac']], 'Koľko si predstavujete na hodinu?'),
+    Q('faktura', 'Faktúru vystavujete Vy každé {weeks} týždne, zaplatíme do {due} dní od doručenia. Je to v poriadku?', [
+      ['Áno'],
+      ['Chce, aby sme ju vystavili my'],
+      ['Chce zálohu vopred', 'Pýtal zálohu vopred']]),
+    Q('ubytovanie', 'Ubytovanie Vám zabezpečíme, jeho cena sa odpočíta z faktúry. Vadí Vám bývať s ďalšími?', [
+      ['Je to v poriadku', 'Zdieľané ubytovanie je v poriadku'],
+      ['Chce vlastnú izbu', 'Trvá na vlastnej izbe'],
+      ['Ubytovanie má vlastné']]),
+    Q('a1', 'Máte formulár A1 ako živnostník, alebo viete, čo to je?', [
+      ['Vie / má', 'Vie, čo je A1'],
+      ['Tvrdí, že netreba', 'Tvrdí, že A1 netreba'],
+      ['Nevie — vysvetlíme']]),
+    Q('nemcina', 'Hovoríte po nemecky?', [
+      ['Aspoň základ', 'Vie po nemecky aspoň základ'],
+      ['Nie'],
+      ['Nikto v partii', 'Nikto v partii nevie po nemecky']]),
+    Q('naradie', 'Máte vlastné náradie?', [
+      ['Áno', 'Má vlastné náradie'], ['Nie']]),
+    Q('auto', 'Máte auto, viete sa na stavbu dopraviť sám?', [
+      ['Áno', 'Má vlastné auto'], ['Nie', 'Nemá ako sa dopraviť']]),
+    Q('referencia', 'Pre koho ste naposledy robili? Môžem si tam zavolať?', [
+      ['Dal meno aj číslo', 'Dal meno aj číslo na toho, pre koho robil'],
+      ['Nepamätá si', 'Nepamätá si, pre koho robil']]),
+  ];
+  // Staré kľúče krátkeho hovoru (kvôli spätnej kompatibilite testov a odkazov).
+  const QUICK = CORE.map(q => q.key);
+
+  /** Doplní do textu otázky čísla z ponuky; keď chýbajú, použije náhradné znenie. */
+  function fill(q, vars = {}) {
+    const need = (String(q.q).match(/\{(\w+)\}/g) || []).map(x => x.slice(1, -1));
+    if (need.some(k => vars[k] == null || vars[k] === '')) {
+      if (q.alt) return q.alt;
+      return String(q.q).replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null || vars[k] === '' ? '…' : vars[k]));
+    }
+    return String(q.q).replace(/\{(\w+)\}/g, (m, k) => vars[k]);
+  }
+
+  /**
+   * Čo má náborár povedať — ponuka v piatich vetách, presne podľa zmlúv.
+   * @param {Object} o  { plan, ad, trade, terms: { fakturacia_dni, splatnost_dni } }
+   * @returns {Array<{key, text}>}
+   */
+  function offer(o = {}) {
+    const p = o.plan || {}, ad = o.ad || {}, t = o.trade || {}, terms = o.terms || {};
+    const rate = p.offer_rate != null && p.offer_rate !== '' ? p.offer_rate : ad.rate_offered;
+    const city = p.city || ad.city || '';
+    const start = p.start_date ? dateText(p.start_date) : '';
+    const weeks = Math.max(1, Math.round((Number(terms.fakturacia_dni) || 14) / 7));
+    const due = Number(terms.splatnost_dni) || 14;
+    const eur = (n) => String(n).replace('.', ',');
+    const housing = p.accommodation_provided != null ? !!p.accommodation_provided : (ad.accommodation != null ? !!ad.accommodation : null);
+    const out = [];
+    out.push({ key: 'praca', text: `Hľadáme ľudí${t.name_sk ? ` na pozíciu ${t.name_sk.toLowerCase()}` : ''} — ${city ? `stavba ${city}` : 'stavby v Nemecku'}${start ? `, nástup ${start}` : ''}.` });
+    out.push({ key: 'forma', text: 'Robí sa na živnosť: podpíšeme rámcovú zmluvu o dielo a objednávku. Nie je to zamestnanie.' });
+    out.push({ key: 'sadzba', text: rate != null && rate !== ''
+      ? `Sadzba je ${eur(rate)} €/h. Hodiny Vám každý týždeň potvrdí majster na výkaze.`
+      : 'Platí sa hodinovou sadzbou. Hodiny Vám každý týždeň potvrdí majster na výkaze.' });
+    out.push({ key: 'faktura', text: `Faktúru vystavujete každé ${weeks} ${weeks === 1 ? 'týždeň' : 'týždne'}, zaplatíme do ${due} dní od doručenia. Vieme ju vystaviť aj za Vás.` });
+    if (housing === true) out.push({ key: 'ubytovanie', text: 'Ubytovanie Vám zabezpečíme. Jeho cena sa odpočíta z Vašej faktúry.' });
+    else if (housing === false) out.push({ key: 'ubytovanie', text: 'Ubytovanie si riešite sám.' });
+    out.push({ key: 'a1', text: 'Do Nemecka potrebujete formulár A1 ako živnostník — pomôžeme Vám ho vybaviť.' });
+    return out;
+  }
+
+  /**
+   * Sľub z inzerátu, ktorý nesedí so zmluvou — náborár ho má vidieť skôr,
+   * než ho zopakuje do telefónu. Vráti vety na upozornenie.
+   */
+  function offerConflicts(promiseLines = []) {
+    const out = [];
+    for (const l of promiseLines || []) {
+      const x = norm(l);
+      if (/ubytovan/.test(x) && /plat[ií]me/.test(x)) out.push(`V inzeráte je „${l}" — podľa zmluvy si ubytovanie platí živnostník (odpočíta sa z faktúry).`);
+      if (/v[ýy]plat/.test(x)) out.push(`V inzeráte je „${l}" — živnostník nedostáva výplatu, vystavuje faktúru.`);
+      if (/a1/.test(x) && /vybav[ií]me/.test(x) && !/s vami|pom[oô]/.test(x)) out.push(`V inzeráte je „${l}" — A1 si vybavuje živnostník, my mu pomáhame.`);
+    }
+    return out;
+  }
 
   const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
   function otazky(segKey) {
-    if (segKey === 'quick') {
-      return QUICK.map((id) => {
-        const [seg, key] = id.split(':');
-        return (QUESTIONS[seg] || []).find(q => q.key === key);
-      }).filter(Boolean);
-    }
+    if (segKey === 'quick') return CORE;
     return QUESTIONS[segKey] || [];
   }
 
@@ -121,11 +215,11 @@
    * do žiadnej otázky nepatria. `chips` sú polia, ktoré má appka k dispozícii
    * (všetky aktívne); `segChips` tie, ktoré by sa v časti ukázali doteraz.
    */
-  function group(segKey, chips = [], segChips = chips) {
+  function group(segKey, chips = [], segChips = chips, vars = {}) {
     const podlaMena = new Map((chips || []).map(c => [norm(c.label), c]));
     const pouzite = new Set();
     const questions = otazky(segKey).map(q => ({
-      key: q.key, q: q.q,
+      key: q.key, q: fill(q, vars),
       answers: q.answers.map((a) => {
         const chip = a.chip ? podlaMena.get(norm(a.chip)) || null : null;
         if (chip) pouzite.add(chip.id);
@@ -271,7 +365,7 @@
     return idx >= 0 ? { idx } : null;
   }
 
-  const API = { QUESTIONS, QUICK, otazky, group, selected, noteLines,
+  const API = { QUESTIONS, QUICK, CORE, offer, offerConflicts, fill, otazky, group, selected, noteLines,
     RATINGS, fromDbQuestion, shortQ, ratingItems, answerRow, fromRow,
     isDateQ, dateText, quickDates, planFit };
   if (typeof window !== 'undefined') window.DanubraCallQ = API;

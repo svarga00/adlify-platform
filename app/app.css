@@ -6452,3 +6452,41 @@ input, select, textarea, button { font-family: inherit; }
 .he-note { margin: 0 0 12px; color: var(--ink); }
 .he-note > div { display: flex; gap: 7px; align-items: flex-start; }
 .he-note svg { flex: none; margin-top: 3px; color: var(--green); }
+
+/* 17 · Náborový hovor na jednej obrazovke (Guide.simpleHtml): povedzte mu →
+   opýtajte sa → overte remeslo. */
+.sc-sec { margin: 0 0 26px; }
+.sc-h { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.sc-h > span {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--navy); color: #fff; font-size: 14px; font-weight: 700;
+}
+.sc-lead { margin: -6px 0 12px 38px; font-size: 13.5px; color: var(--ink-sub); }
+.sc-offer {
+  list-style: none; margin: 0; padding: 16px 20px; background: #fff; border-radius: 16px; box-shadow: var(--shadow-sm);
+  display: grid; gap: 10px;
+}
+.sc-offer li { position: relative; padding-left: 18px; font-size: 16px; line-height: 1.45; color: var(--ink); }
+.sc-offer li::before { content: ''; position: absolute; left: 0; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+.sc-offer.is-soft { background: transparent; box-shadow: none; padding: 8px 4px 0; }
+.sc-offer.is-soft li { font-size: 14.5px; color: var(--ink-sub); }
+.sc-more { margin-top: 10px; }
+.sc-more > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--blue); list-style: none; padding: 6px 2px; }
+.sc-more > summary::-webkit-details-marker { display: none; }
+.sc-more > summary::before { content: '+ '; }
+.sc-more[open] > summary::before { content: '− '; }
+.sc-more .qq-continue, .sc-more .qq-q { display: none; }
+.sc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 10px; margin: 0; }
+.sc-grid .cq2, .sc-trade .cq2 { background: #fff; border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow-sm); }
+.sc-grid .cq2-q { font-size: 15.5px; font-weight: 600; line-height: 1.35; }
+.sc-trade { margin: 0; gap: 10px; }
+.sc-trade .cq2-q { font-size: 16.5px; }
+.cq2-judge.is-open { margin: 0 0 10px; }
+.cq2-a { border-radius: 999px; }
+.sc-nav { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 30%); padding-top: 18px; padding-bottom: 14px; }
+.sc-next { text-align: left; background: #fff; border-radius: 16px; padding: 14px 18px; margin: 0 0 14px; box-shadow: var(--shadow-sm); }
+.sc-next b { font-size: 14px; }
+.sc-next ol { margin: 8px 0 0; padding-left: 20px; font-size: 14px; line-height: 1.6; color: var(--ink-sub); }
+.guide-body:has(.sc-sec) { max-width: 940px; }
+.sc-nav { background: var(--bg); box-shadow: 0 -12px 16px -8px var(--bg); margin-top: 8px; }
+.sc-grid { align-items: start; }
