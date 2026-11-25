@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — odoslanie automatických e-mailov po formulári
+// DANUBRA web — odoslanie automatických e-mailov po formulári
 // ============================================================================
 // Z ktorej schránky sa posiela, určuje Nastavenia → Schránky → „E-maily
 // z webov" (danubra_settings.web). Kým tam nič nie je, neposiela sa nič —
@@ -48,7 +48,7 @@ function notifier(supabase, { content: contentRows = null, srv = null, send: sen
   async function smtpSend(mb, pass, { to, subject, html, text, replyTo }) {
     const MailComposer = require('nodemailer/lib/mail-composer');
     const raw = await new MailComposer({
-      from: { name: mb.display_name || 'punds', address: mb.email }, to, subject, html, text, replyTo,
+      from: { name: mb.display_name || 'DANUBRA', address: mb.email }, to, subject, html, text, replyTo,
     }).compile().build();
     await Promise.race([srv.smtp(mb, pass).sendMail({ envelope: { from: mb.email, to: [].concat(to).map((x) => (x.address || x)) }, raw }), timeout(9000)]);
     try {                                   // kópia do Odoslaných — keď nevyjde, e-mail je aj tak odoslaný

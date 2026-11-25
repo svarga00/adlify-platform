@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — Über uns (návrh 3a)
+// danubra.eu — Über uns (návrh 3a)
 // ============================================================================
 // Mená a fotky tímu zatiaľ nemáme — karty ukazujú len rolu a jazyky, bez
 // vymyslených osôb. Na skúšobnej adrese je pri nich upozornenie.
@@ -13,12 +13,12 @@ const { IMG } = require('../../shared/jobs');
 
 const T = {
   de: {
-    title: 'Über uns – Partner und Service s. r. o. | punds',
+    title: 'Über uns – Partner und Service s. r. o. | DANUBRA',
     desc: 'Partner und Service s. r. o. aus Nové Zámky vermittelt erfahrene Handwerker und Teams aus der Slowakei an Bau- und Industrieunternehmen in Deutschland und Österreich.',
     home: 'Startseite', crumb: 'Über uns', h1: 'Ihr Partner für Fachkräfte aus der Slowakei.',
     sub: 'Partner und Service ist ein slowakisches Unternehmen mit Sitz in Nové Zámky. Wir vermitteln erfahrene Handwerker und eingespielte Teams an Bau- und Industrieunternehmen in Deutschland und Österreich, mit vollständigen Unterlagen und einem festen Ansprechpartner.',
     photos: ['Fachkräfte bei der Montage', 'Schweißer bei der Arbeit'],
-    whyK: 'Warum punds', whyH: 'Wir kennen jeden Handwerker persönlich.',
+    whyK: 'Warum DANUBRA', whyH: 'Wir kennen jeden Handwerker persönlich.',
     whyP: ['Wir sind keine anonyme Plattform. Jede Fachkraft, die wir vermitteln, haben wir vorher persönlich geprüft: Qualifikation, Erfahrung und Zuverlässigkeit.',
       'Unterlagen, Unterkunft und Anreise organisieren wir vollständig. Sie erhalten einsatzbereite Fachkräfte und einen deutschsprachigen Ansprechpartner, der sich um den gesamten Einsatz kümmert.'],
     valH: 'Unsere Grundsätze',
@@ -34,12 +34,12 @@ const T = {
     ctaH: 'Sprechen wir über Ihr Projekt.', ctaP: 'Gewerk, Ort, Zeitraum und Anzahl: Wir melden uns innerhalb eines Werktages.', cta: 'Anfrage senden',
   },
   en: {
-    title: 'About us – Partner und Service s. r. o. | punds',
+    title: 'About us – Partner und Service s. r. o. | DANUBRA',
     desc: 'Partner und Service s. r. o. from Nové Zámky, Slovakia, places experienced tradespeople and crews with construction and industrial companies in Germany and Austria.',
     home: 'Home', crumb: 'About us', h1: 'Your partner for skilled tradespeople from Slovakia.',
     sub: 'Partner und Service is a Slovak company based in Nové Zámky. We place experienced tradespeople and well-rehearsed crews with construction and industrial companies in Germany and Austria – fully documented, with one fixed point of contact.',
     photos: ['Tradespeople during installation', 'Welder at work'],
-    whyK: 'Why punds', whyH: 'We know every tradesperson personally.',
+    whyK: 'Why DANUBRA', whyH: 'We know every tradesperson personally.',
     whyP: ['We are not an anonymous platform. Every specialist we place has been checked by us in person beforehand: qualifications, experience and reliability.',
       'We take care of paperwork, accommodation and travel. You receive tradespeople ready to start, plus a German-speaking contact who looks after the entire deployment.'],
     valH: 'Our principles',

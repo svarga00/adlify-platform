@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — hlavná stránka pre nemecké firmy (návrh 1b)
+// danubra.eu — hlavná stránka pre nemecké firmy (návrh 1b)
 // ============================================================================
 // Kotvy pre hlavičku: #gewerke, #modelle, #ablauf (+ #anfrage = formulár).
 // ============================================================================
@@ -14,7 +14,7 @@ const { enquiryForm, phoneIco } = require('./contact');
 
 const T = {
   de: {
-    title: 'Fachkräfte aus der Slowakei für Ihre Baustelle | punds',
+    title: 'Fachkräfte aus der Slowakei für Ihre Baustelle | DANUBRA',
     desc: 'Erfahrene Handwerker und eingespielte Teams aus der Slowakei für Bau- und Industrieprojekte in Deutschland – im Werkvertrag, mit vollständigen Unterlagen und festem Ansprechpartner.',
     eyebrow: 'Handwerker-Teams aus der Slowakei',
     h1: 'Zuverlässige Fachkräfte für Ihre Baustelle.',
@@ -32,7 +32,7 @@ const T = {
     direct: 'Lieber direkt?', msgPh: 'Weitere Angaben zum Projekt (optional)',
   },
   en: {
-    title: 'Skilled tradespeople from Slovakia for your construction site | punds',
+    title: 'Skilled tradespeople from Slovakia for your construction site | DANUBRA',
     desc: 'Experienced tradespeople and well-rehearsed crews from Slovakia for construction and industrial projects in Germany – fully documented, with one point of contact.',
     eyebrow: 'Skilled trade crews from Slovakia',
     h1: 'Reliable tradespeople for your construction site.',

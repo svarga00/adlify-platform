@@ -17,7 +17,7 @@
 //     (porovnanie v konštantnom čase); kľúč je na stránke v kotve (#t=…),
 //     do servera ide len v tele požiadavky — nie je v logoch ani v Referer,
 //   * len POST, len z našej stránky (Origin = tá istá adresa, ako pri
-//     formulároch punds.sk), najviac 30 kB,
+//     formulároch danubra.sk), najviac 30 kB,
 //   * pasca na roboty (skryté pole „website") — robot dostane „ok", nič sa
 //     neuloží,
 //   * najviac 30 firiem za hodinu z jednej siete. IP sa neukladá, len jej
@@ -48,7 +48,7 @@ const PER_WINDOW = 30;
 const TRIGGER_MS = 2500;
 const ENRICH_FN = '/.netlify/functions/danubra-lead-tips-enrich-background';
 // Rovnaký zoznam ako pri formulároch webov (web/api.js) + adresa, na ktorej beží funkcia.
-const ORIGIN_OK = /^https?:\/\/(([a-z0-9-]+\.)*punds\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost(:\d+)?|127\.0\.0\.1(:\d+)?)$/i;
+const ORIGIN_OK = /^https?:\/\/(([a-z0-9-]+\.)*danubra\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost(:\d+)?|127\.0\.0\.1(:\d+)?)$/i;
 const GONE = 'Tento odkaz na zber firiem už neplatí. Požiadajte prosím o nový toho, kto Vám ho poslal.';
 
 const H = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };

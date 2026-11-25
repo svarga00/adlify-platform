@@ -1,12 +1,12 @@
 /* ==========================================================================
-   punds web — spoločné správanie stránok (oba weby)
+   DANUBRA web — spoločné správanie stránok (oba weby)
    Hlavička (jazyk, mega menu, mobilné menu), animácie pri posúvaní,
    formuláre (prihláška, dopyt, kontakt), zdieľanie, výsuvné panely.
-   Bez knižníc. Texty hlásení sú v window.PUNDS.t (podľa jazyka).
+   Bez knižníc. Texty hlásení sú v window.DANUBRA.t (podľa jazyka).
    ========================================================================== */
 (function () {
   'use strict';
-  var P = window.PUNDS || { t: {}, api: '/api' };
+  var P = window.DANUBRA || { t: {}, api: '/api' };
   var T = P.t || {};
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -86,7 +86,7 @@
     }
     if (e.target.closest('[data-sheet-close]') || e.target.classList.contains('sheet-back')) closeSheets();
   });
-  window.PundsSheets = { close: closeSheets };
+  window.DanubraSheets = { close: closeSheets };
 
   // ── Otázky: vždy otvorená len jedna ────────────────────────────────────
   $$('[data-acc-group]').forEach(function (g) {
@@ -166,7 +166,7 @@
           box.className = 'form-ok'; box.setAttribute('role', 'status'); box.setAttribute('tabindex', '-1');
           box.innerHTML = tpl ? tpl.innerHTML : '<div class="ok-ico" aria-hidden="true">' + CHECK + '</div>';
           f.replaceWith(box); box.focus();
-          document.dispatchEvent(new CustomEvent('punds:sent', { detail: { form: f.getAttribute('data-form') } }));
+          document.dispatchEvent(new CustomEvent('danubra:sent', { detail: { form: f.getAttribute('data-form') } }));
         })
         .catch(function () {
           if (btn) { btn.disabled = false; btn.innerHTML = label; }

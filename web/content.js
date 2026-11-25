@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — obsah spravovaný v appke (Marketing → Weby)
+// DANUBRA web — obsah spravovaný v appke (Marketing → Weby)
 // ============================================================================
 // Texty stránok sú v kóde (`const T` v každej stránke). Appka ich môže
 // prepísať: v databáze (danubra_web_content) je len to, čo sa zmenilo —
@@ -19,8 +19,8 @@ const { IMG } = require('./shared/jobs');
 
 const DEFAULTS = {
   contacts: {
-    sk: { phone1: '+421 910 523 858', phone2: '+421 910 523 958', email: 'info@punds.sk' },
-    eu: { phone: '+421 910 523 958', email: 'info@punds.eu' },
+    sk: { phone1: '+421 910 523 858', phone2: '+421 910 523 958', email: 'info@danubra.sk' },
+    eu: { phone: '+421 910 523 958', email: 'info@danubra.eu' },
     whatsapp: '+421 910 523 858',
   },
 };
@@ -30,7 +30,7 @@ function imageList() {
   let dry = null;
   try { dry = require('./sk/pages/about').DRY; } catch (e) { /* bez nej */ }
   return [
-    { url: IMG.weld, label: 'Zvárač — úvod punds.sk a punds.eu, zváranie, ponuky zváračov' },
+    { url: IMG.weld, label: 'Zvárač — úvod danubra.sk a danubra.eu, zváranie, ponuky zváračov' },
     { url: IMG.paint, label: 'Maliar — maliari, zatepľovanie, ponuky' },
     { url: IMG.elec, label: 'Elektrikár — elektrikári, vzduchotechnika' },
     { url: IMG.mont, label: 'Montáž — montéri, o nás, ostatné ponuky' },
@@ -61,7 +61,7 @@ function setPath(obj, path, value) {
 
 /**
  * Skupiny textov webu: { "<stránka>": { obj, langs } }. Stránka má `T`
- * ({ jazyk: {…} }); remeslá punds.eu majú svoje texty v TRADES.
+ * ({ jazyk: {…} }); remeslá danubra.eu majú svoje texty v TRADES.
  */
 function groupsOf(siteKey) {
   const site = SITES[siteKey];

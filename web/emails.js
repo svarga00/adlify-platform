@@ -1,8 +1,8 @@
 // ============================================================================
-// punds web — automatické e-maily po odoslaní formulára (návrh 3c, 3d)
+// DANUBRA web — automatické e-maily po odoslaní formulára (návrh 3c, 3d)
 // ============================================================================
-//   apply / contact (punds.sk) → potvrdenie uchádzačovi v jeho jazyku
-//   enquiry (punds.eu)         → potvrdenie firme (de/en)
+//   apply / contact (danubra.sk) → potvrdenie uchádzačovi v jeho jazyku
+//   enquiry (danubra.eu)         → potvrdenie firme (de/en)
 //   team                       → upozornenie nám (po slovensky)
 // HTML je tabuľkové s inline štýlmi — tak to vykreslí Gmail, Outlook aj
 // mobil. Logo je PNG (SVG e-mailové programy neukážu).
@@ -18,65 +18,64 @@ const waDigits = (p) => String(p || '').replace(/\D/g, '');
 
 const INK = '#0E1626', OR = '#F07F1A', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC';
 const FONT = "'Hanken Grotesk',Arial,Helvetica,sans-serif", HEAD = "'Outfit',Arial,Helvetica,sans-serif";
-const ADDR = 'Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky';
+const ADDR = 'DANUBRA · Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky';
 
 const L = {
   sk: { subj: 'Prihlášku sme dostali', ref: 'Prihláška', thanks: (n) => `Ďakujeme${n ? `, ${n}` : ''}. Prihlášku sme dostali.`,
     sub: 'Ozveme sa Vám do 24 hodín v pracovné dni, aby sme si prešli podmienky a termín nástupu. Životopis netreba.',
     next: 'Čo bude nasledovať', steps: [['Zavoláme Vám', 'Overíme prax a certifikáty.'], ['Pošleme ponuku', 'Presné podmienky, ubytovanie, turnus.'], ['Nástup', 'Pomôžeme s dokumentmi aj cestou.']],
-    wa: 'Napísať nám na WhatsApp', q: (p) => `Máte otázku? Zavolajte na <b style="color:${INK}">${p}</b> alebo odpíšte na tento e-mail.`, perH: '/ hod.', web: 'punds.sk' },
+    wa: 'Napísať nám na WhatsApp', q: (p) => `Máte otázku? Zavolajte na <b style="color:${INK}">${p}</b> alebo odpíšte na tento e-mail.`, perH: '/ hod.', web: 'danubra.sk' },
   cz: { subj: 'Přihlášku jsme obdrželi', ref: 'Přihláška', thanks: (n) => `Děkujeme${n ? `, ${n}` : ''}. Přihlášku jsme obdrželi.`,
     sub: 'Ozveme se Vám do 24 hodin v pracovní dny, abychom probrali podmínky a termín nástupu. Životopis není potřeba.',
     next: 'Co bude následovat', steps: [['Zavoláme Vám', 'Ověříme praxi a certifikáty.'], ['Pošleme nabídku', 'Přesné podmínky, ubytování, turnus.'], ['Nástup', 'Pomůžeme s dokumenty i cestou.']],
-    wa: 'Napsat nám na WhatsApp', q: (p) => `Máte otázku? Zavolejte na <b style="color:${INK}">${p}</b> nebo odpovězte na tento e-mail.`, perH: '/ hod.', web: 'punds.sk' },
+    wa: 'Napsat nám na WhatsApp', q: (p) => `Máte otázku? Zavolejte na <b style="color:${INK}">${p}</b> nebo odpovězte na tento e-mail.`, perH: '/ hod.', web: 'danubra.sk' },
   hu: { subj: 'Megkaptuk a jelentkezését', ref: 'Jelentkezés', thanks: (n) => `Köszönjük${n ? `, ${n}` : ''}! Megkaptuk a jelentkezését.`,
     sub: 'Munkanapokon 24 órán belül felvesszük Önnel a kapcsolatot, hogy átbeszéljük a feltételeket és a kezdés időpontját. Önéletrajzra nincs szükség.',
     next: 'Hogyan tovább', steps: [['Felhívjuk Önt', 'Ellenőrizzük a gyakorlatot és a tanúsítványokat.'], ['Ajánlatot küldünk', 'Pontos feltételek, szállás, turnus.'], ['Kezdés', 'Segítünk az iratokkal és az utazással.']],
-    wa: 'Írjon nekünk WhatsAppon', q: (p) => `Kérdése van? Hívja a <b style="color:${INK}">${p}</b> számot, vagy válaszoljon erre az e-mailre.`, perH: '/ óra', web: 'punds.sk' },
+    wa: 'Írjon nekünk WhatsAppon', q: (p) => `Kérdése van? Hívja a <b style="color:${INK}">${p}</b> számot, vagy válaszoljon erre az e-mailre.`, perH: '/ óra', web: 'danubra.sk' },
   de: { subj: 'Ihre Bewerbung ist eingegangen', ref: 'Bewerbung', thanks: (n) => `Vielen Dank${n ? `, ${n}` : ''}. Ihre Bewerbung ist bei uns eingegangen.`,
     sub: 'Wir melden uns an Werktagen innerhalb von 24 Stunden, um Konditionen und Starttermin zu besprechen. Ein Lebenslauf ist nicht nötig.',
     next: 'Wie es weitergeht', steps: [['Wir rufen Sie an', 'Wir prüfen Erfahrung und Zertifikate.'], ['Wir senden ein Angebot', 'Genaue Konditionen, Unterkunft, Turnus.'], ['Start', 'Wir helfen bei Unterlagen und Anreise.']],
-    wa: 'Per WhatsApp schreiben', q: (p) => `Fragen? Rufen Sie uns an unter <b style="color:${INK}">${p}</b> oder antworten Sie auf diese E-Mail.`, perH: '/ Std.', web: 'punds.sk' },
+    wa: 'Per WhatsApp schreiben', q: (p) => `Fragen? Rufen Sie uns an unter <b style="color:${INK}">${p}</b> oder antworten Sie auf diese E-Mail.`, perH: '/ Std.', web: 'danubra.sk' },
   en: { subj: 'We have received your application', ref: 'Application', thanks: (n) => `Thank you${n ? `, ${n}` : ''}. We have received your application.`,
     sub: 'We will get back to you within 24 hours on working days to go through the terms and start date. No CV needed.',
     next: 'What happens next', steps: [['We call you', 'We check your experience and certificates.'], ['We send an offer', 'Exact terms, accommodation, rotation.'], ['Start', 'We help with paperwork and travel.']],
-    wa: 'Message us on WhatsApp', q: (p) => `Questions? Call <b style="color:${INK}">${p}</b> or reply to this email.`, perH: '/ hr', web: 'punds.sk' },
+    wa: 'Message us on WhatsApp', q: (p) => `Questions? Call <b style="color:${INK}">${p}</b> or reply to this email.`, perH: '/ hr', web: 'danubra.sk' },
   ro: { subj: 'Am primit cererea Dvs.', ref: 'Cerere', thanks: (n) => `Vă mulțumim${n ? `, ${n}` : ''}. Am primit cererea Dvs.`,
     sub: 'Vă contactăm în 24 de ore în zilele lucrătoare, ca să discutăm condițiile și data începerii. Nu este nevoie de CV. Vă rugăm să rețineți: șeful de echipă trebuie să vorbească germană sau engleză.',
     next: 'Ce urmează', steps: [['Vă sunăm', 'Verificăm experiența și certificatele.'], ['Vă trimitem oferta', 'Condiții exacte, cazare, rotație.'], ['Începerea lucrului', 'Vă ajutăm cu documentele și călătoria.']],
-    wa: 'Scrieți-ne pe WhatsApp', q: (p) => `Aveți întrebări? Sunați la <b style="color:${INK}">${p}</b> sau răspundeți la acest e-mail.`, perH: '/ oră', web: 'punds.sk' },
+    wa: 'Scrieți-ne pe WhatsApp', q: (p) => `Aveți întrebări? Sunați la <b style="color:${INK}">${p}</b> sau răspundeți la acest e-mail.`, perH: '/ oră', web: 'danubra.sk' },
   pl: { subj: 'Otrzymaliśmy Państwa zgłoszenie', ref: 'Zgłoszenie', thanks: (n) => `Dziękujemy${n ? `, ${n}` : ''}. Otrzymaliśmy Państwa zgłoszenie.`,
     sub: 'Odezwiemy się w ciągu 24 godzin w dni robocze, aby omówić warunki i termin rozpoczęcia. CV nie jest potrzebne. Prosimy pamiętać: kierownik brygady musi mówić po niemiecku lub po angielsku.',
     next: 'Co dalej', steps: [['Zadzwonimy', 'Sprawdzimy doświadczenie i certyfikaty.'], ['Wyślemy ofertę', 'Dokładne warunki, zakwaterowanie, rotacja.'], ['Start', 'Pomożemy z dokumentami i dojazdem.']],
-    wa: 'Napisz do nas na WhatsApp', q: (p) => `Pytania? Prosimy zadzwonić pod <b style="color:${INK}">${p}</b> lub odpowiedzieć na ten e-mail.`, perH: '/ godz.', web: 'punds.sk' },
+    wa: 'Napisz do nas na WhatsApp', q: (p) => `Pytania? Prosimy zadzwonić pod <b style="color:${INK}">${p}</b> lub odpowiedzieć na ten e-mail.`, perH: '/ godz.', web: 'danubra.sk' },
   bg: { subj: 'Получихме Вашата заявка', ref: 'Заявка', thanks: (n) => `Благодарим Ви${n ? `, ${n}` : ''}. Получихме Вашата заявка.`,
     sub: 'Ще се свържем с Вас до 24 часа в работни дни, за да обсъдим условията и датата на започване. Не е нужна автобиография. Моля, имайте предвид: ръководителят на екипа трябва да говори немски или английски.',
     next: 'Какво следва', steps: [['Ще Ви се обадим', 'Ще проверим опита и сертификатите.'], ['Ще изпратим оферта', 'Точни условия, квартира, ротация.'], ['Започване', 'Ще помогнем с документите и пътуването.']],
-    wa: 'Пишете ни в WhatsApp', q: (p) => `Имате въпрос? Обадете се на <b style="color:${INK}">${p}</b> или отговорете на този имейл.`, perH: '/ час', web: 'punds.sk' },
+    wa: 'Пишете ни в WhatsApp', q: (p) => `Имате въпрос? Обадете се на <b style="color:${INK}">${p}</b> или отговорете на този имейл.`, perH: '/ час', web: 'danubra.sk' },
 };
 /** Jazyky, ktoré uchádzač zaškrtol vo formulári — po slovensky pre upozornenie tímu. */
 const SPOKEN_SK = { de: 'nemčina', en: 'angličtina', sk: 'slovenčina', cs: 'čeština', hu: 'maďarčina', ro: 'rumunčina', pl: 'poľština', bg: 'bulharčina', other: 'iný' };
 const LE = {
-  de: { subj: 'Ihre Anfrage bei punds', ref: 'Anfrage', h: 'Vielen Dank für Ihre Anfrage.', sub: 'Wir melden uns innerhalb eines Werktages mit passenden Profilen und Konditionen.',
+  de: { subj: 'Ihre Anfrage bei DANUBRA', ref: 'Anfrage', h: 'Vielen Dank für Ihre Anfrage.', sub: 'Wir melden uns innerhalb eines Werktages mit passenden Profilen und Konditionen.',
     f: { trade: 'Gewerk', n: 'Anzahl', loc: 'Einsatzort', start: 'Start' }, persons: (n) => `${n} ${n === 1 ? 'Person' : 'Personen'}`,
-    contact: 'Ihr Ansprechpartner', team: 'Team punds', web: 'punds.eu', country: 'Slowakei' },
-  en: { subj: 'Your enquiry with punds', ref: 'Enquiry', h: 'Thank you for your enquiry.', sub: 'We will get back to you within one working day with matching profiles and terms.',
+    contact: 'Ihr Ansprechpartner', team: 'Team DANUBRA', web: 'danubra.eu', country: 'Slowakei' },
+  en: { subj: 'Your enquiry with DANUBRA', ref: 'Enquiry', h: 'Thank you for your enquiry.', sub: 'We will get back to you within one working day with matching profiles and terms.',
     f: { trade: 'Trade', n: 'Headcount', loc: 'Location', start: 'Start' }, persons: (n) => `${n} ${n === 1 ? 'person' : 'people'}`,
-    contact: 'Your contact', team: 'punds team', web: 'punds.eu', country: 'Slovakia' },
+    contact: 'Your contact', team: 'DANUBRA team', web: 'danubra.eu', country: 'Slovakia' },
 };
 
 function shell({ assets, ref, inner, foot }) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light"><title>punds</title></head>
+<meta name="color-scheme" content="light"><title>DANUBRA</title></head>
 <body style="margin:0;padding:0;background:#E9EAEC;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E9EAEC;"><tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;font-family:${FONT};color:${INK};">
 <tr><td style="background:${INK};padding:22px 28px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
     <td style="vertical-align:middle;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="padding-right:10px;vertical-align:middle;"><img src="${assets}/img/email/punds-mark-white.png" width="34" height="26" alt="" style="display:block;border:0;"></td>
-      <td style="vertical-align:middle;"><div style="font:700 22px/1 ${HEAD};letter-spacing:-1px;color:#ffffff;">punds</div>
-        <div style="font:500 6px/1 ${FONT};letter-spacing:1.6px;color:#8C97AD;padding-top:5px;">PARTNER UND SERVICE</div></td></tr></table></td>
+      <td style="padding-right:10px;vertical-align:middle;"><img src="${assets}/img/email/danubra-mark-white.png" width="34" height="26" alt="" style="display:block;border:0;"></td>
+      <td style="vertical-align:middle;"><div style="font:700 21px/1 ${HEAD};letter-spacing:.5px;color:#ffffff;">DANUBRA</div></td></tr></table></td>
     <td align="right" style="vertical-align:middle;font:500 12px ${FONT};color:#8C97AD;">${esc(ref)}</td>
   </tr></table></td></tr>
 ${inner}
@@ -88,9 +87,9 @@ const btn = (href, label, bg = OR) => `<table role="presentation" cellpadding="0
   <a href="${esc(href)}" style="display:inline-block;padding:13px 22px;font:600 14.5px ${FONT};color:#ffffff;text-decoration:none;">${esc(label)} →</a></td></tr></table>`;
 
 /**
- * Potvrdenie prihlášky (punds.sk).
+ * Potvrdenie prihlášky (danubra.sk).
  * @param {Object} o { lang, name, job: { title, city, rate, start, image }, ref, assets,
- *   phone (hlavný telefón punds.sk), whatsapp (číslo v ľubovoľnom zápise) }
+ *   phone (hlavný telefón danubra.sk), whatsapp (číslo v ľubovoľnom zápise) }
  */
 function confirmApply({ lang = 'sk', name = '', job = null, ref = '', assets, phone = '', whatsapp = '' } = {}) {
   const t = L[lang] || L.sk;
@@ -117,11 +116,11 @@ function confirmApply({ lang = 'sk', name = '', job = null, ref = '', assets, ph
   const foot = `${t.q(esc(phone))}<br>${esc(ADDR)} · ${t.web}`;
   const text = [t.thanks(first), '', t.sub, job ? `\n${job.title}${job.city ? ` · ${job.city}` : ''}${job.rate ? ` · ${job.rate} ${t.perH}` : ''}` : '',
     '', `${t.next}:`, ...t.steps.map(([h, p], i) => `${i + 1}. ${h} – ${p}`), '', t.q(phone).replace(/<[^>]+>/g, ''), ADDR].join('\n');
-  return { subject: `${t.subj}${job ? ` – ${job.title}` : ''} | punds`, html: shell({ assets, ref: `${t.ref} ${ref}`, inner, foot }), text };
+  return { subject: `${t.subj}${job ? ` – ${job.title}` : ''} | DANUBRA`, html: shell({ assets, ref: `${t.ref} ${ref}`, inner, foot }), text };
 }
 
 /**
- * Potvrdenie dopytu (punds.eu).
+ * Potvrdenie dopytu (danubra.eu).
  * @param {Object} o { lang, company, name, trades[keys], headcount, location, start, ref, assets, contact: { name, phone, email } }
  */
 function confirmEnquiry({ lang = 'de', trades = [], headcount = null, location = '', start = '', ref = '', assets, contact = {} } = {}) {
@@ -139,10 +138,10 @@ function confirmEnquiry({ lang = 'de', trades = [], headcount = null, location =
   ${grid}
   <tr><td style="padding:14px 28px 26px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
     <td style="padding-right:14px;vertical-align:middle;"><div style="width:52px;height:52px;border-radius:26px;background:${INK};text-align:center;">
-      <img src="${assets}/img/email/punds-mark-white.png" width="30" height="23" alt="" style="display:inline-block;margin-top:15px;border:0;"></div></td>
+      <img src="${assets}/img/email/danubra-mark-white.png" width="30" height="23" alt="" style="display:inline-block;margin-top:15px;border:0;"></div></td>
     <td style="vertical-align:middle;font:400 14px/1.5 ${FONT};color:${T2};"><b style="color:${INK};">${esc(t.contact)}: ${esc(who)}</b><br>${esc([contact.phone, contact.email].filter(Boolean).join(' · '))}</td>
   </tr></table></td></tr>`;
-  const foot = `Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky, ${t.country} · ${t.web}`;
+  const foot = `DANUBRA · Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky, ${t.country} · ${t.web}`;
   const text = [t.h, '', t.sub, '', ...cells.map(([k, v]) => `${k}: ${v}`), '', `${t.contact}: ${who}${contact.phone ? ` · ${contact.phone}` : ''}${contact.email ? ` · ${contact.email}` : ''}`, '', foot].join('\n');
   return { subject: `${t.subj}${tradeNames ? ` – ${tradeNames}` : ''}`, html: shell({ assets, ref: `${t.ref} ${ref}`, inner, foot: esc(foot) }), text };
 }
@@ -150,11 +149,11 @@ function confirmEnquiry({ lang = 'de', trades = [], headcount = null, location =
 /** Upozornenie pre nás — krátke, po slovensky, s odkazom do appky. */
 function team({ kind, data = {}, job = null, appUrl = '' } = {}) {
   const lines = kind === 'enquiry'
-    ? [`Nový dopyt z punds.eu: ${data.company}`, `Kontakt: ${data.name} · ${data.email}${data.phone ? ` · ${data.phone}` : ''}`,
+    ? [`Nový dopyt z danubra.eu: ${data.company}`, `Kontakt: ${data.name} · ${data.email}${data.phone ? ` · ${data.phone}` : ''}`,
       data.trades && data.trades.length ? `Remeslá: ${data.trades.map((k) => PROF.nameOf(PROF.byKey(k), 'sk')).join(', ')}` : '',
       data.headcount ? `Počet: ${data.headcount}` : '', data.location ? `Miesto: ${data.location}` : '', data.start ? `Začiatok: ${data.start}` : '',
       data.note ? `\n${data.note}` : '', appUrl ? `\nV appke: ${appUrl}#/opportunities` : '']
-    : [`Nová ${kind === 'apply' ? 'prihláška' : 'správa'} z punds.sk: ${data.name}`, `Telefón: ${data.phone}${data.email ? ` · ${data.email}` : ''}`,
+    : [`Nová ${kind === 'apply' ? 'prihláška' : 'správa'} z danubra.sk: ${data.name}`, `Telefón: ${data.phone}${data.email ? ` · ${data.email}` : ''}`,
       job ? `Ponuka: ${job.title}${job.city ? ` · ${job.city}` : ''}` : (data.profession ? `Profesia: ${data.profession}` : ''),
       data.lang ? `Jazyk webu: ${data.lang}` : '',
       Array.isArray(data.languages) && data.languages.length ? `Hovorí: ${data.languages.map((k) => SPOKEN_SK[k] || k).join(', ')}` : '',

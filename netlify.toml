@@ -25,36 +25,65 @@
   to = "/app/"
   status = 302
 
-# Weby punds.sk a punds.eu (web/). Skúšobne bežia pod touto adresou:
-#   /punds-sk/sk/…  a  /punds-eu/de/…
-# Stránky skladá funkcia punds-web (aj formuláre /punds-*/api/*).
-# Naostro: punds.sk a punds.eu sa pridajú ako domény tohto webu a zapne sa
-# edge funkcia z web/edge/punds-host.js (návod je v nej).
+# Weby danubra.sk a danubra.eu (web/). Skúšobne bežia pod touto adresou:
+#   /danubra-sk/sk/…  a  /danubra-eu/de/…
+# Stránky skladá funkcia danubra-web (aj formuláre /danubra-*/api/*).
+# Naostro: danubra.sk a danubra.eu sa pridajú ako domény tohto webu a zapne sa
+# edge funkcia z web/edge/danubra-host.js (návod je v nej).
+[[redirects]]
+  from = "/danubra-sk"
+  to = "/.netlify/functions/danubra-web"
+  status = 200
+[[redirects]]
+  from = "/danubra-sk/*"
+  to = "/.netlify/functions/danubra-web"
+  status = 200
+[[redirects]]
+  from = "/danubra-eu"
+  to = "/.netlify/functions/danubra-web"
+  status = 200
+[[redirects]]
+  from = "/danubra-eu/*"
+  to = "/.netlify/functions/danubra-web"
+  status = 200
+# Pôvodné skúšobné adresy z čias značky punds (/punds-sk/…, /punds-eu/…) —
+# odkazy sa už rozposlali, preto trvalé presmerovanie (301) na nové adresy.
+# Cesta za predponou aj parametre (?…) sa zachovajú.
 [[redirects]]
   from = "/punds-sk"
-  to = "/.netlify/functions/punds-web"
-  status = 200
+  to = "/danubra-sk"
+  status = 301
 [[redirects]]
   from = "/punds-sk/*"
-  to = "/.netlify/functions/punds-web"
-  status = 200
+  to = "/danubra-sk/:splat"
+  status = 301
 [[redirects]]
   from = "/punds-eu"
-  to = "/.netlify/functions/punds-web"
-  status = 200
+  to = "/danubra-eu"
+  status = 301
 [[redirects]]
   from = "/punds-eu/*"
-  to = "/.netlify/functions/punds-web"
-  status = 200
+  to = "/danubra-eu/:splat"
+  status = 301
+# Logo v už odoslaných e-mailoch (potvrdenia, oslovenia, podpis) má starú
+# adresu obrázka — nech sa v nich logo stále ukáže.
+[[redirects]]
+  from = "/web/public/img/email/punds-mark.png"
+  to = "/web/public/img/email/danubra-mark.png"
+  status = 301
+[[redirects]]
+  from = "/web/public/img/email/punds-mark-white.png"
+  to = "/web/public/img/email/danubra-mark-white.png"
+  status = 301
 # Balík dokumentov pre živnostníka: WhatsApp/SMS nesú jeden krátky odkaz
 #   /b/<token>               stránka so všetkými PDF
 #   /b/<token>/<archive_id>  stiahnutie (302 na podpísaný odkaz, 60 s)
-# Skladá to funkcia punds-bundle (service role, bez prihlásenia). Prepis
+# Skladá to funkcia danubra-bundle (service role, bez prihlásenia). Prepis
 # (200) — adresa v prehliadači zostane /b/…; funkcia číta token z event.path
 # aj z adresy funkcie. Musí byť pred každým prípadným záchytným pravidlom „/*".
 [[redirects]]
   from = "/b/*"
-  to = "/.netlify/functions/punds-bundle/:splat"
+  to = "/.netlify/functions/danubra-bundle/:splat"
   status = 200
   force = true
 

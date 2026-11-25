@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — úvodná stránka (návrh 1a, mobil 1a)
+// danubra.sk — úvodná stránka (návrh 1a, mobil 1a)
 // ============================================================================
 'use strict';
 
@@ -12,7 +12,7 @@ const { contactForm, ICO, WA, ADDR } = require('./contact');
 
 const T = {
   sk: {
-    title: 'Práca v Nemecku pre remeselníkov | punds',
+    title: 'Práca v Nemecku pre remeselníkov | DANUBRA',
     desc: 'Dobre platená práca na stavbách v Nemecku pre remeselníkov zo Slovenska. Overené firmy, ubytovanie, platba každých 14 dní a pomoc s papiermi.',
     eyebrow: 'Práca v Nemecku pre remeselníkov', h1: 'Dobre platená práca na stavbách v Nemecku.', h1b: 'Bývanie aj papiere vybavíme my.',
     sub: 'Spájame skúsených remeselníkov s overenými nemeckými firmami. Pomôžeme s A1, Steuernummer, Freistellung aj ubytovaním.',
@@ -25,7 +25,7 @@ const T = {
     conH: 'Ozvite sa nám', conSub: 'Odpovieme do 24 hodín v pracovné dni.', hours: 'Po–Pia 8:00–16:00', wa: 'Napísať na WhatsApp',
   },
   cz: {
-    title: 'Práce v Německu pro řemeslníky | punds',
+    title: 'Práce v Německu pro řemeslníky | DANUBRA',
     desc: 'Dobře placená práce na stavbách v Německu pro řemeslníky z Česka a Slovenska. Ověřené firmy, ubytování, platba každých 14 dní a pomoc s papíry.',
     eyebrow: 'Práce v Německu pro řemeslníky', h1: 'Dobře placená práce na stavbách v Německu.', h1b: 'Ubytování i papíry vyřídíme my.',
     sub: 'Spojujeme zkušené řemeslníky s ověřenými německými firmami. Pomůžeme s A1, Steuernummer, Freistellung i ubytováním.',
@@ -38,7 +38,7 @@ const T = {
     conH: 'Ozvěte se nám', conSub: 'Odpovíme do 24 hodin v pracovní dny.', hours: 'Po–Pá 8:00–16:00', wa: 'Napsat na WhatsApp',
   },
   hu: {
-    title: 'Munka Németországban szakembereknek | punds',
+    title: 'Munka Németországban szakembereknek | DANUBRA',
     desc: 'Jól fizető építőipari munka Németországban szlovákiai és magyarországi szakembereknek. Ellenőrzött cégek, szállás, fizetés 14 naponta és segítség az iratokkal.',
     eyebrow: 'Munka Németországban szakembereknek', h1: 'Jól fizető építőipari munka Németországban.', h1b: 'A szállást és a papírokat mi intézzük.',
     sub: 'Tapasztalt szakembereket kötünk össze ellenőrzött német cégekkel. Segítünk az A1, a Steuernummer, a Freistellung és a szállás ügyében.',
@@ -51,7 +51,7 @@ const T = {
     conH: 'Írjon nekünk', conSub: 'Munkanapokon 24 órán belül válaszolunk.', hours: 'H–P 8:00–16:00', wa: 'Írás WhatsAppon',
   },
   de: {
-    title: 'Jobs in Deutschland für Handwerker | punds',
+    title: 'Jobs in Deutschland für Handwerker | DANUBRA',
     desc: 'Gut bezahlte Arbeit auf deutschen Baustellen für Handwerker aus der Slowakei, Tschechien und Ungarn. Geprüfte Firmen, Unterkunft, Zahlung alle 14 Tage und Hilfe mit den Papieren.',
     eyebrow: 'Jobs in Deutschland für Handwerker', h1: 'Gut bezahlte Arbeit auf deutschen Baustellen.', h1b: 'Unterkunft und Papiere übernehmen wir.',
     sub: 'Wir verbinden erfahrene Handwerker mit geprüften deutschen Firmen und helfen bei A1, Steuernummer, Freistellung und Unterkunft.',
@@ -64,7 +64,7 @@ const T = {
     conH: 'Schreiben Sie uns', conSub: 'Antwort innerhalb von 24 Stunden an Werktagen.', hours: 'Mo–Fr 8:00–16:00', wa: 'Per WhatsApp schreiben',
   },
   en: {
-    title: 'Jobs in Germany for tradespeople | punds',
+    title: 'Jobs in Germany for tradespeople | DANUBRA',
     desc: 'Well-paid construction work in Germany for tradespeople from Slovakia, Czechia and Hungary. Vetted companies, accommodation, paid every 14 days and help with paperwork.',
     eyebrow: 'Jobs in Germany for tradespeople', h1: 'Well-paid construction work in Germany.', h1b: 'We handle housing and paperwork.',
     sub: 'We connect skilled tradespeople with vetted German companies, and help with A1, Steuernummer, Freistellung and accommodation.',
@@ -77,7 +77,7 @@ const T = {
     conH: 'Get in touch', conSub: 'We reply within 24 hours on working days.', hours: 'Mon–Fri 8:00–16:00', wa: 'Message us on WhatsApp',
   },
   ro: {
-    title: 'Locuri de muncă în Germania pentru meseriași | punds',
+    title: 'Locuri de muncă în Germania pentru meseriași | DANUBRA',
     desc: 'Muncă bine plătită pe șantiere din Germania pentru meseriași din România. Firme verificate, cazare, plată la fiecare 14 zile și ajutor cu actele.',
     eyebrow: 'Locuri de muncă în Germania pentru meseriași', h1: 'Muncă bine plătită pe șantiere din Germania.', h1b: 'De cazare și acte ne ocupăm noi.',
     sub: 'Punem în legătură meseriași cu experiență cu firme germane verificate. Vă ajutăm cu A1, Steuernummer, Freistellung și cazarea.',
@@ -90,7 +90,7 @@ const T = {
     conH: 'Contactați-ne', conSub: 'Răspundem în 24 de ore în zilele lucrătoare.', hours: 'Lu–Vi 8:00–16:00', wa: 'Scrieți pe WhatsApp',
   },
   pl: {
-    title: 'Praca w Niemczech dla fachowców | punds',
+    title: 'Praca w Niemczech dla fachowców | DANUBRA',
     desc: 'Dobrze płatna praca na budowach w Niemczech dla fachowców z Polski. Sprawdzone firmy, zakwaterowanie, wypłata co 14 dni i pomoc w formalnościach.',
     eyebrow: 'Praca w Niemczech dla fachowców', h1: 'Dobrze płatna praca na budowach w Niemczech.', h1b: 'Zakwaterowanie i formalności załatwiamy my.',
     sub: 'Łączymy doświadczonych fachowców ze sprawdzonymi niemieckimi firmami. Pomagamy z A1, Steuernummer, Freistellung i zakwaterowaniem.',
@@ -103,7 +103,7 @@ const T = {
     conH: 'Kontakt z nami', conSub: 'Odpowiadamy w ciągu 24 godzin w dni robocze.', hours: 'Pn–Pt 8:00–16:00', wa: 'Wiadomość na WhatsApp',
   },
   bg: {
-    title: 'Работа в Германия за строителни специалисти | punds',
+    title: 'Работа в Германия за строителни специалисти | DANUBRA',
     desc: 'Добре платена работа на строителни обекти в Германия за специалисти от България. Проверени фирми, квартира, плащане на всеки 14 дни и помощ с документите.',
     eyebrow: 'Работа в Германия за строителни специалисти', h1: 'Добре платена работа на строежи в Германия.', h1b: 'За квартирата и документите се грижим ние.',
     sub: 'Свързваме опитни майстори с проверени немски фирми. Помагаме с A1, Steuernummer, Freistellung и квартира.',

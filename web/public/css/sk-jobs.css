@@ -1,6 +1,6 @@
 /* ==========================================================================
-   punds.sk — zoznam ponúk (2a, mobil 1c) a detail ponuky (2b, mobil 1d)
-   Hodnoty podľa návrhu pri 1280 px; ≤767 podľa PUNDS Mobile.
+   danubra.sk — zoznam ponúk (2a, mobil 1c) a detail ponuky (2b, mobil 1d)
+   Hodnoty podľa návrhu pri 1280 px; ≤767 podľa mobilného návrhu.
    ========================================================================== */
 
 .jl [hidden], .jd [hidden] { display: none !important; }

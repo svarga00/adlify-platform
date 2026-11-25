@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — spoločné texty, hlavička a päta (pre nemecké firmy)
+// danubra.eu — spoločné texty, hlavička a päta (pre nemecké firmy)
 // ============================================================================
 'use strict';
 
@@ -9,7 +9,7 @@ const PROF = require('../shared/professions');
 const { langMenu, chev, flag } = require('../sk/common');
 const { LANGS } = require('../shared/sites');
 
-const PHONE = '+421 910 523 958', MAIL = 'info@punds.eu';
+const PHONE = '+421 910 523 958', MAIL = 'info@danubra.eu';
 const tel = (p) => `tel:${p.replace(/\s+/g, '')}`;
 
 const T = {
@@ -85,13 +85,13 @@ async function header(ctx, page) {
 
 function footer(ctx) {
   const t = T[ctx.lang];
-  const sk = ctx.prod ? 'https://punds.sk/sk/' : '/punds-sk/sk/';
+  const sk = ctx.prod ? 'https://danubra.sk/sk/' : '/danubra-sk/sk/';
   return `<footer class="ftr">
   <div class="ftr-in">
     ${logo({ href: ctx.url('home'), light: true, draw: false })}
     <nav class="ftr-links"><a href="${esc(ctx.url('imprint'))}">${esc(t.foot.imprint)}</a><a href="${esc(ctx.url('privacy'))}">${esc(t.foot.privacy)}</a></nav>
-    <span class="ftr-copy">© ${new Date().getFullYear()} Partner und Service s. r. o. · Nové Zámky, SK</span>
-    <a class="ftr-x" href="${esc(sk)}">${esc(t.foot.jobs)} → <span>punds.sk</span></a>
+    <span class="ftr-copy">© ${new Date().getFullYear()} DANUBRA · Partner und Service s. r. o. · Nové Zámky, SK</span>
+    <a class="ftr-x" href="${esc(sk)}">${esc(t.foot.jobs)} → <span>danubra.sk</span></a>
   </div>
 </footer>`;
 }

@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — kostra stránky (<head>, hlavička, päta, skripty)
+// DANUBRA web — kostra stránky (<head>, hlavička, päta, skripty)
 // ============================================================================
 // Stránka (web/<web>/pages/*.js) vráti { title, description, body, css, js,
 // bodyClass, status } a tu sa obalí do celého dokumentu.
@@ -50,7 +50,7 @@ async function render(ctx, page, chrome) {
     const href = ctx.abs(ctx.route, ctx.paramsIn(l), l);
     return href ? `<link rel="alternate" hreflang="${LANGS[l].html}" href="${esc(href)}">` : '';
   }) + `<link rel="alternate" hreflang="x-default" href="${esc(ctx.abs(ctx.route, ctx.paramsIn(ctx.site.defaultLang), ctx.site.defaultLang))}">` : '';
-  const title = page.title ? `${page.title}` : 'punds';
+  const title = page.title ? `${page.title}` : 'DANUBRA';
   const desc = page.description || '';
   const css = ['css/base.css', `css/${ctx.site.key}.css`, ...(page.css || [])];
   const js = ['js/site.js', ...(page.js || [])];
@@ -67,12 +67,12 @@ ${noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="canonical" href="${esc(ctx.abs(ctx.route, ctx.params))}">
 ${alt}
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="punds">
+<meta property="og:site_name" content="DANUBRA">
 <meta property="og:title" content="${esc(title)}">
 ${desc ? `<meta property="og:description" content="${esc(desc)}">` : ''}
 ${page.image ? `<meta property="og:image" content="${esc(page.image)}">` : ''}
 <meta name="theme-color" content="${ctx.site.key === 'eu' ? '#0E1626' : '#F4F4F1'}">
-<link rel="icon" href="${ctx.asset('img/logo/punds-icon.svg')}" type="image/svg+xml">
+<link rel="icon" href="${ctx.asset('img/logo/danubra-icon.svg')}" type="image/svg+xml">
 <link rel="preload" href="${ctx.asset('fonts/outfit-latin.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${ctx.asset('fonts/hanken-latin.woff2')}" as="font" type="font/woff2" crossorigin>
 ${each(css, (c) => `<link rel="stylesheet" href="${ctx.asset(c)}">`)}
@@ -84,7 +84,7 @@ ${page.header === false ? '' : await chrome.header(ctx, page)}
 <main id="main">${page.body || ''}</main>
 ${page.footer === false ? '' : await chrome.footer(ctx, page)}
 ${page.after || ''}
-<script>window.PUNDS=${JSON.stringify({ lang: ctx.lang, site: ctx.site.key, base: ctx.base, api: `${ctx.base}/api`, t: (ctx.t && ctx.t.js) || {} }).replace(/</g, '\\u003c')}</script>
+<script>window.DANUBRA=${JSON.stringify({ lang: ctx.lang, site: ctx.site.key, base: ctx.base, api: `${ctx.base}/api`, t: (ctx.t && ctx.t.js) || {} }).replace(/</g, '\\u003c')}</script>
 ${each(js, (s) => `<script src="${ctx.asset(s)}" defer></script>`)}
 </body>
 </html>`;

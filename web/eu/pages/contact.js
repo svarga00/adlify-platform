@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — Kontakt / Anfrage (návrh 3b) + spoločný dopytový formulár
+// danubra.eu — Kontakt / Anfrage (návrh 3b) + spoločný dopytový formulár
 // ============================================================================
 // enquiryForm() používajú aj home.js a trade.js:
 //   require('./contact').enquiryForm(ctx, { variant, trade, stepper, … })
@@ -101,7 +101,7 @@ function enquiryForm(ctx, o = {}) {
 
 const T = {
   de: {
-    title: 'Kontakt & Anfrage – Fachkräfte aus der Slowakei | punds',
+    title: 'Kontakt & Anfrage – Fachkräfte aus der Slowakei | DANUBRA',
     desc: 'Fachkräfte für Ihre Baustelle anfragen: Gewerk, Einsatzort, Start und Anzahl angeben – wir melden uns innerhalb eines Werktages mit passenden Profilen.',
     home: 'Startseite', crumb: 'Kontakt', h1: 'Fachkräfte anfragen',
     sub: 'Beschreiben Sie kurz Ihren Bedarf. Wir melden uns innerhalb eines Werktages mit passenden Profilen und Konditionen.',
@@ -114,7 +114,7 @@ const T = {
     md: 'Geschäftsführer', mdPh: '[Name folgt]', imprint: 'Zum Impressum',
   },
   en: {
-    title: 'Contact & enquiry – skilled tradespeople from Slovakia | punds',
+    title: 'Contact & enquiry – skilled tradespeople from Slovakia | DANUBRA',
     desc: 'Request tradespeople for your site: tell us the trade, location, start date and headcount – we will reply within one working day with matching profiles.',
     home: 'Home', crumb: 'Contact', h1: 'Request tradespeople',
     sub: 'Briefly describe what you need. We will get back to you within one working day with matching profiles and terms.',

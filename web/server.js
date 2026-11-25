@@ -1,8 +1,8 @@
 // ============================================================================
-// punds web — smerovač (beží v netlify/functions/punds-web.js a v testoch)
+// DANUBRA web — smerovač (beží v netlify/functions/danubra-web.js a v testoch)
 // ============================================================================
-//   skúšobne:  adlify-app.netlify.app/punds-sk/sk/ponuky   (base = /punds-sk)
-//   naostro:   punds.sk/sk/ponuky                          (base = '')
+//   skúšobne:  adlify-app.netlify.app/danubra-sk/sk/ponuky   (base = /danubra-sk)
+//   naostro:   danubra.sk/sk/ponuky                          (base = '')
 //
 // Stránky sa skladajú na serveri a CDN ich drží 5 minút — nový inzerát
 // z appky je teda na webe najneskôr o pár minút, bez nového nasadenia.
@@ -33,10 +33,10 @@ const HTML_HEADERS = {
 
 /**
  * Content-Security-Policy pre hotovú stránku. Vložené skripty (trieda „js",
- * window.PUNDS) sa povolia podľa odtlačku (sha256) — počíta sa z hotového HTML,
+ * window.DANUBRA) sa povolia podľa odtlačku (sha256) — počíta sa z hotového HTML,
  * takže sedí aj po prepise textov z appky. Iný vložený skript (napr. z textu,
  * ktorý by obišiel escapovanie) prehliadač nespustí.
- * Obrázky: https (fotky z appky, punds.eu, dlaždice mapy CARTO), štýly
+ * Obrázky: https (fotky z appky, doterajší WordPress na punds.eu, dlaždice mapy CARTO), štýly
  * inline kvôli mape (Leaflet).
  */
 function csp(html) {
@@ -61,7 +61,7 @@ async function handle(req, deps) {
   const found = siteFor({ host: req.host, path: req.path });
   if (!found) return { status: 404, headers: { 'Content-Type': 'text/plain' }, body: 'Not found' };
   const { site, base, prod } = found;
-  // Predpona webu (/punds-sk) sa odreže vždy — naostro ju pridáva edge funkcia.
+  // Predpona webu (/danubra-sk) sa odreže vždy — naostro ju pridáva edge funkcia.
   const rest = (req.path.startsWith(site.prefix) ? req.path.slice(site.prefix.length) : req.path) || '/';
 
   // Popis textov a fotiek pre správu webov v appke (verejné texty, bez osobných údajov).
@@ -70,7 +70,7 @@ async function handle(req, deps) {
       body: JSON.stringify(content.schema()) };
   }
 
-  // robots.txt a sitemap.xml (naostro na punds.sk/robots.txt; skúšobná adresa má noindex).
+  // robots.txt a sitemap.xml (naostro na danubra.sk/robots.txt; skúšobná adresa má noindex).
   if (rest === '/robots.txt') {
     const host = prod ? `https://${site.domain}` : '';
     return { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
@@ -105,7 +105,7 @@ async function handle(req, deps) {
     const lang = want.map((l) => map[l] || l).find((l) => site.langs.includes(l)) || site.defaultLang;
     return { status: 302, headers: { Location: `${base}/${lang}/`, 'Cache-Control': 'no-cache', Vary: 'Accept-Language' }, body: '' };
   }
-  // Adresa bez lomky na konci pri hlavnej stránke jazyka: /punds-sk/sk → /punds-sk/sk/
+  // Adresa bez lomky na konci pri hlavnej stránke jazyka: /danubra-sk/sk → /danubra-sk/sk/
   if (site.langs.includes(rest.replace(/^\//, ''))) {
     return { status: 301, headers: { Location: `${base}${rest}/` }, body: '' };
   }
@@ -134,11 +134,11 @@ async function handle(req, deps) {
   try {
     page = m && pages[m.route] ? await pages[m.route](ctx) : null;
   } catch (e) {
-    console.error('[punds-web]', req.path, e);
+    console.error('[danubra-web]', req.path, e);
     return { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
       body: site.key === 'eu'
-        ? `<!DOCTYPE html><html lang="de"><meta charset="utf-8"><title>punds</title><p style="font-family:sans-serif;padding:40px">Die Seite konnte leider nicht geladen werden. Bitte versuchen Sie es später erneut. <a href="${esc(base)}/">punds.eu</a></p>`
-        : `<!DOCTYPE html><html lang="sk"><meta charset="utf-8"><title>punds</title><p style="font-family:sans-serif;padding:40px">Ospravedlňujeme sa, stránka sa nenačítala. <a href="${esc(base)}/">punds</a></p>` };
+        ? `<!DOCTYPE html><html lang="de"><meta charset="utf-8"><title>DANUBRA</title><p style="font-family:sans-serif;padding:40px">Die Seite konnte leider nicht geladen werden. Bitte versuchen Sie es später erneut. <a href="${esc(base)}/">danubra.eu</a></p>`
+        : `<!DOCTYPE html><html lang="sk"><meta charset="utf-8"><title>DANUBRA</title><p style="font-family:sans-serif;padding:40px">Ospravedlňujeme sa, stránka sa nenačítala. <a href="${esc(base)}/">DANUBRA</a></p>` };
   }
   if (!page) {
     ctx.route = 'home'; ctx.params = {};

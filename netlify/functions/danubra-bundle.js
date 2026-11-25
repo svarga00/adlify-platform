@@ -1,5 +1,5 @@
 // ============================================================================
-// punds — balík dokumentov pre živnostníka (verejné, len s tokenom)
+// DANUBRA — balík dokumentov pre živnostníka (verejné, len s tokenom)
 // ============================================================================
 // WhatsApp a SMS nesú jeden krátky odkaz {web}/b/<token>. Tu sa z neho
 // poskladá stránka so všetkými papiermi na nástup (danubra_bundles.items).
@@ -7,7 +7,7 @@
 //   GET /b/<token>               stránka balíka (prvé otvorenie sa zapíše)
 //   GET /b/<token>/<archive_id>  302 na podpísaný odkaz (60 s) do úložiska
 //
-// Prepis /b/* → /.netlify/functions/punds-bundle/:splat je v netlify.toml.
+// Prepis /b/* → /.netlify/functions/danubra-bundle/:splat je v netlify.toml.
 // Funkcia rozumie obom tvarom adresy (/b/… aj /.netlify/functions/…).
 //
 // Bezpečnosť: token sa porovnáva presne a zlý tvar sa odmietne bez dotazu
@@ -56,9 +56,9 @@ function fmtDate(d) {
 }
 
 // ── Cesta ──────────────────────────────────────────────────────────────────
-// /b/<token>[/<archive_id>] alebo /.netlify/functions/punds-bundle/<token>[/…]
+// /b/<token>[/<archive_id>] alebo /.netlify/functions/danubra-bundle/<token>[/…]
 function parsePath(path) {
-  const m = String(path || '').match(/^(?:\/b|\/\.netlify\/functions\/punds-bundle)\/([^/?#]*)(?:\/([^/?#]*))?\/?$/);
+  const m = String(path || '').match(/^(?:\/b|\/\.netlify\/functions\/danubra-bundle)\/([^/?#]*)(?:\/([^/?#]*))?\/?$/);
   if (!m) return null;
   let token = m[1], file = m[2] || null;
   try { token = decodeURIComponent(token); if (file) file = decodeURIComponent(file); } catch (e) { return { token: '', file: null }; }
@@ -82,7 +82,7 @@ const ICON_MAIL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" s
 const CSS = `*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:#F4F4F1;color:#0E1626;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:17px;line-height:1.5}
 .w{max-width:560px;margin:0 auto;padding:20px 16px 32px}
-.brand{display:block;margin:4px 0 22px;color:#0E1626;font-weight:800;font-size:22px;letter-spacing:-.02em}
+.brand{display:block;margin:4px 0 22px;color:#0E1626;font-weight:800;font-size:20px;letter-spacing:.02em}
 .brand svg{vertical-align:middle;margin-right:8px}.brand span{vertical-align:middle}
 h1{font-size:24px;line-height:1.25;margin:0 0 12px;font-weight:800;letter-spacing:-.01em}
 .hi{margin:0 0 8px;font-weight:600}.msg{margin:0 0 22px;color:#2E3647}
@@ -104,8 +104,8 @@ function shell(body) {
   return `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer"><meta name="format-detection" content="telephone=no">
-<title>punds — dokumenty</title><style>${CSS}</style></head>
-<body><div class="w"><div class="brand">${mark({ w: 34 })}<span>punds</span></div>${body}</div></body></html>`;
+<title>DANUBRA — dokumenty</title><style>${CSS}</style></head>
+<body><div class="w"><div class="brand">${mark({ w: 34 })}<span>DANUBRA</span></div>${body}</div></body></html>`;
 }
 
 function contactHtml(s) {
@@ -166,11 +166,11 @@ async function handle(req, deps) {
     try {
       const s = await db.settings();
       return (s && s.supplier) || null;
-    } catch (e) { console.error('punds-bundle: settings', e && e.message); return null; }
+    } catch (e) { console.error('danubra-bundle: settings', e && e.message); return null; }
   };
 
   let bundle = null;
-  try { bundle = await db.bundle(p.token); } catch (e) { console.error('punds-bundle: bundle', e && e.message); }
+  try { bundle = await db.bundle(p.token); } catch (e) { console.error('danubra-bundle: bundle', e && e.message); }
   const expires = bundle && bundle.expires_at ? new Date(bundle.expires_at) : null;
   const valid = bundle && bundle.token === p.token && !bundle.revoked_at
     && expires && !isNaN(expires.getTime()) && expires.getTime() > now.getTime();
@@ -183,10 +183,10 @@ async function handle(req, deps) {
     const item = items.find((i) => String(i.archive_id) === p.file);
     if (!item) return invalidPage(await loadSupplier());
     let row = null;
-    try { row = ((await db.archive([p.file])) || []).find((r) => r && String(r.id) === p.file); } catch (e) { console.error('punds-bundle: archive', e && e.message); }
+    try { row = ((await db.archive([p.file])) || []).find((r) => r && String(r.id) === p.file); } catch (e) { console.error('danubra-bundle: archive', e && e.message); }
     if (!row || !row.storage_path) return invalidPage(await loadSupplier());
     let url = null;
-    try { url = await deps.signedUrl(row.storage_path, row.file_name || `${item.title || 'dokument'}.pdf`); } catch (e) { console.error('punds-bundle: sign', e && e.message); }
+    try { url = await deps.signedUrl(row.storage_path, row.file_name || `${item.title || 'dokument'}.pdf`); } catch (e) { console.error('danubra-bundle: sign', e && e.message); }
     if (!url) return errorPage(await loadSupplier());
     return { status: 302, headers: Object.assign({ Location: url }, HEADERS), body: '' };
   }
@@ -197,7 +197,7 @@ async function handle(req, deps) {
 
   const ids = items.map((i) => String(i.archive_id));
   const [rows, worker, supplier] = await Promise.all([
-    ids.length ? Promise.resolve(db.archive(ids)).catch((e) => { console.error('punds-bundle: archive', e && e.message); return []; }) : [],
+    ids.length ? Promise.resolve(db.archive(ids)).catch((e) => { console.error('danubra-bundle: archive', e && e.message); return []; }) : [],
     bundle.worker_id ? Promise.resolve(db.worker(bundle.worker_id)).catch(() => null) : null,
     loadSupplier(),
   ]);
@@ -209,7 +209,7 @@ async function handle(req, deps) {
   const firstName = worker && worker.full_name ? String(worker.full_name).trim().split(/\s+/)[0] : '';
 
   if (method === 'GET') {
-    try { await db.touch(bundle.id, bundle); } catch (e) { console.error('punds-bundle: touch', e && e.message); }
+    try { await db.touch(bundle.id, bundle); } catch (e) { console.error('danubra-bundle: touch', e && e.message); }
   }
   return html(200, bundlePage({ bundle, token: p.token, docs, firstName, supplier, expires }));
 }

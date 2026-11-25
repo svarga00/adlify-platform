@@ -1,7 +1,8 @@
 // ============================================================================
-// punds web — logo (znak „∩∪" + slovo punds)
+// DANUBRA web — logo (znak „∩∪" + slovo DANUBRA)
 // ============================================================================
-// Znak = jedna vlna „un" z p-un-ds: tmavý horný oblúk, oranžový dolný.
+// Znak = vlna rieky (Dunaj — Danubius): tmavý horný oblúk, oranžový dolný.
+// Slovo DANUBRA je verzálkami (Outfit 700), bez podtitulku.
 // Pri načítaní stránky sa nakreslí (stroke-dashoffset 1 → 0, oranžový o .6 s
 // neskôr) — CSS trieda `.lg-draw` v base.css.
 // ============================================================================
@@ -21,9 +22,9 @@ function mark({ w = 40, light = false, draw = false, title = '' } = {}) {
 }
 
 /** Celé logo ako odkaz. @param {Object} o { href, light, size } */
-function logo({ href = '/', light = false, size = 40, draw = true, label = 'punds — Partner und Service' } = {}) {
+function logo({ href = '/', light = false, size = 40, draw = true, label = 'DANUBRA' } = {}) {
   return `<a class="logo${light ? ' logo-light' : ''}" href="${href}" aria-label="${label}">${mark({ w: size, light, draw })}`
-    + `<span class="logo-txt"><span class="logo-word">punds</span><span class="logo-tag">PARTNER UND SERVICE</span></span></a>`;
+    + `<span class="logo-word">DANUBRA</span></a>`;
 }
 
 module.exports = { mark, logo, INK, OR };

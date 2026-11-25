@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — Ako to funguje (návrh 2f)
+// danubra.sk — Ako to funguje (návrh 2f)
 // ============================================================================
 'use strict';
 
@@ -10,7 +10,7 @@ const { PHONE, tel, langReqBox } = require('../common');
 
 const T = {
   sk: {
-    title: 'Ako to funguje – od telefonátu po výplatu | punds', desc: 'Šesť jednoduchých krokov od prvého telefonátu po prvú výplatu. Pozrite si, čo budete potrebovať, čo vybavíme za Vás a odpovede na časté otázky.',
+    title: 'Ako to funguje – od telefonátu po výplatu | DANUBRA', desc: 'Šesť jednoduchých krokov od prvého telefonátu po prvú výplatu. Pozrite si, čo budete potrebovať, čo vybavíme za Vás a odpovede na časté otázky.',
     home: 'Domov', crumb: 'Ako to funguje', h1: 'Od prvého telefonátu po prvú výplatu', lead: 'Celý postup je jednoduchý a vždy viete, čo bude nasledovať. Väčšinu vecí okolo práce vybavíme za Vás.',
     steps: [
       ['Ozvete sa nám', 'Zavolajte, napíšte na WhatsApp alebo vyplňte krátky formulár pri ponuke. Životopis netreba.', '5 minút'],
@@ -33,7 +33,7 @@ const T = {
     endH: 'Pripravení? Prvý krok trvá 5 minút.', ctaJobs: 'Pozrieť ponuky', call: 'Zavolať',
   },
   cz: {
-    title: 'Jak to funguje – od telefonátu po výplatu | punds', desc: 'Šest jednoduchých kroků od prvního telefonátu po první výplatu. Podívejte se, co budete potřebovat, co vyřídíme za Vás a odpovědi na časté otázky.',
+    title: 'Jak to funguje – od telefonátu po výplatu | DANUBRA', desc: 'Šest jednoduchých kroků od prvního telefonátu po první výplatu. Podívejte se, co budete potřebovat, co vyřídíme za Vás a odpovědi na časté otázky.',
     home: 'Domů', crumb: 'Jak to funguje', h1: 'Od prvního telefonátu po první výplatu', lead: 'Celý postup je jednoduchý a vždy víte, co bude následovat. Většinu věcí kolem práce vyřídíme za Vás.',
     steps: [
       ['Ozvete se nám', 'Zavolejte, napište na WhatsApp nebo vyplňte krátký formulář u nabídky. Životopis není potřeba.', '5 minut'],
@@ -56,7 +56,7 @@ const T = {
     endH: 'Připraveni? První krok trvá 5 minut.', ctaJobs: 'Zobrazit nabídky', call: 'Zavolat',
   },
   hu: {
-    title: 'Hogyan működik – a hívástól a fizetésig | punds', desc: 'Hat egyszerű lépés az első hívástól az első fizetésig. Nézze meg, mire lesz szüksége, mit intézünk el Ön helyett, és a gyakori kérdésekre adott válaszokat.',
+    title: 'Hogyan működik – a hívástól a fizetésig | DANUBRA', desc: 'Hat egyszerű lépés az első hívástól az első fizetésig. Nézze meg, mire lesz szüksége, mit intézünk el Ön helyett, és a gyakori kérdésekre adott válaszokat.',
     home: 'Kezdőlap', crumb: 'Hogyan működik', h1: 'Az első hívástól az első fizetésig', lead: 'A folyamat egyszerű, és mindig tudja, mi következik. A munkával járó teendők nagy részét elintézzük Ön helyett.',
     steps: [
       ['Jelentkezik nálunk', 'Hívjon, írjon WhatsAppon, vagy töltse ki a rövid űrlapot az állásnál. Önéletrajz nem kell.', '5 perc'],
@@ -79,7 +79,7 @@ const T = {
     endH: 'Készen áll? Az első lépés 5 perc.', ctaJobs: 'Állások megtekintése', call: 'Hívás',
   },
   de: {
-    title: 'Ablauf – vom ersten Anruf bis zur Bezahlung | punds', desc: 'Sechs einfache Schritte vom ersten Anruf bis zur ersten Zahlung. Was Sie brauchen, was wir für Sie erledigen und Antworten auf häufige Fragen.',
+    title: 'Ablauf – vom ersten Anruf bis zur Bezahlung | DANUBRA', desc: 'Sechs einfache Schritte vom ersten Anruf bis zur ersten Zahlung. Was Sie brauchen, was wir für Sie erledigen und Antworten auf häufige Fragen.',
     home: 'Start', crumb: 'Ablauf', h1: 'Vom ersten Anruf bis zur ersten Zahlung', lead: 'Der Ablauf ist einfach, und Sie wissen immer, was als Nächstes kommt. Das meiste rund um die Arbeit erledigen wir für Sie.',
     steps: [
       ['Sie melden sich', 'Rufen Sie an, schreiben Sie per WhatsApp oder füllen Sie das kurze Formular beim Job aus. Kein Lebenslauf nötig.', '5 Minuten'],
@@ -102,7 +102,7 @@ const T = {
     endH: 'Bereit? Der erste Schritt dauert 5 Minuten.', ctaJobs: 'Jobs ansehen', call: 'Anrufen',
   },
   en: {
-    title: 'How it works – from first call to first pay | punds', desc: 'Six simple steps from your first call to your first payment. See what you’ll need, what we take care of and answers to common questions.',
+    title: 'How it works – from first call to first pay | DANUBRA', desc: 'Six simple steps from your first call to your first payment. See what you’ll need, what we take care of and answers to common questions.',
     home: 'Home', crumb: 'How it works', h1: 'From your first call to your first pay', lead: 'The process is simple and you always know what comes next. We take care of most of the things around the job for you.',
     steps: [
       ['You get in touch', 'Call, message us on WhatsApp or fill in the short form on a job. No CV needed.', '5 minutes'],
@@ -125,7 +125,7 @@ const T = {
     endH: 'Ready? The first step takes 5 minutes.', ctaJobs: 'See jobs', call: 'Call us',
   },
   ro: {
-    title: 'Cum funcționează – de la primul apel la prima plată | punds', desc: 'Șase pași simpli de la primul apel telefonic la prima plată. Vedeți de ce aveți nevoie, de ce ne ocupăm noi și răspunsuri la întrebările frecvente.',
+    title: 'Cum funcționează – de la primul apel la prima plată | DANUBRA', desc: 'Șase pași simpli de la primul apel telefonic la prima plată. Vedeți de ce aveți nevoie, de ce ne ocupăm noi și răspunsuri la întrebările frecvente.',
     home: 'Acasă', crumb: 'Cum funcționează', h1: 'De la primul apel la prima plată', lead: 'Procesul este simplu și știți mereu ce urmează. De majoritatea lucrurilor legate de muncă ne ocupăm noi.',
     steps: [
       ['Ne contactați', 'Sunați, scrieți pe WhatsApp sau completați formularul scurt de la ofertă. Nu aveți nevoie de CV.', '5 minute'],
@@ -148,7 +148,7 @@ const T = {
     endH: 'Sunteți gata? Primul pas durează 5 minute.', ctaJobs: 'Vezi ofertele', call: 'Sunați',
   },
   pl: {
-    title: 'Jak to działa – od telefonu do wypłaty | punds', desc: 'Sześć prostych kroków od pierwszego telefonu do pierwszej wypłaty. Zobacz, co będzie potrzebne, co załatwiamy za Państwa i odpowiedzi na częste pytania.',
+    title: 'Jak to działa – od telefonu do wypłaty | DANUBRA', desc: 'Sześć prostych kroków od pierwszego telefonu do pierwszej wypłaty. Zobacz, co będzie potrzebne, co załatwiamy za Państwa i odpowiedzi na częste pytania.',
     home: 'Start', crumb: 'Jak to działa', h1: 'Od pierwszego telefonu do pierwszej wypłaty', lead: 'Cały proces jest prosty i zawsze wiadomo, co będzie dalej. Większość spraw związanych z pracą załatwiamy za Państwa.',
     steps: [
       ['Kontakt z nami', 'Telefon, wiadomość na WhatsApp lub krótki formularz przy ofercie. CV nie jest potrzebne.', '5 minut'],
@@ -171,7 +171,7 @@ const T = {
     endH: 'Gotowi? Pierwszy krok zajmuje 5 minut.', ctaJobs: 'Zobacz oferty', call: 'Zadzwoń',
   },
   bg: {
-    title: 'Как работи – от обаждането до заплащането | punds', desc: 'Шест прости стъпки от първото обаждане до първото плащане. Вижте какво ще Ви е нужно, какво уреждаме ние и отговори на често задавани въпроси.',
+    title: 'Как работи – от обаждането до заплащането | DANUBRA', desc: 'Шест прости стъпки от първото обаждане до първото плащане. Вижте какво ще Ви е нужно, какво уреждаме ние и отговори на често задавани въпроси.',
     home: 'Начало', crumb: 'Как работи', h1: 'От първото обаждане до първото плащане', lead: 'Процесът е прост и винаги знаете какво следва. За повечето неща около работата се грижим ние.',
     steps: [
       ['Свързвате се с нас', 'Обадете се, пишете в WhatsApp или попълнете краткия формуляр при обявата. Не е нужна автобиография.', '5 минути'],

@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — detail ponuky (návrh 2b, mobil 1d)
+// danubra.sk — detail ponuky (návrh 2b, mobil 1d)
 // ============================================================================
 // Ponuka sa nájde podľa slugu v ctx.jobs(); neznáma ponuka = 404 (null).
 // Prihláška: desktop v bočnom paneli, mobil cez spodnú lištu → výsuvný
@@ -341,7 +341,7 @@ module.exports = async function render(ctx) {
     title: job.title, description: desc,
     ...(job.publishedAt ? { datePosted: String(job.publishedAt).slice(0, 10) } : {}),
     employmentType: 'CONTRACTOR',
-    hiringOrganization: { '@type': 'Organization', name: 'Partner und Service s. r. o.', sameAs: 'https://punds.sk' },
+    hiringOrganization: { '@type': 'Organization', name: 'DANUBRA', legalName: 'Partner und Service s. r. o.', sameAs: 'https://danubra.sk' },
     jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: job.city, addressCountry: job.country } },
     ...(job.rateMin != null ? { baseSalary: { '@type': 'MonetaryAmount', currency: 'EUR', value: { '@type': 'QuantitativeValue', unitText: 'HOUR', minValue: job.rateMin, maxValue: job.rateMax != null ? job.rateMax : job.rateMin } } } : {}),
     image: job.image, url,
@@ -466,7 +466,7 @@ ${others.length ? `<section class="wrap jd-others">
 
   const short = desc.replace(/\s+/g, ' ').trim();
   return {
-    title: `${job.title} – ${job.city}${r ? `, ${r} ${c.perH}` : ''} | punds`,
+    title: `${job.title} – ${job.city}${r ? `, ${r} ${c.perH}` : ''} | DANUBRA`,
     description: short.length > 160 ? `${short.slice(0, 157).replace(/\s+\S*$/, '')}…` : short,
     body, nav: 'jobs', image: job.image, head: ld,
     css: ['css/sk-jobs.css'], js: ['js/sk-job.js'],

@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — Ochrana osobných údajov (návrh 2h)
+// danubra.sk — Ochrana osobných údajov (návrh 2h)
 // ============================================================================
 // Text je NÁVRH — pred spustením ho musí skontrolovať právnik. Na skúšobnej
 // adrese sa ukazuje upozornenie a zvýraznené miesta, ktoré treba potvrdiť
@@ -23,11 +23,11 @@ const UOOU = '<a class="b" href="https://dataprotection.gov.sk/" target="_blank"
  */
 const T = {
   sk: (m, L) => ({
-    title: 'Ochrana osobných údajov | punds', desc: 'Ako Partner und Service s. r. o. spracúva osobné údaje remeselníkov a návštevníkov webu punds.sk: aké údaje, na aký účel, ako dlho a aké máte práva.',
+    title: 'Ochrana osobných údajov | DANUBRA', desc: 'Ako Partner und Service s. r. o. spracúva osobné údaje remeselníkov a návštevníkov webu danubra.sk: aké údaje, na aký účel, ako dlho a aké máte práva.',
     home: 'Domov', crumb: 'Ochrana osobných údajov', h1: 'Ochrana osobných údajov', updated: 'Posledná aktualizácia: október 2026', read: 'Čítanie na 4 minúty', toc: 'Obsah',
     ask: 'Otázky k ochrane údajov:', cookiesBtn: 'Zásady cookies',
     s: [
-      ['Prevádzkovateľ', `Prevádzkovateľom osobných údajov je spoločnosť ${CO}, so sídlom ${ADDR}, IČO 57553921, DIČ 2122816839, IČ DPH SK2122816839, zapísaná v Obchodnom registri Okresného súdu Nitra, oddiel Sro, vložka č. 69265/N. Kontakt: ${mail}, ${phone}.`],
+      ['Prevádzkovateľ', `Prevádzkovateľom osobných údajov je spoločnosť ${CO}, so sídlom ${ADDR}, IČO 57553921, DIČ 2122816839, IČ DPH SK2122816839, zapísaná v Obchodnom registri Okresného súdu Nitra, oddiel Sro, vložka č. 69265/N. Kontakt: ${mail}, ${phone}. DANUBRA je obchodná značka tejto spoločnosti.`],
       ['Aké údaje spracúvame', 'Meno a priezvisko, telefónne číslo, e-mail, profesiu, prax, certifikáty a ďalšie údaje, ktoré nám sami poskytnete vo formulári, e-mailom, cez WhatsApp alebo telefonicky. Ak spolu začneme spolupracovať, aj údaje potrebné na zmluvu, fakturáciu a vybavenie dokladov (napríklad údaje zo živnostenského oprávnenia a bankové spojenie).'],
       ['Na aký účel', 'Na sprostredkovanie spolupráce s firmami v Nemecku a Rakúsku, na odpoveď na Vašu správu alebo prihlášku, na prípravu a plnenie zmluvy vrátane dokladov potrebných na prácu v zahraničí, na plnenie zákonných povinností (napríklad účtovných a daňových) a na ochranu webu pred zneužitím.'],
       ['Právny základ', 'Spracúvame ich podľa čl. 6 ods. 1 nariadenia GDPR: opatrenia pred uzavretím zmluvy a plnenie zmluvy (písm. b) pri prihláške a spolupráci, Váš súhlas (písm. a) pri uchovaní kontaktu pre budúce ponuky, plnenie zákonných povinností (písm. c) a náš oprávnený záujem (písm. f) pri bezpečnosti webu a ochrane našich nárokov.'],
@@ -38,11 +38,11 @@ const T = {
     ],
   }),
   cz: (m, L) => ({
-    title: 'Ochrana osobních údajů | punds', desc: 'Jak Partner und Service s. r. o. zpracovává osobní údaje řemeslníků a návštěvníků webu punds.sk: jaké údaje, k jakému účelu, jak dlouho a jaká máte práva.',
+    title: 'Ochrana osobních údajů | DANUBRA', desc: 'Jak Partner und Service s. r. o. zpracovává osobní údaje řemeslníků a návštěvníků webu danubra.sk: jaké údaje, k jakému účelu, jak dlouho a jaká máte práva.',
     home: 'Domů', crumb: 'Ochrana osobních údajů', h1: 'Ochrana osobních údajů', updated: 'Poslední aktualizace: říjen 2026', read: 'Čtení na 4 minuty', toc: 'Obsah',
     ask: 'Dotazy k ochraně údajů:', cookiesBtn: 'Zásady cookies',
     s: [
-      ['Správce', `Správcem osobních údajů je společnost ${CO}, se sídlem ${ADDR}, Slovensko, IČO 57553921, DIČ 2122816839, IČ DPH SK2122816839, zapsaná v obchodním rejstříku Okresního soudu Nitra, oddíl Sro, vložka č. 69265/N. Kontakt: ${mail}, ${phone}.`],
+      ['Správce', `Správcem osobních údajů je společnost ${CO}, se sídlem ${ADDR}, Slovensko, IČO 57553921, DIČ 2122816839, IČ DPH SK2122816839, zapsaná v obchodním rejstříku Okresního soudu Nitra, oddíl Sro, vložka č. 69265/N. Kontakt: ${mail}, ${phone}. DANUBRA je obchodní značka této společnosti.`],
       ['Jaké údaje zpracováváme', 'Jméno a příjmení, telefonní číslo, e-mail, profesi, praxi, certifikáty a další údaje, které nám sami poskytnete ve formuláři, e-mailem, přes WhatsApp nebo telefonicky. Pokud spolu začneme spolupracovat, také údaje potřebné ke smlouvě, fakturaci a vyřízení dokladů (například údaje z živnostenského oprávnění a bankovní spojení).'],
       ['K jakému účelu', 'Ke zprostředkování spolupráce s firmami v Německu a Rakousku, k odpovědi na Vaši zprávu nebo přihlášku, k přípravě a plnění smlouvy včetně dokladů potřebných pro práci v zahraničí, k plnění zákonných povinností (například účetních a daňových) a k ochraně webu před zneužitím.'],
       ['Právní základ', 'Zpracováváme je podle čl. 6 odst. 1 nařízení GDPR: opatření před uzavřením smlouvy a plnění smlouvy (písm. b) u přihlášky a spolupráce, Váš souhlas (písm. a) u uchování kontaktu pro budoucí nabídky, plnění zákonných povinností (písm. c) a náš oprávněný zájem (písm. f) u bezpečnosti webu a ochrany našich nároků.'],
@@ -53,11 +53,11 @@ const T = {
     ],
   }),
   hu: (m, L) => ({
-    title: 'Adatvédelem | punds', desc: 'Hogyan kezeli a Partner und Service s. r. o. a szakemberek és a punds.sk látogatóinak személyes adatait: milyen adatokat, milyen célból, meddig, és milyen jogai vannak.',
+    title: 'Adatvédelem | DANUBRA', desc: 'Hogyan kezeli a Partner und Service s. r. o. a szakemberek és a danubra.sk látogatóinak személyes adatait: milyen adatokat, milyen célból, meddig, és milyen jogai vannak.',
     home: 'Kezdőlap', crumb: 'Adatvédelem', h1: 'Adatvédelmi tájékoztató', updated: 'Utolsó frissítés: 2026. október', read: '4 perc olvasás', toc: 'Tartalom',
     ask: 'Adatvédelmi kérdések:', cookiesBtn: 'Cookie-szabályzat',
     s: [
-      ['Adatkezelő', `Az adatkezelő a ${CO} (székhely: ${ADDR}, Szlovákia; cégazonosító: 57553921; adószám: 2122816839; közösségi adószám: SK2122816839; bejegyezve a Nyitrai Járásbíróság cégjegyzékében, Sro szakasz, 69265/N betétszám). Elérhetőség: ${mail}, ${phone}.`],
+      ['Adatkezelő', `Az adatkezelő a ${CO} (székhely: ${ADDR}, Szlovákia; cégazonosító: 57553921; adószám: 2122816839; közösségi adószám: SK2122816839; bejegyezve a Nyitrai Járásbíróság cégjegyzékében, Sro szakasz, 69265/N betétszám). Elérhetőség: ${mail}, ${phone}. A DANUBRA ennek a társaságnak a márkaneve.`],
       ['Milyen adatokat kezelünk', 'Név, telefonszám, e-mail-cím, szakma, szakmai gyakorlat, tanúsítványok és minden más adat, amelyet Ön az űrlapon, e-mailben, WhatsAppon vagy telefonon megad. Együttműködés esetén a szerződéshez, a számlázáshoz és az iratok intézéséhez szükséges adatok is (például a vállalkozói engedély adatai és a bankszámlaszám).'],
       ['Milyen célból', 'Németországi és ausztriai cégekkel való együttműködés közvetítésére, az Ön üzenetének vagy jelentkezésének megválaszolására, a szerződés előkészítésére és teljesítésére – a külföldi munkához szükséges iratokkal együtt –, a jogi kötelezettségek (például számviteli és adózási) teljesítésére, valamint a weboldal visszaélések elleni védelmére.'],
       ['Jogalap', 'A GDPR 6. cikk (1) bekezdése alapján: szerződéskötést megelőző lépések és a szerződés teljesítése (b) pont) a jelentkezésnél és az együttműködésnél, az Ön hozzájárulása (a) pont) az elérhetőség jövőbeli ajánlatok céljából történő megőrzésénél, jogi kötelezettség teljesítése (c) pont), valamint jogos érdekünk (f) pont) a weboldal biztonsága és igényeink védelme érdekében.'],
@@ -68,11 +68,11 @@ const T = {
     ],
   }),
   de: (m, L) => ({
-    title: 'Datenschutz | punds', desc: 'Wie die Partner und Service s. r. o. personenbezogene Daten von Handwerkern und Besuchern von punds.sk verarbeitet: welche Daten, wozu, wie lange und welche Rechte Sie haben.',
+    title: 'Datenschutz | DANUBRA', desc: 'Wie die Partner und Service s. r. o. personenbezogene Daten von Handwerkern und Besuchern von danubra.sk verarbeitet: welche Daten, wozu, wie lange und welche Rechte Sie haben.',
     home: 'Start', crumb: 'Datenschutz', h1: 'Datenschutzerklärung', updated: 'Zuletzt aktualisiert: Oktober 2026', read: '4 Minuten Lesezeit', toc: 'Inhalt',
     ask: 'Fragen zum Datenschutz:', cookiesBtn: 'Cookie-Hinweise',
     s: [
-      ['Verantwortlicher', `Verantwortlich für die Verarbeitung ist die ${CO}, Sitz: ${ADDR}, Slowakei, IČO 57553921, DIČ 2122816839, USt-IdNr. SK2122816839, eingetragen im Handelsregister des Bezirksgerichts Nitra, Abteilung Sro, Einlage Nr. 69265/N. Kontakt: ${mail}, ${phone}.`],
+      ['Verantwortlicher', `Verantwortlich für die Verarbeitung ist die ${CO}, Sitz: ${ADDR}, Slowakei, IČO 57553921, DIČ 2122816839, USt-IdNr. SK2122816839, eingetragen im Handelsregister des Bezirksgerichts Nitra, Abteilung Sro, Einlage Nr. 69265/N. Kontakt: ${mail}, ${phone}. DANUBRA ist eine Marke dieser Gesellschaft.`],
       ['Welche Daten wir verarbeiten', 'Vor- und Nachname, Telefonnummer, E-Mail-Adresse, Beruf, Berufserfahrung, Zertifikate und weitere Angaben, die Sie uns selbst im Formular, per E-Mail, über WhatsApp oder telefonisch mitteilen. Bei einer Zusammenarbeit außerdem die für Vertrag, Abrechnung und Dokumente nötigen Daten (zum Beispiel Angaben zum Gewerbe und Bankverbindung).'],
       ['Zu welchem Zweck', 'Zur Vermittlung der Zusammenarbeit mit Firmen in Deutschland und Österreich, zur Beantwortung Ihrer Nachricht oder Bewerbung, zur Vorbereitung und Erfüllung des Vertrags einschließlich der Dokumente für die Arbeit im Ausland, zur Erfüllung gesetzlicher Pflichten (etwa buchhalterischer und steuerlicher) und zum Schutz der Website vor Missbrauch.'],
       ['Rechtsgrundlage', 'Art. 6 Abs. 1 DSGVO: vorvertragliche Maßnahmen und Vertragserfüllung (lit. b) bei Bewerbung und Zusammenarbeit, Ihre Einwilligung (lit. a) bei der Aufbewahrung Ihres Kontakts für künftige Angebote, Erfüllung rechtlicher Pflichten (lit. c) sowie unser berechtigtes Interesse (lit. f) an der Sicherheit der Website und der Wahrung unserer Ansprüche.'],
@@ -83,11 +83,11 @@ const T = {
     ],
   }),
   en: (m, L) => ({
-    title: 'Privacy policy | punds', desc: 'How Partner und Service s. r. o. processes the personal data of tradespeople and visitors to punds.sk: what data, for what purpose, for how long and what your rights are.',
+    title: 'Privacy policy | DANUBRA', desc: 'How Partner und Service s. r. o. processes the personal data of tradespeople and visitors to danubra.sk: what data, for what purpose, for how long and what your rights are.',
     home: 'Home', crumb: 'Privacy policy', h1: 'Privacy policy', updated: 'Last updated: October 2026', read: '4-minute read', toc: 'Contents',
     ask: 'Questions about data protection:', cookiesBtn: 'Cookie policy',
     s: [
-      ['Data controller', `The controller of your personal data is ${CO}, registered office ${ADDR}, Slovakia, Company ID (IČO) 57553921, Tax ID (DIČ) 2122816839, VAT ID SK2122816839, registered in the Commercial Register of the District Court Nitra, section Sro, file no. 69265/N. Contact: ${mail}, ${phone}.`],
+      ['Data controller', `The controller of your personal data is ${CO}, registered office ${ADDR}, Slovakia, Company ID (IČO) 57553921, Tax ID (DIČ) 2122816839, VAT ID SK2122816839, registered in the Commercial Register of the District Court Nitra, section Sro, file no. 69265/N. Contact: ${mail}, ${phone}. DANUBRA is a brand of this company.`],
       ['What data we process', 'Your name, phone number, email, trade, experience, certificates and any other information you give us in a form, by email, via WhatsApp or by phone. If we start working together, also the data needed for the contract, invoicing and documents (for example your trade licence details and bank account).'],
       ['For what purpose', 'To arrange work with companies in Germany and Austria, to reply to your message or application, to prepare and perform the contract including documents needed to work abroad, to meet legal obligations (such as accounting and tax) and to protect the website from abuse.'],
       ['Legal basis', 'Article 6(1) GDPR: steps prior to entering into a contract and performance of the contract (point b) for applications and cooperation, your consent (point a) for keeping your contact for future offers, compliance with legal obligations (point c) and our legitimate interest (point f) in website security and protecting our claims.'],
@@ -98,11 +98,11 @@ const T = {
     ],
   }),
   ro: (m, L) => ({
-    title: 'Protecția datelor | punds', desc: 'Cum prelucrează Partner und Service s. r. o. datele personale ale meseriașilor și vizitatorilor site-ului punds.sk: ce date, în ce scop, cât timp și ce drepturi aveți.',
+    title: 'Protecția datelor | DANUBRA', desc: 'Cum prelucrează Partner und Service s. r. o. datele personale ale meseriașilor și vizitatorilor site-ului danubra.sk: ce date, în ce scop, cât timp și ce drepturi aveți.',
     home: 'Acasă', crumb: 'Protecția datelor', h1: 'Protecția datelor personale', updated: 'Ultima actualizare: octombrie 2026', read: 'Lectură de 4 minute', toc: 'Cuprins',
     ask: 'Întrebări privind protecția datelor:', cookiesBtn: 'Politica de cookie-uri',
     s: [
-      ['Operatorul', `Operatorul datelor personale este societatea ${CO}, cu sediul în ${ADDR}, Slovacia, nr. de înregistrare (IČO) 57553921, cod fiscal (DIČ) 2122816839, cod TVA SK2122816839, înregistrată în Registrul Comerțului al Judecătoriei Nitra, secțiunea Sro, nr. 69265/N. Contact: ${mail}, ${phone}.`],
+      ['Operatorul', `Operatorul datelor personale este societatea ${CO}, cu sediul în ${ADDR}, Slovacia, nr. de înregistrare (IČO) 57553921, cod fiscal (DIČ) 2122816839, cod TVA SK2122816839, înregistrată în Registrul Comerțului al Judecătoriei Nitra, secțiunea Sro, nr. 69265/N. Contact: ${mail}, ${phone}. DANUBRA este o marcă a acestei societăți.`],
       ['Ce date prelucrăm', 'Numele și prenumele, numărul de telefon, e-mailul, meseria, experiența, certificatele, limbile vorbite și alte date pe care ni le furnizați în formular, prin e-mail, WhatsApp sau telefonic. Dacă începem să colaborăm, și datele necesare pentru contract, facturare și obținerea documentelor (de exemplu datele de înregistrare a activității independente și contul bancar).'],
       ['În ce scop', 'Pentru intermedierea colaborării cu firme din Germania și Austria, pentru a răspunde mesajului sau cererii Dvs., pentru pregătirea și executarea contractului, inclusiv documentele necesare pentru munca în străinătate, pentru îndeplinirea obligațiilor legale (de exemplu contabile și fiscale) și pentru protejarea site-ului împotriva abuzurilor.'],
       ['Temeiul legal', 'Prelucrăm datele în baza art. 6 alin. (1) GDPR: măsuri precontractuale și executarea contractului (lit. b) la cerere și colaborare, consimțământul Dvs. (lit. a) la păstrarea contactului pentru oferte viitoare, îndeplinirea obligațiilor legale (lit. c) și interesul nostru legitim (lit. f) pentru securitatea site-ului și protejarea drepturilor noastre.'],
@@ -113,11 +113,11 @@ const T = {
     ],
   }),
   pl: (m, L) => ({
-    title: 'Ochrona danych osobowych | punds', desc: 'Jak Partner und Service s. r. o. przetwarza dane osobowe fachowców i osób odwiedzających stronę punds.sk: jakie dane, w jakim celu, jak długo i jakie mają Państwo prawa.',
+    title: 'Ochrona danych osobowych | DANUBRA', desc: 'Jak Partner und Service s. r. o. przetwarza dane osobowe fachowców i osób odwiedzających stronę danubra.sk: jakie dane, w jakim celu, jak długo i jakie mają Państwo prawa.',
     home: 'Start', crumb: 'Ochrona danych osobowych', h1: 'Ochrona danych osobowych', updated: 'Ostatnia aktualizacja: październik 2026', read: '4 minuty czytania', toc: 'Spis treści',
     ask: 'Pytania dotyczące ochrony danych:', cookiesBtn: 'Polityka cookies',
     s: [
-      ['Administrator', `Administratorem danych osobowych jest spółka ${CO} z siedzibą ${ADDR}, Słowacja, nr rej. (IČO) 57553921, NIP (DIČ) 2122816839, NIP UE SK2122816839, wpisana do rejestru handlowego Sądu Rejonowego w Nitrze, dział Sro, pozycja nr 69265/N. Kontakt: ${mail}, ${phone}.`],
+      ['Administrator', `Administratorem danych osobowych jest spółka ${CO} z siedzibą ${ADDR}, Słowacja, nr rej. (IČO) 57553921, NIP (DIČ) 2122816839, NIP UE SK2122816839, wpisana do rejestru handlowego Sądu Rejonowego w Nitrze, dział Sro, pozycja nr 69265/N. Kontakt: ${mail}, ${phone}. DANUBRA jest marką tej spółki.`],
       ['Jakie dane przetwarzamy', 'Imię i nazwisko, numer telefonu, e-mail, zawód, doświadczenie, certyfikaty, znane języki oraz inne dane, które sami Państwo podają w formularzu, e-mailem, przez WhatsApp lub telefonicznie. Jeśli rozpoczniemy współpracę, także dane potrzebne do umowy, fakturowania i załatwienia dokumentów (np. dane z rejestru działalności i numer rachunku bankowego).'],
       ['W jakim celu', 'W celu pośrednictwa we współpracy z firmami w Niemczech i Austrii, odpowiedzi na Państwa wiadomość lub zgłoszenie, przygotowania i wykonania umowy wraz z dokumentami potrzebnymi do pracy za granicą, wypełnienia obowiązków prawnych (np. księgowych i podatkowych) oraz ochrony strony przed nadużyciami.'],
       ['Podstawa prawna', 'Przetwarzamy je na podstawie art. 6 ust. 1 RODO: działania przed zawarciem umowy i wykonanie umowy (lit. b) przy zgłoszeniu i współpracy, Państwa zgoda (lit. a) przy zachowaniu kontaktu na potrzeby przyszłych ofert, wypełnienie obowiązków prawnych (lit. c) oraz nasz uzasadniony interes (lit. f) w zakresie bezpieczeństwa strony i ochrony naszych roszczeń.'],
@@ -128,11 +128,11 @@ const T = {
     ],
   }),
   bg: (m, L) => ({
-    title: 'Лични данни | punds', desc: 'Как Partner und Service s. r. o. обработва личните данни на строителни специалисти и посетители на сайта punds.sk: какви данни, с каква цел, колко дълго и какви права имате.',
+    title: 'Лични данни | DANUBRA', desc: 'Как Partner und Service s. r. o. обработва личните данни на строителни специалисти и посетители на сайта danubra.sk: какви данни, с каква цел, колко дълго и какви права имате.',
     home: 'Начало', crumb: 'Лични данни', h1: 'Защита на личните данни', updated: 'Последна актуализация: октомври 2026', read: '4 минути четене', toc: 'Съдържание',
     ask: 'Въпроси относно защитата на данните:', cookiesBtn: 'Политика за бисквитки',
     s: [
-      ['Администратор', `Администратор на личните данни е дружеството ${CO}, със седалище ${ADDR}, Словакия, рег. номер (IČO) 57553921, данъчен номер (DIČ) 2122816839, ДДС номер SK2122816839, вписано в Търговския регистър на Районен съд Нитра, раздел Sro, партида № 69265/N. Контакт: ${mail}, ${phone}.`],
+      ['Администратор', `Администратор на личните данни е дружеството ${CO}, със седалище ${ADDR}, Словакия, рег. номер (IČO) 57553921, данъчен номер (DIČ) 2122816839, ДДС номер SK2122816839, вписано в Търговския регистър на Районен съд Нитра, раздел Sro, партида № 69265/N. Контакт: ${mail}, ${phone}. DANUBRA е търговска марка на това дружество.`],
       ['Какви данни обработваме', 'Име и фамилия, телефонен номер, имейл, професия, опит, сертификати, говорими езици и други данни, които сами ни предоставяте във формуляра, по имейл, през WhatsApp или по телефона. Ако започнем да работим заедно – и данните, необходими за договора, фактурирането и уреждането на документите (например данни от регистрацията като самонаето лице и банкова сметка).'],
       ['С каква цел', 'За посредничество при сътрудничество с фирми в Германия и Австрия, за отговор на Вашето съобщение или заявка, за подготовка и изпълнение на договора, включително документите, необходими за работа в чужбина, за изпълнение на законови задължения (например счетоводни и данъчни) и за защита на сайта от злоупотреби.'],
       ['Правно основание', 'Обработваме ги съгласно чл. 6, пар. 1 от GDPR: преддоговорни мерки и изпълнение на договор (буква б) при заявка и сътрудничество, Вашето съгласие (буква а) при запазване на контакта за бъдещи оферти, изпълнение на законови задължения (буква в) и нашият легитимен интерес (буква е) за сигурността на сайта и защитата на нашите права.'],

@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — Profesie (návrh 2e)
+// danubra.sk — Profesie (návrh 2e)
 // ============================================================================
 // Zoznam profesií zo shared/professions.js. Pri každej počet otvorených
 // ponúk a rozpätie sadzieb z aktuálnych ponúk; bez ponuky „Pýtajte sa".
@@ -45,7 +45,7 @@ const ABOUT = {
 
 const T = {
   sk: {
-    title: 'Profesie – práca v Nemecku pre remeselníkov | punds', desc: 'Hľadáme elektrikárov, zváračov, zámočníkov, sadrokartonistov, maliarov, zatepľovačov, montérov a ďalších remeselníkov na projekty v Nemecku a Rakúsku.',
+    title: 'Profesie – práca v Nemecku pre remeselníkov | DANUBRA', desc: 'Hľadáme elektrikárov, zváračov, zámočníkov, sadrokartonistov, maliarov, zatepľovačov, montérov a ďalších remeselníkov na projekty v Nemecku a Rakúsku.',
     home: 'Domov', crumb: 'Profesie', h1: 'Profesie, pre ktoré hľadáme ľudí', lead: 'Zameriavame sa na remeslá na stavbách a v priemysle. Vyberte si svoje a pozrite si aktuálne ponuky.',
     n: ['ponuka', 'ponuky', 'ponúk'], ask: 'Pýtajte sa', noRate: 'Sadzba podľa projektu', see: 'Zobraziť ponuky',
     reqK: 'Čo potrebujete', reqH: 'Čo od Vás očakávame', reqP: 'Na každý projekt hľadáme ľudí s praxou. Konkrétne požiadavky sú vždy uvedené pri ponuke.',
@@ -53,7 +53,7 @@ const T = {
     ctaH: 'Nenašli ste svoju profesiu?', ctaP: 'Pošlite nám nezáväzný kontakt. Keď sa objaví vhodný projekt, ozveme sa Vám ako prvým.', ctaBtn: 'Nechať kontakt', call: 'Zavolať',
   },
   cz: {
-    title: 'Profese – práce v Německu pro řemeslníky | punds', desc: 'Hledáme elektrikáře, svářeče, zámečníky, sádrokartonáře, malíře, zateplovače, montéry a další řemeslníky na projekty v Německu a Rakousku.',
+    title: 'Profese – práce v Německu pro řemeslníky | DANUBRA', desc: 'Hledáme elektrikáře, svářeče, zámečníky, sádrokartonáře, malíře, zateplovače, montéry a další řemeslníky na projekty v Německu a Rakousku.',
     home: 'Domů', crumb: 'Profese', h1: 'Profese, pro které hledáme lidi', lead: 'Zaměřujeme se na řemesla na stavbách a v průmyslu. Vyberte si to své a podívejte se na aktuální nabídky.',
     n: ['nabídka', 'nabídky', 'nabídek'], ask: 'Zeptejte se', noRate: 'Sazba podle projektu', see: 'Zobrazit nabídky',
     reqK: 'Co potřebujete', reqH: 'Co od Vás očekáváme', reqP: 'Na každý projekt hledáme lidi s praxí. Konkrétní požadavky jsou vždy uvedeny u nabídky.',
@@ -61,7 +61,7 @@ const T = {
     ctaH: 'Nenašli jste svou profesi?', ctaP: 'Pošlete nám nezávazný kontakt. Až se objeví vhodný projekt, ozveme se Vám jako prvním.', ctaBtn: 'Nechat kontakt', call: 'Zavolat',
   },
   hu: {
-    title: 'Szakmák – munka Németországban szakembereknek | punds', desc: 'Villanyszerelőket, hegesztőket, lakatosokat, gipszkartonozókat, festőket, hőszigetelőket, szerelőket és más szakembereket keresünk németországi és ausztriai projektekre.',
+    title: 'Szakmák – munka Németországban szakembereknek | DANUBRA', desc: 'Villanyszerelőket, hegesztőket, lakatosokat, gipszkartonozókat, festőket, hőszigetelőket, szerelőket és más szakembereket keresünk németországi és ausztriai projektekre.',
     home: 'Kezdőlap', crumb: 'Szakmák', h1: 'Szakmák, amelyekbe embereket keresünk', lead: 'Építőipari és ipari szakmákra összpontosítunk. Válassza ki a sajátját, és nézze meg az aktuális állásokat.',
     n: ['állás', 'állás', 'állás'], ask: 'Érdeklődjön', noRate: 'Óradíj projekt szerint', see: 'Állások megtekintése',
     reqK: 'Amire szüksége lesz', reqH: 'Amit elvárunk', reqP: 'Minden projektre gyakorlott embereket keresünk. A konkrét követelmények mindig az állásnál szerepelnek.',
@@ -69,7 +69,7 @@ const T = {
     ctaH: 'Nem találta a szakmáját?', ctaP: 'Hagyja meg elérhetőségét kötelezettség nélkül. Ha lesz megfelelő projekt, elsőként Önnek szólunk.', ctaBtn: 'Elérhetőség megadása', call: 'Hívás',
   },
   de: {
-    title: 'Berufe – Jobs in Deutschland für Handwerker | punds', desc: 'Wir suchen Elektriker, Schweißer, Schlosser, Trockenbauer, Maler, WDVS-Monteure, Monteure und weitere Handwerker für Projekte in Deutschland und Österreich.',
+    title: 'Berufe – Jobs in Deutschland für Handwerker | DANUBRA', desc: 'Wir suchen Elektriker, Schweißer, Schlosser, Trockenbauer, Maler, WDVS-Monteure, Monteure und weitere Handwerker für Projekte in Deutschland und Österreich.',
     home: 'Start', crumb: 'Berufe', h1: 'Berufe, für die wir Leute suchen', lead: 'Wir konzentrieren uns auf Handwerksberufe auf Baustellen und in der Industrie. Wählen Sie Ihren Beruf und sehen Sie sich die aktuellen Jobs an.',
     n: ['Job', 'Jobs'], ask: 'Fragen Sie uns', noRate: 'Satz je nach Projekt', see: 'Jobs ansehen',
     reqK: 'Was Sie brauchen', reqH: 'Was wir erwarten', reqP: 'Für jedes Projekt suchen wir Leute mit Erfahrung. Die genauen Anforderungen stehen immer beim Job.',
@@ -77,7 +77,7 @@ const T = {
     ctaH: 'Ihr Beruf ist nicht dabei?', ctaP: 'Hinterlassen Sie uns unverbindlich Ihren Kontakt. Sobald ein passendes Projekt kommt, melden wir uns zuerst bei Ihnen.', ctaBtn: 'Kontakt hinterlassen', call: 'Anrufen',
   },
   en: {
-    title: 'Trades – jobs in Germany for tradespeople | punds', desc: 'We recruit electricians, welders, metalworkers, drywall installers, painters, insulation installers, fitters and other tradespeople for projects in Germany and Austria.',
+    title: 'Trades – jobs in Germany for tradespeople | DANUBRA', desc: 'We recruit electricians, welders, metalworkers, drywall installers, painters, insulation installers, fitters and other tradespeople for projects in Germany and Austria.',
     home: 'Home', crumb: 'Trades', h1: 'Trades we recruit for', lead: 'We focus on construction and industrial trades. Pick yours and see the current openings.',
     n: ['job', 'jobs'], ask: 'Ask us', noRate: 'Rate depends on project', see: 'See jobs',
     reqK: 'What you need', reqH: 'What we expect from you', reqP: 'For every project we look for experienced people. The exact requirements are always listed with the job.',
@@ -85,7 +85,7 @@ const T = {
     ctaH: 'Didn’t find your trade?', ctaP: 'Leave us your contact, no strings attached. When a suitable project comes up, you’ll be the first to hear.', ctaBtn: 'Leave your contact', call: 'Call us',
   },
   ro: {
-    title: 'Meserii – muncă în Germania pentru meseriași | punds', desc: 'Căutăm electricieni, sudori, lăcătuși, montatori gips-carton, zugravi, montatori de termoizolații, montatori și alți meseriași pentru proiecte în Germania și Austria.',
+    title: 'Meserii – muncă în Germania pentru meseriași | DANUBRA', desc: 'Căutăm electricieni, sudori, lăcătuși, montatori gips-carton, zugravi, montatori de termoizolații, montatori și alți meseriași pentru proiecte în Germania și Austria.',
     home: 'Acasă', crumb: 'Meserii', h1: 'Meserii pentru care căutăm oameni', lead: 'Ne concentrăm pe meseriile din construcții și industrie. Alegeți-o pe a Dvs. și vedeți ofertele actuale.',
     n: ['ofertă', 'oferte', 'de oferte'], ask: 'Întrebați-ne', noRate: 'Tarif în funcție de proiect', see: 'Vezi ofertele',
     reqK: 'De ce aveți nevoie', reqH: 'Ce așteptăm de la Dvs.', reqP: 'Pentru fiecare proiect căutăm oameni cu experiență. Cerințele concrete sunt mereu menționate la ofertă.',
@@ -93,7 +93,7 @@ const T = {
     ctaH: 'Nu v-ați găsit meseria?', ctaP: 'Lăsați-ne datele de contact, fără obligații. Când apare un proiect potrivit, vă anunțăm pe Dvs. primii.', ctaBtn: 'Lasă datele de contact', call: 'Sunați',
   },
   pl: {
-    title: 'Zawody – praca w Niemczech dla fachowców | punds', desc: 'Szukamy elektryków, spawaczy, ślusarzy, monterów suchej zabudowy, malarzy, monterów ociepleń, monterów i innych fachowców do projektów w Niemczech i Austrii.',
+    title: 'Zawody – praca w Niemczech dla fachowców | DANUBRA', desc: 'Szukamy elektryków, spawaczy, ślusarzy, monterów suchej zabudowy, malarzy, monterów ociepleń, monterów i innych fachowców do projektów w Niemczech i Austrii.',
     home: 'Start', crumb: 'Zawody', h1: 'Zawody, do których szukamy ludzi', lead: 'Koncentrujemy się na zawodach budowlanych i przemysłowych. Prosimy wybrać swój i zobaczyć aktualne oferty.',
     n: ['oferta', 'oferty', 'ofert'], ask: 'Zapytaj nas', noRate: 'Stawka zależna od projektu', see: 'Zobacz oferty',
     reqK: 'Co jest potrzebne', reqH: 'Czego oczekujemy', reqP: 'Do każdego projektu szukamy ludzi z doświadczeniem. Konkretne wymagania są zawsze podane przy ofercie.',
@@ -101,7 +101,7 @@ const T = {
     ctaH: 'Nie znaleźli Państwo swojego zawodu?', ctaP: 'Prosimy zostawić niezobowiązująco kontakt. Gdy pojawi się odpowiedni projekt, odezwiemy się do Państwa w pierwszej kolejności.', ctaBtn: 'Zostaw kontakt', call: 'Zadzwoń',
   },
   bg: {
-    title: 'Професии – работа в Германия за строителни специалисти | punds', desc: 'Търсим електротехници, заварчици, шлосери, монтажници на гипсокартон, бояджии, топлоизолации, монтажници и други специалисти за проекти в Германия и Австрия.',
+    title: 'Професии – работа в Германия за строителни специалисти | DANUBRA', desc: 'Търсим електротехници, заварчици, шлосери, монтажници на гипсокартон, бояджии, топлоизолации, монтажници и други специалисти за проекти в Германия и Австрия.',
     home: 'Начало', crumb: 'Професии', h1: 'Професии, за които търсим хора', lead: 'Съсредоточаваме се върху строителните и промишлените професии. Изберете своята и вижте актуалните обяви.',
     n: ['обява', 'обяви', 'обяви'], ask: 'Попитайте ни', noRate: 'Ставка според проекта', see: 'Вижте обявите',
     reqK: 'Какво е нужно', reqH: 'Какво очакваме от Вас', reqP: 'За всеки проект търсим хора с опит. Конкретните изисквания винаги са посочени при обявата.',

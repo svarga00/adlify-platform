@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — testy príjmu formulárov (prihláška, kontakt, dopyt)
+// DANUBRA web — testy príjmu formulárov (prihláška, kontakt, dopyt)
 //   node web/tests/api.test.js
 // ============================================================================
 'use strict';
@@ -42,7 +42,7 @@ function fakeDb(seed = {}) {
   return { from, T };
 }
 
-const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip: o.ip || '1.2.3.4', origin: o.origin === undefined ? 'https://punds.sk' : o.origin, userAgent: 'test' });
+const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip: o.ip || '1.2.3.4', origin: o.origin === undefined ? 'https://danubra.sk' : o.origin, userAgent: 'test' });
 
 (async () => {
   console.log('Kontrola polí');
@@ -59,12 +59,12 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   const v2 = api.validate('enquiry', { company: 'GU Ulm', name: 'Max', email: 'max@gu.de', consent: 'on', trades: ['zvarac', 'hack'], trade: 'trockenbau', headcount: '4 Personen', model: 'werkvertrag' });
   ok(v2.ok && v2.data.trades.join() === 'sadrokarton,zvarac' && v2.data.headcount === 4, 'dopyt: remeslá z adresy aj zo zaškrtnutých, neznáme vyhodí, počet ako číslo', JSON.stringify(v2.data.trades));
   ok(api.startDate('3.11.2026') === '2026-11-03' && api.startDate('11/2026') === '2026-11-01' && api.startDate('ab KW 46') === null, 'začiatok z textu na dátum');
-  ok(api.ORIGIN_OK.test('https://punds.sk') && api.ORIGIN_OK.test('https://www.punds.eu') && api.ORIGIN_OK.test('https://adlify-app.netlify.app')
-    && !api.ORIGIN_OK.test('https://evil.com') && !api.ORIGIN_OK.test('https://punds.sk.evil.com'), 'formulár len z našich stránok');
+  ok(api.ORIGIN_OK.test('https://danubra.sk') && api.ORIGIN_OK.test('https://www.danubra.eu') && api.ORIGIN_OK.test('https://adlify-app.netlify.app')
+    && !api.ORIGIN_OK.test('https://evil.com') && !api.ORIGIN_OK.test('https://danubra.sk.evil.com'), 'formulár len z našich stránok');
 
-  console.log('Prihláška z punds.sk → Kandidáti');
+  console.log('Prihláška z danubra.sk → Kandidáti');
   const db = fakeDb({ danubra_ads: [{ id: 'ad1', title: 'Zvárači Bremen FB', web_title: 'Zvárač MIG/MAG', trade_key: 'zvarac', web_slug: 'zvarac-bremen', plan_id: 'pl1' }] });
-  const r1 = await api.handle(SITES.sk, 'apply', req({ name: 'Ján Novák', phone: '+421 900 111 222', email: 'jan@x.sk', note: 'Mám certifikát', consent: true, job: 'zvarac-bremen', lang: 'cz', page: '/punds-sk/cz/nabidky/zvarac-bremen', languages: ['cs', 'de'] }), { supabase: db });
+  const r1 = await api.handle(SITES.sk, 'apply', req({ name: 'Ján Novák', phone: '+421 900 111 222', email: 'jan@x.sk', note: 'Mám certifikát', consent: true, job: 'zvarac-bremen', lang: 'cz', page: '/danubra-sk/cz/nabidky/zvarac-bremen', languages: ['cs', 'de'] }), { supabase: db });
   const c = db.T.danubra_candidates[0];
   ok(r1.status === 200 && JSON.parse(r1.body).ok, 'prihláška sa prijme', r1.body);
   ok(c && c.full_name === 'Ján Novák' && c.ad_id === 'ad1' && c.plan_id === 'pl1' && c.profession === 'zvarac' && c.source === 'web'
@@ -83,7 +83,7 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   const sp = await api.handle(SITES.sk, 'contact', req({ name: 'Bot', phone: '+421900000000', consent: true, website: 'http://spam' }), { supabase: db });
   ok(sp.status === 200 && db.T.danubra_candidates.length === 1 && db.T.danubra_web_submissions.some((x) => x.spam), 'robot (vyplnená pasca) dostane „ok", ale kandidát nevznikne');
   ok((await api.handle(SITES.sk, 'apply', req({}, { origin: 'https://evil.com' }), { supabase: db })).status === 403, 'cudzia stránka je odmietnutá');
-  ok((await api.handle(SITES.eu, 'apply', req({}), { supabase: db })).status === 404, 'punds.eu neprijíma prihlášky');
+  ok((await api.handle(SITES.eu, 'apply', req({}), { supabase: db })).status === 404, 'danubra.eu neprijíma prihlášky');
   ok((await api.handle(SITES.sk, 'apply', { method: 'GET' }, { supabase: db })).status === 405, 'len POST');
   const bad = await api.handle(SITES.sk, 'apply', req({ name: '', phone: '1', consent: false }), { supabase: db });
   ok(bad.status === 400 && JSON.parse(bad.body).fields.includes('consent'), 'chybné polia vrátia 400 so zoznamom', bad.body);
@@ -93,9 +93,9 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   ok(last.status === 429 && flood.T.danubra_candidates.length === 6, 'najviac 6 odoslaní z jednej adresy za 10 minút', `${last.status} ${flood.T.danubra_candidates.length}`);
 
   console.log('Odtlačok IP adresy');
-  const plain = crypto.createHash('sha256').update('punds-web:1.2.3.4').digest('hex').slice(0, 32);
+  const plain = crypto.createHash('sha256').update('danubra-web:1.2.3.4').digest('hex').slice(0, 32);
   const h1 = api.ipHash('1.2.3.4'), h2 = api.ipHash('1.2.3.4', 'iny-kluc');
-  ok(h1 && h1 === crypto.createHmac('sha256', 'test-tajomstvo').update('punds-web:ip:1.2.3.4').digest('hex').slice(0, 32) && h1 !== plain && h1 !== h2,
+  ok(h1 && h1 === crypto.createHmac('sha256', 'test-tajomstvo').update('danubra-web:ip:1.2.3.4').digest('hex').slice(0, 32) && h1 !== plain && h1 !== h2,
     'odtlačok je HMAC s tajným kľúčom (bez kľúča sa nedá spätne zistiť)');
   ok(api.ipHash('1.2.3.4, 10.0.0.1') === h1 && api.ipHash('') === null, 'berie sa prvá adresa z X-Forwarded-For; bez adresy nič');
   ok(db.T.danubra_web_submissions[0].ip_hash === h1 && !JSON.stringify(db.T.danubra_web_submissions).includes('1.2.3.4'), 'do záznamu ide odtlačok, nie adresa');
@@ -109,13 +109,13 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
     'bez tajného kľúča sa IP neukladá vôbec a limit 6 za 10 minút platí ďalej', `${lastNo.status} ${nos.T.danubra_candidates.length}`);
   process.env.IP_HASH_SECRET = 'test-tajomstvo';
 
-  console.log('Dopyt z punds.eu → Dopyty');
+  console.log('Dopyt z danubra.eu → Dopyty');
   const db2 = fakeDb();
   const r2 = await api.handle(SITES.eu, 'enquiry', req({ company: 'Musterbau GmbH', name: 'Max Mustermann', email: 'max@musterbau.de', phone: '+49 421 123',
-    trades: ['zvarac'], headcount: '2', location: 'Bremen', start: '3.11.2026', model: 'aueg', message: 'Halle 3', consent: true, lang: 'de' }, { origin: 'https://punds.eu' }), { supabase: db2 });
+    trades: ['zvarac'], headcount: '2', location: 'Bremen', start: '3.11.2026', model: 'aueg', message: 'Halle 3', consent: true, lang: 'de' }, { origin: 'https://danubra.eu' }), { supabase: db2 });
   const o = db2.T.danubra_opportunities[0];
   ok(r2.status === 200 && o && o.company_name === 'Musterbau GmbH' && o.trade_key === 'zvarac' && o.headcount === 2 && o.start_date === '2026-11-03'
-    && o.source === 'punds.eu' && o.status === 'new' && /Arbeitnehmerüberlassung/.test(o.brief) && /Schweißen/.test(o.title), 'dopyt sa zapíše s remeslom, počtom, termínom a formou spolupráce', JSON.stringify(o));
+    && o.source === 'danubra.eu' && o.status === 'new' && /Arbeitnehmerüberlassung/.test(o.brief) && /Schweißen/.test(o.title), 'dopyt sa zapíše s remeslom, počtom, termínom a formou spolupráce', JSON.stringify(o));
 
 
   console.log('Automatické e-maily');
@@ -134,25 +134,25 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   const mkNotify = (web, contacts = {}) => {
     const sent = [];
     const sb = { from: () => ({ select() { return this; }, limit() { return this; }, maybeSingle: async () => ({ data: { web } }) }) };
-    const srv = { mailbox: async (id) => (id === 'mb1' ? { id: 'mb1', email: 'info@punds.sk', active: true, secret_enc: 'x' } : null), password: () => 'heslo' };
+    const srv = { mailbox: async (id) => (id === 'mb1' ? { id: 'mb1', email: 'info@danubra.sk', active: true, secret_enc: 'x' } : null), password: () => 'heslo' };
     const n = notifier(sb, { srv, content: async () => ({ contacts }), send: async (mb, pass, m) => { sent.push(m); } });
     return { n, sent };
   };
   const apply = { site: SITES.sk, kind: 'apply', data: { name: 'Ján Novák', phone: '+421900111222', email: 'jan@x.sk', lang: 'sk' }, id: 'abcdef12-3456' };
-  const off = mkNotify({ confirm: false, mailbox_sk: 'mb1', notify_sk: 'tim@punds.sk' });
+  const off = mkNotify({ confirm: false, mailbox_sk: 'mb1', notify_sk: 'tim@danubra.sk' });
   const rOff = await off.n(apply);
-  ok(rOff.team && !rOff.confirm && off.sent.length === 1 && off.sent[0].to === 'tim@punds.sk' && /Nová prihláška/.test(off.sent[0].subject),
+  ok(rOff.team && !rOff.confirm && off.sent.length === 1 && off.sent[0].to === 'tim@danubra.sk' && /Nová prihláška/.test(off.sent[0].subject),
     'potvrdenie vypnuté: tím dostane upozornenie aj tak, odosielateľ nič', JSON.stringify(rOff));
   const on = mkNotify({ confirm: true, mailbox_sk: 'mb1' }, { sk: { phone1: '+421 911 222 333' }, whatsapp: '+421 944 555 666' });
   const rOn = await on.n(apply);
   const conf = on.sent.find((m) => m.to === 'jan@x.sk');
-  ok(rOn.team && rOn.confirm && on.sent.length === 2 && on.sent.some((m) => m.to === 'info@punds.sk'), 'potvrdenie zapnuté: obe správy (tím bez vlastnej adresy na schránku)', JSON.stringify(rOn));
+  ok(rOn.team && rOn.confirm && on.sent.length === 2 && on.sent.some((m) => m.to === 'info@danubra.sk'), 'potvrdenie zapnuté: obe správy (tím bez vlastnej adresy na schránku)', JSON.stringify(rOn));
   ok(conf && conf.html.includes('+421 911 222 333') && conf.text.includes('+421 911 222 333') && conf.html.includes('wa.me/421944555666') && !conf.html.includes('523 958'),
     'telefón a WhatsApp v potvrdení sú z Kontaktov v appke');
   const eu = mkNotify({ confirm: true, mailbox_eu: 'mb1' }, { eu: { phone: '+49 421 7777' } });
   await eu.n({ site: SITES.eu, kind: 'enquiry', data: { company: 'GU', name: 'Max', email: 'max@gu.de', lang: 'de', trades: ['zvarac'] }, id: 'x' });
   const ce1 = eu.sent.find((m) => m.to === 'max@gu.de');
-  ok(ce1 && ce1.text.includes('+49 421 7777'), 'potvrdenie dopytu: telefón z Kontaktov punds.eu (keď v nastavení e-mailov nie je iný)');
+  ok(ce1 && ce1.text.includes('+49 421 7777'), 'potvrdenie dopytu: telefón z Kontaktov danubra.eu (keď v nastavení e-mailov nie je iný)');
   const none = mkNotify({ confirm: true });
   const rNone = await none.n(apply);
   ok(rNone.skipped === 'bez schránky' && none.sent.length === 0, 'bez zvolenej schránky sa neposiela nič');
@@ -160,16 +160,16 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   const E = require('../emails');
   for (const l of SITES.sk.langs) {
     const m = E.confirmApply({ lang: l, name: 'Ján Novák', job: { title: 'Zvárač', city: 'Bremen', rate: '29–30 €', start: 'Od 3. 11.', image: 'https://x/y.jpg' }, ref: 'AB12CD', assets: 'https://a/web/public' });
-    ok(m.subject && /Ján/.test(m.html) && !/undefined|NaN/.test(m.html + m.text) && /punds-mark-white\.png/.test(m.html) && m.text.length > 80, `potvrdenie prihlášky — ${l}`, m.subject);
+    ok(m.subject && /Ján/.test(m.html) && !/undefined|NaN/.test(m.html + m.text) && /danubra-mark-white\.png/.test(m.html) && m.text.length > 80, `potvrdenie prihlášky — ${l}`, m.subject);
   }
   ok(/germană sau engleză/.test(E.confirmApply({ lang: 'ro', assets: 'x' }).text) && /немски или английски/.test(E.confirmApply({ lang: 'bg', assets: 'x' }).text)
     && !/nemecky alebo anglicky/.test(E.confirmApply({ lang: 'sk', assets: 'x' }).text), 'potvrdenie po rumunsky a bulharsky pripomína nemčinu alebo angličtinu vedúceho partie');
   const tmL = E.team({ kind: 'apply', data: { name: 'Ion', phone: '+40', lang: 'ro', languages: ['ro', 'en', 'xx'] } });
   ok(/Hovorí: rumunčina, angličtina, xx/.test(tmL.text) && /Jazyk webu: ro/.test(tmL.text), 'upozornenie tímu hovorí, ktorými jazykmi uchádzač hovorí');
-  const ce = E.confirmEnquiry({ lang: 'de', trades: ['zvarac', 'sadrokarton'], headcount: 2, location: 'Hamburg', start: 'ab KW 46', ref: 'X1', assets: 'https://a/web/public', contact: { phone: '+421 910 523 958', email: 'info@punds.eu' } });
+  const ce = E.confirmEnquiry({ lang: 'de', trades: ['zvarac', 'sadrokarton'], headcount: 2, location: 'Hamburg', start: 'ab KW 46', ref: 'X1', assets: 'https://a/web/public', contact: { phone: '+421 910 523 958', email: 'info@danubra.eu' } });
   ok(/Schweißen MIG\/MAG\/TIG, Trockenbau/.test(ce.html) && /2 Personen/.test(ce.html) && /Hamburg/.test(ce.text) && !/undefined/.test(ce.html), 'potvrdenie dopytu po nemecky so súhrnom', ce.subject);
   const tm = E.team({ kind: 'apply', data: { name: 'Ján', phone: '+421', note: 'ahoj', lang: 'sk' }, job: { title: 'Zvárač', city: 'Bremen' }, appUrl: 'https://a/app/' });
-  ok(/Nová prihláška z punds\.sk: Ján/.test(tm.subject) && /Zvárač · Bremen/.test(tm.text) && /#\/candidates/.test(tm.text), 'upozornenie pre nás');
+  ok(/Nová prihláška z danubra\.sk: Ján/.test(tm.subject) && /Zvárač · Bremen/.test(tm.text) && /#\/candidates/.test(tm.text), 'upozornenie pre nás');
   console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.log(`  ✗ test spadol: ${e.stack}`); console.log('\n0 prešlo, 1 zlyhalo'); process.exit(1); });

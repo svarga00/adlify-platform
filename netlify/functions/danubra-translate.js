@@ -1,7 +1,7 @@
 // ============================================================================
-// punds web — preklad ponuky do ďalších jazykov webu (Claude)
+// DANUBRA web — preklad ponuky do ďalších jazykov webu (Claude)
 // ============================================================================
-// Inzerát sa píše po slovensky. Pred zverejnením na punds.sk sa jedným
+// Inzerát sa píše po slovensky. Pred zverejnením na danubra.sk sa jedným
 // tlačidlom preloží do češtiny, maďarčiny, nemčiny, angličtiny, rumunčiny,
 // poľštiny a bulharčiny — výsledok sa uloží k inzerátu (danubra_ads.i18n)
 // a dá sa ešte ručne opraviť. Kým preklad nie je, web ukáže slovenský text
@@ -26,7 +26,7 @@ const supabase = createClient(
 // Supabase je spoločný s Adlify).
 const guard = require('../../app/lib/server-guard.js')(supabase);
 const MODEL = process.env.CLAUDE_TRANSLATE_MODEL || 'claude-sonnet-5-5';
-// Jazyky webu punds.sk okrem slovenčiny (poradie = poradie v appke). Pri
+// Jazyky webu danubra.sk okrem slovenčiny (poradie = poradie v appke). Pri
 // zmene upraviť aj app/lib/recruiting/web-ad.js → LANGS a web/shared/sites.js.
 const NAMES = { cz: 'čeština', hu: 'maďarčina', de: 'nemčina', en: 'angličtina', ro: 'rumunčina', pl: 'poľština', bg: 'bulharčina (cyrilika)' };
 // Ako sa v jednotlivých jazykoch vyká — pre prompt.
@@ -61,7 +61,7 @@ exports.handler = async (event) => {
 
   const tool = {
     name: 'preklady',
-    description: 'Preklady ponuky práce do jazykov webu punds.sk.',
+    description: 'Preklady ponuky práce do jazykov webu danubra.sk.',
     input_schema: { type: 'object', properties: Object.fromEntries(langs.map((l) => [l, item])), required: langs },
   };
   const src = {
@@ -97,7 +97,7 @@ exports.handler = async (event) => {
 
 /** Zadanie prekladu ponuky — rodená kvalita, vykanie, zachované formátovanie. */
 function adPrompt(src, langs) {
-  return `Prelož ponuku práce z webu punds.sk (nábor remeselníkov — živnostníkov — zo Slovenska, Česka, Maďarska, `
+  return `Prelož ponuku práce z webu danubra.sk (nábor remeselníkov — živnostníkov — zo Slovenska, Česka, Maďarska, `
     + `Rumunska, Poľska a Bulharska na stavby v Nemecku a Rakúsku) do jazykov: ${langs.map((l) => `${l} = ${NAMES[l]}`).join(', ')}.\n\n`
     + `Pravidlá:\n`
     + `- Kvalita rodeného hovoriaceho: prirodzený, správny jazyk, ako by ponuku napísal personalista v danej krajine pre stavebných remeselníkov. Nie doslovný preklad.\n`
@@ -121,7 +121,7 @@ async function translateTexts(b) {
   const arr = { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, text: { type: 'string' } }, required: ['path', 'text'] } };
   const tool = { name: 'preklady_textov', description: 'Preklady textov webovej stránky.',
     input_schema: { type: 'object', properties: Object.fromEntries(langs.map((l) => [l, arr])), required: langs } };
-  const prompt = `Prelož texty webovej stránky punds (nábor remeselníkov na stavby v Nemecku / ponuka remeselníkov nemeckým firmám) `
+  const prompt = `Prelož texty webovej stránky DANUBRA (nábor remeselníkov na stavby v Nemecku / ponuka remeselníkov nemeckým firmám) `
     + `z jazyka ${LANG_NAMES[from]} do: ${langs.map((l) => `${l} = ${LANG_NAMES[l]}`).join(', ')}.\n\n`
     + `Pravidlá:\n- Kvalita rodeného hovoriaceho, prirodzený jazyk webu, nie doslovný preklad. Správna diakritika (ro: ș ț, pl: ą ę ł ś ż…, bg: cyrilika). Vykanie (${FORMAL}).\n`
     + `- HTML značky (<b>, <a …>, <br>), nové riadky a zástupné znaky ako {PHONE} a {MAIL} ponechaj presne tak.\n`

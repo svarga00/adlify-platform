@@ -1,5 +1,5 @@
 /* ==========================================================================
-   punds.sk — obsahové stránky: úvod, o nás, profesie, ako to funguje,
+   danubra.sk — obsahové stránky: úvod, o nás, profesie, ako to funguje,
    kontakt, ochrana údajov, cookies, 404.
    Hodnoty podľa návrhov 1a, 2d, 2e–2h (desktop 1280) a Mobile 1a (390).
    Predpony: sp- spoločné · hm- úvod · ab- o nás · pf- profesie ·
@@ -362,7 +362,7 @@ a.or:hover { color: var(--ink); }
   .lgl-toc .eyebrow { grid-column: 1 / -1; }
 }
 
-/* ── Mobil (podľa PUNDS Mobile 1a) ──────────────────────────────────────── */
+/* ── Mobil (podľa mobilného návrhu 1a) ──────────────────────────────────────── */
 @media (max-width: 767px) {
   .sp-head { padding-top: 20px; }
   .sp-head-in { padding-top: 12px; gap: 12px; }

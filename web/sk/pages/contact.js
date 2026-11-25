@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — Kontakt (návrh 2g)
+// danubra.sk — Kontakt (návrh 2g)
 // ============================================================================
 // Súbor exportuje aj kontaktný formulár a pár drobností, ktoré používajú
 // ďalšie stránky (home, about): contactForm(), F (texty formulára), ghost(),
@@ -107,7 +107,7 @@ function mapBox(t, cls = '') {
 
 const T = {
   sk: {
-    title: 'Kontakt – telefón, WhatsApp, e-mail | punds', desc: 'Zavolajte, napíšte na WhatsApp alebo pošlite správu. Kancelária Nové Zámky, Po–Pia 8:00–16:00. Hovoríme po slovensky, česky, maďarsky aj nemecky.',
+    title: 'Kontakt – telefón, WhatsApp, e-mail | DANUBRA', desc: 'Zavolajte, napíšte na WhatsApp alebo pošlite správu. Kancelária Nové Zámky, Po–Pia 8:00–16:00. Hovoríme po slovensky, česky, maďarsky aj nemecky.',
     home: 'Domov', crumb: 'Kontakt',
     h1: 'Sme tu pre Vás', lead: 'Najrýchlejšie nás zastihnete telefonicky alebo na WhatsApp. Hovoríme po slovensky, česky, maďarsky aj nemecky.',
     phone: 'Telefón', or: 'alebo', wa: 'WhatsApp', waH: 'Napíšte nám', waP: 'Pošlite správu kedykoľvek', mail: 'E-mail', mailP: 'Odpoveď do 24 hodín',
@@ -115,10 +115,10 @@ const T = {
     office: 'Kancelária Nové Zámky', route: 'Trasa', openMap: 'Otvoriť v mapách',
     hoursH: 'Otváracie hodiny', days: [['Po – Pia', '8:00 – 16:00'], ['Sobota', 'na telefóne'], ['Nedeľa', 'zatvorené']],
     company: 'Firemné údaje', ico: 'IČO', dic: 'DIČ', icdph: 'IČ DPH',
-    b2bH: 'Ste firma v Nemecku a hľadáte ľudí?', b2bP: 'Pre firmy máme samostatný web v nemčine a angličtine.', b2bCta: 'Prejsť na punds.eu',
+    b2bH: 'Ste firma v Nemecku a hľadáte ľudí?', b2bP: 'Pre firmy máme samostatný web v nemčine a angličtine.', b2bCta: 'Prejsť na danubra.eu',
   },
   cz: {
-    title: 'Kontakt – telefon, WhatsApp, e-mail | punds', desc: 'Zavolejte, napište na WhatsApp nebo pošlete zprávu. Kancelář Nové Zámky, Po–Pá 8:00–16:00. Mluvíme slovensky, česky, maďarsky i německy.',
+    title: 'Kontakt – telefon, WhatsApp, e-mail | DANUBRA', desc: 'Zavolejte, napište na WhatsApp nebo pošlete zprávu. Kancelář Nové Zámky, Po–Pá 8:00–16:00. Mluvíme slovensky, česky, maďarsky i německy.',
     home: 'Domů', crumb: 'Kontakt',
     h1: 'Jsme tu pro Vás', lead: 'Nejrychleji nás zastihnete telefonicky nebo na WhatsApp. Mluvíme slovensky, česky, maďarsky i německy.',
     phone: 'Telefon', or: 'nebo', wa: 'WhatsApp', waH: 'Napište nám', waP: 'Pošlete zprávu kdykoli', mail: 'E-mail', mailP: 'Odpověď do 24 hodin',
@@ -126,10 +126,10 @@ const T = {
     office: 'Kancelář Nové Zámky', route: 'Trasa', openMap: 'Otevřít v mapách',
     hoursH: 'Otevírací doba', days: [['Po – Pá', '8:00 – 16:00'], ['Sobota', 'na telefonu'], ['Neděle', 'zavřeno']],
     company: 'Firemní údaje', ico: 'IČO', dic: 'DIČ', icdph: 'IČ DPH',
-    b2bH: 'Jste firma v Německu a hledáte lidi?', b2bP: 'Pro firmy máme samostatný web v němčině a angličtině.', b2bCta: 'Přejít na punds.eu',
+    b2bH: 'Jste firma v Německu a hledáte lidi?', b2bP: 'Pro firmy máme samostatný web v němčině a angličtině.', b2bCta: 'Přejít na danubra.eu',
   },
   hu: {
-    title: 'Kapcsolat – telefon, WhatsApp, e-mail | punds', desc: 'Hívjon, írjon WhatsAppon vagy küldjön üzenetet. Iroda: Érsekújvár (Nové Zámky), H–P 8:00–16:00. Beszélünk szlovákul, csehül, magyarul és németül.',
+    title: 'Kapcsolat – telefon, WhatsApp, e-mail | DANUBRA', desc: 'Hívjon, írjon WhatsAppon vagy küldjön üzenetet. Iroda: Érsekújvár (Nové Zámky), H–P 8:00–16:00. Beszélünk szlovákul, csehül, magyarul és németül.',
     home: 'Kezdőlap', crumb: 'Kapcsolat',
     h1: 'Itt vagyunk Önért', lead: 'Telefonon vagy WhatsAppon ér el minket a leggyorsabban. Beszélünk szlovákul, csehül, magyarul és németül.',
     phone: 'Telefon', or: 'vagy', wa: 'WhatsApp', waH: 'Írjon nekünk', waP: 'Üzenjen bármikor', mail: 'E-mail', mailP: 'Válasz 24 órán belül',
@@ -137,10 +137,10 @@ const T = {
     office: 'Iroda, Érsekújvár (Nové Zámky)', route: 'Útvonal', openMap: 'Megnyitás térképen',
     hoursH: 'Nyitvatartás', days: [['H – P', '8:00 – 16:00'], ['Szombat', 'telefonon'], ['Vasárnap', 'zárva']],
     company: 'Cégadatok', ico: 'Cégazonosító (IČO)', dic: 'Adószám (DIČ)', icdph: 'Közösségi adószám',
-    b2bH: 'Németországi cég, és munkaerőt keres?', b2bP: 'A cégeknek külön weboldalunk van német és angol nyelven.', b2bCta: 'Tovább a punds.eu oldalra',
+    b2bH: 'Németországi cég, és munkaerőt keres?', b2bP: 'A cégeknek külön weboldalunk van német és angol nyelven.', b2bCta: 'Tovább a danubra.eu oldalra',
   },
   de: {
-    title: 'Kontakt – Telefon, WhatsApp, E-Mail | punds', desc: 'Rufen Sie an, schreiben Sie per WhatsApp oder senden Sie eine Nachricht. Büro Nové Zámky, Mo–Fr 8:00–16:00. Wir sprechen Slowakisch, Tschechisch, Ungarisch und Deutsch.',
+    title: 'Kontakt – Telefon, WhatsApp, E-Mail | DANUBRA', desc: 'Rufen Sie an, schreiben Sie per WhatsApp oder senden Sie eine Nachricht. Büro Nové Zámky, Mo–Fr 8:00–16:00. Wir sprechen Slowakisch, Tschechisch, Ungarisch und Deutsch.',
     home: 'Start', crumb: 'Kontakt',
     h1: 'Wir sind für Sie da', lead: 'Am schnellsten erreichen Sie uns telefonisch oder per WhatsApp. Wir sprechen Slowakisch, Tschechisch, Ungarisch und Deutsch.',
     phone: 'Telefon', or: 'oder', wa: 'WhatsApp', waH: 'Schreiben Sie uns', waP: 'Nachricht jederzeit möglich', mail: 'E-Mail', mailP: 'Antwort innerhalb von 24 Stunden',
@@ -148,10 +148,10 @@ const T = {
     office: 'Büro Nové Zámky', route: 'Route', openMap: 'In Karten öffnen',
     hoursH: 'Öffnungszeiten', days: [['Mo – Fr', '8:00 – 16:00'], ['Samstag', 'telefonisch'], ['Sonntag', 'geschlossen']],
     company: 'Firmendaten', ico: 'IČO (Firmennummer)', dic: 'DIČ (Steuernummer)', icdph: 'USt-IdNr.',
-    b2bH: 'Sie sind eine Firma in Deutschland und suchen Fachkräfte?', b2bP: 'Für Unternehmen haben wir eine eigene Website auf Deutsch und Englisch.', b2bCta: 'Zu punds.eu',
+    b2bH: 'Sie sind eine Firma in Deutschland und suchen Fachkräfte?', b2bP: 'Für Unternehmen haben wir eine eigene Website auf Deutsch und Englisch.', b2bCta: 'Zu danubra.eu',
   },
   en: {
-    title: 'Contact – phone, WhatsApp, email | punds', desc: 'Call us, message us on WhatsApp or send an enquiry. Office in Nové Zámky, Mon–Fri 8:00–16:00. We speak Slovak, Czech, Hungarian and German.',
+    title: 'Contact – phone, WhatsApp, email | DANUBRA', desc: 'Call us, message us on WhatsApp or send an enquiry. Office in Nové Zámky, Mon–Fri 8:00–16:00. We speak Slovak, Czech, Hungarian and German.',
     home: 'Home', crumb: 'Contact',
     h1: 'We’re here for you', lead: 'The quickest way to reach us is by phone or WhatsApp. We speak Slovak, Czech, Hungarian and German.',
     phone: 'Phone', or: 'or', wa: 'WhatsApp', waH: 'Message us', waP: 'Send a message any time', mail: 'Email', mailP: 'Reply within 24 hours',
@@ -159,10 +159,10 @@ const T = {
     office: 'Office in Nové Zámky', route: 'Directions', openMap: 'Open in Maps',
     hoursH: 'Opening hours', days: [['Mon – Fri', '8:00 – 16:00'], ['Saturday', 'by phone'], ['Sunday', 'closed']],
     company: 'Company details', ico: 'Company ID (IČO)', dic: 'Tax ID (DIČ)', icdph: 'VAT ID',
-    b2bH: 'A company in Germany looking for tradespeople?', b2bP: 'We have a separate website for companies, in German and English.', b2bCta: 'Go to punds.eu',
+    b2bH: 'A company in Germany looking for tradespeople?', b2bP: 'We have a separate website for companies, in German and English.', b2bCta: 'Go to danubra.eu',
   },
   ro: {
-    title: 'Contact – telefon, WhatsApp, e-mail | punds', desc: 'Sunați, scrieți pe WhatsApp sau trimiteți un mesaj. Birou în Nové Zámky, Lu–Vi 8:00–16:00. Vorbim slovacă, cehă, maghiară, germană și engleză.',
+    title: 'Contact – telefon, WhatsApp, e-mail | DANUBRA', desc: 'Sunați, scrieți pe WhatsApp sau trimiteți un mesaj. Birou în Nové Zámky, Lu–Vi 8:00–16:00. Vorbim slovacă, cehă, maghiară, germană și engleză.',
     home: 'Acasă', crumb: 'Contact',
     h1: 'Suntem aici pentru Dvs.', lead: 'Cel mai rapid ne găsiți la telefon sau pe WhatsApp. Vorbim slovacă, cehă, maghiară, germană și engleză.',
     phone: 'Telefon', or: 'sau', wa: 'WhatsApp', waH: 'Scrieți-ne', waP: 'Trimiteți un mesaj oricând', mail: 'E-mail', mailP: 'Răspuns în 24 de ore',
@@ -170,10 +170,10 @@ const T = {
     office: 'Birou Nové Zámky', route: 'Traseu', openMap: 'Deschide în Maps',
     hoursH: 'Program', days: [['Lu – Vi', '8:00 – 16:00'], ['Sâmbătă', 'la telefon'], ['Duminică', 'închis']],
     company: 'Date firmă', ico: 'Nr. înreg. (IČO)', dic: 'Cod fiscal (DIČ)', icdph: 'Cod TVA',
-    b2bH: 'Sunteți o firmă din Germania și căutați oameni?', b2bP: 'Pentru firme avem un site separat în germană și engleză.', b2bCta: 'Mergeți la punds.eu',
+    b2bH: 'Sunteți o firmă din Germania și căutați oameni?', b2bP: 'Pentru firme avem un site separat în germană și engleză.', b2bCta: 'Mergeți la danubra.eu',
   },
   pl: {
-    title: 'Kontakt – telefon, WhatsApp, e-mail | punds', desc: 'Zadzwoń, napisz na WhatsApp lub wyślij wiadomość. Biuro Nové Zámky, Pn–Pt 8:00–16:00. Mówimy po słowacku, czesku, węgiersku, niemiecku i angielsku.',
+    title: 'Kontakt – telefon, WhatsApp, e-mail | DANUBRA', desc: 'Zadzwoń, napisz na WhatsApp lub wyślij wiadomość. Biuro Nové Zámky, Pn–Pt 8:00–16:00. Mówimy po słowacku, czesku, węgiersku, niemiecku i angielsku.',
     home: 'Start', crumb: 'Kontakt',
     h1: 'Jesteśmy do Państwa dyspozycji', lead: 'Najszybciej można nas zastać telefonicznie lub na WhatsApp. Mówimy po słowacku, czesku, węgiersku, niemiecku i angielsku.',
     phone: 'Telefon', or: 'lub', wa: 'WhatsApp', waH: 'Napisz do nas', waP: 'Wiadomość o dowolnej porze', mail: 'E-mail', mailP: 'Odpowiedź w ciągu 24 godzin',
@@ -181,10 +181,10 @@ const T = {
     office: 'Biuro Nové Zámky', route: 'Trasa', openMap: 'Otwórz w mapach',
     hoursH: 'Godziny otwarcia', days: [['Pn – Pt', '8:00 – 16:00'], ['Sobota', 'telefonicznie'], ['Niedziela', 'zamknięte']],
     company: 'Dane firmy', ico: 'Nr rej. (IČO)', dic: 'NIP (DIČ)', icdph: 'NIP UE',
-    b2bH: 'Firma z Niemiec szukająca pracowników?', b2bP: 'Dla firm mamy osobną stronę po niemiecku i angielsku.', b2bCta: 'Przejdź na punds.eu',
+    b2bH: 'Firma z Niemiec szukająca pracowników?', b2bP: 'Dla firm mamy osobną stronę po niemiecku i angielsku.', b2bCta: 'Przejdź na danubra.eu',
   },
   bg: {
-    title: 'Контакт – телефон, WhatsApp, имейл | punds', desc: 'Обадете се, пишете в WhatsApp или изпратете съобщение. Офис Нове Замки, Пон–Пет 8:00–16:00. Говорим словашки, чешки, унгарски, немски и английски.',
+    title: 'Контакт – телефон, WhatsApp, имейл | DANUBRA', desc: 'Обадете се, пишете в WhatsApp или изпратете съобщение. Офис Нове Замки, Пон–Пет 8:00–16:00. Говорим словашки, чешки, унгарски, немски и английски.',
     home: 'Начало', crumb: 'Контакт',
     h1: 'Тук сме за Вас', lead: 'Най-бързо ще ни откриете по телефона или в WhatsApp. Говорим словашки, чешки, унгарски, немски и английски.',
     phone: 'Телефон', or: 'или', wa: 'WhatsApp', waH: 'Пишете ни', waP: 'Изпратете съобщение по всяко време', mail: 'Имейл', mailP: 'Отговор до 24 часа',
@@ -192,12 +192,12 @@ const T = {
     office: 'Офис Нове Замки', route: 'Маршрут', openMap: 'Отвори в карти',
     hoursH: 'Работно време', days: [['Пон – Пет', '8:00 – 16:00'], ['Събота', 'по телефона'], ['Неделя', 'затворено']],
     company: 'Данни за фирмата', ico: 'Рег. номер (IČO)', dic: 'Данъчен номер (DIČ)', icdph: 'ДДС номер',
-    b2bH: 'Фирма от Германия, която търси хора?', b2bP: 'За фирми имаме отделен сайт на немски и английски.', b2bCta: 'Към punds.eu',
+    b2bH: 'Фирма от Германия, която търси хора?', b2bP: 'За фирми имаме отделен сайт на немски и английски.', b2bCta: 'Към danubra.eu',
   },
 };
 
-/** Odkaz na punds.eu (rovnako ako päta webu). */
-const euUrl = (ctx) => (ctx.prod ? `https://punds.eu/${ctx.lang === 'en' ? 'en' : 'de'}/` : `/punds-eu/${ctx.lang === 'en' ? 'en' : 'de'}/`);
+/** Odkaz na danubra.eu (rovnako ako päta webu). */
+const euUrl = (ctx) => (ctx.prod ? `https://danubra.eu/${ctx.lang === 'en' ? 'en' : 'de'}/` : `/danubra-eu/${ctx.lang === 'en' ? 'en' : 'de'}/`);
 
 async function render(ctx) {
   const t = T[ctx.lang];

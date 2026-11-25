@@ -10,7 +10,7 @@
 //
 // Kým FORMS_SECRET nie je nastavený (spätná kompatibilita — formulár bez
 // tajomstva sa nezastaví), prijme sa len odoslanie z našich stránok: Origin
-// alebo Referer z punds.sk / punds.eu (aj subdomény), tejto appky na
+// alebo Referer z danubra.sk / danubra.eu (aj subdomény), tejto appky na
 // Netlify, localhostu, alebo z domén vo FORMS_ALLOWED_ORIGINS (čiarkou
 // oddelené, napr. „danubra.sk,www.danubra.sk"). Do logu sa pri každej
 // požiadavke zapíše varovanie. Origin si vie skript podvrhnúť — skutočná
@@ -55,7 +55,7 @@ function toDate(v) {
   return isNaN(d) ? null : d.toISOString().slice(0, 10);
 }
 
-const ORIGIN_OK = /^(([a-z0-9-]+\.)*punds\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost|127\.0\.0\.1)$/i;
+const ORIGIN_OK = /^(([a-z0-9-]+\.)*danubra\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost|127\.0\.0\.1)$/i;
 
 /** Hostiteľ z Origin, inak z Referer (malými písmenami, bez portu), alebo ''. */
 function originHost(headers = {}) {

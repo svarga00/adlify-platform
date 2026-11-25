@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — testy smerovania a všetkých stránok oboch webov
+// DANUBRA web — testy smerovania a všetkých stránok oboch webov
 //   node web/tests/web.test.js
 // Prejde odkazy ako vyhľadávač: z hlavnej stránky každého jazyka všetky
 // vnútorné odkazy, a skontroluje, že každá stránka existuje a je celá.
@@ -25,39 +25,39 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
   console.log('Adresy');
   ok(JSON.stringify(match(SITES.sk, '/sk/ponuky/zvarac-bremen')) === JSON.stringify({ lang: 'sk', route: 'job', params: { slug: 'zvarac-bremen' } }), 'detail ponuky sa rozpozná');
   ok(match(SITES.sk, '/cz/nabidky').route === 'jobs' && match(SITES.sk, '/sk/nabidky') === null, 'každý jazyk má vlastné slová v adrese');
-  ok(pathOf(SITES.eu, 'en', 'trade', { slug: 'welding' }) === '/en/trades/welding', 'adresa remesla na punds.eu');
+  ok(pathOf(SITES.eu, 'en', 'trade', { slug: 'welding' }) === '/en/trades/welding', 'adresa remesla na danubra.eu');
   ok(pathOf(SITES.sk, 'hu', 'home') === '/hu/', 'hlavná stránka jazyka končí lomkou');
-  const r1 = await get('/punds-sk/');
-  ok(r1.status === 302 && r1.headers.Location === '/punds-sk/sk/', 'koreň webu presmeruje na slovenčinu', r1.headers.Location);
-  const r2 = await get('/punds-sk/', { al: 'cs-CZ,cs;q=0.9' });
-  ok(r2.headers.Location === '/punds-sk/cz/', 'česky nastavený prehliadač ide na /cz/', r2.headers.Location);
-  const r3 = await get('/punds-eu/', { al: 'sk' });
-  ok(r3.headers.Location === '/punds-eu/de/', 'punds.eu bez slovenčiny ide na nemčinu', r3.headers.Location);
+  const r1 = await get('/danubra-sk/');
+  ok(r1.status === 302 && r1.headers.Location === '/danubra-sk/sk/', 'koreň webu presmeruje na slovenčinu', r1.headers.Location);
+  const r2 = await get('/danubra-sk/', { al: 'cs-CZ,cs;q=0.9' });
+  ok(r2.headers.Location === '/danubra-sk/cz/', 'česky nastavený prehliadač ide na /cz/', r2.headers.Location);
+  const r3 = await get('/danubra-eu/', { al: 'sk' });
+  ok(r3.headers.Location === '/danubra-eu/de/', 'danubra.eu bez slovenčiny ide na nemčinu', r3.headers.Location);
   ok(match(SITES.sk, '/ro/locuri-de-munca/zvarac-bremen').route === 'job' && match(SITES.sk, '/pl/oferty').route === 'jobs' && match(SITES.sk, '/bg/rabota').route === 'jobs'
     && match(SITES.sk, '/ro/despre-noi').route === 'about' && match(SITES.sk, '/pl/jak-to-dziala').route === 'how' && match(SITES.sk, '/bg/lichni-danni').route === 'privacy'
     && match(SITES.sk, '/bg/ponuky') === null, 'rumunské, poľské a bulharské adresy sa rozpoznajú (bulharské v latinke)');
-  const r4 = await get('/punds-sk/', { al: 'ro-RO,ro;q=0.9,en;q=0.5' });
-  ok(r4.headers.Location === '/punds-sk/ro/', 'rumunsky nastavený prehliadač ide na /ro/', r4.headers.Location);
-  ok((await get('/punds-sk/sk/neexistuje')).status === 404, 'neznáma stránka je 404');
-  ok((await get('/punds-sk/sk/ponuky/neexistuje-123')).status === 404, 'neznáma ponuka je 404');
-  ok((await get('/punds-xx/sk/')).status === 404, 'iný web neexistuje');
+  const r4 = await get('/danubra-sk/', { al: 'ro-RO,ro;q=0.9,en;q=0.5' });
+  ok(r4.headers.Location === '/danubra-sk/ro/', 'rumunsky nastavený prehliadač ide na /ro/', r4.headers.Location);
+  ok((await get('/danubra-sk/sk/neexistuje')).status === 404, 'neznáma stránka je 404');
+  ok((await get('/danubra-sk/sk/ponuky/neexistuje-123')).status === 404, 'neznáma ponuka je 404');
+  ok((await get('/danubra-xx/sk/')).status === 404, 'iný web neexistuje');
 
-  console.log('Naostro (punds.sk, punds.eu)');
-  const prod = await get('/punds-sk/sk/', { host: 'punds.sk' });
-  ok(prod.status === 200 && !/href="\/punds-sk/.test(prod.body), 'na punds.sk sú odkazy bez skúšobnej predpony');
-  ok(!/noindex/.test(prod.body), 'punds.sk sa smie indexovať');
-  ok(/noindex/.test((await get('/punds-sk/sk/')).body), 'skúšobná adresa sa neindexuje');
+  console.log('Naostro (danubra.sk, danubra.eu)');
+  const prod = await get('/danubra-sk/sk/', { host: 'danubra.sk' });
+  ok(prod.status === 200 && !/href="\/danubra-sk/.test(prod.body), 'na danubra.sk sú odkazy bez skúšobnej predpony');
+  ok(!/noindex/.test(prod.body), 'danubra.sk sa smie indexovať');
+  ok(/noindex/.test((await get('/danubra-sk/sk/')).body), 'skúšobná adresa sa neindexuje');
   ok(!/Ukážka|ukazka-/.test(prod.body), 'naostro sa ukážkové ponuky nikdy neukážu');
-  const robots = await get('/punds-sk/robots.txt', { host: 'punds.sk' });
-  ok(robots.status === 200 && /Sitemap: https:\/\/punds\.sk\/sitemap\.xml/.test(robots.body), 'punds.sk má robots.txt s mapou stránok');
-  const sm = await get('/punds-eu/sitemap.xml', { host: 'punds.eu' });
-  ok(sm.status === 200 && /<loc>https:\/\/punds\.eu\/de\/impressum<\/loc>/.test(sm.body) && /gewerke\/schweissen/.test(sm.body), 'punds.eu má sitemap.xml so stránkami aj remeslami');
-  const prodRoot = await get('/punds-eu/', { host: 'www.punds.eu' });
-  ok(prodRoot.headers.Location === '/de/', 'www.punds.eu → /de/', prodRoot.headers.Location);
-  const smSk = await get('/punds-sk/sitemap.xml', { host: 'punds.sk', deps: { ads: async () => DEMO_ADS.slice(0, 1) } });
-  ok(['ro/locuri-de-munca', 'pl/oferty', 'bg/rabota', 'ro/locuri-de-munca/ukazka-', 'bg/lichni-danni'].every((p) => smSk.body.includes(`https://punds.sk/${p}`)),
-    'sitemap punds.sk má stránky aj ponuky v rumunčine, poľštine a bulharčine');
-  ok((prod.body.match(/<link rel="alternate" hreflang="/g) || []).length === SITES.sk.langs.length + 1 && /hreflang="bg" href="https:\/\/punds\.sk\/bg\/"/.test(prod.body), 'hreflang má všetkých 8 jazykov aj x-default');
+  const robots = await get('/danubra-sk/robots.txt', { host: 'danubra.sk' });
+  ok(robots.status === 200 && /Sitemap: https:\/\/danubra\.sk\/sitemap\.xml/.test(robots.body), 'danubra.sk má robots.txt s mapou stránok');
+  const sm = await get('/danubra-eu/sitemap.xml', { host: 'danubra.eu' });
+  ok(sm.status === 200 && /<loc>https:\/\/danubra\.eu\/de\/impressum<\/loc>/.test(sm.body) && /gewerke\/schweissen/.test(sm.body), 'danubra.eu má sitemap.xml so stránkami aj remeslami');
+  const prodRoot = await get('/danubra-eu/', { host: 'www.danubra.eu' });
+  ok(prodRoot.headers.Location === '/de/', 'www.danubra.eu → /de/', prodRoot.headers.Location);
+  const smSk = await get('/danubra-sk/sitemap.xml', { host: 'danubra.sk', deps: { ads: async () => DEMO_ADS.slice(0, 1) } });
+  ok(['ro/locuri-de-munca', 'pl/oferty', 'bg/rabota', 'ro/locuri-de-munca/ukazka-', 'bg/lichni-danni'].every((p) => smSk.body.includes(`https://danubra.sk/${p}`)),
+    'sitemap danubra.sk má stránky aj ponuky v rumunčine, poľštine a bulharčine');
+  ok((prod.body.match(/<link rel="alternate" hreflang="/g) || []).length === SITES.sk.langs.length + 1 && /hreflang="bg" href="https:\/\/danubra\.sk\/bg\/"/.test(prod.body), 'hreflang má všetkých 8 jazykov aj x-default');
 
   console.log('Slovníky — každý jazyk má každý kľúč slovenčiny');
   // Kľúče, ktoré smú byť len v niektorých jazykoch (podmienka pre ro/pl/bg).
@@ -149,6 +149,14 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
     ok(emoji.length === 0, 'v stránkach nie sú emoji ani piktogramy (len SVG ikony)', emoji.slice(0, 3).join(' | '));
     const hreflang = bodies.filter(([, r]) => (r.body.match(/hreflang="/g) || []).length < site.langs.length + 1).map(([u]) => u);
     ok(hreflang.length === 0, 'každá stránka má jazykové verzie pre vyhľadávače', hreflang.slice(0, 5).join(', '));
+    // Značka DANUBRA: stará značka punds sa nesmie ukázať nikde. Výnimka sú
+    // fotky z doterajšieho WordPressu (punds.eu/wp-content) a veta o nich
+    // v ochrane údajov punds.eu → danubra.eu.
+    const stara = bodies.filter(([, r]) => /punds/i.test(r.body.replace(/https:\/\/punds\.eu\/wp-content\/[^"' )]+/g, '')
+      .replace(/(Webauftritt unter|website at) punds\.eu/g, ''))).map(([u, r]) => `${u}: ${(r.body.match(/.{0,40}punds.{0,40}/i) || [''])[0]}`);
+    ok(stara.length === 0, 'na stránkach nie je stará značka punds (len DANUBRA)', stara.slice(0, 3).join(' | '));
+    const logo = bodies.filter(([, r]) => !/<span class="logo-word">DANUBRA<\/span>/.test(r.body) || /PARTNER UND SERVICE/.test(r.body)).map(([u]) => u);
+    ok(logo.length === 0, 'logo je znak + slovo DANUBRA, bez podtitulku', logo.slice(0, 5).join(', '));
     for (const l of site.langs) {
       const home = seen.get(`${site.prefix}/${l}/`);
       ok(home && home.status === 200 && new RegExp(`<html lang="${l === 'cz' ? 'cs' : l}"`).test(home.body), `${site.domain}/${l}/ — správny jazyk stránky`);
@@ -176,6 +184,45 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
   ok(plural('pl', 1, PL) === 'oferta' && plural('pl', 3, PL) === 'oferty' && plural('pl', 5, PL) === 'ofert' && plural('pl', 12, PL) === 'ofert' && plural('pl', 22, PL) === 'oferty' && plural('pl', 0, PL) === 'ofert', 'poľské množné číslo (1 / 2–4 okrem 12–14 / ostatné)');
   ok(plural('ro', 1, RO) === 'ofertă' && plural('ro', 5, RO) === 'oferte' && plural('ro', 19, RO) === 'oferte' && plural('ro', 20, RO) === 'de oferte' && plural('ro', 0, RO) === 'oferte', 'rumunské množné číslo (1 / 2–19 / 20+ „de")');
   ok(plural('bg', 1, ['обява', 'обяви']) === 'обява' && plural('bg', 4, ['обява', 'обяви']) === 'обяви', 'bulharské množné číslo');
+
+  console.log('Značka DANUBRA: domény a staré adresy');
+  ok(/Partner und Service s\. r\. o\./.test((await get('/danubra-eu/de/impressum')).body)
+    && /DANUBRA ist eine Marke der Partner und Service s\. r\. o\./.test((await get('/danubra-eu/de/impressum')).body), 'Impressum: firma zostáva, DANUBRA je jej značka');
+  ok(/DANUBRA je obchodná značka tejto spoločnosti/.test((await get('/danubra-sk/sk/ochrana-osobnych-udajov')).body), 'ochrana údajov: prevádzkovateľ je firma, DANUBRA jej značka');
+  ok(/"hiringOrganization":\{"@type":"Organization","name":"DANUBRA","legalName":"Partner und Service s\. r\. o\."/.test((await get(`${SITES.sk.prefix}/sk/ponuky/${slug}`, { deps: { ads: async () => [{ ...DEMO_ADS[0], demo: false }] } })).body),
+    'štruktúrované dáta ponuky: DANUBRA, právne meno firmy');
+  // Edge funkcia (naostro): nové domény sa prepíšu na web, staré punds.* presmerujú 301 na danubra.*.
+  const edgeSrc = fs.readFileSync(pth.join(__dirname, '..', 'edge', 'danubra-host.js'), 'utf8');
+  const edge = await import(`data:text/javascript,${encodeURIComponent(edgeSrc)}`);
+  const run = async (u) => {
+    let rew = null;
+    const r = await edge.default(new Request(u), { rewrite: (x) => { rew = x; return 'REWRITE'; } });
+    return { rew, status: r && r.status, loc: r && r.headers && r.headers.get ? r.headers.get('location') : null };
+  };
+  ok((await run('https://danubra.sk/sk/ponuky?p=zvarac')).rew === '/danubra-sk/sk/ponuky?p=zvarac' && (await run('https://danubra.eu/de/')).rew === '/danubra-eu/de/',
+    'danubra.sk a danubra.eu sa prepíšu na web');
+  const w = await run('https://www.danubra.eu/de/kontakt');
+  ok(w.status === 301 && w.loc === 'https://danubra.eu/de/kontakt', 'www.danubra.eu → danubra.eu (301)', JSON.stringify(w));
+  const old = await Promise.all(['https://punds.sk/sk/ponuky/zvarac-bremen?utm=fb', 'https://www.punds.sk/cz/', 'https://punds.eu/de/impressum', 'https://www.punds.eu/en/trades/welding'].map(run));
+  ok(old.every((r) => r.status === 301) && old.map((r) => r.loc).join(' ') === 'https://danubra.sk/sk/ponuky/zvarac-bremen?utm=fb https://danubra.sk/cz/ https://danubra.eu/de/impressum https://danubra.eu/en/trades/welding',
+    'staré domény punds.sk / punds.eu (aj www) → rovnaká adresa na danubra.* (301)', JSON.stringify(old));
+  const cudzie = await Promise.all(['https://punds.sk.evil.com/sk/', 'https://danubra.sk.evil.com/sk/', 'https://evil-danubra.sk/', 'https://xpunds.eu/', 'https://adlify-app.netlify.app/app/'].map(run));
+  ok(cudzie.every((r) => r.rew === null && !r.status), 'cudzie domény (danubra.sk.evil.com, punds.sk.evil.com) a appka sa nedotknú', JSON.stringify(cudzie));
+  ok((await run('https://danubra.sk/web/public/css/base.css')).rew === null && (await run('https://danubra.sk/danubra-sk/sk/')).rew === null, 'statické súbory a už prepísané adresy bez zmeny');
+  // netlify.toml: nové trasy, staré /punds-* presmerované 301, funkcie existujú.
+  const toml = fs.readFileSync(pth.join(__dirname, '..', '..', 'netlify.toml'), 'utf8');
+  const rules = [...toml.matchAll(/\[\[redirects\]\][^[]*?from\s*=\s*"([^"]+)"[^[]*?to\s*=\s*"([^"]+)"[^[]*?status\s*=\s*(\d+)/g)].map((m) => ({ from: m[1], to: m[2], status: +m[3] }));
+  const rule = (f) => rules.find((r) => r.from === f) || {};
+  ok(['/danubra-sk', '/danubra-sk/*', '/danubra-eu', '/danubra-eu/*'].every((f) => rule(f).to === '/.netlify/functions/danubra-web' && rule(f).status === 200), 'netlify.toml: /danubra-sk a /danubra-eu obsluhuje funkcia danubra-web');
+  ok(rule('/punds-sk/*').to === '/danubra-sk/:splat' && rule('/punds-eu/*').to === '/danubra-eu/:splat' && rule('/punds-sk').to === '/danubra-sk' && rule('/punds-eu').to === '/danubra-eu'
+    && ['/punds-sk', '/punds-sk/*', '/punds-eu', '/punds-eu/*'].every((f) => rule(f).status === 301), 'netlify.toml: staré /punds-sk/… a /punds-eu/… → 301 na /danubra-…');
+  ok(rule('/b/*').to === '/.netlify/functions/danubra-bundle/:splat', 'netlify.toml: /b/* ide na funkciu danubra-bundle');
+  const fns = rules.map((r) => (r.to.match(/^\/\.netlify\/functions\/([a-z0-9-]+)/) || [])[1]).filter(Boolean);
+  const chyba = fns.filter((f) => !fs.existsSync(pth.join(__dirname, '..', '..', 'netlify', 'functions', `${f}.js`)));
+  ok(chyba.length === 0, 'netlify.toml: každá funkcia z presmerovaní existuje', chyba.join(', '));
+  const img = (f) => fs.existsSync(pth.join(__dirname, '..', 'public', 'img', f));
+  ok(['logo/danubra-logo.svg', 'logo/danubra-logo-white.svg', 'logo/danubra-icon.svg', 'logo/danubra-mark.svg', 'email/danubra-mark.png', 'email/danubra-mark-white.png'].every(img)
+    && rule('/web/public/img/email/punds-mark-white.png').to === '/web/public/img/email/danubra-mark-white.png', 'logá DANUBRA existujú; staré logo v odoslaných e-mailoch sa presmeruje');
 
   console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
   process.exit(failed ? 1 : 0);

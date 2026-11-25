@@ -75,7 +75,7 @@ const TOOL = {
 
 function prompt({ lead, summary, outcome, rule, today }) {
   const o = C.outcomeOf(outcome);
-  return 'Si asistent obchodníka firmy punds (slovenskí remeselníci na nemecké stavby). Z poznámky po hovore alebo e-maile '
+  return 'Si asistent obchodníka firmy DANUBRA (slovenskí remeselníci na nemecké stavby). Z poznámky po hovore alebo e-maile '
     + 's nemeckou stavebnou firmou zisti ďalší krok a kedy ho urobiť. Poznámka môže byť po slovensky aj po nemecky.\n\n'
     + `Dnes je ${WDN[F.weekday(today)]} ${today} (Europe/Bratislava).\n`
     + `Firma: ${lead.name || ''}${lead.city ? `, ${lead.city}` : ''}. Súčasná kategória: ${C.stageOf(lead.status)[1]}.\n`

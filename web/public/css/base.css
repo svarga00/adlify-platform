@@ -1,6 +1,6 @@
 /* ==========================================================================
-   punds web — spoločný základ oboch webov (punds.sk, punds.eu)
-   Farby, písma a komponenty podľa design_handoff_punds_web/README.md.
+   DANUBRA web — spoločný základ oboch webov (danubra.sk, danubra.eu)
+   Farby, písma a komponenty podľa návrhu webu (design handoff, README).
    ========================================================================== */
 @font-face { font-family: 'Outfit'; font-style: normal; font-weight: 400 700; font-display: swap;
   src: url('../fonts/outfit-latin.woff2') format('woff2');
@@ -67,11 +67,8 @@ p { margin: 0; text-wrap: pretty; }
 /* ── Logo ───────────────────────────────────────────────────────────────── */
 .logo { display: inline-flex; align-items: center; gap: 11px; color: var(--ink); flex: none; }
 .logo:hover { color: var(--ink); }
-.logo-txt { display: flex; flex-direction: column; gap: 6px; }
-.logo-word { font: 700 25px/.8 var(--f-h); letter-spacing: -.045em; }
-.logo-tag { font: 500 7px/1 var(--f-b); letter-spacing: .26em; color: var(--t3); }
+.logo-word { font: 700 23px/1 var(--f-h); letter-spacing: .02em; }
 .logo-light, .logo-light:hover { color: #fff; }
-.logo-light .logo-tag { color: var(--steel); }
 @keyframes lgDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .lg-draw path { stroke-dasharray: 1; animation: lgDraw 1s cubic-bezier(.6, 0, .2, 1) both; }
 .lg-draw path + path { animation-delay: .6s; }
@@ -289,7 +286,7 @@ body.menu-open { overflow: hidden; }
   :root { --pad: 18px; --hdr-h: 64px; }
   body { font-size: 15.5px; }
   .hdr-in { padding-top: 10px; padding-bottom: 10px; }
-  .logo-word { font-size: 22px; }
+  .logo-word { font-size: 19px; }
   .logo .lg-mark { width: 34px; height: auto; }
   .h1 { font-size: 40px; line-height: 1.04; }
   .h2 { font-size: 26px; }

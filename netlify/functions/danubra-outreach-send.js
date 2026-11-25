@@ -8,7 +8,7 @@
 //     attach_presentation  priložiť prezentáciu PDF (remeslo a región firmy);
 //           bez hodnoty: k prvému e-mailu áno, k pripomenutiu nie (081)
 //
-// E-mail má dizajn punds (app/lib/marketing/outreach-email.js): nadpis
+// E-mail má dizajn DANUBRA (app/lib/marketing/outreach-email.js): nadpis
 // a tri body podľa remesla a regiónu firmy a hľadania, z ktorého prišla,
 // výzva, podpis schránky, pätička s Impressum a odhlásením. Text píše
 // človek alebo AI; rozloženie skladá appka (outreach-pack.js).
@@ -118,7 +118,7 @@ exports.handler = async (event) => {
         contact: Pack.contactOf(mb, { full_name: (g.user.user_metadata && g.user.user_metadata.full_name) || '' }) });
     } catch (e) { pdfError = String((e && e.message) || e).slice(0, 200); }
   }
-  // Celý e-mail v dizajne punds: text z okna, nadpis a body podľa remesla, podpis schránky, Impressum a odhlásenie.
+  // Celý e-mail v dizajne DANUBRA: text z okna, nadpis a body podľa remesla, podpis schránky, Impressum a odhlásenie.
   const mail = Pack.email({ lead, search: ctx.search, marketing: ctx.marketing, supplier, mb, body: bodyIn, subject, lang, step, pitch,
     unsubscribeUrl: O.unsubscribeUrl(site, token), assets, attachment: pdf ? { name: pdf.fileName, pages: pdf.pages } : null });
   const c = O.compose({ html: mail.html, text: mail.text, supplier, lang, site, token, secret, cfg: { ...cfg, ...tracking }, framed: true });

@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — zoznam ponúk s filtrom a mapou (návrh 2a, mobil 1c)
+// danubra.sk — zoznam ponúk s filtrom a mapou (návrh 2a, mobil 1c)
 // ============================================================================
 // Server vykreslí celý zoznam (funguje aj bez JS a pre vyhľadávače) už
 // prefiltrovaný podľa adresy: ?prof=zvarac,elektrikar&city=Bremen&now=1
@@ -19,7 +19,7 @@ const MIN = 20, MAX = 33;
 
 const T = {
   sk: {
-    title: 'Ponuky práce v Nemecku pre remeselníkov | punds',
+    title: 'Ponuky práce v Nemecku pre remeselníkov | DANUBRA',
     desc: 'Aktuálne ponuky práce v Nemecku pre elektrikárov, zváračov, sadrokartonistov, maliarov a ďalšie remeslá. Ubytovanie a papiere vybavíme za Vás.',
     home: 'Domov', h1: 'Práca v Nemecku', sub: 'Overené projekty pre remeselníkov. Ubytovanie a papiere riešime za Vás.',
     list: 'Zoznam', map: 'Mapa', views: 'Zobrazenie', filter: 'Filter', reset: 'Zrušiť všetko',
@@ -34,7 +34,7 @@ const T = {
     ctaH: 'Nenašli ste svoju profesiu?', ctaP: 'Pošlite nám kontakt. Nové projekty pribúdajú každý týždeň.', ctaB: 'Nechať kontakt',
   },
   cz: {
-    title: 'Nabídky práce v Německu pro řemeslníky | punds',
+    title: 'Nabídky práce v Německu pro řemeslníky | DANUBRA',
     desc: 'Aktuální nabídky práce v Německu pro elektrikáře, svářeče, sádrokartonáře, malíře a další řemesla. Ubytování a papíry vyřídíme za Vás.',
     home: 'Domů', h1: 'Práce v Německu', sub: 'Ověřené projekty pro řemeslníky. Ubytování a papíry řešíme za Vás.',
     list: 'Seznam', map: 'Mapa', views: 'Zobrazení', filter: 'Filtr', reset: 'Zrušit vše',
@@ -49,7 +49,7 @@ const T = {
     ctaH: 'Nenašli jste svou profesi?', ctaP: 'Pošlete nám kontakt. Nové projekty přibývají každý týden.', ctaB: 'Nechat kontakt',
   },
   hu: {
-    title: 'Munka Németországban szakembereknek | punds',
+    title: 'Munka Németországban szakembereknek | DANUBRA',
     desc: 'Aktuális németországi állások villanyszerelőknek, hegesztőknek, gipszkartonozóknak, festőknek és más szakembereknek. A szállást és a papírokat mi intézzük.',
     home: 'Főoldal', h1: 'Munka Németországban', sub: 'Ellenőrzött projektek szakembereknek. A szállást és a papírokat mi intézzük Ön helyett.',
     list: 'Lista', map: 'Térkép', views: 'Nézet', filter: 'Szűrő', reset: 'Összes törlése',
@@ -64,7 +64,7 @@ const T = {
     ctaH: 'Nem találta a szakmáját?', ctaP: 'Küldje el elérhetőségét. Hetente érkeznek új projektek.', ctaB: 'Kapcsolatfelvétel',
   },
   de: {
-    title: 'Jobs in Deutschland für Handwerker | punds',
+    title: 'Jobs in Deutschland für Handwerker | DANUBRA',
     desc: 'Aktuelle Jobs in Deutschland für Elektriker, Schweißer, Trockenbauer, Maler und weitere Gewerke. Unterkunft und Papiere übernehmen wir für Sie.',
     home: 'Startseite', h1: 'Arbeit in Deutschland', sub: 'Geprüfte Projekte für Handwerker. Unterkunft und Papiere übernehmen wir für Sie.',
     list: 'Liste', map: 'Karte', views: 'Ansicht', filter: 'Filter', reset: 'Alle zurücksetzen',
@@ -79,7 +79,7 @@ const T = {
     ctaH: 'Ihren Beruf nicht gefunden?', ctaP: 'Senden Sie uns Ihren Kontakt. Jede Woche kommen neue Projekte dazu.', ctaB: 'Kontakt hinterlassen',
   },
   en: {
-    title: 'Jobs in Germany for tradespeople | punds',
+    title: 'Jobs in Germany for tradespeople | DANUBRA',
     desc: 'Current jobs in Germany for electricians, welders, drywall installers, painters and other trades. We take care of housing and paperwork for you.',
     home: 'Home', h1: 'Work in Germany', sub: 'Vetted projects for tradespeople. We take care of housing and paperwork for you.',
     list: 'List', map: 'Map', views: 'View', filter: 'Filter', reset: 'Clear all',
@@ -94,7 +94,7 @@ const T = {
     ctaH: 'Didn’t find your trade?', ctaP: 'Send us your details. New projects come in every week.', ctaB: 'Leave your details',
   },
   ro: {
-    title: 'Locuri de muncă în Germania pentru meseriași | punds',
+    title: 'Locuri de muncă în Germania pentru meseriași | DANUBRA',
     desc: 'Oferte actuale de muncă în Germania pentru electricieni, sudori, montatori gips-carton, zugravi și alte meserii. De cazare și acte ne ocupăm noi.',
     home: 'Acasă', h1: 'Muncă în Germania', sub: 'Proiecte verificate pentru meseriași. De cazare și acte ne ocupăm noi.',
     list: 'Listă', map: 'Hartă', views: 'Afișare', filter: 'Filtru', reset: 'Șterge tot',
@@ -109,7 +109,7 @@ const T = {
     ctaH: 'Nu v-ați găsit meseria?', ctaP: 'Trimiteți-ne datele de contact. Proiecte noi apar în fiecare săptămână.', ctaB: 'Lasă datele de contact',
   },
   pl: {
-    title: 'Oferty pracy w Niemczech dla fachowców | punds',
+    title: 'Oferty pracy w Niemczech dla fachowców | DANUBRA',
     desc: 'Aktualne oferty pracy w Niemczech dla elektryków, spawaczy, monterów suchej zabudowy, malarzy i innych zawodów. Zakwaterowanie i formalności załatwiamy za Państwa.',
     home: 'Start', h1: 'Praca w Niemczech', sub: 'Sprawdzone projekty dla fachowców. Zakwaterowanie i formalności załatwiamy za Państwa.',
     list: 'Lista', map: 'Mapa', views: 'Widok', filter: 'Filtr', reset: 'Wyczyść wszystko',
@@ -124,7 +124,7 @@ const T = {
     ctaH: 'Nie znaleźli Państwo swojego zawodu?', ctaP: 'Prosimy przesłać nam kontakt. Nowe projekty pojawiają się co tydzień.', ctaB: 'Zostaw kontakt',
   },
   bg: {
-    title: 'Обяви за работа в Германия за строителни специалисти | punds',
+    title: 'Обяви за работа в Германия за строителни специалисти | DANUBRA',
     desc: 'Актуални обяви за работа в Германия за електротехници, заварчици, монтажници на гипсокартон, бояджии и други професии. За квартирата и документите се грижим ние.',
     home: 'Начало', h1: 'Работа в Германия', sub: 'Проверени проекти за строителни специалисти. За квартирата и документите се грижим ние.',
     list: 'Списък', map: 'Карта', views: 'Изглед', filter: 'Филтър', reset: 'Изчисти всичко',
