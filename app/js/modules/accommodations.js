@@ -119,7 +119,8 @@
         if (!r.subNames.length) return '';
         const first = r.activeSubs[0] || r.subNames[0];
         const more = r.subNames.length - 1;
-        return `<span class="dl-two"><b title="${UI.esc(r.subNames.join(', '))}">${UI.esc(first)}</b><small>${
+        const firstId = r.subIds.find(id => ((this.subs || []).find(s => s.id === id) || {}).title === first);
+        return `<span class="dl-two"><b title="${UI.esc(r.subNames.join(', '))}">${firstId ? Danubra.link('subcontract', firstId, first, { inline: true }) : UI.esc(first)}</b><small>${
           r.active ? 'býva sa tam teraz' : 'teraz nikto'}${more > 0 ? ` · +${more}` : ''}</small></span>`;
       };
       const extras = (a) => [a.van_parking ? 'parkovanie' : '', a.invoice_payment ? 'na faktúru' : ''].filter(Boolean).join(' · ');

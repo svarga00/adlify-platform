@@ -305,7 +305,7 @@
           // na bežnej šírke vytlačil podpis majstra.
           { key: 'zakazka', label: 'Zákazka · druh práce', width: 'minmax(150px, 1.4fr)',
             render: (r) => { const m = this.actMeta(r.t.activity_type);
-              return `<span class="dl-two"><b title="${UI.esc(r.sub)}">${UI.esc(r.sub || '—')}</b><small class="ts-act-${m[0]}"><i class="ts-dot" aria-hidden="true"></i>${
+              return `<span class="dl-two"><b title="${UI.esc(r.sub)}">${r.sc ? Danubra.link('subcontract', r.sc.id, r.sub || r.sc.contract_number, { inline: true }) : UI.esc(r.sub || '—')}</b><small class="ts-act-${m[0]}"><i class="ts-dot" aria-hidden="true"></i>${
                 m[1]}${r.sc && r.sc.contract_number ? ` · ${UI.esc(r.sc.contract_number)}` : ''}</small></span>`; },
             sortValue: (r) => r.sub, sortLabel: 'Zákazka', csv: (r) => r.sub },
           { key: 'den', label: 'Deň', width: '118px',

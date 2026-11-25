@@ -223,7 +223,7 @@
             ? 'Bez popisu diela sa nedá skontrolovať, či faktúra sedí s objednávkou.'
             : 'Práve na to sa pýta kontrola — bez toho je Werkvertrag len na papieri.'}">${Icon('alert', 11)} nie je napísané, čo je dielo</span>` : '';
         return `<span class="dl-title"><b>${esc(r.title)}</b><small>${
-          r.o.order_number ? esc(r.o.order_number) : '<em>bez čísla</em>'}${r.job ? ` · ${esc(r.job)}` : ''}</small>${warn}</span>`;
+          r.o.order_number ? esc(r.o.order_number) : '<em>bez čísla</em>'}${r.job ? ` · ${r.o.subcontract_id ? Danubra.link('subcontract', r.o.subcontract_id, r.job, { inline: true }) : esc(r.job)}` : ''}</small>${warn}</span>`;
       };
       const refCell = (r) => {
         if (r.cust) {
