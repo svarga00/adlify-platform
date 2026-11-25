@@ -6050,3 +6050,176 @@ input, select, textarea, button { font-family: inherit; }
 @media (max-width: 860px) {
   .page-title { font-size: 28px; }
 }
+
+/* ── Prehľadnosť (vzhľad 2026, druhé kolo) ────────────────────────────────
+   Nový náter nestačil: „stále mi to príde trocha neprehľadné". Príčina nebola
+   vo farbách, ale v tom, že to isté bolo na obrazovke viackrát. */
+
+/* 1 · Obrazovky sekcie sú tenký prepínač pod nadpisom (ako v predlohe:
+   Analýza | Riešenie | Ponuka), nie rad veľkých dlaždíc, ktorý odsúval obsah
+   do polovice obrazovky. Rozbalené ľavé menu ostáva — „toto mi nevadí". */
+.subtabs {
+  display: flex; flex-wrap: wrap; gap: 2px; width: fit-content; max-width: 100%;
+  margin: 0 0 22px; padding: 4px; background: #E6E9F0; border: 0; border-radius: 14px; box-shadow: none;
+}
+.subtab {
+  flex: none; min-height: 0; gap: 6px; padding: 8px 15px; background: transparent; border: 0;
+  border-radius: 10px; color: var(--ink-sub);
+}
+.subtab-ico, .subtab-txt em { display: none; }
+.subtab-txt { flex: none; }
+.subtab-txt b { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.subtab:hover { background: rgba(255,255,255,.55); color: var(--ink); border: 0; }
+.subtab.active { background: #fff; color: var(--ink); border: 0; box-shadow: 0 1px 2px rgba(10,27,61,.14); }
+.subtab-n { position: static; box-shadow: none; font-size: 11px; padding: 1px 6px; min-width: 18px; }
+@media (max-width: 860px) {
+  .subtabs { flex-wrap: nowrap; overflow-x: auto; padding: 4px; gap: 2px; width: auto; }
+  .subtab { padding: 8px 13px; }
+}
+
+/* 2 · Tlačidlá obrazovky sú pri jej nadpise, nie v hornom pruhu. */
+.page-head { align-items: flex-start; }
+.page-actions {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px;
+  margin-left: auto; min-width: 0; padding-top: 4px;
+}
+.page-actions:empty { display: none; }
+.page-actions .btn { min-height: 40px; }
+.topbar-actions:empty { display: none; }
+@media (max-width: 860px) {
+  .page-actions { width: 100%; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-top: 0; }
+  .page-actions::-webkit-scrollbar { display: none; }
+  .page-actions .btn { flex: none; }
+  .page-actions .btn-primary { order: -1; }
+}
+
+/* 3 · Otáznik svieti len pri nadpise obrazovky. Inde je stále na svojom
+   mieste, ale ukáže sa až vtedy, keď je myš (alebo klávesnica) pri veci, ku
+   ktorej patrí. Na dotykovej obrazovke ostáva viditeľný, len tlmený. */
+.view :is(.help-btn, .tip-btn:not(.dl-flag)) { opacity: .5; transition: opacity .12s; }
+@media (hover: hover) {
+  .view :is(.help-btn, .tip-btn:not(.dl-flag)) { opacity: 0; }
+  .view :is(*:hover > .help-btn, *:hover > * > .help-btn, *:hover > * > * > .help-btn,
+    *:hover > .tip-btn, *:hover > * > .tip-btn, *:hover > * > * > .tip-btn,
+    .help-btn:focus-visible, .tip-btn:focus-visible) { opacity: 1; }
+}
+.view .page-title .help-btn { opacity: .7; }
+.view .page-title .help-btn:hover { opacity: 1; }
+
+/* 4 · Lišta nad zoznamom: hľadanie, dva filtre, „Filtre", počet. Stĺpce
+   a export sú len ikony — robia sa raz za čas, nie pri každom pohľade. */
+.dl-bar { padding: 8px; gap: 6px; border-radius: 16px; }
+.dl-search { border-color: transparent; border-radius: 10px; height: 38px; max-width: 360px; }
+.dl-dd-btn, .dl-tog, .dl-more-btn { height: 38px; border-radius: 10px; border-color: transparent; background: transparent; }
+.dl-dd-btn:hover, .dl-tog:hover, .dl-more-btn:hover { background: var(--field); border-color: transparent; }
+.dl-cols-btn .dl-only-d, .dl-export .dl-only-d { display: none; }
+.dl-cols-btn, .dl-export { width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 10px; }
+.dl-export.btn-outline { border-color: transparent; background: transparent; }
+.dl-export.btn-outline:hover { background: var(--field); border-color: transparent; }
+.dl-right { gap: 4px; }
+.dl-count { margin-right: 8px; }
+
+/* 5 · Papiere človeka v zozname: šesť dielikov + jedna veta (pozri workers.js). */
+.pl-docs { flex-wrap: nowrap; align-items: center; gap: 10px; min-width: 0; }
+.pl-segs { display: inline-flex; gap: 3px; flex: none; }
+.pl-doc, .pl-doc.is-scan {
+  min-width: 0; width: 14px; height: 6px; padding: 0; border: 0; border-radius: 3px;
+  font-size: 0; letter-spacing: 0; background: #DDE2EB; color: transparent;
+}
+.pl-doc.is-ok { background: #3DB273; }
+.pl-doc.is-warn { background: #F0A65B; }
+.pl-doc.is-bad, .pl-doc.is-scan { background: #DDE2EB; }
+.pl-doc.is-idle, .pl-doc.is-na { background: #EEF1F5; }
+.is-hot .pl-doc.is-bad, .is-hot .pl-doc.is-scan { background: #E8A0A0; }
+.pl-sum { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-sum.is-ok { color: var(--green); }
+.pl-sum.is-warn { color: var(--amber); }
+.pl-sum.is-hot { color: var(--red); }
+.pl-who .w-flag { display: none; }
+
+/* Horný pruh: len to, čo je všade. Nič v ňom nie je hlavné tlačidlo. */
+.topbar .kw-badge { margin-left: auto; }
+.topbar-actions:not(:empty) + .kw-badge { margin-left: 0; }
+.top-papers { background: #fff; color: var(--ink); border-color: transparent; box-shadow: var(--shadow-sm); }
+.top-papers:hover { background: #fff; color: var(--blue); }
+
+/* 6 · „Čo spraviť teraz": jedna veta a tlačidlo vedľa nej. Farebný pruh
+   naľavo je preč — stav nesie znak a jemný podklad. */
+.nowbox {
+  border: 0; border-radius: var(--radius-lg); padding: 18px 22px; gap: 16px; align-items: center;
+  box-shadow: var(--shadow-sm);
+}
+.nowbox-hot { background: #FDF3F2; box-shadow: 0 0 0 1px #F6D5D2; }
+.nowbox-ico { width: 40px; height: 40px; margin: 0; }
+.nowbox-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; align-items: center; }
+.nowbox-body > * { grid-column: 1; }
+.nowbox-body > .nowbox-go { grid-column: 2; grid-row: 1 / span 3; margin: 0; align-self: center; }
+.nowbox-label { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; }
+.nowbox-title { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+.nowbox-sub { font-size: 14px; }
+.nowbox-why { display: none; }
+@media (max-width: 700px) {
+  .nowbox { align-items: flex-start; padding: 16px; }
+  .nowbox-body { grid-template-columns: minmax(0, 1fr); }
+  .nowbox-body > .nowbox-go { grid-column: 1; grid-row: auto; margin-top: 12px; justify-self: start; }
+}
+
+/* 7 · Sedem krokov: jeden riadok na krok. Čo krok znamená, je pod otáznikom;
+   v riadku je len stav a kam kliknúť. Pokojné kroky sú tiché. */
+.st7 { margin-bottom: 30px; }
+.st7-head h2, .dash-sub { font-size: 19px; font-weight: 700; }
+.st7-step { gap: 12px; padding-bottom: 6px; }
+.st7-step::before { left: 16px; top: 34px; }
+.st7-n { width: 34px; height: 34px; font-size: 14px; border-width: 1.5px; margin-top: 7px; }
+.st7-card {
+  border: 0; border-radius: 14px; padding: 8px 8px 8px 16px; min-height: 48px; gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.st7-ico, .st7-hint { display: none; }
+.st7-main { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; }
+.st7-title { font-size: 15px; font-weight: 600; }
+.st7-state { margin-top: 0; }
+.st7-chip { display: none; }
+.st7-txt { font-size: 13.5px; color: var(--ink-sub); }
+.st7-go { padding: 7px 14px; font-size: 13px; }
+:is(.st7-calm, .st7-empty) .st7-go { border-color: transparent; background: transparent; color: var(--ink-sub); }
+:is(.st7-calm, .st7-empty) .st7-go:hover { background: var(--field); color: var(--ink); }
+:is(.st7-calm, .st7-empty) .st7-title { font-weight: 500; }
+.st7-step.is-now { padding-bottom: 10px; }
+.st7-step.is-now .st7-n { margin-top: 20px; }
+
+/* Čísla: stav nesie farba čísla, nie pruh naľavo. */
+.kpi { border: 0; border-radius: 16px; padding: 14px 16px; }
+.kpi::before { display: none; }
+.kpi-ico { display: none; }
+.kpi-label { font-size: 12.5px; }
+.kpi-bad { box-shadow: 0 0 0 1px #F3C9C6; background: #FDF6F5; }
+.kpi-watch { box-shadow: 0 0 0 1px #F6DCC3; }
+
+/* Obdobie a export: jeden tichý riadok. */
+.dashbar { border: 0; border-radius: 16px; padding: 8px 10px; }
+.dashbar .pill svg { display: none; }
+.dashbar-note { display: none; }
+.dashbar-t { display: none; }
+.dashbar-actions .btn { min-height: 34px; }
+.dashbar-field { border-color: transparent; border-radius: 10px; }
+
+/* Horný pruh: všetko rovnaké biele kapsule. */
+.mega-btn, .topbar .kw-badge, .top-papers, .topbar .bell-btn {
+  height: 40px; border: 0; border-radius: 999px; background: #fff; box-shadow: var(--shadow-sm);
+}
+.topbar .bell-btn { width: 40px; }
+.mega-btn:hover, .topbar .kw-badge:hover { color: var(--blue); }
+
+/* Mobil: hlavička je svetlá ako zvyšok appky. */
+.mobile-head { background: rgba(243,244,247,.94); backdrop-filter: blur(10px); padding: 10px 12px; }
+.mobile-head #btn-menu { color: var(--ink) !important; }
+.mobile-head .mh-search { background: #fff; border-radius: 999px; box-shadow: var(--shadow-sm); }
+.mobile-head .mh-search input { color: var(--ink); }
+.mobile-head .mh-search span { color: var(--ink-mute); }
+.mobile-head .bell-btn, .mobile-head .kw-badge, .bell-dark .bell-btn {
+  background: #fff; border: 0; color: var(--ink); border-radius: 999px; box-shadow: var(--shadow-sm);
+}
+.kpi-grid + .dashbar, .headline + .dashbar { margin-top: 14px; }
+.mobile-head .kw-badge, .mobile-head .kw-badge:hover { background: #fff; color: var(--ink); border: 0; box-shadow: var(--shadow-sm); }
+.bl-hard { margin-top: 10px; font-size: 13.5px; color: var(--ink-sub); }

@@ -99,7 +99,7 @@
             + 'a prepínač „Len s problémom". Ostatné zoznamy ju dostávajú postupne a ovládajú sa rovnako.',
           how: [
             'Kliknite na filter v lište (napríklad „Stav") a vyberte hodnotu. Číslo pri každej možnosti hovorí, koľko záznamov pribudne.',
-            '„Ďalšie filtre" otvoria panel s ostatnými filtrami (mesto, krok, obdobie). Na telefóne sú všetky filtre pod tlačidlom „Filtre".',
+            '„Filtre" otvoria panel s ostatnými filtrami (mesto, krok, obdobie).',
             'Pod lištou je čip za každý zapnutý filter. Krížik na čipe zruší ten jeden filter, „Zrušiť filtre" zrušia všetky naraz.',
             'Vpravo v lište je počet „X z Y" — koľko záznamov vidíte z koľkých. „Export" uloží do CSV presne to, čo je vidieť.',
             'Kliknutím na nadpis stĺpca zoradíte zoznam, druhým kliknutím obrátite poradie. Zoskupiť podľa stavu sa dá v ponuke „Zoradené".',

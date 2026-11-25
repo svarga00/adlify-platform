@@ -1571,6 +1571,7 @@ window.Danubra = {
       .then(() => {
         if (this.route !== started) return;      // medzitým sa prepla obrazovka
         this._showLoadFailures(view);
+        this._placeActions();
         // Zoznamy dokumentov pri človeku, firme a zákazke (`Docs.slot`).
         if (window.Docs) Docs.fill(view);
         // E-maily pri človeku a firme (`Mail.slot`).
@@ -1675,6 +1676,7 @@ window.Danubra = {
         </div>
       </div>
       ${right || ''}
+      <div id="topbar-actions" class="page-actions no-print">${this._actionsHtml || ''}</div>
     </div>
     ${(trail && trail.length) ? '' : this.tabsHtml(this.route)}`;
   },
@@ -1798,12 +1800,28 @@ window.Danubra = {
     </section>`;
   },
 
+  // Tlačidlá obrazovky stoja pri jej nadpise (`header()` im tam robí miesto
+  // `#topbar-actions`), nie v hornom pruhu medzi hľadaním a zvončekom: hore
+  // je to, čo je všade, pri nadpise to, čo patrí tejto obrazovke. Obrazovka
+  // bez spoločnej hlavičky ich dostane po starom — do horného pruhu a na
+  // mobile pod hlavičku.
+  _actionsHtml: '',
   setActions(html) {
-    const el = document.getElementById('topbar-actions');
-    if (el) el.innerHTML = html || '';
-    // Mobil: rovnaké tlačidlá pod hlavičkou (horný pruh je tam skrytý).
+    this._actionsHtml = html || '';
+    this._placeActions();
+    // Modul často volá `setActions` skôr, než prekreslí obrazovku — miesto
+    // pri nadpise vtedy ešte nie je (alebo je staré).
+    clearTimeout(this._actionsT);
+    this._actionsT = setTimeout(() => this._placeActions(), 0);
+  },
+  _placeActions() {
+    const html = this._actionsHtml || '';
+    const slot = document.querySelector('#view #topbar-actions');
+    const top = document.getElementById('topbar-actions-top');
     const m = document.getElementById('m-actions');
-    if (m) m.innerHTML = html || '';
+    if (slot && slot.innerHTML !== html) slot.innerHTML = html;
+    if (top) top.innerHTML = slot ? '' : html;
+    if (m) m.innerHTML = slot ? '' : html;
   },
 
   // ── Zvonček: čo sa stalo ───────────────────────────────────────────────────
@@ -2531,8 +2549,9 @@ window.Danubra = {
     // záložky, je to odpoveď na „ako na tom sme".
     const top = DanubraDash.pinned(prefs);
 
-    return `${top.map(c => this._dashCard(c.key, x, alerts)).join('')}
-      <div class="dash-tabs no-print">
+    // Najprv to, čo sa robí dnes (úlohy, pozornosť, rýchle akcie), až potom
+    // veľké karty o peniazoch — cash-flow sa číta, úlohy sa vybavujú.
+    return `<div class="dash-tabs no-print">
         <div class="pillbar">
           ${tabs.map(t => `<button class="pill${t.key === active ? ' active' : ''}"
             onclick="Danubra.setDashTab('${t.key}')">${UI.esc(t.label)}<em>${t.count}</em></button>`).join('')}
@@ -2543,7 +2562,8 @@ window.Danubra = {
       ${wide.map(c => this._dashCard(c.key, x, alerts)).join('')}
       ${rest.length ? `<div class="panels">
         ${rest.map(c => this._dashCard(c.key, x, alerts)).join('')}
-      </div>` : ''}`;
+      </div>` : ''}
+      ${top.map(c => this._dashCard(c.key, x, alerts)).join('')}`;
   },
 
   _dashActionsCard() {
@@ -2646,9 +2666,9 @@ window.Danubra = {
             title="Nechať na obrazovke len čísla, ktoré si pýtajú pozornosť">
             ${Icon(f.onlyIssues ? 'check' : 'alert', 14)} Len čo treba riešiť</button>
           <button class="btn btn-outline btn-sm" onclick="Danubra.exportDash('all')"
-            title="Celý prehľad ako tabuľka do Excelu">${Icon('download', 14)} CSV</button>
+            title="Celý prehľad ako tabuľka do Excelu (CSV)" aria-label="Export CSV">${Icon('download', 14)}<span class="dashbar-t"> CSV</span></button>
           <button class="btn btn-outline btn-sm" onclick="Danubra.printDash()"
-            title="Vytlačiť alebo uložiť ako PDF">${Icon('print', 14)} PDF</button>
+            title="Vytlačiť alebo uložiť ako PDF" aria-label="Tlač / PDF">${Icon('print', 14)}<span class="dashbar-t"> PDF</span></button>
           ${Help.btn('dash.export')}
           ${dirty ? `<button class="btn btn-ghost btn-sm" onclick="Danubra.resetDashFilter()"
             title="Späť na tento mesiac a všetky zákazky">${Icon('x', 14)} Zrušiť</button>` : ''}

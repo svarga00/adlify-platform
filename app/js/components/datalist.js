@@ -144,8 +144,17 @@
   const filterDefs = (cfg) => (cfg.filters || []).filter(d => d.type !== 'search');
   function split(cfg) {
     const defs = filterDefs(cfg);
-    const max = cfg.maxPrimary == null ? 4 : cfg.maxPrimary;
-    const primary = defs.filter(d => !d.more).slice(0, max);
+    // Dva najpoužívanejšie filtre sú v lište, ostatné pod „Filtre“ — lišta
+    // s piatimi výbermi sa čítala ako ovládací panel, nie ako zoznam.
+    // Prepínač („Len s problémom") v lište ostáva — je to jeden klik.
+    let primary;
+    if (cfg.maxPrimary == null) {
+      const first = defs.filter(d => !d.more).slice(0, 4);
+      const dd = first.filter(d => d.type !== 'toggle').slice(0, 2);
+      primary = first.filter(d => d.type === 'toggle' || dd.includes(d));
+    } else {
+      primary = defs.filter(d => !d.more).slice(0, cfg.maxPrimary);
+    }
     return { defs, primary, more: defs.filter(d => !primary.includes(d)) };
   }
 
@@ -218,7 +227,7 @@
     const bar = primary.map(d => (d.type === 'toggle' ? toggleHtml(inst, d) : dropdownHtml(inst, d))).join('');
     const moreBtn = defs.length ? `<button type="button" class="dl-more-btn${inst.panel ? ' on' : ''}${more.length ? '' : ' dl-only-m'}"
         data-dl-a="panel" aria-expanded="${inst.panel}" aria-controls="dl-${inst.id}-panel">
-        ${ico('filter', 14)}<span class="dl-only-d">Ďalšie filtre</span><span class="dl-only-m">Filtre</span>
+        ${ico('filter', 14)}<span>Filtre</span>
         ${moreOn ? `<em class="dl-only-d">${moreOn}</em>` : ''}${allOn ? `<em class="dl-only-m">${allOn}</em>` : ''}
       </button>` : '';
     return bar + moreBtn;
@@ -424,7 +433,7 @@
     const hasDef = filterDefs(cfg).some(x => L().isActive(x, d.f[x.key]));
     const notDef = hasDef && !L().isDefault(state, cfg);
     return `<div class="dl-chips">
-        ${chips.length ? `<span class="dl-chips-l">Filtre:</span>` : `<span class="dl-chips-l">Bez filtrov — vidíte všetko.</span>`}
+        ${chips.length ? `<span class="dl-chips-l">Filtre:</span>` : ''}
         ${chips.map(c => `<span class="dl-chip"><span>${esc(c.label)}${c.text ? `: <b>${esc(c.text)}</b>` : ''}</span>
           <button type="button" data-dl-a="clr" data-k="${esc(c.key)}" aria-label="Zrušiť filter ${esc(c.label)}"
             title="Zrušiť tento filter">${ico('x', 12)}</button></span>`).join('')}

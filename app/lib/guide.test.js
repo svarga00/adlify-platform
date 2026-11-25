@@ -229,7 +229,7 @@ ok(tourSel.size === (G.TOUR || []).length, 'kroky sprievodcu sa neopakujú');
   const step = (G.CHAPTERS || []).flatMap(c => c.steps || []).find(s => s.title === 'Filtre v zoznamoch');
   ok(step, 'návod má krok „Filtre v zoznamoch"');
   const text = step ? [step.what, ...(step.how || []), step.tip, step.example].join(' ') : '';
-  for (const label of ['Ďalšie filtre', 'Filtre', 'Zrušiť filtre', 'Len s problémom', 'Export',
+  for (const label of ['Filtre', 'Zrušiť filtre', 'Len s problémom', 'Export',
     'Predvolené filtre', 'Zoradené', 'Otvorené']) {
     ok(text.includes(label), `návod k filtrom spomína „${label}"`);
     ok(DL.includes(label), `„${label}" je naozaj v zozname`);

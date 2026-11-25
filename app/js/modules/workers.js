@@ -420,9 +420,22 @@
       const statusIdx = (k) => { const i = STATUS.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
       const LANG = { sk: 'Slovenčina', hu: 'Maďarčina', cs: 'Čeština', ua: 'Ukrajinčina', pl: 'Poľština', ro: 'Rumunčina', de: 'Nemčina' };
       const TONE = { ok: 'platí', warn: 'pozor', bad: 'chýba', scan: 'bez skenu', idle: 'netreba teraz', na: 'netreba' };
-      const papersCell = (r) => `<span class="pl-docs${r.off ? ' is-off' : ''}">${r.papers.map(p =>
+      // Papiere v zozname: šesť malých dielikov a jedna veta. Šesť červených
+      // štítkov v každom riadku znamenalo, že červená už nič nehovorila —
+      // červený je teraz len ten, kto bez papiera už stojí na stavbe.
+      const paperSum = (r) => {
+        if (r.off) return '';
+        const need = r.papers.filter(p => !['na', 'idle'].includes(p.tone));
+        const miss = need.filter(p => p.tone === 'bad' || p.tone === 'scan');
+        const warn = need.filter(p => p.tone === 'warn');
+        if (!miss.length && !warn.length) return `<span class="pl-sum is-ok">${Icon('check', 12)}v poriadku</span>`;
+        if (!miss.length) return `<span class="pl-sum is-warn">pozor: ${UI.esc(warn.map(p => p.short).join(', '))}</span>`;
+        const txt = miss.length <= 2 ? `chýba ${miss.map(p => p.short).join(', ')}` : `chýba ${miss.length} zo ${need.length}`;
+        return `<span class="pl-sum${r.hot ? ' is-hot' : ''}">${UI.esc(txt)}</span>`;
+      };
+      const papersCell = (r) => `<span class="pl-docs${r.off ? ' is-off' : ''}"><span class="pl-segs">${r.papers.map(p =>
         `<span class="pl-doc is-${p.tone}" title="${UI.esc(`${p.label}: ${p.text}`)}"
-          aria-label="${UI.esc(`${p.label}: ${TONE[p.tone]}`)}">${UI.esc(p.short)}</span>`).join('')}</span>`;
+          aria-label="${UI.esc(`${p.label}: ${TONE[p.tone]}`)}">${UI.esc(p.short)}</span>`).join('')}</span>${paperSum(r)}</span>`;
       const who = (r) => `<span class="pl-who">${this.avatar(r.w, 34)}<span class="dl-title"><b>${UI.esc(r.name)}</b>${
         r.phone ? `<small>${UI.esc(r.phone)}</small>` : ''}</span></span>`;
       const docOpts = [
@@ -441,7 +454,7 @@
         noun: ['človek', 'ľudia', 'ľudí'],
         rows,
         rowClick: (r) => Wrk.detail(r.id),
-        rowClass: (r) => (r.hot ? 'is-hot' : r.bad && !r.off ? 'is-warn' : r.off ? 'is-muted' : ''),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.off ? 'is-muted' : ''),
         rowLabel: (r) => `Človek ${r.name}`,
         rowActions: [{ ico: 'chevron', label: 'Otvoriť kartu človeka', run: (r) => Wrk.detail(r.id) }],
         columns: [
@@ -660,11 +673,13 @@
     /** Zoznam troch vecí s tlačidlami. Rovnaký na profile aj v okne „Ďalej". */
     stepsHtml(w) {
       const st = this.stepsOf(w);
-      return `<ol class="ps-list">${st.items.map(i => {
+      // Číslované 1–3: sú to tri veci tohto človeka. Čísla krokov reťazca
+      // (4, 5, 5) tu vyzerali ako chyba v počítaní.
+      return `<ol class="ps-list">${st.items.map((i, idx) => {
         const cls = i.done ? (i.warn ? 'ps-warn' : 'ps-done')
           : (st.next && st.next.key === i.key ? 'ps-next' : 'ps-todo');
         return `<li class="ps-item ${cls}">
-          <span class="ps-n">${i.done && !i.warn ? Icon('check', 18) : i.n}</span>
+          <span class="ps-n">${i.done && !i.warn ? Icon('check', 18) : idx + 1}</span>
           <div class="ps-main">
             <div class="ps-title">${UI.esc(i.title)}${
               cls === 'ps-next' ? '<span class="ps-now">teraz toto</span>' : ''}</div>

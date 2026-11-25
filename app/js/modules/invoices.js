@@ -276,10 +276,10 @@
                 : '<b class="dl-nonum">Návrh bez čísla</b>'}${sub ? `<small>${UI.esc(sub)}</small>` : ''}</span>`;
             },
             sortValue: (r) => r.number, sortLabel: 'Číslo' },
-          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(120px, 1.2fr)',
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(150px, 1.7fr)',
             render: (r) => (r.who ? Danubra.link(r.who.type, r.who.id, r.who.name) : ''),
             sortValue: (r) => r.partner },
-          { key: 'zakazka', label: 'Zákazka', width: 'minmax(100px, 1fr)', hideBelow: 1020,
+          { key: 'zakazka', label: 'Zákazka', width: 'minmax(140px, 1.5fr)', hideBelow: 1020,
             render: (r) => (r.x.subcontract_id ? Danubra.link('subcontract', r.x.subcontract_id, r.subTitle) : ''),
             sortValue: (r) => r.subTitle || null },
           { key: 'vystavena', label: 'Vystavená', width: '72px', mobileLabel: 'vystavená',
@@ -1044,7 +1044,7 @@
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${kroky.filter(to => !(to === 'paid' && x.kind === 'credit_note')).map(act).join('')}
         </div>`;
-      UI.modal(`${x.kind === 'credit_note' ? 'Dobropis' : 'Faktúra'} ${x.invoice_number || ''}`, body, { wide: true, logo: this.whoLogo(x) });
+      UI.modal(`${x.kind === 'credit_note' ? 'Dobropis' : 'Faktúra'} ${x.invoice_number || '— návrh bez čísla'}`, body, { wide: true, logo: this.whoLogo(x) });
       if (window.SFUI) SFUI.loadHistory(x.id);
     },
 
