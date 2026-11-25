@@ -405,7 +405,7 @@ window.Danubra = {
   navTabLabel: {
     dashboard: 'Prehľad dňa', tasks: 'Úlohy', kalendar: 'Kalendár', flow: 'Ako to ide', navod: 'Návod',
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
-    timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
+    timesheets: 'Hodiny', hoursheet: 'Výkaz na podpis', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
     // „E-maily firmám", nie „E-maily" — to isté slovo má záložka Správ.
     marketing: 'Inzercia a výdavky', leads: 'Nové firmy', outreach: 'Oslovovanie', vedenie: 'Prehľad pre vedenie', campaigns: 'E-maily firmám', printwork: 'Tlačoviny', website: 'Weby',

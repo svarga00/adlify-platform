@@ -805,9 +805,13 @@
         DB.list('promises', { filters: { subject_type: 'worker', subject_id: workerId },
           order: { column: 'created_at', ascending: false }, limit: 200 }),
       ]);
+      // Obdobia, v ktorých má hodiny — podľa nich je vidieť, čo je už
+      // vyfakturované odberateľovi a čo si môže vyfakturovať on.
+      const perIds = [...new Set((t.data || []).map(x => x.period_id).filter(Boolean))];
+      const per = perIds.length ? await DB.list('periods', { filters: { id: perIds }, limit: 1000 }) : { data: [] };
       this.acc = {
         workerId, bills: b.data || [], advances: a.data || [],
-        timesheets: t.data || [], promises: p.data || [], loaded: true,
+        timesheets: t.data || [], periods: per.data || [], promises: p.data || [], loaded: true,
       };
       // Podpísané odkazy na skeny — všetky naraz. Pri piatich dokladoch by
       // to inak bolo päť kôl po sieti a náhľady by nabiehali jeden po druhom.
@@ -1184,32 +1188,106 @@
       </div>`;
     },
 
+    /**
+     * Hodiny po týždňoch a čo je s nimi: schválené, vyfakturované odberateľovi,
+     * a či ich už má vo faktúre on. „Pri živnostníkovi bude evidované, že
+     * hodiny sú schválené aj vyfakturované a koľko si môže vyfakturovať."
+     */
+    hoursWeeks(w) {
+      const P = window.DanubraPeriods;
+      const periods = new Map((this.acc.periods || []).map(p => [p.id, p]));
+      const billed = new Map();          // period_id → jeho faktúra
+      for (const b of this.acc.bills || []) {
+        if (b.status === 'discarded') continue;
+        for (const pid of [b.period_id, ...(b.period_ids || [])]) if (pid) billed.set(pid, b);
+      }
+      const groups = new Map();
+      for (const t of this.acc.timesheets || []) {
+        const d = String(t.work_date || '').slice(0, 10);
+        if (!d) continue;
+        const p = t.period_id ? periods.get(t.period_id) : null;
+        const kw = P ? P.isoWeek(d) : null;
+        const key = p ? `p:${p.id}` : `w:${kw ? `${kw.year}-${kw.week}` : d.slice(0, 7)}`;
+        if (!groups.has(key)) {
+          groups.set(key, { key, period: p || null, from: p ? String(p.period_from).slice(0, 10) : (P ? P.mondayOf(d) : d),
+            to: p ? String(p.period_to).slice(0, 10) : (P ? P.sundayOf(d) : d), hours: 0, approved: 0, open: 0 });
+        }
+        const g = groups.get(key);
+        const h = Number(t.hours) || 0;
+        g.hours += h;
+        if (t.approved) g.approved += h; else g.open += h;
+      }
+      const rate = Number(w.hourly_cost) || 0;
+      const r2 = (n) => Math.round(n * 100) / 100;
+      return [...groups.values()].map((g) => {
+        const st = g.period ? g.period.status : 'none';
+        const bill = g.period ? billed.get(g.period.id) || null : null;
+        // Fakturovať si môže to, čo je schválené a uzavreté, a ešte to vo faktúre nemá.
+        const can = !bill && ['closed', 'invoiced'].includes(st) ? r2(g.approved) : 0;
+        return { ...g, hours: r2(g.hours), approved: r2(g.approved), open: r2(g.open), st, bill, can,
+          canCents: Math.round(can * rate * 100),
+          label: P ? (P.kwLabel(g.from, g.to) || UI.dateRange(g.from, g.to)) : UI.dateRange(g.from, g.to) };
+      }).sort((x, y) => String(y.from).localeCompare(String(x.from)));
+    },
+
     hoursCard(w, a) {
-      const rows = this.acc.timesheets.slice(0, 8);
-      return `<div class="card card-pad">
+      const weeks = this.hoursWeeks(w);
+      const sum = (f) => Math.round(weeks.reduce((n, g) => n + f(g), 0) * 100) / 100;
+      const h = (n) => `${String(n).replace('.', ',')} h`;
+      const approved = sum(g => g.approved);
+      const invoiced = sum(g => (g.st === 'invoiced' ? g.approved : 0));
+      const can = sum(g => g.can);
+      const canCents = weeks.reduce((n, g) => n + g.canCents, 0);
+      const selfOk = !!w.self_billing && !w.vat_payer;
+      const stav = (g) => (g.open ? UI.badge('čaká na schválenie', 'amber')
+        : g.st === 'invoiced' ? UI.badge('vyfakturované odberateľovi', 'green')
+        : g.st === 'closed' ? UI.badge('uzavreté, čaká na faktúru', 'blue')
+        : UI.badge('schválené', 'blue'));
+      const jeho = (g) => (g.bill
+        ? `<span class="hw-his">${Danubra.link('bill', g.bill.id, g.bill.bill_number || 'jeho faktúra')}</span>`
+        : g.can ? `<span class="hw-his is-can">môže fakturovať ${h(g.can)}${g.canCents ? ` · ${Money.format(g.canCents)}` : ''}</span>`
+        : '<span class="hw-his is-wait">zatiaľ nie</span>');
+      const rows = weeks.slice(0, 8);
+      return `<div class="card card-pad hw">
         <div class="card-head">
-          <div class="card-title">Odpracované hodiny${Help.btn('card.worker.hours', { size: 13 })}</div>
-          <button class="btn btn-ghost btn-sm" onclick="Danubra.go('timesheets')">Všetky</button>
+          <div class="card-title">Hodiny a fakturácia${Help.btn('card.worker.hours', { size: 13 })}</div>
+          <button class="btn btn-ghost btn-sm" onclick="Tms.filters.worker_id='${w.id}';Danubra.go('timesheets')">Všetky hodiny</button>
         </div>
-        <div class="kv" style="margin:0 0 10px;">
+        <div class="kv" style="margin:0 0 12px;">
           <div><span>Tento mesiac</span><strong>${a.thisMonth.hours} h · ${Money.format(a.thisMonth.cents)}</strong></div>
-          <div><span>Celkom</span><strong>${a.hours} h · ${Money.format(a.earned)}</strong></div>
+          <div><span>Schválené spolu</span><strong>${h(approved)}</strong></div>
+          <div><span>Vyfakturované odberateľovi</span><strong>${h(invoiced)}</strong></div>
+          <div><span>Môže si vyfakturovať</span><strong${can ? ' style="color:var(--brand-dark);"' : ''}>${h(can)}${canCents ? ` · ${Money.format(canCents)}` : ''}</strong></div>
         </div>
-        ${rows.length ? rows.map(t => `
-          <div class="list-row">
-            <span class="dot ${t.period_id ? 'green' : ''}"></span>
-            <span style="flex:1;font-size:13px;">
-              <strong>${t.hours} h</strong>
-              <span style="color:var(--ink-mute);"> · ${UI.date(t.work_date)}</span>
-              <span style="color:var(--ink-mute);display:block;font-size:12px;">
-                ${UI.esc(Tms.actMeta(t.activity_type)[1])}${
-                  t.period_id ? ' · už zúčtované' : ' · ešte nezúčtované'}</span>
-            </span>
-          </div>`).join('')
-          : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne hodiny.</div>'}
-        ${this.acc.timesheets.length > 8 ? `<div style="color:var(--ink-mute);font-size:12.5px;padding:8px 2px 0;">
-          a ďalších ${this.acc.timesheets.length - 8}</div>` : ''}
+        ${rows.length ? `<div class="hw-list">
+          <div class="hw-row hw-head"><span>Týždeň</span><span>Hodiny</span><span>Stav · jeho faktúra</span></div>
+          ${rows.map(g => `<div class="hw-row">
+            <span class="hw-kw">${UI.esc(g.label)}</span>
+            <span class="hw-h"><b>${h(g.hours)}</b>${g.open ? `<small>${h(g.open)} neschválených</small>` : ''}</span>
+            <span>${stav(g)}</span>
+            ${jeho(g)}
+          </div>`).join('')}
+        </div>` : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne hodiny.</div>'}
+        ${weeks.length > 8 ? `<div style="color:var(--ink-mute);font-size:12.5px;padding:8px 2px 0;">a ďalších ${weeks.length - 8} týždňov</div>` : ''}
+        <div class="hw-foot">
+          ${can && selfOk && Danubra.can('costs') ? `<button class="btn btn-primary btn-sm" onclick="Wrk.selfBill()">${Icon('receipt', 14)} Vystaviť faktúru za neho</button>` : ''}
+          <span class="muted-sm">${selfOk
+            ? 'Faktúry zaňho vystavujeme my — návrh vznikne zo schválených hodín uzavretých týždňov, vystaví ho admin a živnostník ho potvrdí.'
+            : w.vat_payer ? 'Je platiteľ DPH — faktúru si vystavuje sám (verzia B vzoru).'
+            : 'Faktúru si vystavuje sám podľa vzoru. Ak ju máme vystavovať my, zapnite to v Upraviť → „Faktúry zaňho vystavujeme my".'}</span>
+        </div>
       </div>`;
+    },
+
+    /** Pripraviť faktúru za živnostníka — okno je v Prijatých faktúrach (samofakturácia). */
+    async selfBill() {
+      if (Danubra.routeAvailable && !Danubra.routeAvailable('costs')) {
+        return UI.toast('Prijaté faktúry nemáte sprístupnené — požiadajte administrátora', 'err');
+      }
+      if (window.Cost) { Cost.tab = 'bills'; if (!Cost.loaded) await Cost.load(); }
+      Danubra.go('costs');
+      // Okno sa otvorí až po prekreslení obrazovky, inak by ho prepínanie zavrelo.
+      setTimeout(() => { if (window.Cost) Cost.selfForm(); }, 350);
     },
 
     /**

@@ -120,7 +120,10 @@
     },
 
     actionsHtml() {
+      const fakt = window.Inv && Danubra.can('invoices');
       return `
+        <button class="btn btn-outline btn-sm" onclick="Danubra.go('hoursheet')" title="Stundennachweis: týždenný papier z týchto hodín, ktorý podpisuje odberateľ">${Icon('doc', 14)} Výkaz na podpis</button>
+        ${fakt ? `<button class="btn btn-outline btn-sm" onclick="Tms.invoiceWeek()" title="Zo schválených hodín týždňa (KW) pripraví návrh faktúry odberateľovi">${Icon('invoices', 14)} Vyfakturovať odberateľovi</button>` : ''}
         <button class="btn btn-primary btn-sm" onclick="${this.entryCall()}">${Icon('upload', 14)} Zapísať hodiny</button>
         ${UI.tip('Hodiny sa zapisujú zo Stundennachweisu, ktorý podpísal majster: natukáte ich do tabuľky zákazky a týždňa, alebo nahráte fotku listu. Deň inej práce (cesta, dielňa) je v tom istom okne ako „Jeden deň inej práce". Schvaľuje sa zvlášť — fajkou pri riadku alebo „Schváliť" hore.')}`;
     },
@@ -139,7 +142,7 @@
       const list = DataList.html(this.listConfig(rows));
       const shown = DataList.visible('hodiny').map(r => r.t);
       el.innerHTML = Danubra.header('Odpracované hodiny',
-        `<span id="tms-sum">${this.sumText(shown)}</span>${UI.tip('Schválené = niekto skontroloval, že hodiny sedia. Len schválené hodiny idú do podkladu na faktúru. Fajka pri riadku záznam schváli (zelená), ďalší klik schválenie zruší. Hodiny v uzavretom období alebo vo faktúre sa už nemenia.')}`)
+        `Evidencia hodín: zapísať, schváliť, vyfakturovať · <span id="tms-sum">${this.sumText(shown)}</span>${UI.tip('Schválené = niekto skontroloval, že hodiny sedia. Len schválené hodiny idú do podkladu na faktúru. Fajka pri riadku záznam schváli (zelená), ďalší klik schválenie zruší. Hodiny v uzavretom období alebo vo faktúre sa už nemenia.')}`)
         + `<div id="tms-top">${this.topHtml(shown)}</div>` + list;
 
       // Odovzdanie z inej obrazovky (zákazka → „Schváliť hodiny").
@@ -431,6 +434,19 @@
           action: { label: 'Zapísať hodiny', ico: 'upload', onclick: this.entryCall() },
         });
       }
+      // Schválené, ale ešte nie vo faktúre odberateľovi — ďalší krok je faktúra.
+      const nefakt = rows.filter(t => t.approved && !this.isLocked(t));
+      if (nefakt.length && window.Inv && Danubra.can('invoices')) {
+        const hh = Math.round(nefakt.reduce((s, t) => s + Number(t.hours || 0), 0) * 100) / 100;
+        return Shell.now({
+          title: 'Vyfakturovať odberateľovi',
+          what: `${String(hh).replace('.', ',')} h je schválených a ešte nie sú vo faktúre.`,
+          why: 'Z hodín týždňa vznikne návrh faktúry; schvaľuje ho admin.',
+        }, {
+          help: 'card.hours.approve',
+          action: { label: 'Vyfakturovať týždeň (KW)', ico: 'invoices', onclick: 'Tms.invoiceWeek()' },
+        });
+      }
       const h = Math.round(rows.reduce((s, t) => s + Number(t.hours || 0), 0));
       return Shell.now({
         title: asg.length ? 'Hodiny sú schválené' : 'Nikto nie je nasadený',
@@ -443,6 +459,28 @@
             + 'vidieť, čo odberateľ podpísal.'
           : 'Nasadenie sa robí na zákazke — hodiny sa potom zapisujú tu.',
       }, { help: 'card.hours.approve' });
+    },
+
+    /**
+     * Hodiny → faktúra odberateľovi. Otvorí „Fakturáciu naraz" na týždni (KW),
+     * v ktorom sú najstaršie schválené hodiny bez faktúry (z toho, čo je vo
+     * filtri). Tam sa dá týždeň zmeniť a zákazky odškrtnúť; appka založí
+     * obdobie, uzavrie ho zo schválených hodín a pripraví **návrh** — ten
+     * schvaľuje admin ako vždy. Hodiny potom v zozname svietia ako
+     * „vyfakturované" a živnostník ich má na karte (Peniaze).
+     */
+    async invoiceWeek() {
+      if (!window.Inv || !Danubra.can('invoices')) return UI.toast('Fakturáciu nemáte sprístupnenú — požiadajte administrátora', 'err');
+      const rows = (window.DataList && DataList._reg.hodiny ? DataList.visible('hodiny').map(r => r.t) : this.items)
+        .filter(t => t.approved && !this.isLocked(t));
+      const dni = rows.map(t => String(t.work_date || '').slice(0, 10)).filter(Boolean).sort();
+      let kw = null;
+      if (dni.length && window.DanubraPeriods) {
+        const w = DanubraPeriods.isoWeek(dni[0]);
+        kw = `${w.year}-W${String(w.week).padStart(2, '0')}`;
+      }
+      if (!Inv.loaded) await Inv.load();
+      return Inv.monthly(kw, 'week');
     },
 
     /**

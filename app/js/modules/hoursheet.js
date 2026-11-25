@@ -253,7 +253,7 @@
           </select></div>`;
 
       el.innerHTML = Danubra.header(Danubra.labelOf('hoursheet'),
-        `KW ${s.week}/${s.year} · ${UI.date(s.from)} – ${UI.date(s.to)}${UI.tip('KW (Kalenderwoche) = poradové číslo týždňa v roku, tak ho počítajú Nemci. Výkaz je vždy za jeden týždeň od pondelka do nedele a za jednu zákazku — celú alebo len jednu partiu z nej. Predvolene sa otvorí minulý týždeň.')}`) + `
+        `Papier na podpis odberateľovi z hodín zapísaných v záložke Hodiny · KW ${s.week}/${s.year} · ${UI.date(s.from)} – ${UI.date(s.to)}${UI.tip('KW (Kalenderwoche) = poradové číslo týždňa v roku, tak ho počítajú Nemci. Výkaz je vždy za jeden týždeň od pondelka do nedele a za jednu zákazku — celú alebo len jednu partiu z nej. Predvolene sa otvorí minulý týždeň.')}`) + `
         ${this.barHtml(s, site, viac)}
 
         ${!site ? pick(!this.crewId ? 'Vyberte zákazku, za ktorú je výkaz.'

@@ -201,6 +201,7 @@
       }
       this.loaded = false; this.v2.loaded = false;
       if (window.Sub) Sub.loaded = false;
+      if (window.Tms) Tms.loaded = false;
       await this.load(); Danubra.renderRoute();
       UI.modal('Fakturácia naraz', `
         <div class="${chyby.length ? 'warnbox' : 'regimebox'}">${ok

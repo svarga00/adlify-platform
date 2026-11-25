@@ -6429,3 +6429,22 @@ input, select, textarea, button { font-family: inherit; }
 .so-links[open] > .so-row:first-of-type { margin-top: 8px; box-shadow: none; }
 @media (hover: hover) { .so-sum:hover { background: #F4F7FD; } .so-sum:hover .so-chev { color: var(--ink); } }
 .js-cond > summary { font-weight: 600; }
+
+/* 16 · Hodiny a fakturácia na karte živnostníka (Wrk.hoursCard). */
+.hw-list { border-top: 1px solid var(--border-soft); }
+.hw-row {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) 84px minmax(0, 1.5fr);
+  gap: 4px 12px; align-items: center; padding: 11px 2px; border-bottom: 1px solid var(--border-soft); font-size: 14px;
+}
+.hw-row > :nth-child(1) { grid-column: 1; grid-row: 1 / span 2; }
+.hw-row > :nth-child(2) { grid-column: 2; grid-row: 1 / span 2; }
+.hw-row > :nth-child(3) { grid-column: 3; grid-row: 1; }
+.hw-row > :nth-child(4) { grid-column: 3; grid-row: 2; font-size: 13px; }
+.hw-head { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); padding: 9px 2px; }
+.hw-kw { font-weight: 600; color: var(--ink); }
+.hw-h b { font-variant-numeric: tabular-nums; }
+.hw-h small { display: block; font-size: 12px; color: var(--amber); }
+.hw-his.is-can { font-weight: 600; color: var(--brand-dark); }
+.hw-his.is-wait { color: var(--ink-mute); }
+.hw-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 14px; }
+
