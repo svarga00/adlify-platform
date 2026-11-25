@@ -83,6 +83,9 @@
         // Záznamy o predĺžení / zmene konca nasadení a zákaziek (migrácia 074).
         DB.list('assignment_extensions', { order: { column: 'created_at', ascending: false }, limit: 3000 }),
       ]);
+      // Skeny podpísaných výkazov — sú uložené k zákazke a týždňu.
+      const hs = await DB.list('hour_sheets', { select: 'id,subcontract_id,iso_year,iso_week,storage_path,signed_at,total_hours', limit: 3000 });
+      this.sheets = (hs && hs.data) || [];
       this.extensions = (ext && ext.data) || [];
       this.opportunities = (op && op.data) || [];
       this.contracts = (con && con.data) || [];
@@ -663,6 +666,11 @@
         row('clock', 'Hodiny', ts.length ? `<b class="so-num">${UI.esc(String(Math.round(hours * 100) / 100).replace('.', ','))} h</b>${
           unapproved ? `<span class="so-note t-watch">${unapproved} ${Shell.plural(unapproved, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')} na schválenie</span>`
             : '<span class="so-note">všetko schválené</span>'}` : '', go('peniaze'), 'zatiaľ žiadne hodiny'),
+        row('doc', 'Výkazy (skeny)', (() => {
+          const sk = (this.sheets || []).filter(h => h.subcontract_id === sc.id && h.storage_path)
+            .sort((a, b) => (b.iso_year - a.iso_year) || (b.iso_week - a.iso_week));
+          return sk.length ? UI.scanChips(sk.slice(0, 8)) + more(sk.length, 8) : '';
+        })(), go('peniaze'), 'zatiaľ žiadny nahratý výkaz'),
         money ? row('invoices', 'Faktúry', inv.length ? `${inv.slice(0, 4).map(i => Danubra.link('invoice', i.id, i.invoice_number || 'návrh')).join('')}${more(inv.length, 4)}
           <span class="so-note">vyfakturované ${UI.money(sum(issued))} · zaplatené ${UI.money(sum(paid))}</span>${
           overdue.length ? `<span class="so-note t-bad">po splatnosti ${UI.money(sum(overdue))}</span>` : ''}` : '',

@@ -84,6 +84,21 @@ window.UI = {
       Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
   },
 
+  /** Otvorí súbor z úložiska dokladov (sken výkazu) v novom okne — podpísaným odkazom na pár minút. */
+  async openStored(path) {
+    if (!path || !window.DB) return;
+    const urls = await DB.signedDocUrls([path]);
+    const url = urls.get(path);
+    if (!url) return this.toast('Súbor sa nepodarilo otvoriť.', 'err');
+    window.open(url, '_blank', 'noopener');
+  },
+  /** Odkaz na sken podpísaného výkazu: „KW 47 · sken". `sheets` = riadky hour_sheets so `storage_path`. */
+  scanChips(sheets) {
+    return (sheets || []).filter(h => h && h.storage_path).map(h => `<button type="button" class="link-chip" data-path="${this.esc(h.storage_path)}"
+      title="Sken podpísaného výkazu — otvorí sa v novom okne" onclick="event.stopPropagation();UI.openStored(this.dataset.path)">${
+      window.Icon ? Icon('doc', 13) : ''}<span>KW ${Number(h.iso_week) || '?'}${h.signed_at ? ' · podpísaný' : ''}</span></button>`).join('');
+  },
+
   /**
    * Hlavičky: koľko ľudí je z koľkých. Plná hlavička = človek je, prázdna =
    * ešte treba. „2 z 4" sa číta; dve plné a dve prázdne hlavičky sa vidia.

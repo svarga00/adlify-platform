@@ -119,12 +119,15 @@
         DB.list('partners', { select: 'id,billing_period_days', limit: 1000 }),
       ]);
       const dniOdb = new Map((prt.data || []).map(x => [x.id, Number(x.billing_period_days) || 7]));
+      const tyzdne = ['1', '2'].includes(String(this._batchWeeks)) ? String(this._batchWeeks) : 'auto';
       const spolocne = { subcontracts: s.data || [], assignments: a.data || [],
         timesheets: t.data || [], periods: per.data || [], invoices: this.items };
       const wr = kw ? DanubraMonthly.weekRange(kw) : null;
       const plan = rezim === 'week'
         ? DanubraMonthly.plan({ ...spolocne, from: wr.from, to: wr.to,
-          rangeOf: (sc) => DanubraMonthly.rangeForWeek(kw, dniOdb.get(sc.partner_id) || 7) })
+          // „Ideálne sa fakturujú 2 týždne naraz, výnimočne len jeden." Dĺžku
+          // určuje karta odberateľa; tu sa dá pre tento beh prebiť.
+          rangeOf: (sc) => DanubraMonthly.rangeForWeek(kw, tyzdne === 'auto' ? (dniOdb.get(sc.partner_id) || 7) : Number(tyzdne) * 7) })
         : DanubraMonthly.plan({ ...spolocne, month: mesiac });
       this._plan = plan;
       const robit = plan.filter(r => ['create', 'close', 'invoice'].includes(r.action));
@@ -146,7 +149,15 @@
           ${rezim === 'week'
             ? `<label class="fld"><span>Týždeň${UI.tip('Ktorý kalendárny týždeň sa fakturuje. Predvolený je minulý — '
               + 'fakturuje sa po skončení týždňa a podpise výkazu.')}</span><input type="week" value="${kw}" onchange="Inv.monthly(this.value, 'week')"></label>
-              <div class="fld"><span>Obdobie</span><b>${UI.esc(DanubraPeriods.kwLabel(wr.from, wr.to))}</b></div>`
+              <label class="fld"><span>Koľko týždňov${UI.tip('Podľa odberateľa = dĺžka obdobia z jeho karty (7 alebo 14 dní). '
+              + '„2 týždne" spojí zvolený týždeň s predchádzajúcim do jednej faktúry, „1 týždeň" vyfakturuje len ten zvolený — '
+              + 'napríklad keď zákazka končí alebo odberateľ chce faktúru skôr.')}</span>
+                <select onchange="Inv._batchWeeks=this.value;Inv.monthly('${kw}','week')">
+                  <option value="auto" ${tyzdne === 'auto' ? 'selected' : ''}>Podľa odberateľa</option>
+                  <option value="2" ${tyzdne === '2' ? 'selected' : ''}>2 týždne naraz</option>
+                  <option value="1" ${tyzdne === '1' ? 'selected' : ''}>Len tento týždeň</option></select></label>
+              <div class="fld"><span>Obdobie</span><b>${UI.esc(tyzdne === '2'
+                ? DanubraPeriods.kwLabel(DanubraMonthly.rangeForWeek(kw, 14).from, wr.to) : DanubraPeriods.kwLabel(wr.from, wr.to))}</b></div>`
             : `<label class="fld"><span>Mesiac${UI.tip('Ktorý mesiac sa fakturuje — pre odberateľov s mesačnou fakturáciou. '
               + 'Predvolený je minulý.')}</span><input type="month" value="${mesiac}" onchange="Inv.monthly(this.value, 'month')"></label>`}
         </div>

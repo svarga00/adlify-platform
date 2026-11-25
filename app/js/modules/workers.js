@@ -809,9 +809,14 @@
       // vyfakturované odberateľovi a čo si môže vyfakturovať on.
       const perIds = [...new Set((t.data || []).map(x => x.period_id).filter(Boolean))];
       const per = perIds.length ? await DB.list('periods', { filters: { id: perIds }, limit: 1000 }) : { data: [] };
+      // Skeny podpísaných výkazov zákaziek, na ktorých robil — odkaz pri týždni.
+      const asgIds = new Set((t.data || []).map(x => x.assignment_id).filter(Boolean));
+      const subIds = [...new Set((this.assignments || []).filter(x => asgIds.has(x.id)).map(x => x.subcontract_id).filter(Boolean))];
+      const hs = subIds.length ? await DB.list('hour_sheets', { select: 'id,subcontract_id,iso_year,iso_week,storage_path,signed_at',
+        filters: { subcontract_id: subIds }, limit: 2000 }) : { data: [] };
       this.acc = {
         workerId, bills: b.data || [], advances: a.data || [],
-        timesheets: t.data || [], periods: per.data || [], promises: p.data || [], loaded: true,
+        timesheets: t.data || [], periods: per.data || [], sheets: (hs && hs.data) || [], promises: p.data || [], loaded: true,
       };
       // Podpísané odkazy na skeny — všetky naraz. Pri piatich dokladoch by
       // to inak bolo päť kôl po sieti a náhľady by nabiehali jeden po druhom.
@@ -1208,12 +1213,14 @@
         const p = t.period_id ? periods.get(t.period_id) : null;
         const kw = P ? P.isoWeek(d) : null;
         const key = p ? `p:${p.id}` : `w:${kw ? `${kw.year}-${kw.week}` : d.slice(0, 7)}`;
+        const asg = (this.assignments || []).find(x => x.id === t.assignment_id);
         if (!groups.has(key)) {
-          groups.set(key, { key, period: p || null, from: p ? String(p.period_from).slice(0, 10) : (P ? P.mondayOf(d) : d),
+          groups.set(key, { key, period: p || null, subId: (p && p.subcontract_id) || (asg && asg.subcontract_id) || null, kws: new Set(), from: p ? String(p.period_from).slice(0, 10) : (P ? P.mondayOf(d) : d),
             to: p ? String(p.period_to).slice(0, 10) : (P ? P.sundayOf(d) : d), hours: 0, approved: 0, open: 0 });
         }
         const g = groups.get(key);
         const h = Number(t.hours) || 0;
+        if (kw) g.kws.add(`${kw.year}-${kw.week}`);
         g.hours += h;
         if (t.approved) g.approved += h; else g.open += h;
       }
@@ -1224,7 +1231,8 @@
         const bill = g.period ? billed.get(g.period.id) || null : null;
         // Fakturovať si môže to, čo je schválené a uzavreté, a ešte to vo faktúre nemá.
         const can = !bill && ['closed', 'invoiced'].includes(st) ? r2(g.approved) : 0;
-        return { ...g, hours: r2(g.hours), approved: r2(g.approved), open: r2(g.open), st, bill, can,
+        const scans = (this.acc.sheets || []).filter(h => h.storage_path && h.subcontract_id === g.subId && g.kws.has(`${h.iso_year}-${h.iso_week}`));
+        return { ...g, scans, hours: r2(g.hours), approved: r2(g.approved), open: r2(g.open), st, bill, can,
           canCents: Math.round(can * rate * 100),
           label: P ? (P.kwLabel(g.from, g.to) || UI.dateRange(g.from, g.to)) : UI.dateRange(g.from, g.to) };
       }).sort((x, y) => String(y.from).localeCompare(String(x.from)));
@@ -1262,7 +1270,7 @@
         ${rows.length ? `<div class="hw-list">
           <div class="hw-row hw-head"><span>Týždeň</span><span>Hodiny</span><span>Stav · jeho faktúra</span></div>
           ${rows.map(g => `<div class="hw-row">
-            <span class="hw-kw">${UI.esc(g.label)}</span>
+            <span class="hw-kw">${UI.esc(g.label)}${g.scans.length ? `<span class="hw-scan">${UI.scanChips(g.scans)}</span>` : ''}</span>
             <span class="hw-h"><b>${h(g.hours)}</b>${g.open ? `<small>${h(g.open)} neschválených</small>` : ''}</span>
             <span>${stav(g)}</span>
             ${jeho(g)}

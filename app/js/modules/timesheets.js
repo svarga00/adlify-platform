@@ -124,7 +124,8 @@
       return `
         <button class="btn btn-outline btn-sm" onclick="Danubra.go('hoursheet')" title="Stundennachweis: týždenný papier z týchto hodín, ktorý podpisuje odberateľ">${Icon('doc', 14)} Výkaz na podpis</button>
         ${fakt ? `<button class="btn btn-outline btn-sm" onclick="Tms.invoiceWeek()" title="Zo schválených hodín týždňa (KW) pripraví návrh faktúry odberateľovi">${Icon('invoices', 14)} Vyfakturovať odberateľovi</button>` : ''}
-        <button class="btn btn-primary btn-sm" onclick="${this.entryCall()}">${Icon('upload', 14)} Zapísať hodiny</button>
+        <button class="btn btn-outline btn-sm" onclick="${this.entryCall()}">${Icon('edit', 14)} Zapísať ručne</button>
+        ${window.HourEntry ? `<button class="btn btn-primary btn-sm" onclick="HourEntry.pickFiles()" title="Nahrajte sken alebo fotku podpísaného výkazu (aj viac naraz). Appka prečíta stavbu, týždeň, mená a hodiny a priradí ich; Vy len skontrolujete.">${Icon('upload', 14)} Nahrať výkaz</button>` : ''}
         ${UI.tip('Hodiny sa zapisujú zo Stundennachweisu, ktorý podpísal majster: natukáte ich do tabuľky zákazky a týždňa, alebo nahráte fotku listu. Deň inej práce (cesta, dielňa) je v tom istom okne ako „Jeden deň inej práce". Schvaľuje sa zvlášť — fajkou pri riadku alebo „Schváliť" hore.')}`;
     },
 

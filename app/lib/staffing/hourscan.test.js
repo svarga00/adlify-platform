@@ -307,5 +307,35 @@ console.log('Výkaz k zákazke a týždňu');
     'hlavička papiera je v snímke');
 }
 
+// ── Ku ktorej zákazke list patrí ────────────────────────────────────────────
+{
+  const subcontracts = [
+    { id: 's1', title: 'Kulzer — Straubing', site_name: 'Bachstraße 12', site_city: 'Straubing', partner_id: 'p1', status: 'active' },
+    { id: 's2', title: 'Meyer Werft', site_city: 'Papenburg', partner_id: 'p2', status: 'active' },
+    { id: 's3', title: 'Halle Ulm', site_city: 'Ulm', partner_id: 'p1', status: 'completed' },
+  ];
+  const partners = [{ id: 'p1', name: 'Kulzer GmbH' }, { id: 'p2', name: 'Wolfgang Streit GmbH' }];
+  const workers = [{ id: 'w1', full_name: 'Mihály Nemes' }, { id: 'w2', full_name: 'Dušan Mlynárik' }, { id: 'w3', full_name: 'Štefan Pechouský' }];
+  const assignments = [
+    { subcontract_id: 's1', worker_id: 'w1', status: 'active', date_from: '2026-11-01' },
+    { subcontract_id: 's2', worker_id: 'w2', status: 'active', date_from: '2026-11-01' },
+    { subcontract_id: 's2', worker_id: 'w3', status: 'active', date_from: '2026-11-01' },
+  ];
+  const o = { subcontracts, partners, workers, assignments };
+  // Rukopis: „STAUBING" namiesto Straubing, „BACK STRAPE" namiesto Bachstraße.
+  const a = S.pickSubcontract({ site: 'BACK STRAPE, STAUBING', customer: 'KULZER GmbH', kw_from: '2026-11-16',
+    rows: [{ name_raw: 'MIHALY NEMES' }] }, o);
+  eq([a.id, a.sure], ['s1', true], 'stavba s preklepom, odberateľ aj človek ukážu na tú istú zákazku');
+  ok(a.why.includes('stavba') && a.why.includes('odberateľ') && a.why.includes('ľudia'), 'a povie, podľa čoho', a.why.join(','));
+  const b = S.pickSubcontract({ site: 'Papenbura', customer: 'Wolfgang Streit', kw_from: '2026-11-09',
+    rows: [{ name_raw: 'S. Pechouský' }, { name_raw: 'D. Mlynárik' }] }, o);
+  eq(b.id, 's2', 'Papenburg podľa mesta a ľudí');
+  // Prázdna hlavička: rozhodnú ľudia, ktorí sú na zákazke nasadení.
+  const c = S.pickSubcontract({ site: '', customer: '', kw_from: '2026-11-09', rows: [{ name_raw: 'D. Mlynárik' }, { name_raw: 'S. Pechouský' }] }, o);
+  eq(c.id, 's2', 'bez hlavičky rozhodnú nasadení ľudia');
+  const d = S.pickSubcontract({ site: 'Hamburg Hafen', customer: 'Neznáma firma', rows: [{ name_raw: 'Niekto Iný' }] }, o);
+  eq([d.id, d.sure], [null, false], 'čo sa nepodobá na nič, sa nepriradí — vyberie človek');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

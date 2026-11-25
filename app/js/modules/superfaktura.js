@@ -513,7 +513,11 @@
           to: p.email || '', sign: true, links: { partner_id: x.partner_id || null },
           subject: credit ? t.subjectCn(x.invoice_number) : t.subject(x.invoice_number),
           body: credit ? t.messageCn : t.message,
-          attachments: [{ storage_path: r.json.storage_path || null, archive_id: r.json.archive_id, name: r.json.file_name, type: 'application/pdf' }]
+          // K PDF faktúry sa priložia skeny podpísaných výkazov jej týždňov
+          // (v okne e-mailu sa dajú odobrať).
+          attachments: [{ storage_path: r.json.storage_path || null, archive_id: r.json.archive_id, name: r.json.file_name, type: 'application/pdf' },
+            ...(Inv.scansOf ? (await Inv.scansOf(x)).map(h => ({ storage_path: h.storage_path,
+              name: `Stundennachweis-KW${h.iso_week}-${h.iso_year}.${String(h.storage_path).split('.').pop()}` })) : [])]
             .filter(a => a.storage_path),
           // Keď e-mail naozaj odíde, faktúra sa označí ako odoslaná.
           onSent: async (to) => {

@@ -6448,3 +6448,7 @@ input, select, textarea, button { font-family: inherit; }
 .hw-his.is-wait { color: var(--ink-mute); }
 .hw-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 14px; }
 
+.hw-scan { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; font-weight: 400; }
+.he-note { margin: 0 0 12px; color: var(--ink); }
+.he-note > div { display: flex; gap: 7px; align-items: flex-start; }
+.he-note svg { flex: none; margin-top: 3px; color: var(--green); }

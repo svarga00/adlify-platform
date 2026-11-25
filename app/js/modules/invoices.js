@@ -1054,6 +1054,8 @@
           ${rows.map(r => `<div><span>${r[0]}${r[2] ? UI.tip(r[2]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
         </div>
 
+        ${x.subcontract_id && x.kind !== 'credit_note' ? `<div id="inv-scans" data-inv="${x.id}"></div>` : ''}
+
         ${window.SFUI ? SFUI.panelHtml(x) : ''}
 
         ${this.dunningHtml && x.kind !== 'credit_note' ? this.dunningHtml(x) : ''}
@@ -1064,6 +1066,7 @@
         </div>`;
       UI.modal(`${x.kind === 'credit_note' ? 'Dobropis' : 'Faktúra'} ${x.invoice_number || '— návrh bez čísla'}`, body, { wide: true, logo: this.whoLogo(x) });
       if (window.SFUI) SFUI.loadHistory(x.id);
+      this.fillScans(x);
     },
 
     /**
@@ -1501,6 +1504,40 @@
       const cn = x.kind === 'credit_note';
       Invoicing._openHtml(html, { kind: cn ? 'storno' : 'rechnung', title: cn ? 'Stornorechnung' : 'Rechnung', number: x.invoice_number, who: p.name,
         lang: 'de', partner_id: x.partner_id || null, subcontract_id: x.subcontract_id || null });
+    },
+
+    /**
+     * Skeny podpísaných výkazov, ktoré patria k faktúre: zákazka faktúry
+     * a týždne jej obdobia. „Väčšinou ich posielame spolu s faktúrou" — pri
+     * odoslaní z našej schránky sa priložia samy (`SFUI.sendMail`).
+     */
+    async scansOf(x) {
+      if (!x || !x.subcontract_id) return [];
+      const per = (this.v2.periods || []).find(p => p.id === x.period_id) || null;
+      const { data } = await DB.list('hour_sheets', { select: 'id,subcontract_id,iso_year,iso_week,storage_path,signed_at',
+        filters: { subcontract_id: x.subcontract_id }, limit: 500 });
+      let sheets = (data || []).filter(h => h.storage_path);
+      if (per && window.DanubraPeriods) {
+        const P = DanubraPeriods, kws = new Set();
+        for (let d = P.mondayOf(String(per.period_from).slice(0, 10)); d <= String(per.period_to).slice(0, 10); ) {
+          const w = P.isoWeek(d); kws.add(`${w.year}-${w.week}`);
+          const n = new Date(`${d}T12:00:00Z`); n.setUTCDate(n.getUTCDate() + 7); d = n.toISOString().slice(0, 10);
+        }
+        sheets = sheets.filter(h => kws.has(`${h.iso_year}-${h.iso_week}`));
+      } else {
+        // Voľná faktúra bez obdobia: nedá sa povedať, ktorý týždeň — neprikladá sa nič.
+        sheets = [];
+      }
+      return sheets.sort((a, b) => (a.iso_year - b.iso_year) || (a.iso_week - b.iso_week));
+    },
+    async fillScans(x) {
+      const el = document.getElementById('inv-scans');
+      if (!el || el.dataset.inv !== x.id) return;
+      const sheets = await this.scansOf(x);
+      const now = document.getElementById('inv-scans');
+      if (!now || now.dataset.inv !== x.id || !sheets.length) return;
+      now.innerHTML = `<div class="form-section">Výkazy k faktúre${UI.tip('Skeny podpísaných výkazov (Stundennachweis) za týždne tejto faktúry. Pri odoslaní „Z našej schránky" sa priložia k e-mailu spolu s PDF faktúry.')}</div>
+        <div class="so-rb" style="margin-bottom:6px;">${UI.scanChips(sheets)}</div>`;
     },
 
     /** Faktúra z uzavretého podkladu. Sumy pochádzajú z obdobia, nie z ruky. */
