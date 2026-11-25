@@ -84,6 +84,22 @@ window.UI = {
       Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
   },
 
+  /**
+   * Hlavičky: koľko ľudí je z koľkých. Plná hlavička = človek je, prázdna =
+   * ešte treba. „2 z 4" sa číta; dve plné a dve prázdne hlavičky sa vidia.
+   * Text s číslom ostáva vedľa — hlavičky sú obrázok k nemu (`aria-hidden`).
+   */
+  heads(have, need, { max = 8 } = {}) {
+    const h = Math.max(0, Number(have) || 0);
+    const n = Math.max(h, Number(need) || 0);
+    if (!n) return '';
+    const head = (cls) => `<svg class="head ${cls}" viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="4.7" r="3.1"/><path d="M2.2 15c0-3.3 2.6-5.6 5.8-5.6s5.8 2.3 5.8 5.6z"/></svg>`;
+    const shown = Math.min(n, max);
+    const full = Math.min(h, shown);
+    return `<span class="heads" aria-hidden="true">${head('is-on').repeat(full)}${head('is-off').repeat(shown - full)}${
+      n > shown ? `<i>+${n - shown}</i>` : ''}</span>`;
+  },
+
   badge(label, kind) {
     const map = {
       green: 'background:var(--green-50);color:var(--green);',

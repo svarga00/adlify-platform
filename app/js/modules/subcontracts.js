@@ -340,10 +340,10 @@
             sortValue: (r) => this.typeLabel(r.sc.work_type) },
           // Ľudia a sadzba v jednom stĺpci: dva krátke čísla vedľa seba by
           // zobrali miesto názvu zákazky a vete, čo chýba.
-          { key: 'ludia', label: 'Ľudia', width: '76px', mobileLabel: 'Ľudia',
+          { key: 'ludia', label: 'Ľudia', width: '132px', mobileLabel: 'Ľudia',
             tip: 'Hore nasadení / koľko treba (z dopytu), dole sadzba pre odberateľa za hodinu.',
             render: (r) => `<span class="dl-two"><span class="dl-num" title="Nasadených ${r.people}${
-              r.need ? ` z ${r.need} potrebných` : ''}"><b${r.need && r.people < r.need ? ' class="is-short"' : ''}>${
+              r.need ? ` z ${r.need} potrebných` : ''}">${UI.heads(r.people, r.need, { max: 5 })}<b${r.need && r.people < r.need ? ' class="is-short"' : ''}>${
               r.people}</b>${r.need ? ` / ${r.need}` : ''}</span>${
               Number(r.sc.charge_rate) ? `<small class="dl-num">${rate(r.sc.charge_rate)}</small>` : ''}</span>`,
             sortValue: (r) => r.people, sortDir: -1, sortLabel: 'Počet ľudí' },
@@ -600,7 +600,7 @@
           UI.esc([this.typeLabel(sc.work_type), sc.trade].filter(Boolean).join(' · '))),
         fact('Termín', sc.date_from ? UI.esc(UI.dateRange(sc.date_from, sc.date_to)) : '<span class="so-miss">nezadaný</span>',
           UI.esc(kedy), kedyTone),
-        fact('Ľudia', `${asg.length}${need ? ` <i>z ${need}</i>` : ''}`,
+        fact('Ľudia', `${UI.heads(asg.length, need, { max: 10 })}<span>${asg.length}${need ? ` <i>z ${need}</i>` : ''}</span>`,
           need && asg.length < need ? `treba ešte ${need - asg.length}` : (asg.length ? 'obsadené' : 'zatiaľ nikto'),
           need && asg.length < need ? 'watch' : ''),
         money ? fact('Sadzba', sc.charge_rate ? `${UI.money(sc.charge_rate)} <i>/ h</i>` : '<span class="so-miss">nezadaná</span>',
@@ -642,7 +642,12 @@
         ].filter(Boolean).join(''), go('zivnostnici'), 'žiadna objednávka'),
         row('workers', 'Ľudia na stavbe', asg.slice(0, 6).map(a => {
           const w = this.workerOf(a.worker_id);
-          return w ? Danubra.link('worker', w.id, w.full_name) : '';
+          if (!w) return '';
+          // Človek má hlavičku s iniciálami (rovnaká farba ako v zozname Ľudia).
+          if (!window.Wrk || !Danubra.canOpen('worker', w.id)) return Danubra.link('worker', w.id, w.full_name);
+          return `<button class="link-chip so-person" title="Živnostník: ${UI.esc(w.full_name)}"
+            onclick="event.stopPropagation();Danubra.open('worker','${w.id}')"><i class="mini-av" style="background:${Wrk.avatarColor(w)}">${
+            UI.esc(Wrk.initials(w.full_name))}</i><span>${UI.esc(w.full_name)}</span></button>`;
         }).join('') + more(asg.length, 6), go('ludia'), 'nikto nie je nasadený'),
         row('bed', 'Ubytovanie', lodg.slice(0, 3).map(l => (l.accommodation_id
           ? Danubra.link('accommodation', l.accommodation_id, l.name || l.city || 'Ubytovanie')
