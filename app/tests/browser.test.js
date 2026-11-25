@@ -3570,9 +3570,16 @@ console.log('Prehliadač');
         Sub.openId = 'sc1';
         await Danubra.views.subcontracts.call(Danubra, view);
 
+        // Kroky sú v základe zbalené; ten, čo je na rade, otvorí „Ukázať" v páse.
+        const zbalene = view.querySelectorAll('.js-step.is-open').length;
+        const ukazat = ((view.querySelector('.js-now .btn') || { getAttribute: () => '' }).getAttribute('onclick') || '');
+        Sub.step = 'papiere';
+        await Danubra.views.subcontracts.call(Danubra, view);
+        Sub.step = undefined;
+
         const txt = (e) => e.textContent.replace(/\s+/g, ' ').trim();
         return {
-          zoznam,
+          zoznam, zbalene, ukazat,
           teraz: txt(view.querySelector('.js-now') || { textContent: '' }),
           kroky: [...view.querySelectorAll('.js-step .js-main b')].map(txt),
           stavy: [...view.querySelectorAll('.js-step')]
@@ -3596,8 +3603,10 @@ console.log('Prehliadač');
         'kroky zákazky sa volajú rovnako ako kroky na Dnes a v Ako to ide', out.kroky.join(' | '));
       ok(out.stavy.filter(s => s === 'ok').length >= 2,
         'čo je hotové, je zelené', out.stavy.join(','));
+      ok(out.zbalene === 0 && /Sub\.openStep\('papiere'\)/.test(out.ukazat),
+        'kroky sú zbalené a „Ukázať" otvorí ten, ktorý je na rade (papiere — ľudia sú na stavbe bez nich)', `${out.zbalene} ${out.ukazat}`);
       ok(out.otvorene.length === 1 && out.otvorene[0] === 'js-papiere',
-        'otvorený je ten krok, ktorý je na rade (papiere — ľudia sú na stavbe bez nich)', out.otvorene.join(','));
+        'po otvorení je rozbalený práve ten krok', out.otvorene.join(','));
       ok(out.tlacidla > 0, 'a je v ňom tlačidlo, ktorým sa to dá spraviť', String(out.tlacidla));
       ok(out.sekTaby === 0, 'záložky detailu už nie sú');
 

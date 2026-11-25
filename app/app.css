@@ -6371,3 +6371,61 @@ input, select, textarea, button { font-family: inherit; }
 /* Obyčajné tabuľky na obrazovke (nie v okne): hlavička stojí tiež, pokiaľ
    tabuľka nie je v posúvanom rámčeku. */
 .view table thead th { position: sticky; top: var(--dl-top, 0px); z-index: 3; background: var(--card); }
+
+/* 13 · Vysúvací panel namiesto okna v strede. „Vysúvacie okno s rozmazaným
+   pozadím je väčšie a prehľadnejšie." Na počítači sa každé okno (okrem
+   krátkej otázky „Naozaj?") vysunie sprava cez celú výšku; zoznam za ním
+   ostáva vidieť rozmazaný. Na telefóne je to list zdola ako doteraz. */
+@keyframes drawerIn { from { opacity: .6; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+@media (min-width: 861px) {
+  .modal-backdrop:not(.ask-backdrop) { align-items: stretch; justify-content: flex-end; padding: 0; }
+  .modal-backdrop:not(.ask-backdrop) > .modal-card {
+    width: min(760px, 94vw); max-width: none; height: 100dvh; max-height: 100dvh;
+    border-radius: 28px 0 0 28px; animation: drawerIn .24s cubic-bezier(.2,.8,.2,1);
+    box-shadow: -30px 0 80px -30px rgba(10,27,61,.45);
+  }
+  .modal-backdrop:not(.ask-backdrop) > .modal-card.modal-wide { width: min(1080px, 94vw); }
+  .modal-backdrop:not(.ask-backdrop) > .modal-card.modal-xl,
+  .modal-backdrop:not(.ask-backdrop) > .modal-card.ld-modal { width: min(1320px, 96vw); max-width: none; }
+  .modal-card:has(> .modal-body) > .modal-head { padding: 26px 40px 16px; }
+  .modal-card:has(> .modal-body) > .modal-body { padding-left: 40px; padding-right: 40px; }
+  .modal-body > .modal-actions:last-child, .modal-body > form > .modal-actions:last-child { margin-left: -40px; margin-right: -40px; padding-left: 40px; padding-right: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .modal-backdrop > .modal-card { animation: none !important; } }
+
+/* „2 z 5" a šípky v hlavičke panela (UI.modal + DataList.navState). */
+.modal-head h3 { flex: 1; min-width: 0; }
+.modal-nav { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px; border-radius: 999px; background: var(--field); }
+.modal-nav-n { font-size: 13px; color: var(--ink-sub); padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.modal-nav-n b { color: var(--ink); }
+.modal-nav-b {
+  width: 36px; height: 36px; border: 0; border-radius: 999px; background: #fff; color: var(--ink); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); transition: background .12s, color .12s;
+}
+.modal-nav-b:hover:not(:disabled) { background: var(--navy); color: #fff; }
+.modal-nav-b:disabled { opacity: .35; box-shadow: none; background: transparent; }
+
+/* 14 · Väčšie riadky zoznamov. */
+.dl-row { min-height: 68px; padding-top: 12px; padding-bottom: 12px; }
+.dl-c { font-size: 14px; }
+.dl-title b { font-size: 15px; }
+.dl-title small, .dl-two small { font-size: 12.5px; }
+.dl-hx .dl-head { padding-top: 13px; padding-bottom: 12px; }
+.dl-th { font-size: 11.5px; }
+.dl.is-compact .dl-row { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
+
+/* 15 · Zákazka pokojnejšie: prepojené veci v jednom riadku, rozbalia sa klikom. */
+.so-links { padding: 0; }
+.so-links > summary { list-style: none; }
+.so-links > summary::-webkit-details-marker { display: none; }
+.so-sum { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 14px 20px; cursor: pointer; transition: background .12s; }
+.so-sum .so-h { padding: 0; }
+.so-sumtxt { font-size: 14px; color: var(--ink); font-weight: 500; }
+.so-chev { margin-left: auto; color: var(--ink-mute); display: inline-flex; transition: transform .15s; }
+.so-links[open] .so-chev { transform: rotate(90deg); }
+.so-links[open] > .so-sum { box-shadow: 0 1px 0 var(--border-soft); }
+.so-links[open] { padding-bottom: 8px; }
+.so-links[open] > .so-row { margin: 0 8px; }
+.so-links[open] > .so-row:first-of-type { margin-top: 8px; box-shadow: none; }
+@media (hover: hover) { .so-sum:hover { background: #F4F7FD; } .so-sum:hover .so-chev { color: var(--ink); } }
+.js-cond > summary { font-weight: 600; }

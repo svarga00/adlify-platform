@@ -638,8 +638,46 @@
 
   function openRow(inst, rowEl) {
     const row = inst.byId && inst.byId.get(rowEl.getAttribute('data-dl-row'));
-    if (row && typeof inst.cfg.rowClick === 'function') inst.cfg.rowClick(row);
+    if (row && typeof inst.cfg.rowClick === 'function') { startNav(inst, row); inst.cfg.rowClick(row); }
   }
+
+  // ── Jeden po druhom ───────────────────────────────────────────────────────
+  // „Vedieť ich riešiť jednu po druhej." Keď sa zo zoznamu otvorí záznam,
+  // zoznam si pamätá, ktoré riadky sú práve vidieť a kde v nich človek je.
+  // Panel so záznamom potom ukáže „2 z 5" a šípky (kreslí ich `UI.modal`,
+  // číta `DataList.nav`) — ďalší záznam sa otvorí bez návratu do zoznamu.
+  let nav = null;
+  function startNav(inst, row) {
+    const rows = compute(inst).rows;
+    const ids = rows.map(r => String(r.id));
+    const i = ids.indexOf(String(row.id));
+    nav = i < 0 || ids.length < 2 ? null : { id: inst.id, ids, i, title: null };
+  }
+  /** Otvorí prvý viditeľný riadok zoznamu (tlačidlo „Riešiť po jednej"). */
+  function openFirst(id) {
+    const inst = reg[cssId(id)];
+    if (!inst || typeof inst.cfg.rowClick !== 'function') return false;
+    const rows = compute(inst).rows;
+    if (!rows.length) return false;
+    startNav(inst, rows[0]);
+    inst.cfg.rowClick(rows[0]);
+    return true;
+  }
+  function stepNav(d) {
+    if (!nav) return;
+    const inst = reg[nav.id];
+    if (!inst) { nav = null; return; }
+    const rows = compute(inst).rows;
+    const byId = new Map(rows.map(r => [String(r.id), r]));
+    // Riadky, ktoré medzitým zo zoznamu vypadli (faktúra sa zaplatila), sa preskočia.
+    let i = nav.i + d;
+    while (i >= 0 && i < nav.ids.length && !byId.has(nav.ids[i])) i += d;
+    if (i < 0 || i >= nav.ids.length) return;
+    nav.i = i; nav.title = null;
+    inst.cfg.rowClick(byId.get(nav.ids[i]));
+  }
+  function endNav() { nav = null; }
+  function navState() { return nav ? { i: nav.i, n: nav.ids.length, title: nav.title, setTitle(t) { if (nav) nav.title = t; } } : null; }
 
   function act(inst, el) {
     const s = inst.state, a = el.getAttribute('data-dl-a');
@@ -993,7 +1031,7 @@
     const inst = reg[cssId(id)];
     return inst ? JSON.parse(JSON.stringify(inst.state)) : null;
   }
-  const API = { html, render, refresh, set, reset, visible, state, quickRanges, _reg: reg };
+  const API = { html, render, refresh, set, reset, visible, state, quickRanges, openFirst, step: stepNav, endNav, navState, _reg: reg };
   window.DataList = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

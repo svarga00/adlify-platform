@@ -334,7 +334,10 @@
             sortValue: (r) => r.partner },
           { key: 'stav', label: 'Stav', width: '88px', mobile: 'badge',
             render: (r) => this.badge(r.sc.status), sortValue: (r) => statusIdx(r.sc.status) },
-          { key: 'typ', label: 'Typ prác', width: '84px', hideBelow: 1000,
+          // Typ prác a podmienky vyslania sú v základe skryté (panel Stĺpce ich
+          // vráti): v riadku ostáva to, podľa čoho sa rozhoduje — kto, koľko
+          // ľudí, dokedy a čo chýba.
+          { key: 'typ', label: 'Typ prác', width: '84px', hideBelow: 1000, hidden: true,
             render: (r) => (shortType[r.sc.work_type]
               ? `<span class="dl-tag" title="${UI.esc(this.typeLabel(r.sc.work_type))}">${Icon(r.sc.work_type === 'construction' ? 'site' : 'wrench', 14)}${shortType[r.sc.work_type]}</span>` : ''),
             sortValue: (r) => this.typeLabel(r.sc.work_type) },
@@ -359,7 +362,7 @@
             // Čo horí hore, potom čo má problém, potom podľa kroku; uzavreté na koniec.
             sortValue: (r) => [r.closed ? 1 : 0, r.hot ? 0 : 1, r.problem ? 0 : 1, r.step || 8, r.title],
             sortLabel: 'Čo horí (krok)' },
-          { key: 'podmienky', label: 'Podmienky', width: '98px',
+          { key: 'podmienky', label: 'Podmienky', width: '98px', hidden: true,
             tip: 'Podmienky vyslania: A1, hlásenie Zoll, SOKA-BAU, USt-IdNr odberateľa. Ukážte myšou na štítok — povie, čo chýba.',
             render: condCell, sortValue: (r) => (r.closed ? null : r.chk.ok ? 0 : r.chk.blockers.length), sortDir: -1 },
         ],
@@ -489,7 +492,10 @@
       // Pri každom je jedna veta, čo chýba, a otvorí sa ten, ktorý je na rade.
       const job = this.jobSteps(sc);
       const nxt = DanubraJob.next(job, sc);
-      const open = this.step === undefined ? (nxt.key || null) : this.step;
+      // Kroky sú v základe zbalené — sedem riadkov, z ktorých je hneď vidno,
+      // kde zákazka stojí. Krok, ktorý je na rade, otvorí tlačidlo „Ukázať"
+      // v páse nad nimi; rozbalený by obrazovku hneď zaplnil zoznamom podmienok.
+      const open = this.step === undefined ? null : this.step;
       this._openNow = open;
       const pr = DanubraJob.progress(job);
       const ctx = { sc, p, asg, chk, eco, port, complianceHtml, rows, job };
@@ -663,12 +669,28 @@
           go('peniaze'), 'zatiaľ nič nefakturované') : '',
       ].join('');
 
+      // Prepojené veci sú zbalené do jedného riadku so súhrnom; rozbalenie si
+      // prehliadač pamätá (kto ich chce mať stále na očiach, má ich).
+      let openLinks = false;
+      try { openLinks = localStorage.getItem('danubra_so_links') === '1'; } catch {}
+      const sumar = [
+        con ? 'zmluva' : '',
+        orders.length ? `${orders.length} ${Shell.plural(orders.length, 'objednávka', 'objednávky', 'objednávok')}` : '',
+        asg.length ? `${asg.length} ${Shell.plural(asg.length, 'človek', 'ľudia', 'ľudí')}` : '',
+        lodg.length ? `${lodg.length} ${Shell.plural(lodg.length, 'ubytovanie', 'ubytovania', 'ubytovaní')}` : '',
+        ts.length ? `${String(Math.round(hours * 100) / 100).replace('.', ',')} h` : '',
+        money && inv.length ? `${inv.length} ${Shell.plural(inv.length, 'faktúra', 'faktúry', 'faktúr')}` : '',
+      ].filter(Boolean).join(' · ');
       return `<section class="so card" aria-label="Prehľad zákazky">
         <div class="so-facts">${facts}</div>
-        <div class="so-links">
-          <div class="so-h">Súvisí so zákazkou</div>
+        <details class="so-links"${openLinks ? ' open' : ''}
+          ontoggle="try{localStorage.setItem('danubra_so_links',this.open?'1':'0')}catch(e){}">
+          <summary class="so-sum"><span class="so-h">Súvisí so zákazkou</span><span class="so-sumtxt">${UI.esc(sumar || 'zatiaľ nič')}</span>${
+            money && overdue.length ? `<span class="so-note t-bad">po splatnosti ${UI.money(sum(overdue))}</span>` : ''}${
+            unapproved ? `<span class="so-note t-watch">${unapproved} ${Shell.plural(unapproved, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')}</span>` : ''}
+            <span class="so-chev">${Icon('chevron', 15)}</span></summary>
           ${links}
-        </div>
+        </details>
       </section>`;
     },
 
@@ -844,8 +866,10 @@
             </div>
           </div>`;
         }).join('')}</div>
-          <div class="form-section" id="sub-compliance">Podmienky vyslania</div>
-          ${complianceHtml}
+          <details class="more-block js-cond" id="sub-compliance"${chk.items.length && chk.items.length <= 3 ? ' open' : ''}>
+            <summary>Podmienky vyslania${chk.items.length ? ` — ${chk.items.length} ${Shell.plural(chk.items.length, 'vec', 'veci', 'vecí')} na doriešenie` : ' — splnené'}</summary>
+            ${complianceHtml}
+          </details>
           ${acts(sc.work_type === 'construction' && !sc.zoll_reported_at
               ? b('btn-primary', `Sub.markZoll('${sc.id}')`, 'check', 'Zapísať hlásenie Zoll') : '',
             b('btn-outline', `Sub.anuCheck('${sc.id}')`, 'shield', 'Test rizika ANÜ'))}

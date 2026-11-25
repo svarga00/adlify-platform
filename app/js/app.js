@@ -1546,13 +1546,40 @@ window.Danubra = {
     box.classList.toggle('has-more', more);
   },
 
+  /** Ktorá obrazovka je otvorená: cesta + otvorený záznam (zoznam a karta sú dve obrazovky). */
+  _screenKey() {
+    const type = Object.keys(this.entities).find(k => this.entities[k].route === this.route);
+    const mod = type && typeof window !== 'undefined' && window[this.entities[type].handle];
+    return `${this.route}|${(mod && mod.openId) || ''}`;
+  },
+
   renderRoute() {
     const view = document.getElementById('view');
+    // „Vadí mi, ako sa veci obnovujú a skáče to späť alebo úplne inam."
+    // Obrazovka sa po každej zmene kreslí celá nanovo (na chvíľu je v nej len
+    // „Načítavam…"), takže stránka stratila výšku a prehliadač skočil hore.
+    // Keď sa kreslí **tá istá** obrazovka, drží sa jej výška aj miesto, kde
+    // človek bol. Nová obrazovka začína hore.
+    const canScroll = typeof window !== 'undefined' && typeof window.scrollTo === 'function';
+    const screen = this._screenKey();
+    const same = screen === this._lastScreen;
+    this._lastScreen = screen;
+    const keepY = canScroll ? (window.scrollY || 0) : 0;
+    if (canScroll && view && view.style) {
+      if (same) view.style.minHeight = `${view.offsetHeight || 0}px`;
+      else { view.style.minHeight = ''; window.scrollTo(0, 0); }
+    }
+    const settle = () => {
+      if (!canScroll || !view || !view.style) return;
+      view.style.minHeight = '';
+      if (same && this._lastScreen === screen && Math.abs((window.scrollY || 0) - keepY) > 2) window.scrollTo(0, keepY);
+    };
     this.setActions('');
     const fn = this.views[this.route];
     if (this.route !== 'dashboard' && this.route !== 'flow') this._ensureChain();
 
     if (!fn) {
+      settle();
       view.innerHTML = this.header(this.labelOf(this.route), 'Pripravujeme v ďalšom kroku.')
         + UI.empty('wrench', 'Táto sekcia zatiaľ nie je hotová', 'Pribudne v nasledujúcom milestone.');
       return;
@@ -1579,8 +1606,10 @@ window.Danubra = {
         // Otvorené úlohy pri človeku a zákazke (`Tsk.slot`).
         if (window.Tsk && Tsk.fill) Tsk.fill(view);
         this._masonry(view);
+        settle();
       })
       .catch((e) => {
+        settle();
         if (this.route !== started) return;
         console.error('[danubra] obrazovka spadla', e);
         view.innerHTML = this.header(this.labelOf(this.route), '')

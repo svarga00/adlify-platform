@@ -128,14 +128,27 @@ window.UI = {
   // ── Modal ─────────────────────────────────────────────────────────────────
   /** `logo` = hotové HTML loga firmy (CompanyLogo.html) pred nadpisom okna. */
   modal(title, bodyHtml, { wide = false, logo = '' } = {}) {
+    this._reopening = true;
     this.closeModal();
+    this._reopening = false;
     const el = document.createElement('div');
     el.className = 'modal-backdrop';
     el.id = 'ui-modal';
+    // Záznam otvorený zo zoznamu: „2 z 5" a šípky na predošlý / ďalší
+    // (`DataList.navState`). Platí pre panel so záznamom, nie pre formulár,
+    // ktorý sa z neho otvorí — ten má iný nadpis.
+    const nav = window.DataList && DataList.navState ? DataList.navState() : null;
+    if (nav && nav.title == null) nav.setTitle(String(title));
+    const pager = nav && (nav.title == null || nav.title === String(title)) ? `<div class="modal-nav no-print" role="group" aria-label="Záznamy v zozname">
+        <button type="button" class="modal-nav-b" onclick="DataList.step(-1)" ${nav.i <= 0 ? 'disabled' : ''} aria-label="Predošlý záznam" title="Predošlý">${window.Icon ? Icon('back', 15) : '‹'}</button>
+        <span class="modal-nav-n"><b>${nav.i + 1}</b> z ${nav.n}</span>
+        <button type="button" class="modal-nav-b is-next" onclick="DataList.step(1)" ${nav.i >= nav.n - 1 ? 'disabled' : ''} aria-label="Ďalší záznam" title="Ďalší">${window.Icon ? Icon('chevron', 15) : '›'}</button>
+      </div>` : '';
     el.innerHTML = `
       <div class="modal-card${wide ? ' modal-wide' : ''}">
         <div class="modal-head">
           ${logo || ''}<h3>${this.esc(title)}</h3>
+          ${pager}
           <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">${window.Icon ? Icon("x", 17) : ""}</button>
         </div>
         <div class="modal-body">${bodyHtml}</div>
@@ -158,6 +171,8 @@ window.UI = {
     return el;
   },
   closeModal() {
+    // Zavretie človekom ukončí aj prechádzanie zoznamu po jednom.
+    if (!this._reopening && window.DataList && DataList.endNav) DataList.endNav();
     document.getElementById('ui-modal')?.remove();
     if (!document.getElementById('ui-ask')) document.body.style.overflow = '';
   },

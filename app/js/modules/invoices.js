@@ -382,11 +382,29 @@
       const n = q.next || this.nicNecaka();
       const label = { approve: 'Otvoriť na schválenie', overdue: 'Otvoriť najstaršiu',
         draft: 'Otvoriť návrh' }[n.key] || 'Otvoriť';
+      // Keď ich čaká viac, tlačidlo neotvorí len jednu: zoznam sa zúži na ne
+      // a otvorí sa prvá — v paneli sú šípky na ďalšiu.
+      const FILTER = { overdue: 'late', approve: 'schvalit' };
+      const viac = FILTER[n.key] && Number(n.count) > 1;
       return Shell.now(n, {
         help: 'card.inv.now',
-        action: n.invoice ? { label, ico: n.key === 'overdue' ? 'phone' : 'check',
-          onclick: `Inv.detail('${n.invoice.id}')` } : null,
+        action: n.invoice ? { label: viac ? `Riešiť po jednej (${n.count})` : label, ico: n.key === 'overdue' ? 'phone' : 'check',
+          onclick: viac ? `Inv.solveQueue('${FILTER[n.key]}','${n.invoice.id}')` : `Inv.detail('${n.invoice.id}')` } : null,
       });
+    },
+
+    /**
+     * Zúži zoznam na to, čo čaká (po splatnosti / na schválenie), a otvorí
+     * prvú faktúru; ďalšie sú na šípke v paneli. Keď zoznam taký filter nemá
+     * (schvaľovať smie len admin), otvorí sa aspoň tá jedna.
+     */
+    solveQueue(filterKey, fallbackId) {
+      const inst = window.DataList && DataList._reg.faktury;
+      const has = inst && (inst.cfg.filters || []).some(f => f.key === filterKey);
+      if (!has) return this.detail(fallbackId);
+      DataList.set('faktury', 'stav', []);
+      DataList.set('faktury', filterKey, true);
+      setTimeout(() => { if (!DataList.openFirst('faktury')) this.detail(fallbackId); }, 0);
     },
 
     /** Aj „nič nečaká" je veta. Obrazovka nemá nikdy mlčať. */
