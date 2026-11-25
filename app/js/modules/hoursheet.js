@@ -351,12 +351,16 @@
              ktorý sa kreslí v appke, a preto jediný bez značky. -->
         <div class="hs-head">
           <div class="hs-brandrow">
-            ${window.DanubraPapers ? DanubraPapers.mark() : ''}
             ${(() => {
-              const b = window.DanubraPapers ? DanubraPapers.brand(sup) : { brand: '', name: sup.name || '' };
-              return b.brand
-                ? `<div><div class="hs-brand">${UI.esc(b.brand)}</div>${b.sub ? `<div class="hs-brand-sub">${UI.esc(b.sub)}</div>` : ''}</div>`
-                : (b.name ? `<div class="hs-brand is-name">${UI.esc(b.name)}</div>` : '');
+              // Naša firma: celé logo DANUBRA (znak D je jeho prvé písmeno, slovo
+              // sa za neho nepíše). Iná firma: jej značka alebo názov textom.
+              const P = window.DanubraPapers;
+              const b = P ? P.brand(sup) : { brand: '', name: sup.name || '' };
+              const sub = b.sub ? `<div class="hs-brand-sub">${UI.esc(b.sub)}</div>` : '';
+              if (P && /^danubra$/i.test(b.brand)) return sub ? `<div>${P.logo()}${sub}</div>` : P.logo();
+              if (b.brand) return `<div><div class="hs-brand">${UI.esc(b.brand)}</div>${sub}</div>`;
+              if (b.name) return `<div class="hs-brand is-name">${UI.esc(b.name)}</div>`;
+              return P ? P.mark() : '';
             })()}
           </div>
           <div class="hs-titlebox">

@@ -16,7 +16,7 @@ const PROF = require('./shared/professions');
 const { DEFAULTS: { contacts: DC } } = require('./content');
 const waDigits = (p) => String(p || '').replace(/\D/g, '');
 
-const INK = '#0E1626', OR = '#F07F1A', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC';
+const INK = '#0A1B3D', OR = '#F07E22', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC';
 const FONT = "'Hanken Grotesk',Arial,Helvetica,sans-serif", HEAD = "'Outfit',Arial,Helvetica,sans-serif";
 const ADDR = 'DANUBRA · Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky';
 
@@ -73,9 +73,7 @@ function shell({ assets, ref, inner, foot }) {
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;font-family:${FONT};color:${INK};">
 <tr><td style="background:${INK};padding:22px 28px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td style="vertical-align:middle;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="padding-right:10px;vertical-align:middle;"><img src="${assets}/img/email/danubra-mark-white.png" width="34" height="26" alt="" style="display:block;border:0;"></td>
-      <td style="vertical-align:middle;"><div style="font:700 21px/1 ${HEAD};letter-spacing:.5px;color:#ffffff;">DANUBRA</div></td></tr></table></td>
+    <td style="vertical-align:middle;"><img src="${assets}/img/email/danubra-logo-white.png" width="170" height="22" alt="DANUBRA" style="display:block;border:0;width:170px;height:22px;"></td>
     <td align="right" style="vertical-align:middle;font:500 12px ${FONT};color:#8C97AD;">${esc(ref)}</td>
   </tr></table></td></tr>
 ${inner}
@@ -138,7 +136,7 @@ function confirmEnquiry({ lang = 'de', trades = [], headcount = null, location =
   ${grid}
   <tr><td style="padding:14px 28px 26px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
     <td style="padding-right:14px;vertical-align:middle;"><div style="width:52px;height:52px;border-radius:26px;background:${INK};text-align:center;">
-      <img src="${assets}/img/email/danubra-mark-white.png" width="30" height="23" alt="" style="display:inline-block;margin-top:15px;border:0;"></div></td>
+      <img src="${assets}/img/email/danubra-mark-white.png" width="26" height="23" alt="" style="display:inline-block;margin-top:14px;border:0;"></div></td>
     <td style="vertical-align:middle;font:400 14px/1.5 ${FONT};color:${T2};"><b style="color:${INK};">${esc(t.contact)}: ${esc(who)}</b><br>${esc([contact.phone, contact.email].filter(Boolean).join(' · '))}</td>
   </tr></table></td></tr>`;
   const foot = `DANUBRA · Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky, ${t.country} · ${t.web}`;

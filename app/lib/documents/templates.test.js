@@ -720,7 +720,7 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(/nie je platiteľom DPH/.test(t), 'neplatiteľ DPH');
   ok(/OV-2026-001/.test(t) && /2026001/.test(t) && /SK3112000000198742637541/.test(t), 'číslo, VS, IBAN');
   ok(/160/.test(t) && /4\s?000,00/.test(t), 'hodiny a suma');
-  ok(!html.includes('<svg viewBox="0 0 100 100"'), 'bez nášho loga — doklad je jeho');
+  ok(!html.includes('M56.5 57V266.5') && !html.includes('aria-label="DANUBRA"'), 'bez nášho loga — doklad je jeho');
   const navrh = P.selfInvoice({ bill: { amount: 10, lines: [] }, worker: { full_name: 'X' } });
   ok(/NÁVRH/.test(navrh), 'návrh bez čísla je označený');
 }
@@ -769,7 +769,16 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   const f = P.invoice({ invoice: { invoice_number: '2026001', total: 100, issue_date: '2026-10-24', due_date: '2026-11-07' },
     items: [], client: { name: 'GU Ulm GmbH', country: 'DE' }, supplier: NASA });
   const t = f.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  ok(/class="brand-word">DANUBRA</.test(f) && !/class="brand-sub"/.test(f), 'na faktúre je značka DANUBRA bez podnadpisu');
+  ok(/<svg[^>]*class="brand-logo"[^>]*aria-label="DANUBRA"/.test(f) && !/class="brand-sub"/.test(f), 'na faktúre je logo DANUBRA bez podnadpisu');
+  ok(!/class="brand-word">DANUBRA</.test(f) && !/<\/svg>\s*(<[^>]+>\s*)*DANUBRA/.test(f), 'za znakom D nie je slovo DANUBRA (nečíta sa DDANUBRA)');
+  const head = (f.match(/<div class="head">[\s\S]*?<div class="doc-title">/) || [''])[0];
+  ok(head.includes('M56.5 57V266.5') && head.includes('stroke="#F07E22"') && head.includes('stroke="#1E4FD8"') && head.includes('fill="#0A1B3D"'),
+    'logo: oranžová pilulka, modrý oblúk a tmavomodré písmená ANUBRA');
+  ok(!f.includes('M6 34 V20'), 'starý znak (vlna) sa už nekreslí');
+  const ina = P.invoice({ invoice: { invoice_number: '1', total: 10 }, items: [], client: { name: 'GU', country: 'DE' }, supplier: { name: 'Iná firma s. r. o.', brand: 'IF' } });
+  ok(/class="brand-word">IF</.test(ina) && !/class="brand-logo"/.test(ina), 'iná firma so značkou: jej značka textom, bez nášho loga');
+  const bez = P.invoice({ invoice: { invoice_number: '1', total: 10 }, items: [], client: { name: 'GU', country: 'DE' }, supplier: {} });
+  ok(/class="brand-mark"/.test(bez) && !/class="brand-logo"/.test(bez), 'bez firmy v Nastaveniach zostane len znak D');
   ok(/Partner und Service s\. r\. o\./.test(t), 'právny názov firmy na faktúre ostáva');
   ok(/Nr\. 2026001/.test(t) && /Rechnungsdatum 24\. ?10\. ?2026/.test(t), 'číslo a dátum sú v hlavičke', t.slice(0, 300));
   const pata = (f.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0].replace(/<[^>]+>/g, ' ');

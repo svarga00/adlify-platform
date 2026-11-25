@@ -28,7 +28,7 @@
   const O = (typeof require === 'function' && typeof module !== 'undefined')
     ? require('./outreach.js') : (typeof window !== 'undefined' ? window.DanubraOutreach : null);
 
-  const INK = '#0E1626', OR = '#F07F1A', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC', PAGE = '#E9EAEC';
+  const INK = '#0A1B3D', OR = '#F07E22', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC', PAGE = '#E9EAEC';
   const FONT = "'Hanken Grotesk',Arial,Helvetica,sans-serif", HEAD = "'Outfit',Arial,Helvetica,sans-serif";
   const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -135,10 +135,7 @@ a{text-decoration:underline;}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="wrap" bgcolor="#ffffff" style="width:100%;max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;">
 <tr><td bgcolor="${INK}" style="background:${INK};padding:20px 32px;" class="px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td valign="middle" style="padding-right:10px;"><img src="${esc(assets)}/img/email/danubra-mark-white.png" width="34" height="26" alt="" style="display:block;border:0;outline:none;"></td>
-<td valign="middle"><div style="font:700 20px/1 ${HEAD};letter-spacing:0.4px;color:#ffffff;">DANUBRA</div></td>
-</tr></table></td>
+<td valign="middle"><img src="${esc(assets)}/img/email/danubra-logo-white.png" width="170" height="22" alt="DANUBRA" style="display:block;border:0;outline:none;width:170px;height:22px;"></td>
 <td align="right" valign="middle" style="font:500 12px/1.3 ${FONT};color:#8C97AD;">${esc(ref)}</td>
 </tr></table></td></tr>
 ${!follow && P.headline ? `<tr><td class="px" style="padding:30px 32px 6px;"><div style="width:34px;height:4px;border-radius:2px;background:${OR};font-size:0;line-height:0;">&nbsp;</div>

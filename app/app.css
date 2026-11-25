@@ -187,7 +187,6 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: flex; align-items: center; justify-content: center; gap: 11px;
   margin-bottom: 30px;
 }
-.login-brand .logo-word { font-size: 28px; color: #0E1626; }
 #login-form { display: grid; gap: 14px; }
 #login-form label { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink-sub); }
 #login-form input {
@@ -207,14 +206,9 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; z-index: 40;
   padding: 16px 10px 14px;
 }
-.sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 6px 10px 14px; }
-.logo-mark { display: block; flex-shrink: 0; }
-.logo-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-/* Slovo DANUBRA — písmo Outfit ako na webe a dokumentoch, veľkými písmenami. */
-.logo-word {
-  font: 700 21px/.8 Outfit, Inter, sans-serif; letter-spacing: .02em;
-  color: #fff; white-space: nowrap;
-}
+.sidebar-brand { display: flex; align-items: center; padding: 8px 10px 16px; }
+/* Logo DANUBRA (znak D + písmená ANUBRA) ako obrázok; výška pevná, šírka podľa pomeru strán. */
+.logo-full { display: block; flex-shrink: 0; height: auto; max-width: 100%; }
 /* Navigácia sa musí zmestiť celá. Keď sa nezmestí, musí byť **vidieť**, že
    pokračuje — inak sa položky pod okrajom nedajú nájsť a človek si myslí,
    že v appke nie sú. Presne to sa stalo s celou skupinou PENIAZE. */
@@ -2460,8 +2454,8 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
    Papier, ktorý na stavbe podpisuje Kunde. Vyzerá ako papier zámerne —
    človek na stavbe má v ruke rovnaký tvar, aký vidí na obrazovke. */
 .hs-paper {
-  --hs-ink: #0E1626; --hs-sub: #4A5570; --hs-mute: #6F7A92; --hs-lbl: #8C97AD;
-  --hs-line: #E6E8EC; --hs-soft: #F4F4F1; --hs-or: #F07F1A;
+  --hs-ink: #0A1B3D; --hs-sub: #4A5570; --hs-mute: #6F7A92; --hs-lbl: #8C97AD;
+  --hs-line: #E6E8EC; --hs-soft: #F4F4F1; --hs-or: #F07E22;
   position: relative; background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
   padding: 26px 28px 30px; box-shadow: var(--shadow-sm); overflow-x: auto; color: var(--hs-ink);
 }
@@ -2469,7 +2463,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .hs-paper::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--hs-or); }
 .hs-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .hs-brandrow { display: flex; align-items: center; gap: 11px; min-width: 0; }
-.hs-brandrow > svg { flex: none; }
+.hs-brandrow svg { flex: none; display: block; }
 .hs-brand { font: 700 24px/.8 Outfit, Inter, sans-serif; letter-spacing: .02em; color: var(--hs-ink); white-space: nowrap; }
 .hs-brand-sub { font-size: 6.5px; font-weight: 500; letter-spacing: .26em; color: var(--hs-mute); text-transform: uppercase; margin-top: 9px; }
 .hs-brand.is-name { font-size: 17px; line-height: 1.15; letter-spacing: -.02em; }

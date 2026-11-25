@@ -74,7 +74,7 @@ const BODY = { lead_id: 'l1', mailbox_id: 'mb1', step: 1, lang: 'de', subject: '
     const r = await call(send, BODY);
     ok(r.code === 200 && r.attachment && r.attachment.kind === 'presentation' && r.trade === 'trockenbau', 'odišiel s prezentáciou, remeslo z hľadania', JSON.stringify(r));
     const p = await simpleParser(smtp.sent[0].raw);
-    ok(p.html.includes('Trockenbauer für Ihre Baustellen in Augsburg und Umgebung') && p.html.includes('danubra-mark-white.png'), 'HTML v dizajne DANUBRA s nadpisom podľa remesla a mesta');
+    ok(p.html.includes('Trockenbauer für Ihre Baustellen in Augsburg und Umgebung') && p.html.includes('danubra-logo-white.png'), 'HTML v dizajne DANUBRA s nadpisom podľa remesla a mesta');
     ok(/Sehr geehrter Herr Müller,/.test(p.html) && (p.html.match(/Mit freundlichen Grüßen/g) || []).length === 1 && /Projektkoordination DACH/.test(p.html) && !/S pozdravom/.test(p.html),
       'text, jeden pozdrav a vizitka schránky po nemecky');
     ok(/danubra-track\?t=[a-f0-9]{32}&amp;k=c&amp;u=https%3A%2F%2Fdanubra\.eu/.test(p.html) && /danubra-track\?t=[a-f0-9]{32}&amp;k=o/.test(p.html), 'výzva so sledovaním kliku, obrázok na otvorenie');

@@ -13,6 +13,7 @@ const { esc, each } = require('../../shared/h');
 const PROF = require('../../shared/professions');
 const { icon } = require('../../shared/icons');
 const { PHONE, PHONE2, MAIL, tel, spokenField } = require('../common');
+const LG = require('../../../app/lib/brand-logo.js');
 
 const ADDR = 'Podzámska 9468/4A, 940 71 Nové Zámky';
 const MAPS = 'https://maps.google.com/?q=Podz%C3%A1mska+9468/4A,+940+71+Nov%C3%A9+Z%C3%A1mky';
@@ -57,9 +58,9 @@ const F = {
 };
 const TOPIC_KEYS = ['work', 'job', 'docs', 'other'];
 
-/** Znak „∩∪" v jednej farbe (dekorácia v pozadí). */
-const ghost = (w, color = '#fff') => `<svg class="ghost-mark" width="${w}" height="${Math.round(w * 33.5 / 43.5)}" viewBox="2.25 7.25 43.5 33.5" fill="none" aria-hidden="true">`
-  + `<path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="${color}" stroke-width="7.5" stroke-linecap="round"/><path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="${color}" stroke-width="7.5" stroke-linecap="round"/></svg>`;
+/** Znak D (logo DANUBRA) v jednej farbe — dekorácia v pozadí. */
+const ghost = (w, color = '#fff') => `<svg class="ghost-mark" width="${w}" height="${Math.round(w / LG.MARK_RATIO)}" viewBox="${LG.MARK_VB}" fill="none" aria-hidden="true">`
+  + `<path d="${LG.PILL}" stroke="${color}" stroke-width="${LG.PILL_W}" stroke-linecap="round"/><path d="${LG.CURVE}" stroke="${color}" stroke-width="${LG.CURVE_W}" stroke-linecap="round"/></svg>`;
 
 const ICO = {
   phone: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3.5h3.2l1.6 4.2-2 1.3a11 11 0 0 0 5.2 5.2l1.3-2 4.2 1.6V17a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 3 5.7 2 2 0 0 1 5 3.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',

@@ -9,21 +9,25 @@
 // (obálka 660 × 330 px); hodnoty sú prepočítané.
 // ============================================================================
 (function () {
-  const INK = '#0E1626', OR = '#F07F1A', STEEL = '#8C97AD', T2 = '#4A5570', T3 = '#6F7A92';
+  // Logo a farby značky DANUBRA (lib/brand-logo.js).
+  const LG = (typeof window !== 'undefined' && window.DanubraBrandLogo)
+    || (typeof require !== 'undefined' && typeof module !== 'undefined' ? require('../brand-logo.js') : null);
+  const INK = '#0A1B3D', OR = '#F07E22', BLUE = '#1E4FD8', STEEL = '#8C97AD', T2 = '#4A5570', T3 = '#6F7A92';
   const BLEED = 3;
   const CARD = { w: 85, h: 55 };
   const DL = { w: 220, h: 110 };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const mm = (px, k = 6) => `${Math.round((px / k) * 100) / 100}mm`;
 
-  /** Znak DANUBRA (vlna, Dunaj); w = šírka v mm (napr. '10.67mm'). */
-  const mark = (w, a = INK, b = OR, op = 1) => {
-    // Priehľadnosť cez stroke-opacity — opacity na <svg> knižnica PDF ignoruje.
-    const o = op < 1 ? ` stroke-opacity="${op}"` : '';
-    return `<svg viewBox="2.25 7.25 43.5 33.5" width="${w}" height="${(parseFloat(w) * 33.5 / 43.5).toFixed(2)}mm" fill="none" style="display:block">`
-      + `<path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="${a}" stroke-width="7.5" stroke-linecap="round"${o}/>`
-      + `<path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="${b}" stroke-width="7.5" stroke-linecap="round"${o}/></svg>`;
-  };
+  /**
+   * Znak D (pilulka a oblúk); w = šírka v mm (napr. '10.67mm'). Priehľadnosť
+   * cez stroke-opacity — opacity na <svg> knižnica PDF ignoruje.
+   */
+  const mark = (w, pill = OR, curve = BLUE, op = 1) => (LG
+    ? LG.mark({ h: `${Math.round(parseFloat(w) / LG.MARK_RATIO * 100) / 100}mm`, pill, curve, opacity: op, style: 'display:block' }) : '');
+
+  /** Celé logo DANUBRA (znak D + písmená ANUBRA); h = výška v mm, ink = farba písmen. */
+  const fullLogo = (h, ink = INK) => (LG ? LG.logo({ h, ink, style: 'display:block' }) : '');
 
   const FONT = "'Hanken Grotesk',Inter,Arial,sans-serif", HEAD = "Outfit,'Hanken Grotesk',Arial,sans-serif";
 
@@ -32,9 +36,6 @@
     return `<div class="pw-face" style="position:relative;width:${w + 2 * bleed}mm;height:${h + 2 * bleed}mm;background:${bg};overflow:hidden;font-family:${FONT};">`
       + `<div style="position:absolute;left:${bleed}mm;top:${bleed}mm;width:${w}mm;height:${h}mm;">${inner}</div></div>`;
   }
-
-  /** Slovo DANUBRA — Outfit 700, veľké písmená. */
-  const wordmark = (size, color) => `<span style="display:block;font:700 ${mm(size)}/.8 ${HEAD};letter-spacing:.02em;color:${color};white-space:nowrap;">DANUBRA</span>`;
 
   /**
    * Vizitka — líce a rub.
@@ -45,13 +46,14 @@
     const v = p.variant === 'orange' ? 'orange' : 'dark';
     const web = p.web || (p.lang === 'de' ? 'danubra.eu' : 'danubra.sk');
     const W = CARD.w, H = CARD.h;
-    const logoRow = (markColor, word) => `<div style="display:flex;align-items:center;gap:${mm(18)};">${mark(mm(64), markColor)}${wordmark(36, word)}</div>`;
+    // Celé logo — znak D je jeho prvé písmeno, slovo DANUBRA sa za neho nepíše.
+    const logoRow = (ink) => fullLogo(mm(36), ink);
     let front, back;
     if (v === 'dark') {
       // Bleed: tmavé pozadie aj veľký znak idú cez okraj.
       front = face(W, H, INK, `
         <div style="position:absolute;right:${mm(-70)};bottom:${mm(-80)};">${mark(mm(330), '#fff', '#fff', 0.07)}</div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow('#fff', '#fff')}</div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow('#fff')}</div>
         <span style="position:absolute;left:${mm(30)};bottom:${mm(24)};font:500 ${mm(13)} ${FONT};color:${STEEL};letter-spacing:.04em;">${esc(web)}</span>
         <span style="position:absolute;right:${mm(30)};bottom:${mm(30)};width:${mm(34)};height:${mm(5)};border-radius:${mm(3)};background:${OR};"></span>`);
       const rows = [['T', p.phone], ['E', p.email], ['W', web], ['A', p.address]].filter((r) => r[1]);
@@ -68,7 +70,7 @@
     } else {
       front = face(W, H, '#fff', `
         <div style="position:absolute;left:-${BLEED}mm;top:-${BLEED}mm;bottom:-${BLEED}mm;width:calc(${mm(14)} + ${BLEED}mm);background:${OR};"></div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow(INK, INK)}</div>`);
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow(INK)}</div>`);
       back = face(W, H, OR, `
         <div style="position:absolute;inset:0;padding:${mm(34)} ${mm(36)};display:flex;flex-direction:column;justify-content:space-between;color:${INK};">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:${mm(12)};">
@@ -92,8 +94,7 @@
     const sender = String(p.sender || '').split('\n').map(esc).join('<br>');
     const to = String(p.to || '').trim();
     const inner = `
-      <div style="position:absolute;left:${mm(40, k)};top:${mm(34, k)};display:flex;align-items:center;gap:${mm(10, k)};">${mark(mm(34, k))}
-        <span style="font:700 ${mm(19, k)}/.8 ${HEAD};letter-spacing:.02em;color:${INK};white-space:nowrap;">DANUBRA</span></div>
+      <div style="position:absolute;left:${mm(40, k)};top:${mm(34, k)};">${fullLogo(mm(20, k))}</div>
       <div style="position:absolute;left:${mm(40, k)};bottom:${mm(34, k)};font:400 ${mm(10, k)}/1.55 ${FONT};color:${T3};">${sender}</div>
       ${to ? `<div style="position:absolute;left:110mm;top:50mm;width:95mm;font:400 3.9mm/1.45 ${FONT};color:${INK};">${to.split('\n').map((l, i) => (i === 0 ? `<strong>${esc(l)}</strong>` : esc(l))).join('<br>')}</div>` : ''}
       <div style="position:absolute;right:0;top:0;bottom:0;width:${mm(8, k)};background:${OR};"></div>`;

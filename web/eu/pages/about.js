@@ -61,7 +61,7 @@ async function render(ctx) {
   const team = (ctx.content && ctx.content.team) || [];
   const body = `
 <section class="eu-ahero">
-  <div class="eu-hero-mark eu-ahero-mark" aria-hidden="true">${mark({ w: 620, light: true })}</div>
+  <div class="eu-hero-mark eu-ahero-mark" aria-hidden="true">${mark({ w: 620, mono: '#fff' })}</div>
   <div class="wrap eu-ahero-in">
     <div class="eu-ahero-txt rv-in">
       <nav class="crumbs eu-crumbs-dark" aria-label="Breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span aria-current="page">${esc(t.crumb)}</span></nav>
@@ -104,7 +104,7 @@ async function render(ctx) {
 
 <section class="wrap sec sec-last">
   <div class="eu-band rv">
-    <div class="eu-band-mark" aria-hidden="true">${mark({ w: 360, light: true })}</div>
+    <div class="eu-band-mark" aria-hidden="true">${mark({ w: 360, mono: '#fff' })}</div>
     <div class="eu-band-t"><strong>${esc(t.ctaH)}</strong><span>${esc(t.ctaP)}</span></div>
     <a class="btn btn-primary" href="${esc(ctx.url('contact'))}#form">${esc(t.cta)} →</a>
   </div>

@@ -24,7 +24,7 @@ async function render(ctx) {
   const t = T[ctx.lang] || T.de;
   const body = `
 <section class="eu-hero eu-404">
-  <div class="eu-hero-mark" aria-hidden="true">${mark({ w: 640, light: true })}</div>
+  <div class="eu-hero-mark" aria-hidden="true">${mark({ w: 640, mono: '#fff' })}</div>
   <div class="wrap eu-hero-in rv-in">
     <span class="eu-pill"><span class="eu-dot" aria-hidden="true"></span>${esc(t.k)}</span>
     <h1 class="eu-h1 eu-h1-64">${esc(t.h1)}</h1>

@@ -32,13 +32,10 @@
   <!-- LOGIN -->
   <div id="login-screen" class="login-screen" hidden>
     <div class="login-card">
-      <!-- Značka DANUBRA: znak (vlna, rieka Dunaj) a slovo. -->
-      <div class="login-brand" aria-label="DANUBRA">
-        <svg class="logo-mark" viewBox="2.25 7.25 43.5 33.5" width="40" height="31" fill="none" aria-hidden="true">
-          <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="#0E1626" stroke-width="7.5" stroke-linecap="round"/>
-          <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="#F07F1A" stroke-width="7.5" stroke-linecap="round"/>
-        </svg>
-        <span class="logo-txt"><span class="logo-word">DANUBRA</span></span>
+      <!-- Logo DANUBRA: znak D (oranžová pilulka, modrý oblúk) a písmená ANUBRA.
+           Znak je písmeno D, preto sa za neho slovo DANUBRA nepíše. -->
+      <div class="login-brand">
+        <img class="logo-full" src="./icons/danubra-logo.svg" width="248" height="32" alt="DANUBRA">
       </div>
       <form id="login-form">
         <label>E-mail
@@ -68,12 +65,9 @@
   <!-- APP -->
   <div id="app" class="app" hidden>
     <aside class="sidebar">
-      <div class="sidebar-brand" aria-label="DANUBRA">
-        <svg class="logo-mark" viewBox="2.25 7.25 43.5 33.5" width="30" height="23" fill="none" aria-hidden="true">
-          <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="#fff" stroke-width="7.5" stroke-linecap="round"/>
-          <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="#F07F1A" stroke-width="7.5" stroke-linecap="round"/>
-        </svg>
-        <span class="logo-txt"><span class="logo-word">DANUBRA</span></span>
+      <!-- Tmavý panel: logo s bielymi písmenami. -->
+      <div class="sidebar-brand">
+        <img class="logo-full" src="./icons/danubra-logo-white.svg" width="170" height="22" alt="DANUBRA">
       </div>
       <div id="area-switch" class="area-switch"></div>
       <!-- Obal drží tieň na spodku, keď navigácia pokračuje pod okrajom. -->
@@ -183,6 +177,7 @@
   <script src="./lib/documents/bundle.js"></script>
   <script src="./lib/documents/subcontract.js"></script>
   <script src="./lib/documents/framework-de.js"></script>
+  <script src="./lib/brand-logo.js"></script>
   <script src="./lib/documents/templates.js"></script>
   <script src="./lib/documents/printwork.js"></script>
   <script src="./lib/documents/guide-doc.js"></script>

@@ -27,16 +27,15 @@
 const { Doc, A4_LANDSCAPE } = require('../documents/pdf-mini.js');
 const Pitch = require('./pitch.js');
 
-const INK = '#0E1626', OR = '#F07F1A', STEEL = '#8C97AD', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC', WHITE = '#FFFFFF';
+const INK = '#0A1B3D', OR = '#F07E22', STEEL = '#8C97AD', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC', WHITE = '#FFFFFF';
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const EU_PHONE = '+421 910 523 958', EU_MAIL = 'info@danubra.eu', EU_WEB = 'danubra.eu';
 
 const clean = (v, n = 300) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
-/** Logo: znak (vlna) + slovo „DANUBRA" veľkými písmenami. */
+/** Logo DANUBRA: znak D + písmená ANUBRA (krivky, nie písmo); na tmavom biele písmená. */
 function logo(p, x, y, { dark = false, size = 1 } = {}) {
-  p.mark(x, y, 34 * size, { a: dark ? WHITE : INK, b: OR });
-  p.text('DANUBRA', x + 42 * size, y + 22 * size, { size: 22 * size, font: 'B', color: dark ? WHITE : INK, cs: 0.3 * size });
+  p.logo(x, y, 24 * size, { ink: dark ? WHITE : INK });
 }
 
 /** Spoločná hlavička a päta strán 2–4. */
@@ -90,7 +89,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
   {
     const p = doc.page();
     p.rect(0, 0, w, h, { fill: INK });
-    p.mark(w - 430, h - 320, 520, { a: WHITE, b: WHITE, alpha: 0.06 });
+    p.mark(w - 430, h - 320, 520, { pill: WHITE, curve: WHITE, alpha: 0.06 });
     p.rect(w - 14, 0, 14, h, { fill: OR });
     logo(p, 56, 50, { dark: true, size: 1.1 });
     // Pilulka nad nadpisom (ako na danubra.eu)
@@ -133,7 +132,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
     // Vaše remeslo
     const cx = 440, cw = w - 48 - cx;
     p.rect(cx, 124, cw, 400, { fill: INK, r: 14 });
-    p.mark(cx + cw - 120, 124 + 400 - 100, 130, { a: WHITE, b: WHITE, alpha: 0.06 });
+    p.mark(cx + cw - 120, 124 + 400 - 100, 130, { pill: WHITE, curve: WHITE, alpha: 0.06 });
     p.text('IHR GEWERK', cx + 26, 152, { size: 8, font: 'B', color: OR, cs: 1.4 });
     let yy = p.para(tr.label, cx + 26, 162, cw - 52, { size: 20, font: 'B', color: WHITE, lead: 1.15, cs: -0.3 });
     yy = p.para(`${tr.team} – als einzelne Fachkraft oder eingespieltes Team${reg.name ? `, für Ihre Baustellen ${reg.phrase}` : ''}.`,

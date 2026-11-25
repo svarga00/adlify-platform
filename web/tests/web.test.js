@@ -155,8 +155,16 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
     const stara = bodies.filter(([, r]) => /punds/i.test(r.body.replace(/https:\/\/punds\.eu\/wp-content\/[^"' )]+/g, '')
       .replace(/(Webauftritt unter|website at) punds\.eu/g, ''))).map(([u, r]) => `${u}: ${(r.body.match(/.{0,40}punds.{0,40}/i) || [''])[0]}`);
     ok(stara.length === 0, 'na stránkach nie je stará značka punds (len DANUBRA)', stara.slice(0, 3).join(' | '));
-    const logo = bodies.filter(([, r]) => !/<span class="logo-word">DANUBRA<\/span>/.test(r.body) || /PARTNER UND SERVICE/.test(r.body)).map(([u]) => u);
-    ok(logo.length === 0, 'logo je znak + slovo DANUBRA, bez podtitulku', logo.slice(0, 5).join(', '));
+    // Logo = znak D (oranžová pilulka, modrý oblúk) + písmená ANUBRA ako krivky.
+    // Znak je písmeno D, takže za ním nesmie byť slovo DANUBRA (DDANUBRA).
+    const logo = bodies.filter(([, r]) => {
+      const a = (r.body.match(/<a class="logo[^"]*"[^>]*>[\s\S]*?<\/a>/) || [''])[0];
+      return !/<svg[^>]*class="lg-logo[^"]*"[^>]*viewBox="32 32 2044 264"/.test(a) || !a.includes('stroke="#F07E22"') || !a.includes('stroke="#1E4FD8"')
+        || !/fill="#(0A1B3D|fff)" fill-rule="evenodd"/.test(a) || /<\/svg>\s*(<[^>]+>\s*)*DANUBRA/.test(a) || /logo-word|PARTNER UND SERVICE/.test(r.body);
+    }).map(([u]) => u);
+    ok(logo.length === 0, 'logo je znak D + písmená ANUBRA (jedno SVG), bez slova DANUBRA za znakom a bez podtitulku', logo.slice(0, 5).join(', '));
+    const vlna = bodies.filter(([, r]) => /M6 34 V20|M24 28 A9 9/.test(r.body)).map(([u]) => u);
+    ok(vlna.length === 0, 'starý znak (vlna) nie je na žiadnej stránke', vlna.slice(0, 5).join(', '));
     for (const l of site.langs) {
       const home = seen.get(`${site.prefix}/${l}/`);
       ok(home && home.status === 200 && new RegExp(`<html lang="${l === 'cz' ? 'cs' : l}"`).test(home.body), `${site.domain}/${l}/ — správny jazyk stránky`);
@@ -221,8 +229,16 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
   const chyba = fns.filter((f) => !fs.existsSync(pth.join(__dirname, '..', '..', 'netlify', 'functions', `${f}.js`)));
   ok(chyba.length === 0, 'netlify.toml: každá funkcia z presmerovaní existuje', chyba.join(', '));
   const img = (f) => fs.existsSync(pth.join(__dirname, '..', 'public', 'img', f));
-  ok(['logo/danubra-logo.svg', 'logo/danubra-logo-white.svg', 'logo/danubra-icon.svg', 'logo/danubra-mark.svg', 'email/danubra-mark.png', 'email/danubra-mark-white.png'].every(img)
+  ok(['logo/danubra-logo.svg', 'logo/danubra-logo-white.svg', 'logo/danubra-icon.svg', 'logo/danubra-mark.svg', 'logo/danubra-mark-white.svg', 'logo/danubra-mark-black.svg',
+    'email/danubra-mark.png', 'email/danubra-mark-white.png', 'email/danubra-logo.png', 'email/danubra-logo-white.png'].every(img)
     && rule('/web/public/img/email/punds-mark-white.png').to === '/web/public/img/email/danubra-mark-white.png', 'logá DANUBRA existujú; staré logo v odoslaných e-mailoch sa presmeruje');
+  const svgs = ['danubra-logo', 'danubra-logo-white', 'danubra-mark', 'danubra-mark-white', 'danubra-mark-black', 'danubra-icon']
+    .map((n) => [n, fs.readFileSync(pth.join(__dirname, '..', 'public', 'img', 'logo', `${n}.svg`), 'utf8')]);
+  ok(svgs.every(([, x]) => x.includes('M56.5 57V266.5') && x.includes('M117 59H189.5A102.5 102.5 0 0 1 189.5 264H117') && !/M6 34 V20|M24 28 A9 9/.test(x)),
+    'súbory loga majú nový znak D, nie starú vlnu');
+  ok(svgs.filter(([n]) => n !== 'danubra-mark-black').every(([, x]) => x.includes('#F07E22') && x.includes('#1E4FD8'))
+    && /fill="#0A1B3D" fill-rule="evenodd"/.test(svgs[0][1]) && /fill="#FFFFFF" fill-rule="evenodd"/.test(svgs[1][1]) && !/>DANUBRA</.test(svgs[0][1]),
+    'farby značky: oranžová #F07E22, modrá #1E4FD8, písmená tmavomodré alebo biele');
 
   console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
   process.exit(failed ? 1 : 0);

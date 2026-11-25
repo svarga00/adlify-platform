@@ -20,8 +20,9 @@
   // písmo Outfit na nadpisy a sumy, Hanken Grotesk na text. Rovnaká hlavička
   // a päta na faktúre, výkaze, objednávke aj zmluve — papiere pre nemecké
   // firmy aj pre živnostníkov vyzerajú ako od jednej firmy.
+  // Farby značky DANUBRA: oranžová #F07E22, modrá #1E4FD8 a tmavomodrá #0A1B3D.
   const BRAND = {
-    orange: '#F07F1A', navy: '#0E1626', sub: '#4A5570', mute: '#6F7A92',
+    orange: '#F07E22', blue: '#1E4FD8', navy: '#0A1B3D', sub: '#4A5570', mute: '#6F7A92',
     lbl: '#8C97AD', line: '#E6E8EC', soft: '#F4F4F1',
   };
 
@@ -44,11 +45,28 @@
   /** Text bez diakritiky — pre SMS (GSM-7). */
   const noDia = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-  // Znak DANUBRA: dva oblúky ako vlna (rieka Dunaj), tmavý a oranžový.
-  const LOGO = `<svg viewBox="2.25 7.25 43.5 33.5" width="44" height="34" fill="none" style="display:block">
-    <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="${BRAND.navy}" stroke-width="7.5" stroke-linecap="round"/>
-    <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="${BRAND.orange}" stroke-width="7.5" stroke-linecap="round"/>
-  </svg>`;
+  // Logo DANUBRA (lib/brand-logo.js): znak D (oranžová pilulka a modrý oblúk)
+  // a písmená ANUBRA. Znak je písmeno D, preto sa za neho slovo DANUBRA nepíše.
+  const DL = (typeof window !== 'undefined' && window.DanubraBrandLogo)
+    || (typeof require !== 'undefined' && typeof module !== 'undefined' ? require('../brand-logo.js') : null);
+  /** Celé logo v hlavičke dokumentu — výška ako kedysi znak so slovom. */
+  const LOGO = DL ? DL.logo({ h: 30, ink: BRAND.navy, cls: 'brand-logo', style: 'display:block' }) : '';
+  /** Len znak D — keď v Nastaveniach ešte nie je firma. */
+  const MARK = DL ? DL.mark({ h: 34, cls: 'brand-mark', style: 'display:block' }) : '';
+  /** Značka je naša (DANUBRA)? Iná firma má v hlavičke svoj názov, nie naše logo. */
+  const nasa = (b) => /^danubra$/i.test(String((b && b.brand) || ''));
+
+  /**
+   * Obsah bloku `.brand` v hlavičke: naša firma má celé logo, iná firma so
+   * značkou jej slovo (a pod ním celý názov), firma bez značky `bezZnacky`
+   * (jej celý názov). Bez firmy zostane len znak D.
+   */
+  function brandHtml(b, bezZnacky = '') {
+    const sub = b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : '';
+    if (nasa(b)) return sub ? `<div>${LOGO}${sub}</div>` : LOGO;
+    if (b.brand) return `<div><div class="brand-word">${esc(b.brand)}</div>${sub}</div>`;
+    return bezZnacky || MARK;
+  }
 
   /**
    * Značka v hlavičke: krátky názov (DANUBRA). Krátky názov je z Nastavení
@@ -278,10 +296,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
   function header(docTitle, number, meta = [], supplier = null, lang = 'sk') {
     const b = brandOf(supplier || {});
     const pevne = (t) => esc(t).replace(/\b(s\.|r\.|o\.|a\.|spol\.|GmbH|UG)\s/g, (m) => m.trim() + '&nbsp;');
-    const znacka = b.brand
-      ? `<div><div class="brand-word">${esc(b.brand)}</div>${b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : ''}</div>`
-      : b.name ? `<div><div class="brand-name">${pevne(b.name)}</div>
-          ${supplier && supplier.tagline ? `<div class="brand-sub">${esc(supplier.tagline)}</div>` : ''}</div>` : '';
+    const znacka = brandHtml(b, b.name ? `<div><div class="brand-name">${pevne(b.name)}</div>
+          ${supplier && supplier.tagline ? `<div class="brand-sub">${esc(supplier.tagline)}</div>` : ''}</div>` : '');
     // „č. 2026-018", ale meno človeka (infolist) bez „č." — nie je to číslo.
     const cisloPopis = { sk: 'č.', de: 'Nr.', both: 'č. / Nr.' }[lang] || 'č.';
     const cislo = number ? `<div class="meta">${/\d/.test(String(number)) ? `${esc(cisloPopis)} ` : ''}<span class="num">${esc(number)}</span></div>` : '';
@@ -290,7 +306,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       return `<div class="meta">${x ? `${esc(x[1])} <b>${esc(x[2])}</b>` : esc(m)}</div>`;
     };
     return `<div class="head">
-      <div class="brand">${LOGO}${znacka}</div>
+      <div class="brand">${znacka}</div>
       <div class="doc-title"><h1>${esc(docTitle)}</h1>${cislo}${(meta || []).filter(Boolean).map(riadok).join('')}</div>
     </div>`;
   }
@@ -2023,8 +2039,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const miesto = place || mestoZAdresy(supplier);
     const body2 = `
       <div class="head letter-head">
-        <div class="brand">${LOGO}${b.brand ? `<div><div class="brand-word">${esc(b.brand)}</div>${b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : ''}</div>`
-          : `<div><div class="brand-name">${esc(b.name)}</div></div>`}</div>
+        <div class="brand">${brandHtml(b, b.name ? `<div><div class="brand-name">${esc(b.name)}</div></div>` : '')}</div>
         <div class="doc-title">${supplier.phone ? `<div class="meta">${esc(supplier.phone)}</div>` : ''}${supplier.email ? `<div class="meta">${esc(supplier.email)}</div>` : ''}
           ${web ? `<div class="meta" style="color:${BRAND.orange};font-weight:600;">${esc(web)}</div>` : ''}</div>
       </div>
@@ -2204,8 +2219,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
 
     const body = `
       <div class="hn-top">
-        <div class="brand">${LOGO}${b.brand ? `<div><div class="brand-word">${esc(b.brand)}</div>${b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : ''}</div>`
-          : b.name ? `<div><div class="brand-name">${esc(b.name)}</div></div>` : ''}</div>
+        <div class="brand">${brandHtml(b, b.name ? `<div><div class="brand-name">${esc(b.name)}</div></div>` : '')}</div>
         <div class="hn-title"><h1>Stundennachweis</h1>
           <div class="meta">${esc(supplier.name || '')}${f ? ` · Abschrift${sig ? ' des vom Kunden unterschriebenen Originals' : ''}` : ''}</div></div>
         <div class="hn-kw"><span class="lbl">KW</span><b>${wk ? esc(wk.week) : '&nbsp;'}</b>${wk ? `<span class="y">${esc(wk.year)}</span>` : '<span class="y">/ 20&nbsp;&nbsp;&nbsp;&nbsp;</span>'}
@@ -2275,8 +2289,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, header, foot, footSigned, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => MARK, logo: () => LOGO, brandHtml: (sup) => brandHtml(brandOf(sup || {})), header, foot, footSigned, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, header, foot, footSigned, shell, esc, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => MARK, logo: () => LOGO, brandHtml: (sup) => brandHtml(brandOf(sup || {})), header, foot, footSigned, shell, esc, letter, stundennachweis, STUNDEN_LEGAL, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, lodgingSheet, invoiceGuide, monthLabel, toCents, centsText, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

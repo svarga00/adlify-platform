@@ -24,9 +24,9 @@ const r = E.build({ subject: 'Trockenbauer für Müller', body, pitch, supplier:
   replyTo: 'stefan@danubra.eu', unsubscribeUrl: UNSUB, assets: 'https://hub.example/web/public', attachment: { name: 'danubra-trockenbau-bayern.pdf', pages: 4 } });
 ok(/^<!DOCTYPE html>/.test(r.html) && /role="presentation"/.test(r.html) && /max-width:600px/.test(r.html), 'tabuľkové rozloženie, šírka 600 px');
 ok(/<meta name="color-scheme" content="light dark">/.test(r.html) && /prefers-color-scheme:dark/.test(r.html) && /\[data-ogsc\]/.test(r.html), 'tmavý režim (Apple Mail aj Outlook.com)');
-ok(/<!--\[if mso\]>/.test(r.html) && /bgcolor="#F07F1A"/.test(r.html), 'Outlook: podmienené štýly a tlačidlo s pozadím na bunke');
+ok(/<!--\[if mso\]>/.test(r.html) && /bgcolor="#F07E22"/.test(r.html), 'Outlook: podmienené štýly a tlačidlo s pozadím na bunke');
 ok(/@media \(max-width:620px\)/.test(r.html), 'mobil: menšie okraje a nadpis');
-ok(r.html.includes('danubra-mark-white.png') && r.html.includes('Trockenbauer für Ihre Baustellen in Bayern'), 'logo a nadpis podľa remesla a regiónu');
+ok(r.html.includes('danubra-logo-white.png') && !/>DANUBRA<\/div>/.test(r.html) && r.html.includes('Trockenbauer für Ihre Baustellen in Bayern'), 'logo a nadpis podľa remesla a regiónu');
 ok(r.html.includes('Ständerwerk') && r.html.includes('§ 48b EStG'), 'tri body');
 ok(r.html.includes('href="https://danubra.eu"') && /Antworten Sie einfach auf diese E-Mail/.test(r.html), 'jedna výzva: odkaz na danubra.eu a odpovedať');
 ok(r.html.includes('danubra-trockenbau-bayern.pdf') && /4 Seiten/.test(r.html), 'príloha je ohlásená');

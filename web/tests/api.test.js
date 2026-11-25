@@ -160,7 +160,7 @@ const req = (body, o = {}) => ({ method: 'POST', body: JSON.stringify(body), ip:
   const E = require('../emails');
   for (const l of SITES.sk.langs) {
     const m = E.confirmApply({ lang: l, name: 'Ján Novák', job: { title: 'Zvárač', city: 'Bremen', rate: '29–30 €', start: 'Od 3. 11.', image: 'https://x/y.jpg' }, ref: 'AB12CD', assets: 'https://a/web/public' });
-    ok(m.subject && /Ján/.test(m.html) && !/undefined|NaN/.test(m.html + m.text) && /danubra-mark-white\.png/.test(m.html) && m.text.length > 80, `potvrdenie prihlášky — ${l}`, m.subject);
+    ok(m.subject && /Ján/.test(m.html) && !/undefined|NaN/.test(m.html + m.text) && /danubra-logo-white\.png/.test(m.html) && m.text.length > 80, `potvrdenie prihlášky — ${l}`, m.subject);
   }
   ok(/germană sau engleză/.test(E.confirmApply({ lang: 'ro', assets: 'x' }).text) && /немски или английски/.test(E.confirmApply({ lang: 'bg', assets: 'x' }).text)
     && !/nemecky alebo anglicky/.test(E.confirmApply({ lang: 'sk', assets: 'x' }).text), 'potvrdenie po rumunsky a bulharsky pripomína nemčinu alebo angličtinu vedúceho partie');

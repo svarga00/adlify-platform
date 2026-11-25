@@ -137,16 +137,16 @@
     const web = novaDomena(c.web) || d.web, url = novaDomena(c.cta_url) || d.url;
     return `<div style="font:400 14px/1.6 ${F};color:#4A5570;margin:18px 0 14px;">${esc(d.greet)}</div>`
       + `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>`
-      + `<td style="padding-right:18px;border-right:2px solid #F07F1A;vertical-align:top;">`
-      + `<img src="${esc(assets)}/img/email/danubra-mark.png" width="54" height="42" alt="DANUBRA" style="display:block;border:0;"></td>`
+      + `<td style="padding-right:18px;border-right:2px solid #F07E22;vertical-align:top;">`
+      + `<img src="${esc(assets)}/img/email/danubra-mark.png" width="48" height="43" alt="DANUBRA" style="display:block;border:0;"></td>`
       + `<td style="padding-left:18px;vertical-align:top;">`
-      + `<div style="font:700 18px/1.2 ${Hh};color:#0E1626;">${esc(c.name)}</div>`
-      + `<div style="font:500 13px/1.4 ${F};color:#F07F1A;margin:2px 0 8px;">${esc(c.role ? `${c.role} · DANUBRA` : 'DANUBRA')}</div>`
+      + `<div style="font:700 18px/1.2 ${Hh};color:#0A1B3D;">${esc(c.name)}</div>`
+      + `<div style="font:500 13px/1.4 ${F};color:#F07E22;margin:2px 0 8px;">${esc(c.role ? `${c.role} · DANUBRA` : 'DANUBRA')}</div>`
       + `<div style="font:400 13px/1.65 ${F};color:#4A5570;">${c.phone ? `${esc(c.phone)}<br>` : ''}`
-      + `<a href="mailto:${esc(mb.email)}" style="color:#0E1626;text-decoration:none;">${esc(mb.email)}</a> · `
-      + `<a href="https://${esc(web)}" style="color:#0E1626;font-weight:600;text-decoration:none;">${esc(web)}</a></div></td></tr></table>`
+      + `<a href="mailto:${esc(mb.email)}" style="color:#0A1B3D;text-decoration:none;">${esc(mb.email)}</a> · `
+      + `<a href="https://${esc(web)}" style="color:#0A1B3D;font-weight:600;text-decoration:none;">${esc(web)}</a></div></td></tr></table>`
       + (c.cta === false ? '' : `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:14px;"><tr><td style="background:#F4F4F1;border-radius:10px;padding:9px 14px;">`
-      + `<a href="${esc(url)}" style="font:600 13px ${F};color:#0E1626;text-decoration:none;"><span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#F07F1A;vertical-align:1px;"></span>&nbsp; ${esc(c.cta_label || d.cta)} →</a></td></tr></table>`)
+      + `<a href="${esc(url)}" style="font:600 13px ${F};color:#0A1B3D;text-decoration:none;"><span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#F07E22;vertical-align:1px;"></span>&nbsp; ${esc(c.cta_label || d.cta)} →</a></td></tr></table>`)
       + `<div style="margin-top:12px;font:400 10.5px/1.5 ${F};color:#8C97AD;">${esc(ADDRESS)}</div>`;
   }
 
@@ -155,7 +155,7 @@
    * sa v HTML nahradí grafickým; citácia pod ním zostane.
    */
   function bodyHtml(text, mb = {}, assets = '') {
-    const wrap = (h) => `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.55;color:#0E1626">${h}</div>`;
+    const wrap = (h) => `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.55;color:#0A1B3D">${h}</div>`;
     const t = String(text || '');
     if (!cardOn(mb)) return wrap(textToHtml(t));
     const sig = sigOf(mb);
