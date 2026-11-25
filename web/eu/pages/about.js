@@ -16,7 +16,7 @@ const T = {
     title: 'Über uns – Partner und Service s. r. o. | DANUBRA',
     desc: 'Partner und Service s. r. o. aus Nové Zámky vermittelt erfahrene Handwerker und Teams aus der Slowakei an Bau- und Industrieunternehmen in Deutschland und Österreich.',
     home: 'Startseite', crumb: 'Über uns', h1: 'Ihr Partner für Fachkräfte aus der Slowakei.',
-    sub: 'Partner und Service ist ein slowakisches Unternehmen mit Sitz in Nové Zámky. Wir vermitteln erfahrene Handwerker und eingespielte Teams an Bau- und Industrieunternehmen in Deutschland und Österreich, mit vollständigen Unterlagen und einem festen Ansprechpartner.',
+    sub: 'DANUBRA ist eine Marke der Partner und Service s. r. o., eines slowakischen Unternehmens mit Sitz in Nové Zámky. Wir vermitteln erfahrene Handwerker und eingespielte Teams an Bau- und Industrieunternehmen in Deutschland und Österreich, mit vollständigen Unterlagen und einem festen Ansprechpartner.',
     photos: ['Fachkräfte bei der Montage', 'Schweißer bei der Arbeit'],
     whyK: 'Warum DANUBRA', whyH: 'Wir kennen jeden Handwerker persönlich.',
     whyP: ['Wir sind keine anonyme Plattform. Jede Fachkraft, die wir vermitteln, haben wir vorher persönlich geprüft: Qualifikation, Erfahrung und Zuverlässigkeit.',
