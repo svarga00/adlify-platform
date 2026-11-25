@@ -689,6 +689,7 @@
             ${UI.badge('všetko hotové', 'green')}
           </summary>
           ${this.stepsHtml(w)}
+          ${this.morePapersHtml(w)}
         </details>`;
       }
       return `<div class="card card-pad ps">
@@ -698,6 +699,23 @@
           ${UI.badge(`${st.left === 1 ? 'chýba 1 vec' : `chýbajú ${st.left} veci`}`, 'amber')}
         </div>
         ${this.stepsHtml(w)}
+        ${this.morePapersHtml(w)}
+      </div>`;
+    },
+
+    /**
+     * Ďalšie papiere podľa šablón na Drive: „Stavby" (miesta výkonu, dostane
+     * ho pri nástupe), Zoznam činností do Objednávky a Ukončenie Zmluvy
+     * o dielo a Objednávky (čl. X bod 6 a) až i)).
+     */
+    morePapersHtml(w) {
+      const b = (onclick, ico, label, tip) => `<button class="btn btn-ghost btn-sm" onclick="${onclick}"
+        title="${UI.esc(tip)}">${Icon(ico, 14)} ${label}</button>`;
+      const maZmluvu = this.docsOf(w.id).some(d => d.kind === 'contract');
+      return `<div class="ps-more"><span class="muted-sm">Ďalšie papiere:</span>
+        ${b(`Wrk.paperStavby('${w.id}')`, 'pin', 'Stavby', 'Zoznam miest výkonu (stavby, adresa v SR, celé územie DE a SK) — dostane ho pri nástupe.')}
+        ${b(`Wrk.paperCinnosti()`, 'doc', 'Zoznam činností', 'Zoznam činností do Objednávky — z neho sa vyberá činnosť na objednávku.')}
+        ${maZmluvu ? b(`Wrk.ukoncenieForm('${w.id}')`, 'x', 'Ukončenie zmluvy', 'List: ukončenie rámcovej zmluvy o dielo a objednávky podľa čl. X bod 6.') : ''}
       </div>`;
     },
 
@@ -1375,6 +1393,14 @@
             ${UI.field('scopes_csv', 'Odbory zo živnosti (čiarkou)', {
               value: (w.trade_licence_scopes || []).join(', '),
               placeholder: 'suché stavby, obklady' })}
+            ${UI.field('trade_register', 'Zápis v živnostenskom registri', { value: w.trade_register,
+              placeholder: 'Okresný úrad Komárno, č. ŽR 410-12345',
+              tip: 'Okresný úrad a číslo živnostenského registra z výpisu zo ŽR. Povinný údaj na jeho faktúre (vzor faktúry, bod 4).' })}
+            ${UI.field('bank_bic', 'SWIFT (BIC) banky', { value: w.bank_bic, placeholder: 'napr. TATRSKBX',
+              tip: 'Medzinárodný kód jeho banky. Patrí na jeho faktúru vedľa IBAN-u (vzor faktúry, bod 6).' })}
+            ${UI.field('activity', 'Činnosť do objednávky', { value: w.activity || '',
+              options: [['', '—'], ...DanubraSubcontract.cinnosti(Danubra.cfg('subcontract') || {}).map(c => [c.text, c.text])],
+              tip: 'Ktorú činnosť zo Zoznamu činností má v živnostenskom oprávnení. Predvyplní sa do objednávky a do vzoru faktúry.' })}
           </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: w.whatsapp, placeholder: 'Má WhatsApp' })}
@@ -1388,8 +1414,9 @@
           <div class="form-grid">
             ${UI.field('self_billing_prefix', 'Číselný rad jeho faktúr (keď ich vystavujeme my)', {
               value: w.self_billing_prefix || '', placeholder: 'napr. NOVAK — faktúry budú NOVAK-2026-001',
-              hint: '„Faktúry zaňho vystavujeme my" pridá do rámcovej zmluvy dohodu o vyhotovovaní faktúr '
-                + 'odberateľom (článok V.). Platí až od podpisu takej zmluvy. Pre platiteľa DPH sa nepoužíva.' })}
+              hint: 'Predvolene si živnostník vystavuje faktúru sám podľa vzoru faktúry. Rámcová zmluva '
+                + '(čl. V. body 10 až 14) nám dovoľuje vyhotoviť ju v jeho mene — zapnite to, keď sa s ním na tom dohodnete. '
+                + 'Pre platiteľa DPH sa nepoužíva.' })}
           </div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
@@ -1424,7 +1451,15 @@
       payload.trade_licence_scopes = (d.scopes_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       delete payload.skills_csv;
       delete payload.scopes_csv;
-      const res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
+      for (const k of ['trade_register', 'bank_bic', 'activity']) if (payload[k] === '') payload[k] = null;
+      let res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
+      // Kým nie je spustená migrácia 096, tieto stĺpce v databáze nie sú.
+      const NOVE = ['trade_register', 'bank_bic', 'activity'];
+      if (res.error && NOVE.some(k => String(res.error.message || '').includes(k))) {
+        for (const k of NOVE) delete payload[k];
+        res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
+        if (!res.error) UI.toast('Zápis v ŽR, SWIFT a činnosť sa neuložili — chýba migrácia 096.', 'warn');
+      }
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
       await this.load(); Danubra.renderRoute();
@@ -1639,6 +1674,88 @@
       const okno = Sub.loaded ? null : window.open('', '_blank');
       if (!Sub.loaded) await Sub.load();
       return Sub.siteSheet(asg.id, okno);
+    },
+
+    // ── Stavby, Zoznam činností, Ukončenie zmluvy (šablóny na Drive) ──────
+    /** Remeslo stavby do zoznamu „/maliari/" — zo zákazky, inak jeho profesia. */
+    tagStavby(sc, w) {
+      const t = (sc && sc.trade) || (w && w.profession) || '';
+      return t ? (this.professionLabel(t) || t) : '';
+    },
+
+    /** Dokument „Stavby" k dnešnému dňu z jeho nasadení. */
+    async paperStavby(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      if (!Danubra.supplierReady('Stavby')) return;
+      const okno = Ord.loaded ? null : window.open('', '_blank');
+      if (!Ord.loaded) await Ord.load();
+      const ids = [...new Set(Ord.assignments.filter(a => a.worker_id === workerId
+        && ['planned', 'active'].includes(a.status)).map(a => a.subcontract_id))];
+      const supplier = Danubra.supplier();
+      const cfg = Danubra.cfg('subcontract') || {};
+      const miesta = DanubraSubcontract.miesta({
+        stavby: ids.map(id => Ord.subOf(id)).filter(x => x && x.id).map(sc => ({ ...sc, tag: this.tagStavby(sc, w) })),
+        miestoSk: cfg.miesto_sk || supplier.address || '', tagy: true,
+      });
+      const html = DanubraPapers.stavby({ worker: w, supplier, miesta });
+      Docs.show(okno || window.open('', '_blank'), html, { kind: 'stavby', title: 'Stavby',
+        who: w.full_name, lang: 'sk', worker_id: w.id });
+    },
+
+    /** Zoznam činností do Objednávky (z Nastavení). */
+    paperCinnosti() {
+      if (!Danubra.supplierReady('Zoznam činností')) return;
+      const cfg = Danubra.cfg('subcontract') || {};
+      const html = DanubraPapers.zoznamCinnosti({ supplier: Danubra.supplier(),
+        cinnosti: DanubraSubcontract.cinnosti(cfg), platnyOd: cfg.cinnosti_od || DanubraSubcontract.CINNOSTI_OD });
+      Docs.show(window.open('', '_blank'), html, { kind: 'cinnosti', title: 'Zoznam činností', lang: 'sk' });
+    },
+
+    /**
+     * Ukončenie Zmluvy o dielo a Objednávky. Vyberie sa dôvod — písmeno
+     * a) až i) z čl. X bod 6 rámcovej zmluvy (predvolene g) „nemá dostatok
+     * práce") — a dátum. List ukončuje rámcovú zmluvu aj jeho objednávky.
+     */
+    async ukoncenieForm(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      if (!Ord.loaded) await Ord.load();
+      const zmluva = this.docsOf(workerId).filter(d => d.kind === 'contract')
+        .sort((a, b) => String(b.valid_from || '').localeCompare(String(a.valid_from || '')))[0] || {};
+      const obj = Ord.rows.filter(o => o.kind === 'worker' && o.worker_id === workerId && o.status !== 'cancelled');
+      const dnes = Danubra._dayISO();
+      UI.modal(`Ukončenie zmluvy — ${w.full_name}`, `
+        <form id="ukon-form" onsubmit="event.preventDefault();Wrk.ukoncenie('${workerId}')">
+          <div class="regimebox">List podľa firemnej šablóny: „k dnešnému dňu ukončujeme vašu Rámcovú zmluvu
+            o dielo … aj Objednávku č. …, na základe Článku X, bod 6…". Pošlite ho e-mailom — zmluva to dovoľuje
+            (čl. X bod 2).${UI.tip('Pri dôvodoch b) a c) (nenastúpil, prerušil prácu) môže prísť do úvahy aj zmluvná '
+              + 'pokuta podľa čl. VIII (3 000 € za nenastúpenie, 300 € za deň omeškania), ktorú možno započítať s jeho faktúrou.')}</div>
+          <div class="form-grid">
+            ${UI.field('cislo', 'Číslo rámcovej zmluvy', { value: zmluva.reference || '', required: true })}
+            ${UI.field('datum', 'Ku dňu', { type: 'date', value: dnes, required: true })}
+          </div>
+          ${UI.field('dovod', 'Dôvod (čl. X bod 6)', { value: 'g',
+            options: DanubraSubcontract.DOVODY.map(d => [d.p, `${d.p}) ${d.kratko}`]) })}
+          ${UI.field('objednavky', 'Objednávky (č.)', { value: obj.map(o => Ord.seqOf(o)).filter(Boolean).join(', '),
+            hint: 'Čísla jeho objednávok, ktoré sa ukončujú spolu so zmluvou. Prázdne = len zmluva.' })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('doc', 14)} Vytvoriť list</button>
+          </div>
+        </form>`);
+    },
+
+    ukoncenie(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      const f = UI.formData(document.getElementById('ukon-form'));
+      if (!w || !Danubra.supplierReady('Ukončenie zmluvy')) return;
+      const html = DanubraPapers.ukoncenie({ worker: w, supplier: Danubra.supplier(),
+        zmluva: { number: f.cislo }, dovod: f.dovod, datum: f.datum, dnes: Danubra._dayISO(),
+        objednavky: String(f.objednavky || '').split(/[,\s]+/).map(x => x.replace(/^č\.?/i, '').trim()).filter(Boolean) });
+      UI.closeModal();
+      Docs.show(window.open('', '_blank'), html, { kind: 'ukoncenie', title: 'Ukončenie zmluvy',
+        number: f.cislo, who: w.full_name, lang: 'sk', worker_id: w.id });
     },
 
     /**

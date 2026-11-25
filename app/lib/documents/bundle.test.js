@@ -48,7 +48,7 @@ const KONTAKT = { crew: null, people: [], contact: { name: 'Zoltán Kiss', phone
 
 console.log('\nČO MÔŽE BYŤ V BALÍKU');
 {
-  eq(B.ITEMS.map(i => i.key), ['infolist', 'ubytovanie', 'objednavka', 'vzor_faktury', 'zmluva', 'gdpr'],
+  eq(B.ITEMS.map(i => i.key), ['infolist', 'ubytovanie', 'objednavka', 'stavby', 'vzor_faktury', 'zmluva', 'gdpr'],
     'poradie: najprv kam a kedy, papiere na podpis na koniec');
   ok(B.ITEMS.every(i => A.KINDS[i.kind]), 'každý druh existuje v archíve',
     B.ITEMS.filter(i => !A.KINDS[i.kind]).map(i => i.kind).join(', '));

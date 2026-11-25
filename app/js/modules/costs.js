@@ -72,7 +72,8 @@
     subOf(id) { return this.subcontracts.find(s => s.id === id) || {}; },
     periodLabel(id) {
       const p = this.periods.find(x => x.id === id);
-      return p ? UI.dateRange(p.period_from, p.period_to) : null;
+      return p ? ((window.DanubraPeriods && DanubraPeriods.kwLabel(p.period_from, p.period_to))
+        || UI.dateRange(p.period_from, p.period_to)) : null;
     },
     ctx(bill) {
       return {
@@ -732,24 +733,50 @@
 
     selfWorkers() { return this.workers.filter(w => w.self_billing && !w.vat_payer); },
 
-    /** Kto má v ktorom uzavretom období schválené hodiny a ešte nemá faktúru. */
+    /**
+     * Kto má v ktorých uzavretých obdobiach schválené hodiny a ešte nemá faktúru.
+     *
+     * Živnostník fakturuje **za 2 kalendárne týždne** (rámcová zmluva čl. V
+     * bod 2, Nastavenia → subcontract.fakturacia_dni). Obdobia odberateľa sú
+     * týždenné (KW), preto sa za sebou idúce týždne jednej zákazky spoja
+     * do jedného okna (DanubraPeriods.workerWindows). Dve stavby = dve faktúry.
+     */
     selfCandidates() {
       const ludia = new Map(this.selfWorkers().map(w => [w.id, w]));
-      const out = new Map();
+      // Už má faktúru za toto obdobie (našu alebo svoju, aj ako súčasť 2 KW) — druhú nerobíme.
+      const ma = new Set();
+      for (const b of this.bills) {
+        if (b.status === 'discarded' || !b.worker_id) continue;
+        for (const pid of [b.period_id, ...(b.period_ids || [])]) if (pid) ma.add(`${pid}|${b.worker_id}`);
+      }
+      const hod = new Map();
       for (const t of this.timesheets) {
         if (!t.approved || !t.period_id || !ludia.has(t.worker_id)) continue;
         const p = this.periods.find(x => x.id === t.period_id);
-        if (!p || p.status === 'open') continue;
+        if (!p || p.status === 'open' || ma.has(`${p.id}|${t.worker_id}`)) continue;
         const k = `${t.period_id}|${t.worker_id}`;
-        const o = out.get(k) || { period: p, worker: ludia.get(t.worker_id), hours: 0 };
+        const o = hod.get(k) || { period: p, worker: ludia.get(t.worker_id), hours: 0 };
         o.hours += Number(t.hours) || 0;
-        out.set(k, o);
+        hod.set(k, o);
       }
-      // Už má faktúru za toto obdobie (našu alebo svoju) — druhú nerobíme.
-      const ma = new Set(this.bills.filter(b => b.status !== 'discarded' && b.period_id)
-        .map(b => `${b.period_id}|${b.worker_id}`));
-      return [...out.entries()].filter(([k]) => !ma.has(k)).map(([, v]) => v)
-        .sort((a, b) => String(b.period.period_to).localeCompare(String(a.period.period_to)));
+      // Okná po 2 KW pre každého človeka a zákazku.
+      const skup = new Map();
+      for (const o of hod.values()) {
+        const k = `${o.worker.id}|${o.period.subcontract_id}`;
+        if (!skup.has(k)) skup.set(k, []);
+        skup.get(k).push(o);
+      }
+      const dni = Number((Danubra.cfg('subcontract') || {}).fakturacia_dni) || 14;
+      const out = [];
+      for (const list of skup.values()) {
+        const hodiny = new Map(list.map(o => [o.period.id, o.hours]));
+        for (const okno of DanubraPeriods.workerWindows(list.map(o => o.period), { days: dni })) {
+          out.push({ worker: list[0].worker, periods: okno.periods, period: okno.periods[okno.periods.length - 1],
+            from: okno.from, to: okno.to, complete: okno.complete,
+            hours: okno.periods.reduce((n, p) => n + (hodiny.get(p.id) || 0), 0) });
+        }
+      }
+      return out.sort((a, b) => String(b.to).localeCompare(String(a.to)));
     },
 
     selfForm() {
@@ -770,7 +797,7 @@
       }
       UI.modal('Pripraviť faktúry za živnostníkov', `
         <div class="regimebox">Appka pripraví návrh faktúry v mene živnostníka
-          zo <b>schválených hodín</b> uzavretého obdobia. Vystaví ho až administrátor; potom sa pošle
+          zo <b>schválených hodín</b> uzavretých období — spravidla za 2 kalendárne týždne (KW) jednej zákazky. Vystaví ho až administrátor; potom sa pošle
           živnostníkovi na potvrdenie.${UI.tip('Samofakturácia: faktúru, ktorú by inak písal živnostník nám, '
             + 'vystavíme za neho my. Musí to byť dohodnuté v rámcovej zmluve a živnostník ju vždy potvrdí cez odkaz.')}</div>
         <div class="pay-list">${list.map((c, i) => `
@@ -778,7 +805,8 @@
             <input type="checkbox" name="self" value="${i}" checked>
             <span class="pay-who"><b>${UI.esc(c.worker.full_name)}</b>
               <em>${UI.esc(this.subOf(c.period.subcontract_id).title || 'Zákazka')} ·
-                ${UI.dateRange(c.period.period_from, c.period.period_to)}</em></span>
+                ${UI.esc(DanubraPeriods.kwLabel(c.from, c.to) || UI.dateRange(c.from, c.to))}${c.complete ? ''
+                  : ' · zatiaľ menej ako 2 týždne'}</em></span>
             <strong>${Math.round(c.hours * 100) / 100} h</strong>
           </label>`).join('')}</div>
         <div class="modal-actions">
@@ -797,7 +825,10 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Pripravujem…'; }
       let ok = 0;
       for (const c of vyber) {
-        const { error } = await DB.rpc('self_bill_draft', { p_period: c.period.id, p_worker: c.worker.id });
+        // Jeden týždeň ide pôvodnou funkciou (052), viac týždňov naraz novou (096).
+        const { error } = c.periods && c.periods.length > 1
+          ? await DB.rpc('self_bill_draft_kw', { p_periods: c.periods.map(p => p.id), p_worker: c.worker.id })
+          : await DB.rpc('self_bill_draft', { p_period: c.period.id, p_worker: c.worker.id });
         if (error) UI.toast(`${c.worker.full_name}: ${error.message}`, 'err'); else ok++;
       }
       UI.closeModal();
@@ -810,7 +841,11 @@
       const b = this.bills.find(x => x.id === id);
       if (!b) return;
       const w = this.workerOf(b.worker_id);
-      const p = this.periods.find(x => x.id === b.period_id) || null;
+      // Faktúra za 2 KW pokrýva viac období — na doklad ide celé rozpätie.
+      const vsetky = [b.period_id, ...(b.period_ids || [])].map(id => this.periods.find(x => x.id === id)).filter(Boolean);
+      const p = vsetky.length ? {
+        period_from: vsetky.map(x => x.period_from).sort()[0],
+        period_to: vsetky.map(x => x.period_to).sort().pop() } : null;
       const html = DanubraPapers.selfInvoice({ bill: b, worker: {
         ...w, address: w.business_address || w.address, city: w.business_city || w.city, zip: w.business_zip,
         iban: w.bank_iban }, company: Danubra.supplier(), period: p });

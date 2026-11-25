@@ -231,9 +231,10 @@
           'framework_de', [
           ['objednavka_dni', 'Objednávka vopred (pracovných dní)', 'number', 5, '', null,
             'Najmenej koľko pracovných dní vopred musí odberateľ ľudí objednať. Vypíše sa do zmluvy.'],
-          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 14, '', null,
-            'Ako často odberateľovi fakturujeme. Len sa vypíše do zmluvy — faktúry podľa toho '
-              + 'nevznikajú samy.'],
+          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 7, '', null,
+            'Ako často odberateľovi fakturujeme — podľa firemnej rámcovej zmluvy každých 7 dní '
+              + '(po kalendárnych týždňoch, KW). Vypíše sa do zmluvy. Obdobie na fakturáciu sa '
+              + 'u konkrétneho odberateľa nastaví na jeho karte (7 alebo 14 dní).'],
           ['splatnost_dni', 'Splatnosť našej faktúry (dní)', 'number', 7, '', null,
             'Toto číslo sa vypíše do zmluvy. Splatnosť na samotnej faktúre sa berie z karty '
               + 'odberateľa (inak 30 dní) — nastavte ju tam rovnako.'],
@@ -258,7 +259,8 @@
           + 'prejaví na každej ďalšej zmluve; tie podpísané zostávajú, ako boli.',
           'subcontract', [
           ['fakturacia_dni', 'Fakturuje každých (dní)', 'number', 14, '', null,
-            'Ako často nám živnostník fakturuje. Vypíše sa do jeho zmluvy.'],
+            'Ako často nám živnostník fakturuje — za 2 kalendárne týždne (KW). Vypíše sa do jeho '
+              + 'zmluvy a podľa toho appka spája týždne do jednej jeho faktúry.'],
           ['splatnost_dni', 'Splatnosť jeho faktúry (dní)', 'number', 14, '', null,
             'Do koľkých dní živnostníkovi platíme. Vypíše sa do zmluvy a dostane ju aj faktúra, '
               + 'ktorú vystavíme za neho.'],
@@ -269,13 +271,27 @@
               + 'za každú takú úhradu mu strhneme aj tento poplatok. Vypíše sa do zmluvy.'],
           ['pokuta_alkohol', 'Pokuta — alkohol na pracovisku €', 'number', 500],
           ['pokuta_fajcenie', 'Pokuta — fajčenie €', 'number', 350],
-          ['pokuta_omeskanie_den', 'Pokuta — omeškanie za deň €', 'number', 250],
-          ['pokuta_nenastupenie', 'Pokuta — nenastúpenie €', 'number', 2500],
+          ['pokuta_omeskanie_den', 'Pokuta — omeškanie za deň €', 'number', 300],
+          ['pokuta_nenastupenie', 'Pokuta — nenastúpenie €', 'number', 3000],
           ['pokuta_mlcanlivost', 'Pokuta — mlčanlivosť €', 'number', 400],
           ['pokuta_konkurencia', 'Pokuta — zákaz konkurencie €', 'number', 10000],
           ['konkurencia_roky', 'Zákaz konkurencie po skončení (rokov)', 'number', 2, '', null,
             'Koľko rokov po skončení spolupráce nesmie živnostník robiť priamo pre našich odberateľov.'],
           ['vypoved_mes', 'Výpovedná lehota (mesiacov)', 'number', 1],
+          ['samofakt_namietka_dni', 'Námietka k faktúre, ktorú vyhotovíme zaňho (dní)', 'number', 5, '', null,
+            'Keď faktúru za živnostníka vyhotovíme my (čl. V. body 10 až 14 zmluvy), do koľkých dní ju môže '
+              + 'namietať. Potom sa berie ako akceptovaná.'],
+          ['miesto_sk', 'Adresa v SR do zoznamu miest (Stavby)', 'text', '', 'napr. ulica, PSČ obec, Slovensko', null,
+            'Adresa na Slovensku, ktorá sa vypíše do zoznamu „Stavby" a do miest výkonu na objednávke '
+              + 'živnostníkovi (spolu s riadkami „celé územie Nemeckej / Slovenskej republiky"). '
+              + 'Prázdne = adresa našej firmy z fakturačných údajov.'],
+          ['cinnosti', 'Zoznam činností do Objednávky', 'textarea',
+            (window.DanubraSubcontract ? DanubraSubcontract.CINNOSTI.map(DanubraSubcontract.cinnostRiadok).join('\n') : ''),
+            'jeden riadok = jedna činnosť, remeslá za lomkou /maliari, …/', null,
+            'Činnosti, z ktorých sa na objednávke živnostníkovi vyberá práve jedna. Sú to názvy voľných živností — '
+              + 'text sa musí zhodovať s jeho živnostenským oprávnením a ten istý text píše na faktúru. '
+              + 'Predvolene zoznam platný od 26.04.2026.'],
+          ['cinnosti_od', 'Zoznam činností platný od', 'date', '2026-04-26'],
         ]) +
 
         this.section('Koľko ľudí vieme nabrať',
@@ -408,7 +424,18 @@
             'Steuernummer je nemecké daňové číslo našej firmy od nemeckého finančného úradu. '
               + 'Tlačí sa na dokumenty pre nemeckých odberateľov.'],
           ['email', 'E-mail', 'email'],
+          // Faktúry od živnostníkov chodia na osobitnú adresu (vzor faktúry V1.3).
+          ['invoice_inbox', 'E-mail na prijaté faktúry', 'email', '', 'napr. faktury@…', null,
+            'Kam nám živnostníci posielajú svoje faktúry. Vypíše sa na vzor faktúry („Faktúry posielajte '
+              + 'výhradne na …"). Prázdne = hlavný e-mail vyššie.'],
           ['phone', 'Telefón', 'text'],
+          // Rámcové zmluvy a objednávky majú v záhlaví „Štatutárny orgán" a pri
+          // nemeckom odberateľovi aj „Zastúpený / Vertreten durch".
+          ['statutory', 'Štatutárny orgán', 'text', '', 'meno konateľa', null,
+            'Kto je štatutárny orgán firmy (konateľ). Tlačí sa do záhlavia zmlúv a objednávok.'],
+          ['representative', 'Zastúpený (ak iný)', 'text', '', 'prázdne = štatutárny orgán', null,
+            'Kto podpisuje za firmu, ak to nie je sám štatutár (splnomocnený zástupca). Tlačí sa ako '
+              + '„Zastúpený / Vertreten durch" na rámcovej zmluve a objednávke s nemeckým odberateľom.'],
           ['address', 'Adresa', 'text'],
           // Odkiaľ sa ráta „ako ďaleko je to od nás" pri nových firmách (leads.js).
           ['office_coords', 'Poloha kancelárie', 'text', '', 'napr. 47.98544, 18.16195 alebo odkaz z Google Máp', null,

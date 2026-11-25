@@ -43,17 +43,20 @@
       const [o, p, w, wd, sc, c, a] = await Promise.all([
         DB.list('work_orders', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('partners', {
-          select: 'id,name,address,postal_code,city,country,registration_no,ust_idnr,contact_person,website,email',
+          select: 'id,name,address,postal_code,city,country,registration_no,ust_idnr,contact_person,website,email,'
+            + 'phone,statutory_body,representative,register,tax_number,invoice_email',
           limit: 300 }),
         // Na objednávke musí byť zhotoviteľ identifikovateľný — meno nestačí.
         DB.list('workers', {
-          select: 'id,full_name,company_id,tax_id,address,business_address,phone,email,hourly_cost',
+          select: 'id,full_name,company_id,tax_id,address,business_address,phone,email,hourly_cost,'
+            + 'legal_form,company_name,activity,profession',
           limit: 500 }),
         // Rámcové zmluvy: objednávka sa na ne musí odvolať, inak to nie je
         // individuálna zmluva o dielo (čl. III. rámcovej zmluvy).
         DB.list('worker_documents', {
           select: 'id,worker_id,kind,reference,valid_from', limit: 2000 }),
-        DB.list('subcontracts', { select: 'id,title,contract_number,charge_rate', limit: 300 }),
+        DB.list('subcontracts', { select: 'id,title,contract_number,charge_rate,trade,'
+          + 'site_name,site_address,site_postal_code,site_city', limit: 300 }),
         DB.list('contracts', {
           select: 'id,contract_number,title,partner_id,signed_at', limit: 300 }),
         DB.list('assignments', {
@@ -81,6 +84,43 @@
       return d ? { number: d.reference || '', signedAt: d.valid_from || '' } : null;
     },
     subOf(id) { return this.subcontracts.find(x => x.id === id) || {}; },
+
+    /**
+     * Poradové číslo objednávky — „Objednávka č. N" v rade živnostníka,
+     * „Bestellung Nr. N" v rade odberateľa (šablóny na Drive). Prideľuje ho
+     * databáza (migrácia 096, `seq_no`); kým tam nie je, dopočíta sa
+     * z poradia založenia.
+     */
+    seqOf(o) {
+      if (!o) return null;
+      if (o.seq_no != null) return o.seq_no;
+      const vlastnik = o.kind === 'worker' ? 'worker_id' : 'partner_id';
+      const moje = this.rows.filter(x => x.kind === o.kind && x[vlastnik] && x[vlastnik] === o[vlastnik])
+        .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) || String(a.id).localeCompare(String(b.id)));
+      const i = moje.findIndex(x => x.id === o.id);
+      return i < 0 ? null : i + 1;
+    },
+
+    /** Zoznam činností do Objednávky z Nastavení (predvolene 4 zo šablóny). */
+    cinnosti() {
+      return DanubraSubcontract.cinnosti(Danubra.cfg('subcontract') || {});
+    },
+
+    /**
+     * Miesta výkonu pre objednávku živnostníkovi: jeho stavby (nasadenia, ktoré
+     * bežia alebo začnú), adresa v SR (Nastavenia, inak naše sídlo) a „celé
+     * územie Nemeckej / Slovenskej republiky" — ako v šablóne.
+     */
+    miestaPre(workerId, subId) {
+      const ids = new Set(this.assignments.filter(a => a.worker_id === workerId
+        && ['planned', 'active'].includes(a.status)).map(a => a.subcontract_id));
+      if (subId) ids.add(subId);
+      const cfg = Danubra.cfg('subcontract') || {};
+      return DanubraSubcontract.miesta({
+        stavby: [...ids].map(id => this.subOf(id)).filter(x => x && x.id),
+        miestoSk: cfg.miesto_sk || (Danubra.supplier() || {}).address || '',
+      });
+    },
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
 
     /** Cena jednou vetou — podľa modelu, nie tri prázdne polia vedľa seba. */
@@ -299,10 +339,15 @@
       const a = this.assignments.find(x => x.id === assignmentId);
       if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
       const sc = this.subOf(a.subcontract_id);
+      const w = this.workerOf(a.worker_id);
       this.form(null, {
         kind: 'worker', assignment_id: a.id,
         title: sc.title || sc.contract_number || '',
-        date_from: a.date_from, date_to: a.date_to,
+        // Šablóna: „Deň skončenia vykonávania činností: 31.12." — koniec rámcovej
+        // zmluvy, nie koniec stavby. Jedna objednávka pokrýva všetky jeho stavby.
+        date_from: a.date_from, date_to: DanubraSubcontract.koniecRoka(a.date_from || undefined),
+        activity: w.activity || '',
+        places: this.miestaPre(a.worker_id, a.subcontract_id),
         // Sadzba z nasadenia; keď tam nie je, jeho bežná sadzba z karty.
         price_model: 'hourly', rate: a.worker_rate || this.workerOf(a.worker_id).hourly_cost,
       });
@@ -351,6 +396,11 @@
           <div class="form-section">Čo je dielo</div>
           ${UI.field('title', 'Krátky názov', { value: o.title, required: true,
             placeholder: 'napr. Sadrokartón 2. NP, blok B' })}
+          ${k === 'worker' ? UI.field('activity', 'Činnosť (zo Zoznamu činností)', { value: o.activity || '',
+            options: [['', '— vyberte jednu činnosť —'], ...this.cinnosti().map(c => [c.text,
+              c.remesla && c.remesla.length ? `${c.text} (${c.remesla.slice(0, 4).join(', ')}${c.remesla.length > 4 ? ' …' : ''})` : c.text])],
+            tip: 'Na objednávku ide práve jedna činnosť zo Zoznamu činností (Nastavenia → Zmluva so živnostníkom). '
+              + 'Musí sedieť s jeho živnostenským oprávnením — ten istý text píše na faktúru.' }) : ''}
           ${UI.field('scope', 'Popis diela', { type: 'textarea', rows: 4, value: o.scope,
             hint: k === 'worker'
               ? 'Toto je to, na čo sa pýta kontrola. „Robil, čo bolo treba" je zlá '
@@ -359,8 +409,23 @@
           <div class="form-grid">
             ${UI.field('date_from', 'Od', { type: 'date', value: o.date_from,
               tip: 'Obdobie, kedy sa dielo robí — od nástupu po plánované dokončenie.' })}
-            ${UI.field('date_to', 'Do', { type: 'date', value: o.date_to })}
+            ${UI.field('date_to', 'Do', { type: 'date', value: o.date_to,
+              tip: k === 'worker' ? 'Spravidla 31.12. — koniec rámcovej zmluvy (ako v šablóne objednávky).' : '' })}
           </div>
+          ${UI.field('places_text', k === 'worker' ? 'Miesta výkonu činností' : 'Miesto vykonania diela', {
+            type: 'textarea', rows: k === 'worker' ? 4 : 2,
+            value: (o.places || []).join('\n'),
+            hint: k === 'worker'
+              ? 'Jeden riadok = jedno miesto. Adresy stavieb, adresa v SR a „celé územie Nemeckej / Slovenskej republiky" (kvôli A1).'
+              : 'Jeden riadok = jedno miesto, napr. „BV …, Ulm, Nemecko".' })}
+          ${k === 'customer' ? `<div class="form-grid">
+            ${UI.field('headcount', 'Počet pracovníkov', { type: 'number', value: o.headcount,
+              tip: 'Rámcová zmluva čl. II bod 4: objednávka obsahuje potrebný počet pracovníkov.' })}
+            ${UI.field('hours_week_min', 'Hodín / týždeň / osoba — od', { type: 'number', step: '0.5', value: o.hours_week_min, placeholder: '45' })}
+            ${UI.field('hours_week_max', 'Hodín / týždeň / osoba — do', { type: 'number', step: '0.5', value: o.hours_week_max, placeholder: '55' })}
+          </div>
+          ${UI.field('scope_de', 'Popis diela po nemecky', { value: o.scope_de, placeholder: 'napr. Malerarbeiten',
+            hint: 'Do nemeckého stĺpca Bestellung. Prázdne = slovenský popis.' })}` : ''}
 
           <div class="form-section">Cena</div>
           <div class="form-grid">
@@ -375,7 +440,10 @@
             ${UI.field('status', 'Stav', { value: o.status || 'draft', options: STATUS_OPTS,
               tip: 'Rozpracovaná = ešte sa dopĺňa. Odoslaná = poslali sme ju druhej strane. Potvrdená = druhá strana súhlasí (podpísala). Vybavená = dielo je hotové. Zrušená = neplatí.' })}
           </div>
-          ${UI.field('notes', 'Poznámka', { type: 'textarea', value: o.notes })}
+          ${UI.field('notes', k === 'worker' ? 'Iné špecifické podmienky vykonávania činnosti' : 'Osobitné dojednania', {
+            type: 'textarea', value: o.notes,
+            hint: 'Vypíše sa na objednávku. Prázdne = bodkovaný riadok na doplnenie perom.' })}
+          ${k === 'customer' ? UI.field('notes_de', 'Osobitné dojednania po nemecky', { type: 'textarea', value: o.notes_de }) : ''}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Založiť'}</button>
@@ -402,7 +470,17 @@
         rate: num(v.rate), unit_price: num(v.unit_price),
         unit_label: v.unit_label || null, fixed_price: num(v.fixed_price),
         status: v.status || 'draft', notes: v.notes || null,
+        places: String(v.places_text || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean),
       };
+      if (k === 'worker') {
+        payload.activity = v.activity || null;
+      } else {
+        payload.headcount = num(v.headcount);
+        payload.hours_week_min = num(v.hours_week_min);
+        payload.hours_week_max = num(v.hours_week_max);
+        payload.scope_de = v.scope_de || null;
+        payload.notes_de = v.notes_de || null;
+      }
       if (k === 'customer') {
         payload.partner_id = v.partner_id || null;
         payload.subcontract_id = v.subcontract_id || null;
@@ -426,9 +504,17 @@
         payload.order_number = n;
       }
 
-      const { error } = id
+      let { error } = id
         ? await DB.update('work_orders', id, payload)
         : await DB.insert('work_orders', payload);
+      // Kým nie je spustená migrácia 096, nové stĺpce v databáze nie sú — uloží
+      // sa aspoň zvyšok a povie sa to.
+      const NOVE = ['activity', 'places', 'headcount', 'hours_week_min', 'hours_week_max', 'scope_de', 'notes_de'];
+      if (error && NOVE.some(c => String(error.message || '').includes(c))) {
+        for (const c of NOVE) delete payload[c];
+        ({ error } = id ? await DB.update('work_orders', id, payload) : await DB.insert('work_orders', payload));
+        if (!error) UI.toast('Činnosť, miesta a hodiny sa neuložili — chýba migrácia 096.', 'warn');
+      }
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal();
       UI.toast(id ? 'Uložené' : 'Objednávka založená', 'ok');
@@ -453,7 +539,7 @@
         <div class="detail-head">
           ${this.badge(o.status)}
           <span class="muted">
-            ${o.order_number ? UI.esc(o.order_number) : 'bez čísla'} ·
+            ${this.seqOf(o) ? `${o.kind === 'customer' ? 'Nr.' : 'č.'} ${this.seqOf(o)} · ` : ''}${o.order_number ? UI.esc(o.order_number) : 'bez čísla'} ·
             ${o.kind === 'customer' ? 'od odberateľa' : 'živnostníkovi'}</span>
         </div>
         <div class="kv">
@@ -462,6 +548,8 @@
           ${kv('Zákazka', sc.title ? UI.esc(sc.title) : '')}
           ${kv('Termín', o.date_from ? UI.esc(UI.dateRange(o.date_from, o.date_to)) : '')}
           ${kv('Cena', UI.esc(this.priceText(o)))}
+          ${kv('Činnosť', o.activity ? UI.esc(o.activity) : '')}
+          ${kv('Miesta', (o.places || []).length ? (o.places || []).map(UI.esc).join('<br>') : '')}
         </div>
         ${o.scope
           ? `<div class="form-section">Čo je dielo</div>
@@ -507,21 +595,30 @@
       // Rámcová zmluva s týmto odberateľom. Bez nej sa to na papier napíše.
       const c = this.contracts.find(x => x.partner_id === o.partner_id);
 
+      const sc = this.subOf(o.subcontract_id);
+      // Miesto: z objednávky, inak adresa stavby zo zákazky.
+      const miesta = (o.places || []).length ? o.places
+        : [DanubraSubcontract.adresaStavby(sc)].filter(Boolean);
       const html = DanubraPapers.bestellung({
         order: {
-          number: o.order_number, scope_sk: o.scope, scope_de: o.scope_de || o.scope,
-          rate: o.rate, currency: o.currency,
-          hours_week: o.hours_week, hours_week_de: o.hours_week_de,
+          // „Objednávka č. 2 / Bestellung Nr. 2" — poradie u odberateľa (šablóna).
+          number: this.seqOf(o), internal_number: o.order_number,
+          scope_sk: o.scope, scope_de: o.scope_de || o.scope,
+          rate: o.rate, currency: o.currency, headcount: o.headcount,
+          hours_week_min: o.hours_week_min, hours_week_max: o.hours_week_max,
           date_from: o.date_from, date_to: o.date_to, extendable: !!o.extendable,
-          places: o.places || [], places_de: o.places_de || [],
+          places: miesta, places_de: (o.places_de && o.places_de.length) ? o.places_de
+            : miesta.map(x => x.replace(/,\s*Nemecko$/i, ', Deutschland')),
           special_sk: o.notes, special_de: o.notes_de,
           signed_at: o.received_at,
         },
         supplier,
         client: {
-          name: p.name,
-          address: [p.address, p.postal_code, p.city, p.country].filter(Boolean).join(', '),
-          registration_no: p.registration_no, ust_idnr: p.ust_idnr,
+          name: p.name, city: p.city,
+          address: [p.address, [p.postal_code, p.city].filter(Boolean).join(' '), p.country].filter(Boolean).join(', '),
+          registration_no: p.registration_no, ust_idnr: p.ust_idnr, register: p.register,
+          phone: p.phone, email: p.email, invoice_email: p.invoice_email, tax_number: p.tax_number,
+          statutory_body: p.statutory_body, representative: p.representative,
           contact_person: p.contact_person,
         },
         ramcova: c ? { number: c.contract_number, signedAt: c.signed_at } : null,
@@ -543,6 +640,8 @@
         worker: o.worker_id ? this.workerOf(o.worker_id) : null,
         subcontract: this.subOf(o.subcontract_id),
         ramcova: o.worker_id ? this.ramcovaOf(o.worker_id) : null,
+        seq: this.seqOf(o),
+        places: o.kind === 'worker' && !(o.places || []).length ? this.miestaPre(o.worker_id, o.subcontract_id) : (o.places || []),
       });
       // `okno` je otvorené vopred, keď sa pred papierom ešte načítavalo.
       const odNemca = o.kind === 'customer';

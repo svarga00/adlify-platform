@@ -33,5 +33,19 @@ eq(by.s5, undefined, 'prehratá zákazka sa neponúka');
 const p2 = M.plan({ month: '2026-10', subcontracts: SUBS, assignments: ASG, timesheets: TS, periods: PER, invoices: [{ period_id: 'p4', status: 'issued' }] });
 eq(p2.find(r => r.subcontract.id === 's4').action, 'done', 'už vyfakturované sa nezopakuje');
 eq(p.map(r => r.action), ['create', 'close', 'invoice', 'skip'], 'poradie: čo sa dá spraviť, navrchu');
+
+// Týždenne po KW (Rahmenvertrag 7/7), odberateľ 14/14 dva týždne, mesačný sa preskočí.
+eq(M.weekRange('2026-W41'), { from: '2026-10-05', to: '2026-10-11', week: 41, year: 2026 }, 'KW 41 je 5. až 11. 10. 2026');
+eq(M.previousWeek('2026-10-14'), '2026-W41', 'fakturuje sa predchádzajúci týždeň');
+eq(M.previousWeek('2027-01-06'), '2026-W53', 'cez prelom roka KW 53');
+eq(M.rangeForWeek('2026-W41', 14), { from: '2026-09-28', to: '2026-10-11' }, '14/14: zvolený KW a predchádzajúci');
+eq(M.rangeForWeek('2026-W41', 30).skip.length > 10, true, 'mesačný odberateľ sa v týždennom behu preskočí');
+const DNI = { s1: 7, s2: 14, s3: 30, s4: 7 };
+const tyz = M.plan({ subcontracts: SUBS, assignments: ASG, timesheets: TS, periods: [], invoices: [],
+  rangeOf: (sc) => M.rangeForWeek('2026-W41', DNI[sc.id]) });
+const tb = Object.fromEntries(tyz.map(r => [r.subcontract.id, r]));
+eq([tb.s1.action, tb.s1.from, tb.s1.to, tb.s1.hours], ['create', '2026-10-05', '2026-10-11', 17], 'týždenný odberateľ: obdobie KW 41, 17 h');
+eq([tb.s2.from, tb.s2.to, tb.s2.hours], ['2026-09-28', '2026-10-11', 10], '14-dňový odberateľ: dva KW');
+eq(tb.s3.action, 'skip', 'mesačný odberateľ v týždennom behu nie');
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

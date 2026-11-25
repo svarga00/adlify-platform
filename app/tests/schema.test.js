@@ -252,5 +252,48 @@ t('appka si nepýta nič, čo v databáze nie je', problems.length === 0);
   t('094: zoznam radov v SQL = zoznam v appke', kinds.map(k => k.replace(/'/g, '')).sort().join() === N.SERIES.map(s => s.kind).sort().join());
 }
 
+// ── Zmluvy a fakturácia podľa šablón (migrácia 096) ─────────────────────────
+// Overené na lokálnom Postgres 16 (všetky migrácie 001–096 na prázdnej
+// databáze): poradie objednávok v rade živnostníka, faktúra za 2 KW,
+// odmietnutie prekrytia, idempotencia.
+{
+  const f = path.join(migDir, '096_zmluvy_podla_sablon.sql');
+  const m = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  const fn = (name) => { const i = m.indexOf(`create or replace function ${name}(`); return i < 0 ? '' : m.slice(i, m.indexOf('$$;', m.indexOf('$$', i) + 2)); };
+  const has = (t, c) => schema.has(t) && schema.get(t).has(c);
+  t('096: nastavenia majú stĺpce subcontract a framework_de (Nastavenia do nich zapisujú)',
+    has('danubra_settings', 'subcontract') && has('danubra_settings', 'framework_de'));
+  t('096: staré predvolené sumy sa prepíšu na šablónu len pri presnej zhode (250 → 300, 2500 → 3000, 14 → 7)',
+    /'\{"pokuta_omeskanie_den": 300\}'::jsonb\s*where \(subcontract->>'pokuta_omeskanie_den'\)::numeric = 250/.test(m)
+    && /'\{"pokuta_nenastupenie": 3000\}'::jsonb\s*where \(subcontract->>'pokuta_nenastupenie'\)::numeric = 2500/.test(m)
+    && /'\{"fakturacia_dni": 7\}'::jsonb\s*where \(framework_de->>'fakturacia_dni'\)::numeric = 14/.test(m));
+  t('096: odberateľ má údaje do Rahmenvertrag a dĺžku obdobia (predvolene 7 dní)',
+    ['register', 'tax_number', 'statutory_body', 'representative', 'invoice_email', 'billing_period_days'].every(c => has('danubra_partners', c))
+    && /billing_period_days int not null default 7/.test(m));
+  t('096: nový odberateľ má splatnosť 7 dní (Rahmenvertrag čl. III bod 2), existujúcim sa nemení',
+    /alter column payment_terms_days set default 7/.test(m) && !/update danubra_partners/.test(m));
+  t('096: objednávka má poradie, činnosť, miesta, počet ľudí a rozsah hodín',
+    ['seq_no', 'activity', 'places', 'headcount', 'hours_week_min', 'hours_week_max', 'scope_de', 'notes_de'].every(c => has('danubra_work_orders', c)));
+  t('096: poradie č. N v rade živnostníka (worker_id), Nr. N v rade odberateľa (partner_id), so zámkom',
+    /case when new\.kind = 'worker' then new\.worker_id else new\.partner_id end/.test(fn('danubra_work_order_seq'))
+    && /pg_advisory_xact_lock/.test(fn('danubra_work_order_seq'))
+    && /create trigger danubra_work_order_seq_trg before insert on danubra_work_orders/.test(m)
+    && /on danubra_work_orders \(worker_id, seq_no\) where kind = 'worker'/.test(m)
+    && /on danubra_work_orders \(partner_id, seq_no\) where kind = 'customer'/.test(m));
+  t('096: existujúce objednávky dostanú poradie podľa dátumu založenia',
+    /partition by w\.kind, coalesce\(w\.worker_id, w\.partner_id\)\s*order by w\.created_at, w\.id/.test(m));
+  t('096: živnostník má zápis v ŽR, SWIFT a činnosť', ['trade_register', 'bank_bic', 'activity'].every(c => has('danubra_workers', c)));
+  t('096: kontrola faktúry ráta hodiny zo všetkých jej období (period_ids)',
+    has('danubra_bills', 'period_ids') && /t\.period_id = any \(v_periods\)/.test(fn('danubra_bill_check'))
+    && /new\.status := 'disputed'/.test(fn('danubra_bill_check')) && /Schváliť sa dá len s poznámkou/.test(fn('danubra_bill_check')));
+  t('096: faktúra za 2 KW len z uzavretých období jednej zákazky, s dohodou a nie pre platiteľa DPH',
+    /dve stavby sú dve faktúry/.test(fn('danubra_self_bill_draft_kw')) && /v_open > 0/.test(fn('danubra_self_bill_draft_kw'))
+    && /self_billing, false/.test(fn('danubra_self_bill_draft_kw')) && /vat_payer, false/.test(fn('danubra_self_bill_draft_kw')));
+  t('096: to isté obdobie nemá dve faktúry za živnostníka (ani cez 2 KW)',
+    /&& v_mine/.test(fn('danubra_self_bill_overlap_guard')) && /create trigger danubra_self_bill_overlap_trg/.test(m));
+  t('096: anonymný nesmie volať faktúru za 2 KW',
+    /revoke execute on function danubra_self_bill_draft_kw\(uuid\[\], uuid\) from public, anon/.test(m));
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

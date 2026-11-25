@@ -618,8 +618,12 @@ if (Per) {
   t('neschválené hodiny sa nestratia, len sa vyčlenia', pv.unapproved.length === 1);
   t('prázdne obdobie sa neuzatvára',
     Per.review({ timesheets: [], assignments: asg, from: '2026-09-01', to: '2026-09-30' }).ok === false);
-  t('obdobie je celý kalendárny mesiac',
-    Per.nextPeriod([], '2026-09-17').to === '2026-09-30');
+  // Podľa Rahmenvertrag sa fakturuje týždenne po KW (pondelok až nedeľa);
+  // mesiac ostáva ako možnosť pri odberateľovi.
+  t('obdobie je kalendárny týždeň (KW)',
+    Per.nextPeriod([], '2026-09-17').from === '2026-09-14' && Per.nextPeriod([], '2026-09-17').to === '2026-09-20');
+  t('pri mesačnom odberateľovi celý kalendárny mesiac',
+    Per.nextPeriod([], '2026-09-17', { days: 30 }).to === '2026-09-30');
   t('február sa počíta správne', Per.lastOfMonth('2028-02-01') === '2028-02-29');
 }
 // Uzávierka aj otvorenie späť idú cez databázu — v UI by sa nedalo zaručiť,

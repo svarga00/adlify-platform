@@ -26,6 +26,7 @@
     { key: 'infolist',     title: 'Infolist na stavbu',    kind: 'infolist' },
     { key: 'ubytovanie',   title: 'Infolist k ubytovaniu', kind: 'infolist_lodging' },
     { key: 'objednavka',   title: 'Objednávka',            kind: 'objednavka' },
+    { key: 'stavby',       title: 'Stavby',                kind: 'stavby' },
     { key: 'vzor_faktury', title: 'Vzor faktúry',          kind: 'invoice_guide' },
     { key: 'zmluva',       title: 'Rámcová zmluva',        kind: 'ramcova' },
     { key: 'gdpr',         title: 'Súhlas GDPR',           kind: 'gdpr' },

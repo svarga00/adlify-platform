@@ -31,7 +31,7 @@ const FIRMA = { name: 'Partner und Service s. r. o.', company_id: '57 553 921',
   address: 'Podzámska 9468/4A, 940 71 Nové Zámky', tax_id: '2122816839',
   register: 'Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N' };
 
-const text = (z) => z.clanky.map(c => c.body.join(' ')).join(' ');
+const text = (z) => z.clanky.map(c => c.body.map(S.bodText).join(' ')).join(' ');
 const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
 
 // ── Stavba zmluvy ───────────────────────────────────────────────────────────
@@ -44,6 +44,10 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
     ['II.', 'III.', 'IV.', 'V.', 'VI.', 'VII.', 'VIII.', 'IX.', 'X.', 'XI.', 'XII.', 'XIII.'],
     'a idú po poradí od druhého');
   ok(z.clanky.every(c => c.nadpis && c.body.length), 'každý má nadpis aj obsah');
+  // Počty bodov ako v šablóne na Drive (V. má navyše body 10 až 14 o vyhotovení
+  // faktúry odberateľom, XI. bod 2 o samostatnom súhlase GDPR).
+  eq(z.clanky.map(c => c.body.length), [3, 7, 9, 14, 14, 8, 6, 4, 6, 2, 2, 4],
+    'počet bodov v článkoch sedí so šablónou');
   ok(!/\{\{/.test(text(z)), 'v texte nezostala žiadna nevyplnená značka');
 
   // „Zvyčajne do konca kalendárneho roka."
@@ -60,22 +64,29 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
 // majiteľ zdvihne pokutu a nikto nemá siahať do kódu.
 {
   const zakl = S.build({ worker: CLOVEK, supplier: FIRMA });
-  ok(/250 €/.test(clanok(zakl, 'VIII.').body[1]), 'predvolená pokuta za deň omeškania');
-  ok(/50 €/.test(clanok(zakl, 'VI.').body[3]), 'predvolený poplatok pri zrážkovej dani');
-  ok(/500 €/.test(clanok(zakl, 'VI.').body[4]), 'predvolená pokuta za alkohol');
+  // Sumy ako v šablóne na Drive: 300 € za deň omeškania, 3 000 € za nenastúpenie.
+  eq(S.SUMY.pokuta_omeskanie_den, 300, 'pokuta za deň omeškania je 300 € (šablóna)');
+  eq(S.SUMY.pokuta_nenastupenie, 3000, 'pokuta za nenastúpenie je 3 000 € (šablóna)');
+  ok(/vo výške 300 € za každý deň omeškania/.test(clanok(zakl, 'VIII.').body[1]), 'predvolená pokuta za deň omeškania v texte');
+  ok(/vo výške 3\s000 € pre prípad porušenia povinnosti dostaviť sa/.test(clanok(zakl, 'VIII.').body[2]),
+    'predvolená pokuta za nenastúpenie v texte', clanok(zakl, 'VIII.').body[2].slice(0, 80));
+  ok(/článku IX\. bod 4/.test(clanok(zakl, 'VIII.').body[0]), 'zákaz konkurencie odkazuje na čl. IX bod 4');
+  ok(/50 €/.test(clanok(zakl, 'VI.').body[4]), 'predvolený poplatok pri zrážkovej dani');
+  ok(/500 €/.test(clanok(zakl, 'VI.').body[5]), 'predvolená pokuta za alkohol');
+  ok(!/250 €|2\s500 €/.test(text(zakl)), 'staré sumy 250 € a 2 500 € v zmluve nie sú');
 
   const iné = S.build({ worker: CLOVEK, supplier: FIRMA,
-    rules: { pokuta_omeskanie_den: 300, freistellung_poplatok: 80, splatnost_dni: 30 } });
-  ok(/300 €/.test(clanok(iné, 'VIII.').body[1]), 'prepísaná pokuta sa prejaví v texte');
-  ok(/80 €/.test(clanok(iné, 'VI.').body[3]), 'aj prepísaný poplatok');
+    rules: { pokuta_omeskanie_den: 350, freistellung_poplatok: 80, splatnost_dni: 30 } });
+  ok(/350 €/.test(clanok(iné, 'VIII.').body[1]), 'prepísaná pokuta sa prejaví v texte');
+  ok(/80 €/.test(clanok(iné, 'VI.').body[4]), 'aj prepísaný poplatok');
   ok(/30 dní/.test(clanok(iné, 'V.').body[4]), 'aj prepísaná splatnosť');
-  ok(!/250 €/.test(text(iné)), 'a stará hodnota v zmluve nikde nezostala');
+  ok(!/300 € za každý deň/.test(text(iné)), 'a stará hodnota v zmluve nikde nezostala');
 
   // Nezmysel z Nastavení sa neberie — nula dní splatnosti nie je dohoda.
   const nezmysel = S.build({ rules: { splatnost_dni: 0, zaruka_mes: -5, pokuta_alkohol: 'veľa' } });
   ok(/14 dní/.test(clanok(nezmysel, 'V.').body[4]), 'nula sa ignoruje');
   ok(/24 mesiacov/.test(clanok(nezmysel, 'VII.').body[1]), 'záporné číslo tiež');
-  ok(/500 €/.test(clanok(nezmysel, 'VI.').body[4]), 'a text namiesto čísla tiež');
+  ok(/500 €/.test(clanok(nezmysel, 'VI.').body[5]), 'a text namiesto čísla tiež');
 }
 
 // ── Veci, ktoré si firma vyskúšala na vlastnej koži ─────────────────────────
@@ -91,9 +102,23 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
     'aj to, čo sa stane, keď si Freistellung nevybaví');
   ok(/montážny denník/.test(t) && /súpis vykonaných prác/.test(t),
     'podklady k faktúre sú vymenované');
-  ok(/všetky tri podklady súčasne/.test(t),
+  ok(/všetky 3 podklady súčasne/.test(t),
     'a je povedané, že musia byť všetky tri naraz');
-  ok(/3\. dňa nasledujúceho týždňa/.test(t), 'aj dokedy sa posielajú súpisy');
+  ok(/3-ho dňa nasledujúceho týždňa/.test(t), 'aj dokedy sa posielajú súpisy');
+  // Odsek V.7: bez týždenných súpisov (bod 3) sa platiť nemusí.
+  ok(/podľa bodu 2 tohto článku alebo si nesplní povinnosti podľa bodu 3/.test(clanok(z, 'V.').body[6]),
+    'platbu možno odmietnuť aj bez týždenných súpisov (bod 3)');
+  // Nástup sa smie oznámiť aj SMS alebo cez WhatsApp.
+  ok(/SMS, Whatsapp alebo inú platformu/.test(clanok(z, 'VI.').body[0]), 'miesto a čas nástupu aj cez SMS/WhatsApp');
+  // Ubytovanie a doprava, ktoré sprostredkujeme, sa strhnú z jeho faktúry.
+  ok(/sprostredkuje ubytovanie, prípadne dopravu/.test(clanok(z, 'VI.').body[8])
+    && /započítané oproti faktúre Zhotoviteľa/.test(clanok(z, 'VI.').body[8]),
+    'ubytovanie a doprava od nás sa započítajú oproti jeho faktúre');
+  // Viac zhotoviteľov na jednom diele a nevie sa, kto je vinný: rovným dielom.
+  ok(/rovným dielom/.test(clanok(z, 'VII.').body[7]), 'zodpovednosť za vady rovným dielom pri viacerých zhotoviteľoch');
+  ok(/môže vykonávať diela podľa tejto zmluvy aj prostredníctvom svojich zamestnancov/.test(clanok(z, 'IV.').body[1]),
+    'môže robiť aj cez vlastných zamestnancov');
+  ok(/viazaný pokynmi Objednávateľa/.test(clanok(z, 'IV.').body[5]), 'pri spôsobe vykonania je viazaný pokynmi');
   ok(/poistenie všeobecnej zodpovednosti/.test(t), 'poistenie je povinné');
   ok(/ubytovanie/i.test(t), 'ubytovanie si platí on');
   ok(/zákaz(u)? konkurencie/i.test(t), 'zákaz konkurencie tam je');
@@ -111,7 +136,9 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
   eq(S.plural(2, 'deň', 'dni', 'dní'), 'dni', 'dva dni');
   eq(S.plural(5, 'deň', 'dni', 'dní'), 'dní', 'päť dní');
   const jeden = S.build({ rules: { vypoved_mes: 1, sucin_dni: 1 } });
-  ok(/1 mesiac(?!e|ov)/.test(clanok(jeden, 'X.').body[2]), 'výpoveď na jeden mesiac');
+  ok(/mesačnou výpovednou lehotou/.test(clanok(jeden, 'X.').body[3]), 'výpoveď na jeden mesiac (ako v šablóne)');
+  ok(/výpovednou lehotou 2 mesiace/.test(clanok(S.build({ rules: { vypoved_mes: 2 } }), 'X.').body[4]),
+    'dva mesiace sa skloňujú');
   ok(/1 deň/.test(clanok(jeden, 'III.').body[2]), 'akceptácia do jedného dňa');
 }
 
@@ -153,20 +180,66 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
   eq(S.nextNumber(['2026-999'], 2026), '2026-1000', 'za 999 to nespadne');
 }
 
-// ── Vyhotovovanie faktúr za živnostníka ────────────────────────────────────
+// ── Článok X: body 1 až 6, v bode 6 písmená a) až i) ───────────────────────
+// Ukončovací list cituje „Článok X, bod 6g". Keby číslovanie nesedelo, list
+// by sa odvolával na bod, ktorý v zmluve nie je.
+{
+  const z = S.build({ worker: CLOVEK, supplier: FIRMA, signedAt: '2026-10-06' });
+  const x = clanok(z, 'X.');
+  eq(x.body.length, 6, 'článok X má šesť bodov');
+  eq(S.BOD_ODSTUPENIE, 6, 'dôvody odstúpenia sú v bode 6');
+  const b6 = x.body[S.BOD_ODSTUPENIE - 1];
+  ok(b6 && b6.letters === true && Array.isArray(b6.list), 'bod 6 je vymenovanie s písmenami');
+  eq(b6.list.length, 9, 'bod 6 má deväť dôvodov');
+  eq(S.DOVODY.map(d => d.p).join(''), 'abcdefghi', 'písmená a) až i)');
+  eq(S.DOVODY[6].text, 'nemá dostatok práce určený pre zhotoviteľa', 'písmeno g) doslovne ako v šablóne');
+  ok(/neuspeje/.test(S.DOVODY[7].text) && /alkoholických/.test(S.DOVODY[8].text), 'h) skúška, i) alkohol');
+  ok(/g\) nemá dostatok práce/.test(S.bodText(b6)), 'v texte bodu je písmeno g)');
+  ok(/končí dňom 31\. 12\. 2026/.test(x.body[0]), 'bod 1 — trvanie do konca roka');
+  eq(x.body[2], 'Zmluva končí uplynutím času, na ktorý bola uzavretá.', 'bod 3 — uplynutie času');
+  ok(/Objednávateľ môže túto zmluvu/.test(x.body[3]) && /doručená zhotoviteľovi/.test(x.body[3]), 'bod 4 — výpoveď objednávateľa');
+  ok(/Zhotoviteľ môže túto zmluvu/.test(x.body[4]) && /doručená objednávateľovi/.test(x.body[4]), 'bod 5 — výpoveď zhotoviteľa');
+}
+
+// ── Vyhotovenie faktúry odberateľom (čl. V. body 10 až 14) ───────────────────
+// Rozhodnutie majiteľa: zmluva to dovoľuje vždy, predvolene však fakturuje
+// živnostník sám (vzor faktúry V1.3).
 {
   const bez = S.build({ worker: { full_name: 'Ján' }, supplier: {} });
-  ok(!/Vyhotovovanie faktúr Objednávateľom/.test(text(bez)), 'bez dohody v zmluve nie je');
-  const s = S.build({ worker: { full_name: 'Ján', self_billing: true }, supplier: {} });
-  const v = clanok(s, 'V.');
-  ok(v.body.some(p => /Vyhotovovanie faktúr Objednávateľom/.test(p)), 'so živnostníkom, za ktorého fakturujeme, je v článku V.');
-  ok(/do 5 dní od doručenia nevznesie námietku/.test(text(s)), 'lehota na námietku');
-  ok(/samostatnom číselnom rade Zhotoviteľa/.test(text(s)), 'vlastný číselný rad');
-  ok(/zodpovedá Zhotoviteľ/.test(text(s)), 'za údaje zodpovedá živnostník');
-  eq(s.clanky.length, bez.clanky.length, 'počet článkov sa nemení — číslovanie sedí');
+  const so = S.build({ worker: { full_name: 'Ján', self_billing: true }, supplier: {} });
+  const v = clanok(bez, 'V.');
+  eq(v.body.length, 14, 'článok V. má body 1 až 9 zo šablóny a 10 až 14 o vyhotovení faktúry');
+  ok(/vyhotovenie faktúry odberateľom/.test(v.body[9]), 'bod 10 dovoľuje vyhotoviť faktúru v jeho mene');
+  ok(/oprávnením, nie povinnosťou/.test(v.body[9]), 'je to možnosť, nie povinnosť');
+  ok(/vystavuje faktúry Zhotoviteľ podľa bodov 2 až 9/.test(v.body[9]), 'inak fakturuje on sám');
+  ok(/222\/2004/.test(v.body[9]), 'odkaz na zákon o DPH');
+  ok(/do 5 dní od jej doručenia nevznesie/.test(text(bez)), 'lehota na námietku');
+  ok(/samostatnom číselnom rade Zhotoviteľa/.test(text(bez)), 'vlastný číselný rad');
+  ok(/zodpovedá Zhotoviteľ/.test(text(bez)), 'za údaje zodpovedá živnostník');
+  eq(JSON.stringify(so.clanky), JSON.stringify(bez.clanky), 'text zmluvy je rovnaký so samofakturáciou aj bez nej');
+  eq(so.selfBilling, true, 'príznak sa však zachová (vzor faktúry podľa neho vie, kto fakturuje)');
   ok(S.build({ worker: { self_billing: true }, selfBilling: false }).selfBilling === false, 'dá sa vypnúť');
-  ok(/do 7 dní od doručenia/.test(text(S.build({ worker: { self_billing: true }, rules: { samofakt_namietka_dni: 7 } }))),
+  ok(/do 7 dní od jej doručenia/.test(text(S.build({ rules: { samofakt_namietka_dni: 7 } }))),
     'lehota sa berie z Nastavení');
+  // Body 1 až 9 sa nepohli — odkazy „podľa bodu 2/3 tohto článku" platia.
+  ok(/každých 14 dní/.test(v.body[1]) && /súpis vykonaných prác/.test(v.body[1]), 'bod 2 — fakturácia a podklady');
+  ok(/Súpisy prác/.test(v.body[2]), 'bod 3 — týždenné súpisy');
+  ok(/Splatnosť jednotlivých faktúr je 14 dní od ich doručenia/.test(v.body[4]), 'bod 5 — splatnosť 14 dní od doručenia');
+}
+
+// ── Zoznam činností do Objednávky ───────────────────────────────────────────
+{
+  eq(S.CINNOSTI.length, 4, 'štyri činnosti zo zoznamu platného od 26.04.2026');
+  eq(S.CINNOSTI_OD, '2026-04-26', 'platný od 26. 4. 2026');
+  eq(S.CINNOSTI[0].text, 'Dokončovacie stavebné práce pri realizácii exteriérov a interiérov', 'prvá doslovne');
+  ok(S.CINNOSTI[2].remesla.includes('zvárači'), 'zvárači majú kovovýrobu');
+  eq(S.cinnosti({}).length, 4, 'bez Nastavení platí predvolený zoznam');
+  eq(S.cinnosti({ cinnosti: 'Prvá /maliari, allrounder/\n\n  Druhá  ' }),
+    [{ text: 'Prvá', remesla: ['maliari', 'allrounder'] }, { text: 'Druhá', remesla: [] }],
+    'zoznam z Nastavení: riadok = činnosť, remeslá za lomkou');
+  eq(S.cinnostRiadok(S.CINNOSTI[1]), 'Prípravné práce k realizácii stavby /viazači železa, allrounder/',
+    'a späť do riadku Nastavení');
+  eq(S.cinnosti({ cinnosti: S.CINNOSTI.map(S.cinnostRiadok).join('\n') }), S.CINNOSTI, 'tam a späť sa nič nestratí');
 }
 
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);

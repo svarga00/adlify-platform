@@ -199,25 +199,65 @@ console.log('Uzávierka obdobia');
 
 // ── Návrh nasledujúceho obdobia ─────────────────────────────────────────────
 {
-  // Mesiac je to, s čím pracuje odberateľ aj účtovníčka.
-  eq(P.nextPeriod([], '2026-09-17'), { from: '2026-09-01', to: '2026-09-30' },
-    'prvé obdobie je celý mesiac');
-  eq(P.nextPeriod([{ period_to: '2026-09-30' }], '2026-10-17'),
-    { from: '2026-10-01', to: '2026-10-31' }, 'ďalšie nadväzuje bez diery');
-  eq(P.nextPeriod([{ period_to: '2026-08-31' }, { period_to: '2026-09-30' }], '2026-10-17'),
-    { from: '2026-10-01', to: '2026-10-31' }, 'rozhoduje posledné, nie prvé');
+  // Podľa šablóny Rahmenvertrag sa nemeckému odberateľovi fakturuje týždenne
+  // po kalendárnych týždňoch (KW, pondelok až nedeľa) — to je predvolené.
+  eq(P.nextPeriod([], '2026-11-18'), { from: '2026-11-16', to: '2026-11-22' },
+    'prvé obdobie je týždeň (KW), v ktorom je dnešok');
+  eq(P.nextPeriod([{ period_to: '2026-11-22' }], '2026-11-25'),
+    { from: '2026-11-23', to: '2026-11-29' }, 'ďalšie nadväzuje bez diery, ďalší KW');
+  eq(P.nextPeriod([{ period_to: '2026-11-08' }, { period_to: '2026-11-22' }], '2026-11-25'),
+    { from: '2026-11-23', to: '2026-11-29' }, 'rozhoduje posledné, nie prvé');
+  // Odberateľ so 14/14 — dva KW naraz.
+  eq(P.nextPeriod([{ period_to: '2026-11-22' }], '2026-11-25', { days: 14 }),
+    { from: '2026-11-23', to: '2026-12-06' }, '14 dní = dva KW');
+  // Prechod z mesačného obdobia: nové sa zarovná na koniec KW (stará data ostávajú).
+  eq(P.nextPeriod([{ period_to: '2026-10-31' }], '2026-11-02'),
+    { from: '2026-11-01', to: '2026-11-08' }, 'po mesačnom období sa ďalšie dorovná na nedeľu');
+  // Mesačná fakturácia ostáva ako možnosť pri odberateľovi.
+  eq(P.nextPeriod([], '2026-09-17', { days: 30 }), { from: '2026-09-01', to: '2026-09-30' },
+    'mesačne: prvé obdobie je celý mesiac');
+  eq(P.nextPeriod([{ period_to: '2026-09-30' }], '2026-10-17', { days: 31 }),
+    { from: '2026-10-01', to: '2026-10-31' }, 'mesačne: ďalšie nadväzuje');
+  eq(P.nextPeriod([{ period_to: '2026-12-31' }], '2027-01-05', { days: 30 }),
+    { from: '2027-01-01', to: '2027-01-31' }, 'mesačne: nový rok nadväzuje správne');
+  eq(P.nextPeriod([{ period_to: '2026-12-27' }], '2027-01-05'),
+    { from: '2026-12-28', to: '2027-01-03' }, 'týždeň cez prelom roka (KW 53)');
 
   // Február aj prestupný rok
   eq(P.lastOfMonth('2026-02-10'), '2026-02-28', 'február má 28 dní');
   eq(P.lastOfMonth('2028-02-10'), '2028-02-29', 'v prestupnom roku 29');
   eq(P.lastOfMonth('2026-12-01'), '2026-12-31', 'december');
   eq(P.firstOfMonth('2026-09-17'), '2026-09-01', 'prvý deň mesiaca');
-
-  // Prechod cez koniec roka
-  eq(P.nextPeriod([{ period_to: '2026-12-31' }], '2027-01-05'),
-    { from: '2027-01-01', to: '2027-01-31' }, 'nový rok nadväzuje správne');
   eq(P.addDays('2026-12-31', 1), '2027-01-01', 'deň po Silvestri');
   eq(P.addDays('2026-02-28', 1), '2026-03-01', 'deň po februári');
+}
+
+// ── Kalendárne týždne (KW) ──────────────────────────────────────────────────
+{
+  eq(P.isoWeek('2026-11-25'), { week: 48, year: 2026 }, '25. 11. 2026 je KW 48');
+  eq(P.isoWeek('2026-12-31'), { week: 53, year: 2026 }, '2026 má KW 53');
+  eq(P.isoWeek('2027-01-04'), { week: 1, year: 2027 }, '4. 1. 2027 je KW 1');
+  eq(P.isoWeek('2026-09-21'), { week: 39, year: 2026 }, 'KW 39 ako vo vzore faktúry');
+  eq(P.mondayOf('2026-11-22'), '2026-11-16', 'pondelok týždňa (nedeľa patrí k predchádzajúcemu pondelku)');
+  eq(P.kwLabel('2026-11-16', '2026-11-22'), 'KW 47 · 16.11.–22.11.2026', 'popis týždenného obdobia');
+  eq(P.kwLabel('2026-11-09', '2026-11-22'), 'KW 46–47 · 09.11.–22.11.2026', 'popis dvoch týždňov');
+  eq(P.kwLabel('2026-10-01', '2026-10-31'), '01.10.–31.10.2026', 'mesačné obdobie bez KW');
+}
+
+// ── Živnostník fakturuje za 2 KW ────────────────────────────────────────────
+{
+  const per = (id, from, to) => ({ id, period_from: from, period_to: to });
+  const w = P.workerWindows([
+    per('c', '2026-11-16', '2026-11-22'), per('a', '2026-11-02', '2026-11-08'),
+    per('b', '2026-11-09', '2026-11-15'), per('e', '2026-12-07', '2026-12-13'),
+  ]);
+  eq(w.map(x => x.periods.map(p => p.id).join('')), ['ab', 'c', 'e'], 'po sebe idúce týždne sa spoja po dvoch, medzera začne nové okno');
+  eq(w.map(x => [x.from, x.to, x.complete]), [['2026-11-02', '2026-11-15', true], ['2026-11-16', '2026-11-22', false],
+    ['2026-12-07', '2026-12-13', false]], 'okno vie, či má plné 2 týždne');
+  eq(P.workerWindows([per('a', '2026-11-02', '2026-11-08'), per('b', '2026-11-09', '2026-11-15')], { days: 7 })
+    .map(x => x.periods.length), [1, 1], 'pri 7 dňoch každý týždeň zvlášť');
+  eq(P.workerWindows([per('m', '2026-10-01', '2026-10-31')]).map(x => x.periods.length), [1], 'staré mesačné obdobie ostane samo');
+  eq(P.workerWindows([]), [], 'bez období nič');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo`);

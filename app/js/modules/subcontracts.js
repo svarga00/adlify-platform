@@ -2375,7 +2375,7 @@
         return `<div class="list-row" style="align-items:flex-start;">
           <span class="dot ${p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : ''}"></span>
           <span style="flex:1;font-size:13px;">
-            <strong>${UI.dateRange(p.period_from, p.period_to)}</strong>
+            <strong>${UI.esc(DanubraPeriods.kwLabel(p.period_from, p.period_to) || UI.dateRange(p.period_from, p.period_to))}</strong>
             ${UI.badge(Enums.label('period_status', p.status),
               p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : 'gray')}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
@@ -2401,7 +2401,11 @@
       const looseApproved = loose.filter(t => t.approved);
       const looseHours = loose.reduce((n, t) => n + (Number(t.hours) || 0), 0);
 
-      const next = DanubraPeriods.nextPeriod(periods);
+      // Obdobie podľa odberateľa: predvolene týždeň (KW), alebo 14 dní / mesiac
+      // (danubra_partners.billing_period_days, migrácia 096).
+      const dni = Number((this.partnerOf(sc.partner_id) || {}).billing_period_days) || 7;
+      const next = DanubraPeriods.nextPeriod(periods, Danubra._dayISO ? Danubra._dayISO() : undefined, { days: dni });
+      const nazov = (p) => DanubraPeriods.kwLabel(p.period_from, p.period_to) || UI.dateRange(p.period_from, p.period_to);
       return `
         ${periods.length ? closed
           : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne obdobie.</div>'}
@@ -2412,7 +2416,10 @@
           Kým sa neuzavrú do obdobia, nedá sa z nich vystaviť faktúra.</div>` : ''}
         <button class="btn btn-outline btn-sm" style="margin-top:8px;"
           onclick="Sub.newPeriod('${sc.id}','${next.from}','${next.to}')">
-          ${Icon('plus')} Nové obdobie ${UI.dateRange(next.from, next.to)}</button>`;
+          ${Icon('plus')} Nové obdobie ${UI.esc(nazov({ period_from: next.from, period_to: next.to }))}</button>${
+          UI.tip(dni >= 28 ? 'Odberateľ má mesačnú fakturáciu (nastavuje sa na jeho karte).'
+            : `Fakturujeme po kalendárnych týždňoch (KW) — ${dni === 7 ? 'každý týždeň' : `každých ${dni} dní`}, `
+              + 'podľa rámcovej zmluvy s odberateľom. Dĺžka obdobia sa nastavuje na karte odberateľa.')}`;
     },
 
     async newPeriod(scId, from, to) {
@@ -2444,7 +2451,7 @@
           spätne neprepíše.</div>
 
         <div class="kv">
-          <div><span>Obdobie</span><strong>${UI.dateRange(p.period_from, p.period_to)}</strong></div>
+          <div><span>Obdobie</span><strong>${UI.esc(DanubraPeriods.kwLabel(p.period_from, p.period_to) || UI.dateRange(p.period_from, p.period_to))}</strong></div>
           <div><span>Ľudí</span><strong>${pv.workers}</strong></div>
           <div><span>Hodín spolu</span><strong>${pv.totalHours}</strong></div>
         </div>

@@ -255,12 +255,15 @@
         + 'našu faktúru; bez neho ju jeho účtovné oddelenie často neprepustí a platba '
         + 'sa posunie o mesiac. K jeho objednávke sa dá vystaviť naše potvrdenie '
         + '(Auftragsbestätigung) po nemecky.',
-        '**Živnostníkovi** — jedna na nasadenie. Nasadenie, ktoré už objednávku má, '
-        + 'sa pri zakladaní neponúkne znova.',
+        '**Živnostníkovi** — „Objednávka č. N" podľa firemnej šablóny: jedna činnosť '
+        + 'zo Zoznamu činností, odplata za hodinu, deň začatia a skončenia (spravidla '
+        + '31.12.), miesta výkonu vrátane adresy v SR a celého územia Nemeckej a Slovenskej '
+        + 'republiky. Nasadenie, ktoré už objednávku má, sa pri zakladaní neponúkne znova.',
       ],
       how: [
-        'Číslo sa prideľuje z radu OBJ-RRRR-NNNN až pri založení a transakčne, takže '
-        + 'v ňom nikdy nevznikne diera ani duplicita.',
+        'Na papieri je **poradové číslo u toho živnostníka** (č. 1, č. 2 …) a pri '
+        + 'Bestellung **u toho odberateľa** (Nr. 1, Nr. 2 …) — ako na šablónach. Evidenčné '
+        + 'číslo z číselného radu sa prideľuje pri založení a transakčne.',
         'Objednávka je buď od odberateľa, alebo živnostníkovi — nikdy oboje. Drží to '
         + 'kontrola v databáze, nie formulár.',
       ],
@@ -270,8 +273,8 @@
         + 'ten človek na stavbe urobiť, odpoveď „bol tam a robil, čo bolo treba" je '
         + 'presne tá, po ktorej sa z Werkvertrag stane prenájom pracovnej sily '
         + '(Arbeitnehmerüberlassung) a na ten treba povolenie.',
-        'Preto je na doklade aj napísané, že si prácu organizuje sám a že nám za dielo '
-        + 'fakturuje — to sú znaky, podľa ktorých sa dielo odlišuje.',
+        'Preto je na doklade presne vymedzená činnosť (text voľnej živnosti, ktorú má '
+        + 'v živnostenskom liste) a miesto výkonu. Ten istý text činnosti píše na faktúru.',
       ],
       watch: [
         'Objednávka bez popísaného diela je označená. Je to jediné pole, ktoré pri '
@@ -658,7 +661,7 @@
       lead: 'Od súhlasu GDPR po infolist na stavbu. Všetko cez **Papiere** — údaje sa doplnia z jeho karty.',
       steps: [
         '**Súhlas GDPR** — podpíše ho ako prvý. Podpísaný zapíšte na jeho karte.',
-        '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Ak za neho budeme vystavovať faktúry, najprv na jeho karte zaškrtnite **„Faktúry zaňho vystavujeme my"** — zmluva potom obsahuje aj túto dohodu.',
+        '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Predvolene si faktúru vystavuje sám podľa vzoru faktúry; zmluva (čl. V body 10 až 14) nám však dovoľuje vyhotoviť ju v jeho mene — vtedy na jeho karte zaškrtnite **„Faktúry zaňho vystavujeme my"**.',
         '**Objednávka živnostníkovi** — na konkrétnu zákazku: čo má urobiť, kde, odkedy a za koľko.',
         '**Infolist na stavbu** — kam prísť, kedy, za kým, ubytovanie, čo si priniesť. Pošlite mu ho deň-dva pred nástupom.',
       ],
@@ -1754,8 +1757,11 @@
     },
     'flow.nemec': {
       title: '3 · Zmluva s Nemcom',
-      lead: 'Zmluva o dielo s odberateľom a k nej jeho objednávka — dvojjazyčne.',
+      lead: 'Zmluva o dielo s odberateľom (Rahmenvertrag SK_DE) a k nej objednávky '
+        + '(Bestellung Nr. N) — dvojjazyčne, doslovne podľa firemnej šablóny.',
       what: [
+        'Fakturujeme **týždenne po kalendárnych týždňoch (KW)** so splatnosťou 7 dní '
+        + '(Rahmenvertrag čl. III bod 2). Odberateľovi so 14/14 sa to nastaví na jeho karte.',
         'Dvojjazyčne zámerne: on podpisuje po nemecky, my čítame po slovensky '
         + 'a pri spore je jasné, na čom sme sa dohodli.',
         'Je to **dielo, nie hodiny**. Hodinová sadzba je len spôsob výpočtu ceny — '
@@ -1797,12 +1803,19 @@
     'flow.zivnostnici': {
       title: '5 · Zmluvy a objednávky živnostníkom',
       lead: 'Rámcová zmluva o dielo podľa §536 Obchodného zákonníka (zvyčajne do konca '
-        + 'roka) a k nej objednávka na každú stavbu.',
+        + 'roka) a k nej Objednávka č. N — so samostatne zárobkovo činnými osobami, '
+        + 'nie so zamestnancami.',
       what: [
         'Rámcová znamená, že sa podpíše raz a potom sa na ňu viažu jednotlivé '
-        + 'objednávky. Neuzatvára sa znova pri každej stavbe.',
-        'Objednávka dopĺňa to, čo je pri každej stavbe iné: čo sa robí, kde, '
-        + 'odkedy dokedy a za koľko. Vystavuje sa zo zákazky.',
+        + 'objednávky. Neuzatvára sa znova pri každej stavbe. Text je doslovne podľa '
+        + 'firemnej šablóny (pokuty 300 € za deň omeškania a 3 000 € za nenastúpenie).',
+        'Objednávka určuje činnosť zo Zoznamu činností, odplatu za hodinu, termín '
+        + '(spravidla do 31.12.) a miesta výkonu. Vystavuje sa zo zákazky.',
+        'Živnostník nám fakturuje **za 2 kalendárne týždne** podľa vzoru faktúry '
+        + '(splatnosť 14 dní od doručenia). Zmluva nám dovoľuje vyhotoviť faktúru aj '
+        + 'v jeho mene (samofakturácia) — zapína sa na jeho karte.',
+        'Keď spolupráca končí, ide mu list „Ukončenie zmluvy" s dôvodom podľa čl. X '
+        + 'bod 6 (a) až i), najčastejšie 6g — nie je dostatok práce).',
       ],
       how: [
         'Zmluva sa končí spravidla 31. decembra. Appka upozorní skôr, než sa to '
@@ -1812,7 +1825,8 @@
       ],
       why: [
         'Bez zmluvy a objednávky to nie je subdodávka, ale zamestnávanie. Pri '
-        + 'kontrole to nesie firma, nie živnostník.',
+        + 'kontrole to nesie firma, nie živnostník. Živnostník má vlastné A1 ako SZČO '
+        + 'a vlastnú Freistellung.',
       ],
       links: [['workers', 'Živnostníci'], ['orders', 'Objednávky']],
     },

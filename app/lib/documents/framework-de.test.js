@@ -103,6 +103,12 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
     'predvolená splatnosť je sedem dní');
   ok(/7 Kalendertage/.test(clanok(zakl, 'III.').body[1].de), 'aj po nemecky');
   ok(/0,05 %/.test(clanok(zakl, 'III.').body[3].sk), 'predvolená pokuta za omeškanie');
+  // Šablóna na Drive: fakturuje sa v 7-dňových intervaloch (po KW), splatnosť 7 dní.
+  eq(F.SUMY.fakturacia_dni, 7, 'predvolený interval fakturácie je 7 dní');
+  ok(/fakturovať v 7-dňových intervaloch/.test(clanok(zakl, 'III.').body[1].sk), '7-dňové intervaly v zmluve');
+  ok(/in 7-Tages-Intervallen/.test(clanok(zakl, 'III.').body[1].de), 'aj po nemecky');
+  ok(/14-dňových/.test(clanok(F.build({ rules: { fakturacia_dni: 14 } }), 'III.').body[1].sk),
+    'odberateľovi s 14/14 sa interval prepíše v Nastaveniach');
 
   const iné = F.build({ supplier: FIRMA, client: KLIENT,
     rules: { splatnost_dni: 14, objednavka_dni: 3 } });
@@ -114,6 +120,23 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
   const nezmysel = F.build({ rules: { splatnost_dni: 0, vypoved_dni: -3 } });
   ok(/7 kalendárnych dní/.test(clanok(nezmysel, 'III.').body[1].sk), 'nula sa ignoruje');
   ok(/7 Tagen/.test(clanok(nezmysel, 'VI.').body[2].de), 'aj záporné číslo');
+}
+
+// ── Doslovne podľa šablóny na Drive ─────────────────────────────────────────
+{
+  const z = F.build({ supplier: FIRMA, client: KLIENT });
+  const ii = clanok(z, 'II.');
+  ok(/najskôr v piaty pracovný deň/.test(ii.body[2].sk) && /am fünften Werktag/.test(ii.body[2].de),
+    'nástup najskôr piaty pracovný deň (slovom, ako v šablóne)');
+  eq(ii.body[3].list_sk.length, 3, 'objednávka obsahuje tri náležitosti (odrážky)');
+  ok(/potrebný počet pracovníkov/.test(ii.body[3].list_sk[0]) && /Anzahl an Mitarbeitern/.test(ii.body[3].list_de[0]),
+    'vrátane počtu pracovníkov');
+  const vi = clanok(z, 'VI.');
+  eq(vi.body.length, 5, 'článok VI má päť bodov — výpoveď každej strany zvlášť');
+  ok(/^Objednávateľ je oprávnený zmluvu vypovedať/.test(vi.body[2].sk) && /^Zhotoviteľ je oprávnený zmluvu vypovedať/.test(vi.body[3].sk),
+    'bod 3 objednávateľ, bod 4 zhotoviteľ');
+  ok(/Pre úkony smerujúce k zmene alebo ukončeniu zmluvy sa vyžaduje doručenie poštou/.test(clanok(z, 'VIII.').body[0].sk),
+    'doručovanie doslovne');
 }
 
 // ── Čo chýba pred podpisom ──────────────────────────────────────────────────

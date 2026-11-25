@@ -21,6 +21,10 @@
   const KINDS = {
     gdpr:         { label: 'Súhlas GDPR',            group: 'gdpr' },
     ramcova:      { label: 'Rámcová zmluva',         group: 'zmluvy' },
+    // Ukončenie Zmluvy o dielo a Objednávky (čl. X bod 6) — šablóna na Drive.
+    ukoncenie:    { label: 'Ukončenie zmluvy',       group: 'zmluvy' },
+    stavby:       { label: 'Stavby',                 group: 'objednavky' },
+    cinnosti:     { label: 'Zoznam činností',        group: 'objednavky' },
     objednavka:   { label: 'Objednávka',             group: 'objednavky' },
     infolist:     { label: 'Infolist na stavbu',     group: 'infolisty' },
     infolist_lodging: { label: 'Infolist k ubytovaniu', group: 'infolisty' },

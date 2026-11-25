@@ -1,5 +1,5 @@
 // ============================================================================
-// DANUBRA — fakturácia: upomienky, mesačná fakturácia, balík pre účtovníčku
+// DANUBRA — fakturácia: upomienky, fakturácia naraz (KW / mesiac), balík pre účtovníčku
 // ============================================================================
 // Tri veci, ktoré chýbali („Upomienky, Mesačná faktúra naraz, Prehľad pre
 // účtovníčku"). Logika je v knižniciach s testami:
@@ -100,18 +100,32 @@
         <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
     },
 
-    // ── Mesačná fakturácia naraz ──────────────────────────────────────────
-    async monthly(ym) {
-      const mesiac = ym || DanubraMonthly.previousMonth(Danubra._dayISO());
-      UI.modal('Mesačná fakturácia', UI.loading(), { wide: true });
-      const [s, a, t, per] = await Promise.all([
+    // ── Fakturácia naraz (týždenne po KW alebo za mesiac) ─────────────────
+    // Nemeckým odberateľom sa podľa Rahmenvertrag fakturuje týždenne (KW);
+    // odberateľ so 14/14 dostane dva KW, mesačný sa fakturuje v mesačnom behu.
+    // Dĺžka obdobia je na karte odberateľa (billing_period_days, migrácia 096).
+    async monthly(sel, mode) {
+      const rezim = mode || (sel && /^\d{4}-\d{2}$/.test(sel) ? 'month' : null) || this._batchMode || 'week';
+      this._batchMode = rezim;
+      const dnes = Danubra._dayISO();
+      const kw = rezim === 'week' ? (sel && /W\d/i.test(sel) ? sel : DanubraMonthly.previousWeek(dnes)) : null;
+      const mesiac = rezim === 'month' ? (sel && /^\d{4}-\d{2}$/.test(sel) ? sel : DanubraMonthly.previousMonth(dnes)) : null;
+      UI.modal('Fakturácia naraz', UI.loading(), { wide: true });
+      const [s, a, t, per, prt] = await Promise.all([
         DB.list('subcontracts', { select: 'id,title,status,partner_id', limit: 500 }),
         DB.list('assignments', { select: 'id,subcontract_id,worker_id,charge_rate,worker_rate,status', limit: 3000 }),
         DB.list('timesheets', { select: 'id,assignment_id,worker_id,work_date,hours,approved,period_id,activity_type,rate_used', limit: 10000 }),
         DB.list('periods', { limit: 2000 }),
+        DB.list('partners', { select: 'id,billing_period_days', limit: 1000 }),
       ]);
-      const plan = DanubraMonthly.plan({ month: mesiac, subcontracts: s.data || [], assignments: a.data || [],
-        timesheets: t.data || [], periods: per.data || [], invoices: this.items });
+      const dniOdb = new Map((prt.data || []).map(x => [x.id, Number(x.billing_period_days) || 7]));
+      const spolocne = { subcontracts: s.data || [], assignments: a.data || [],
+        timesheets: t.data || [], periods: per.data || [], invoices: this.items };
+      const wr = kw ? DanubraMonthly.weekRange(kw) : null;
+      const plan = rezim === 'week'
+        ? DanubraMonthly.plan({ ...spolocne, from: wr.from, to: wr.to,
+          rangeOf: (sc) => DanubraMonthly.rangeForWeek(kw, dniOdb.get(sc.partner_id) || 7) })
+        : DanubraMonthly.plan({ ...spolocne, month: mesiac });
       this._plan = plan;
       const robit = plan.filter(r => ['create', 'close', 'invoice'].includes(r.action));
       const spolu = robit.reduce((n, r) => n + (r.cents || 0), 0);
@@ -119,14 +133,22 @@
         skip: 'preskočí sa', done: 'hotovo' };
       const body = document.querySelector('#ui-modal .modal-body') || document.querySelector('#ui-modal .modal-card');
       const html = `
-        <div class="regimebox">Pri každej zákazke appka spraví, čo treba: založí obdobie za mesiac,
-          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Návrhy potom skontrolujete
-          a pošlete na schválenie — schvaľuje ich admin, ako vždy.${
-          UI.tip('Obdobie = úsek dní (tu celý mesiac), za ktorý sa fakturuje. Uzavrieť ho znamená zmraziť '
-            + 'schválené hodiny aj sadzbu, aby sa suma faktúry už nemenila.')}</div>
+        <div class="regimebox">Pri každej zákazke appka spraví, čo treba: založí obdobie, uzavrie ho zo
+          schválených hodín a pripraví <b>návrh</b> faktúry. Návrhy potom skontrolujete a pošlete na
+          schválenie — schvaľuje ich admin, ako vždy.${
+          UI.tip('Obdobie = úsek dní, za ktorý sa fakturuje. Nemeckým odberateľom fakturujeme týždenne po '
+            + 'kalendárnych týždňoch (KW), odberateľovi so 14/14 za dva týždne — nastavuje sa na jeho karte. '
+            + 'Uzavrieť obdobie znamená zmraziť schválené hodiny aj sadzbu, aby sa suma faktúry už nemenila.')}</div>
         <div class="form-grid">
-          <label class="fld"><span>Mesiac${UI.tip('Ktorý mesiac sa fakturuje. Predvolený je minulý — '
-            + 'fakturuje sa až po skončení mesiaca.')}</span><input type="month" value="${mesiac}" onchange="Inv.monthly(this.value)"></label>
+          <label class="fld"><span>Fakturovať</span><select onchange="Inv.monthly(null, this.value)">
+            <option value="week" ${rezim === 'week' ? 'selected' : ''}>Týždeň (KW)</option>
+            <option value="month" ${rezim === 'month' ? 'selected' : ''}>Mesiac</option></select></label>
+          ${rezim === 'week'
+            ? `<label class="fld"><span>Týždeň${UI.tip('Ktorý kalendárny týždeň sa fakturuje. Predvolený je minulý — '
+              + 'fakturuje sa po skončení týždňa a podpise výkazu.')}</span><input type="week" value="${kw}" onchange="Inv.monthly(this.value, 'week')"></label>
+              <div class="fld"><span>Obdobie</span><b>${UI.esc(DanubraPeriods.kwLabel(wr.from, wr.to))}</b></div>`
+            : `<label class="fld"><span>Mesiac${UI.tip('Ktorý mesiac sa fakturuje — pre odberateľov s mesačnou fakturáciou. '
+              + 'Predvolený je minulý.')}</span><input type="month" value="${mesiac}" onchange="Inv.monthly(this.value, 'month')"></label>`}
         </div>
         <div class="form-section">Zákazky${UI.tip('Pri každej zákazke je napísané, čo appka spraví, koľko hodín '
           + 'a za koľko. Odškrtnutú zákazku vynechá. Sivé riadky sa preskočia — dôvod je napísaný pri nich. '
@@ -149,7 +171,7 @@
               + 'Odberateľovi nič neodíde — každý návrh treba skontrolovať, poslať na schválenie a admin ho '
               + 'musí schváliť. Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
         </div>`;
-      UI.modal('Mesačná fakturácia', html, { wide: true });
+      UI.modal('Fakturácia naraz', html, { wide: true });
     },
 
     async runMonthly() {
@@ -180,7 +202,7 @@
       this.loaded = false; this.v2.loaded = false;
       if (window.Sub) Sub.loaded = false;
       await this.load(); Danubra.renderRoute();
-      UI.modal('Mesačná fakturácia', `
+      UI.modal('Fakturácia naraz', `
         <div class="${chyby.length ? 'warnbox' : 'regimebox'}">${ok
           ? `Vzniklo ${ok} ${Shell.plural(ok, 'návrh', 'návrhy', 'návrhov')} faktúr. Skontrolujte ich vo Vydaných
             faktúrach a pošlite na schválenie.${UI.tip('Návrh je len v appke — odberateľ o ňom nevie. '

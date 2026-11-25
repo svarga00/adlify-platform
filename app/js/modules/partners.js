@@ -6,6 +6,9 @@
 // podľa biznis plánu je likvidita najpravdepodobnejší dôvod zlyhania.
 // ============================================================================
 (function () {
+  // Stĺpce z migrácie 096 (údaje do Rahmenvertrag a Bestellung, dĺžka obdobia).
+  const NOVE_STLPCE = ['statutory_body', 'representative', 'register', 'tax_number', 'invoice_email', 'billing_period_days'];
+
   const RATING = [['a', 'A — platí spoľahlivo', 'green'], ['b', 'B — priemer', 'amber'], ['c', 'C — problémový', 'red']];
 
   // Otázniky pri údajoch v detaile odberateľa (kľúč = názov riadku).
@@ -252,10 +255,11 @@
 
       const supplier = Danubra.supplier();
       const client = {
-        name: p.name, address: [p.address, p.postal_code, p.city, p.country]
-          .filter(Boolean).join(', '),
-        registration_no: p.registration_no, ust_idnr: p.ust_idnr,
-        phone: p.phone, email: p.email, contact_person: p.contact_person,
+        name: p.name, address: [p.address, [p.postal_code, p.city].filter(Boolean).join(' '), p.country]
+          .filter(Boolean).join(', '), city: p.city,
+        registration_no: p.registration_no, ust_idnr: p.ust_idnr, register: p.register,
+        phone: p.phone, email: p.email, invoice_email: p.invoice_email, tax_number: p.tax_number,
+        statutory_body: p.statutory_body, representative: p.representative, contact_person: p.contact_person,
       };
       const zmluva = DanubraFrameworkDe.build({
         supplier, client, rules: Danubra.cfg('framework_de'),
@@ -288,6 +292,9 @@
         ['Adresa', [p.address, p.postal_code, p.city].filter(Boolean).join(', ')],
         ['Typ prác', p.is_construction ? 'Stavebné (SOKA, §48b, Bau-Mindestlohn)' : 'Dielenské (nižšia regulácia)'],
         ['Splatnosť', `${p.payment_terms_days || 30} dní`],
+        ['Fakturujeme', ({ 7: 'týždenne (KW)', 14: 'každé 2 týždne' })[Number(p.billing_period_days) || 7]
+          || (Number(p.billing_period_days) >= 28 ? 'mesačne' : `každých ${p.billing_period_days} dní`)],
+        ['Štatutárny orgán', p.statutory_body],
         ['Faktoring', p.factoring_eligible ? 'Áno' : 'Nie'],
         ['Zdroj', p.source],
       ].filter(r => r[1] != null && r[1] !== '');
@@ -431,13 +438,29 @@
             ${UI.field('postal_code', 'PSČ', { value: p.postal_code })}
             ${UI.field('country', 'Krajina', { value: p.country || 'DE' })}
             ${UI.field('payment_terms_days', 'Splatnosť (dní)', { type: 'number',
-              value: p.payment_terms_days ?? 30,
-              hint: 'Dohodnutá splatnosť. Koľko dní odberateľ naozaj platí, počíta '
-                + 'appka z úhrad — a práve to ide do výhľadu cash-flow.' })}
+              value: p.payment_terms_days ?? 7,
+              hint: 'Dohodnutá splatnosť — podľa rámcovej zmluvy 7 dní od vystavenia. Koľko dní odberateľ '
+                + 'naozaj platí, počíta appka z úhrad — a práve to ide do výhľadu cash-flow.' })}
+            ${UI.field('billing_period_days', 'Fakturujeme', { value: String(p.billing_period_days ?? 7),
+              options: [['7', 'Týždenne (KW) — 7/7'], ['14', 'Každé 2 týždne — 14/14'], ['30', 'Mesačne']],
+              tip: 'Ako často tomuto odberateľovi fakturujeme. Podľa rámcovej zmluvy týždenne po kalendárnych '
+                + 'týždňoch (KW). Podľa toho appka navrhuje obdobia na zákazke a fakturáciu naraz.' })}
             ${UI.field('rating', 'Spoľahlivosť platieb', { value: p.rating, options: [['', '—'], ...RATING.map(r => [r[0], r[1]])],
               tip: 'Vaše hodnotenie, ako odberateľ platí: A = spoľahlivo, B = priemer, C = problémový. V detaile appka navrhne hodnotenie podľa faktúr.' })}
             ${UI.field('source', 'Zdroj', { value: p.source, placeholder: 'Auftragsbank, referral…',
               tip: 'Odkiaľ sme firmu získali, napr. Auftragsbank (nemecká burza zákaziek) alebo odporúčanie.' })}
+          </div>
+          <div class="form-section">Do zmluvy a objednávky (Rahmenvertrag, Bestellung)</div>
+          <div class="form-grid">
+            ${UI.field('statutory_body', 'Štatutárny orgán', { value: p.statutory_body,
+              placeholder: 'Geschäftsführer', tip: 'Statutarisches Organ — kto firmu zo zákona zastupuje (Geschäftsführer, Inhaber).' })}
+            ${UI.field('representative', 'Zastúpený (ak iný)', { value: p.representative,
+              placeholder: 'prázdne = štatutárny orgán', tip: 'Vertreten durch — kto podpisuje, ak to nie je štatutár.' })}
+            ${UI.field('registration_no', 'IČO / Ident.-Nr.', { value: p.registration_no })}
+            ${UI.field('register', 'Zápis v registri', { value: p.register, placeholder: 'napr. Amtsgericht Ulm HRB 12345' })}
+            ${UI.field('tax_number', 'Steuernummer', { value: p.tax_number, placeholder: 'napr. 58388/14944' })}
+            ${UI.field('invoice_email', 'E-mail na faktúry', { type: 'email', value: p.invoice_email,
+              placeholder: 'rechnung@…', tip: 'Kam posielať faktúry (Rechnungen). Vypíše sa do záhlavia zmluvy a objednávky.' })}
           </div>
           <div class="chk-row">
             ${UI.field('is_construction', '', { type: 'checkbox', value: p.is_construction !== false, placeholder: 'Stavebné práce (SOKA, §48b, Bau-Mindestlohn)',
@@ -460,9 +483,18 @@
       const d = UI.formData(document.getElementById('prt-form'));
       if (!d.name) return UI.toast('Názov je povinný', 'err');
       const payload = { ...d };
-      payload.payment_terms_days = d.payment_terms_days === '' ? 30 : Number(d.payment_terms_days);
+      payload.payment_terms_days = d.payment_terms_days === '' ? 7 : Number(d.payment_terms_days);
+      payload.billing_period_days = Number(d.billing_period_days) || 7;
       if (payload.rating === '') payload.rating = null;
-      const res = id ? await DB.update('partners', id, payload) : await DB.insert('partners', payload);
+      for (const k of NOVE_STLPCE) if (payload[k] === '') payload[k] = null;
+      let res = id ? await DB.update('partners', id, payload) : await DB.insert('partners', payload);
+      // Kým nie je spustená migrácia 096, tieto stĺpce v databáze nie sú —
+      // uloží sa aspoň to ostatné a povie sa to.
+      if (res.error && NOVE_STLPCE.some(k => String(res.error.message || '').includes(k))) {
+        for (const k of NOVE_STLPCE) delete payload[k];
+        res = id ? await DB.update('partners', id, payload) : await DB.insert('partners', payload);
+        if (!res.error) UI.toast('Údaje do zmluvy (štatutár, Steuernummer, obdobie…) sa neuložili — chýba migrácia 096.', 'warn');
+      }
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
       await this.load(); Danubra.renderRoute();

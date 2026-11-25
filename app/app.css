@@ -3916,6 +3916,8 @@ button.tk-st.is-prog:hover { border-color: #C7D5FA; background: var(--blue-50); 
 .ps-text { font-size: 13px; color: var(--ink-sub); margin-top: 2px; line-height: 1.45; }
 .ps-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .ps-acts:empty { display: none; }
+/* Ďalšie papiere pod krokmi: Stavby, Zoznam činností, Ukončenie zmluvy. */
+.ps-more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line, #E6E8EC); }
 .ps-now {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   background: var(--navy); color: #fff; padding: 2px 7px; border-radius: 999px;

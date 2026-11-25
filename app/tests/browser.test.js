@@ -4865,8 +4865,30 @@ console.log('Prehliadač');
         res.sprava = Cost.selfMessage(Cost.bills[0]);
         res.znova = Cost.selfCandidates().length;
         UI.closeModal();
+        // Živnostník fakturuje za 2 KW: dva uzavreté týždne jednej zákazky = jeden návrh.
+        Cost.load = async () => {}; Cost.loaded = true;
+        Cost.workers = [{ id: 'w1', full_name: 'Ján Novák', self_billing: true, phone: '+421 900 111 222' }];
+        Cost.subcontracts = [{ id: 's1', title: 'Lixenried' }];
+        Cost.bills = [];
+        Cost.periods = [{ id: 'k1', subcontract_id: 's1', status: 'closed', period_from: '2026-11-02', period_to: '2026-11-08' },
+          { id: 'k2', subcontract_id: 's1', status: 'closed', period_from: '2026-11-09', period_to: '2026-11-15' },
+          { id: 'k3', subcontract_id: 's1', status: 'closed', period_from: '2026-11-16', period_to: '2026-11-22' }];
+        Cost.timesheets = [{ worker_id: 'w1', period_id: 'k1', approved: true, hours: 10 },
+          { worker_id: 'w1', period_id: 'k2', approved: true, hours: 9.5 }, { worker_id: 'w1', period_id: 'k3', approved: true, hours: 8 }];
+        res.kw = Cost.selfCandidates().map(c => `${c.periods.map(p => p.id).join('+')}:${c.hours}:${c.complete}`);
+        const pred = res.rpc.length;
+        try {
+          Cost.selfForm();
+          res.kwForm = document.querySelector('.modal-card').innerText;
+          await Cost.selfDrafts();
+        } catch (e) { res.kwErr = String(e && e.message); }
+        res.kwRpc = res.rpc.slice(pred).map(r => `${r.n}:${(r.a.p_periods || [r.a.p_period]).join('+')}`);
+        UI.closeModal();
         return res;
       });
+      ok(out.kw.join() === 'k3:8:false,k1+k2:19.5:true', 'dva týždne sa spoja do jednej faktúry (2 KW), tretí čaká', `${out.kw.join()} ${out.kwErr || ''}`);
+      ok(out.kwRpc.join() === 'self_bill_draft:k3,self_bill_draft_kw:k1+k2', 'viac týždňov ide cez self_bill_draft_kw', out.kwRpc.join());
+      ok(/KW 45–46/.test(out.kwForm) && /zatiaľ menej ako 2 týždne/.test(out.kwForm), 'v okne sú týždne ako KW', out.kwForm.slice(0, 300));
       ok(out.kandidati.join() === 'w1:p1:19.5',
         'navrhne sa len živnostník s dohodou, neplatiteľ DPH, z uzavretého obdobia', out.kandidati.join());
       ok(out.rpc.some(r => r.n === 'self_bill_draft' && r.a.p_worker === 'w1' && r.a.p_period === 'p1'),
@@ -5175,7 +5197,7 @@ console.log('Prehliadač');
         'Vrátiť do návrhu sa najprv opýta, potom ide dva kroky späť (schválenie sa zruší)', JSON.stringify(out.spat));
       ok(JSON.stringify(out.poSplatnosti) === JSON.stringify(['a', 'b']),
         'po splatnosti sa sama označí odoslaná aj vystavená, zaplatená a stornovaná nie', JSON.stringify(out.poSplatnosti));
-      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za celý mesiac naraz',
+      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za týždeň (KW) naraz',
         'Vystaviť faktúru: zo zákazky, voľná Nemcovi, za mesiac — bez starej ubytovacej agendy a bez faktúry za živnostníka', out.volby.join(' | '));
       ok(out.odkaz && /Faktúry za živnostníkov sa vystavujú v Prijatých faktúrach/.test(out.odkaz.text)
         && out.odkaz.klik === 'Inv.selfBill()',
@@ -5260,8 +5282,8 @@ console.log('Prehliadač');
         res.zip = zip ? { name: zip.name, size: zip.size, head: [...new Uint8Array(await zip.slice(0, 4).arrayBuffer())] } : null;
         return res;
       });
-      ok(/Mesačná fakturácia/.test(out.akcie) && /Upomienky/.test(out.akcie) && /Pre účtovníčku/.test(out.akcie),
-        'vo Vydaných sú tlačidlá Mesačná fakturácia, Upomienky, Pre účtovníčku', out.akcie.slice(0, 200));
+      ok(/Fakturácia naraz \(KW\)/.test(out.akcie) && /Upomienky/.test(out.akcie) && /Pre účtovníčku/.test(out.akcie),
+        'vo Vydaných sú tlačidlá Fakturácia naraz (KW), Upomienky, Pre účtovníčku', out.akcie.slice(0, 200));
       ok(/Upomienky/.test(out.detail) && /Pripomienka platby/.test(out.detail), 'faktúra po splatnosti ponúkne pripomienku platby', out.detail.slice(-300));
       ok(out.upomienka.de && out.upomienka.cislo && out.upomienka.suma && out.upomienka.adr, 'upomienka je po nemecky, s číslom, sumou a adresou', JSON.stringify(out.upomienka));
       ok(JSON.stringify(out.zapis) === '[[1,true]]', 'a zapíše sa — stupeň 1 s novou lehotou', JSON.stringify(out.zapis));
