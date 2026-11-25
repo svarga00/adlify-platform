@@ -2966,7 +2966,7 @@ console.log('Prehliadač');
         const sekcie = [...view.querySelectorAll('.dl-sec')].map(t);
         const skupiny = {};
         let kde = '';
-        for (const e of view.querySelectorAll('.dl-table > .dl-sec, .dl-table > .dl-row')) {
+        for (const e of view.querySelectorAll('.dl-table .dl-sec, .dl-table .dl-row')) {
           if (e.classList.contains('dl-sec')) { kde = t(e); skupiny[kde] = []; continue; }
           (skupiny[kde] = skupiny[kde] || []).push(e.getAttribute('data-dl-row'));
         }

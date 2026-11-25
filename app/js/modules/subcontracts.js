@@ -329,7 +329,7 @@
             render: (r) => `<span class="dl-title"><b>${UI.esc(r.title)}</b>${
               r.sc.contract_number || r.city ? `<small>${[r.sc.contract_number, r.city].filter(Boolean).map(UI.esc).join(' · ')}</small>` : ''}</span>`,
             sortValue: (r) => r.title, sortLabel: 'Názov' },
-          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(150px, 1.4fr)',
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(124px, 1.4fr)',
             render: (r) => (r.partnerId ? Danubra.link('partner', r.partnerId, r.partner) : ''),
             sortValue: (r) => r.partner },
           { key: 'stav', label: 'Stav', width: '88px', mobile: 'badge',

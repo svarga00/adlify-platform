@@ -157,10 +157,11 @@ const DATA = {
   if (!(await page.isVisible('#dl-leads .dl-cols'))) await page.click('#dl-leads [data-dl-a="cols"]');
   for (const k of ['vzdialenost', 'kontakt']) await page.click(`#dl-leads [data-dl-a="colvis"][data-k="${k}"]`);
   const sc = await page.evaluate(() => {
-    const t = document.querySelector('#dl-leads .dl-table');
+    // Do boku sa posúvajú riadky (`.dl-bx`); hlavička (`.dl-hx`) ide s nimi a stojí pod horným pruhom.
+    const t = document.querySelector('#dl-leads .dl-table > .dl-bx');
     t.scrollLeft = 200; t.dispatchEvent(new Event('scroll'));
     const first = t.querySelector('.dl-row .dl-c:first-child').getBoundingClientRect().left - t.getBoundingClientRect().left;
-    return { scroll: t.scrollWidth > t.clientWidth, left: t.scrollLeft, first: Math.round(first), page: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, cls: t.classList.contains('is-scrolled') };
+    return { scroll: t.scrollWidth > t.clientWidth, left: t.scrollLeft, first: Math.round(first), page: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, cls: t.parentElement.classList.contains('is-scrolled'), head: document.querySelector('#dl-leads .dl-table > .dl-hx').scrollLeft };
   });
   ok(sc.scroll && sc.left > 0 && sc.page <= sc.vw, 'veľa stĺpcov: tabuľka sa posúva vo svojej karte', JSON.stringify(sc));
   ok(Math.abs(sc.first) <= 2 && sc.cls, 'prvý stĺpec pri posúvaní ostane stáť (s tieňom)', JSON.stringify(sc));

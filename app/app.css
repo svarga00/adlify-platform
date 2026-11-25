@@ -5221,7 +5221,7 @@ label.mf-row:not(.is-off):hover { border-color: var(--brand-line); background: v
   .dl-pop { max-width: calc(100cqw - 8px); }
   .dl-view .dl-pop.right { left: 0; right: auto; }
 
-  .dl-head { display: none; }
+  .dl-head, .dl-hx { display: none; }
   .dl-table { overflow: visible; }
   .dl-head, .dl-row, .dl-foot, .dl-sec { min-width: 0; }
   .dl-cols-btn { width: 36px; padding: 0; justify-content: center; }
@@ -6352,3 +6352,22 @@ input, select, textarea, button { font-family: inherit; }
 .modal-card:has(> .modal-body) > .modal-body > form:last-child > .modal-actions:last-child { margin-bottom: 0; }
 .modal-card:has(> .modal-body) > .modal-head { padding-bottom: 14px; box-shadow: 0 1px 0 var(--border-soft); z-index: 2; }
 .modal-card:has(> .modal-body) > .modal-body { padding-top: 18px; }
+
+/* 12 · Hlavička tabuľky stojí pod horným pruhom. Je vo vlastnom ráme
+   (`.dl-hx`), ktorý sa lepí k stránke; do boku sa posúvajú riadky (`.dl-bx`)
+   a hlavička ide s nimi (DataList.syncHead). */
+:root { --dl-top: 66px; }
+.dl-table { overflow: visible; padding-bottom: 0; }
+.dl-hx {
+  position: sticky; top: var(--dl-top, 0px); z-index: 6; overflow: hidden; background: var(--card);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; transition: box-shadow .12s;
+}
+.dl-hx.is-stuck { border-radius: 0; box-shadow: 0 12px 18px -14px rgba(10,27,61,.4), 0 0 0 1px rgba(10,27,61,.05); }
+.dl-bx {
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 4px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.dl-bx > .dl-row:first-child { border-top-color: transparent; }
+/* Obyčajné tabuľky na obrazovke (nie v okne): hlavička stojí tiež, pokiaľ
+   tabuľka nie je v posúvanom rámčeku. */
+.view table thead th { position: sticky; top: var(--dl-top, 0px); z-index: 3; background: var(--card); }

@@ -189,6 +189,7 @@
   // ── HTML ──────────────────────────────────────────────────────────────────
   function html(cfg) {
     bind();
+    queueFit();
     const inst = instance(cfg);
     const v = compute(inst);
     const s = searchDef(cfg);
@@ -564,8 +565,12 @@
     const body = groups.map(gr => (g ? `<div class="dl-sec dl-sec-${esc(gr.tone || 'gray')}" role="row">
         <span role="cell" class="dl-sec-in"><i></i><span>${esc(gr.label)}</span> <span class="dl-sec-n">${gr.rows.length}</span></span></div>` : '')
       + gr.rows.map(r => rowHtml(inst, r)).join('')).join('');
+    // Hlavička je vo vlastnom ráme (`.dl-hx`), ktorý sa lepí pod horný pruh;
+    // do boku sa posúvajú riadky (`.dl-bx`) a hlavička ide s nimi (`onScroll`).
+    // Keby bola hlavička v tom istom posúvanom ráme ako riadky, prilepiť
+    // k stránke by sa nedala.
     return `${styleHtml(inst)}<div class="dl-table card" role="table" aria-label="${esc(cfg.label || 'Zoznam')}"
-        aria-rowcount="${v.rows.length}">${headHtml(inst)}${body}${footHtml(inst, v)}</div>`;
+        aria-rowcount="${v.rows.length}"><div class="dl-hx" role="rowgroup">${headHtml(inst)}</div><div class="dl-bx" role="rowgroup">${body}${footHtml(inst, v)}</div></div>`;
   }
 
   /**
@@ -604,6 +609,7 @@
     part('panel', () => panelHtml(inst));
     part('cols', () => colsPanelHtml(inst));
     part('sub', () => subHtml(inst));
+    queueFit();
     part('body', () => bodyHtml(inst, v));
     const q = searchDef(inst.cfg);
     const input = root.querySelector('[data-dl-a="q"]');
@@ -896,9 +902,45 @@
   }
 
   /** Tieň pri prvom stĺpci, keď je tabuľka posunutá do boku. */
+  // ── Hlavička tabuľky stojí ────────────────────────────────────────────────
+  // „Ak je niekde tabuľka, prvý riadok by mohol byť pevný." Hlavička sa pri
+  // posúvaní stránky prilepí pod horný pruh (`--dl-top` = jeho výška).
+  let fitQueued = false;
+  function fitAll() {
+    fitQueued = false;
+    if (typeof document === 'undefined' || !document.querySelectorAll) return;
+    const bar = [document.querySelector('.topbar'), document.querySelector('.mobile-head')]
+      .find(el => el && el.offsetParent !== null);
+    document.documentElement.style.setProperty('--dl-top', `${bar ? bar.offsetHeight : 0}px`);
+    document.querySelectorAll('.dl-table > .dl-bx').forEach(syncHead);
+    markStuck();
+  }
+  function queueFit() {
+    if (fitQueued || typeof requestAnimationFrame !== 'function') return;
+    fitQueued = true;
+    requestAnimationFrame(fitAll);
+  }
+  /** Hlavička ide do boku spolu s riadkami. */
+  function syncHead(bx) {
+    const t = bx.parentElement;
+    const hx = t && t.querySelector(':scope > .dl-hx');
+    if (hx && hx.scrollLeft !== bx.scrollLeft) hx.scrollLeft = bx.scrollLeft;
+    if (t) t.classList.toggle('is-scrolled', bx.scrollLeft > 2);
+  }
+  /** Prilepená hlavička má rovné rohy a tieň — vidno, že pod ňou niečo beží. */
+  function markStuck() {
+    if (typeof document === 'undefined' || !document.querySelectorAll) return;
+    const top = parseFloat(document.documentElement.style.getPropertyValue('--dl-top')) || 0;
+    document.querySelectorAll('.dl-table > .dl-hx').forEach((h) => {
+      const r = h.parentElement.getBoundingClientRect();
+      h.classList.toggle('is-stuck', r.top < top - 1 && r.bottom > top + 40);
+    });
+  }
+
   function onScroll(e) {
     const t = e.target;
-    if (t && t.classList && t.classList.contains('dl-table')) t.classList.toggle('is-scrolled', t.scrollLeft > 2);
+    if (t && t.classList && t.classList.contains('dl-bx')) syncHead(t);
+    else if (t === document || t === document.documentElement || t === document.body) markStuck();
   }
 
   function bind() {
@@ -919,6 +961,7 @@
     document.addEventListener('pointercancel', onPointerUp);
     document.addEventListener('dblclick', onDblClick);
     document.addEventListener('scroll', onScroll, true);
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', queueFit);
   }
 
   // ── Verejné API ───────────────────────────────────────────────────────────
