@@ -6490,3 +6490,92 @@ input, select, textarea, button { font-family: inherit; }
 .guide-body:has(.sc-sec) { max-width: 940px; }
 .sc-nav { background: var(--bg); box-shadow: 0 -12px 16px -8px var(--bg); margin-top: 8px; }
 .sc-grid { align-items: start; }
+
+/* 18 · Náborový hovor v rovnakom vzhľade ako zvyšok appky. „Vadí mi vzhľad,
+   nie poradie": tmavá lišta, hranaté tlačidlá a rámčeky sú preč — hovor má
+   svetlú hlavičku, biele karty a kapsule ako každá iná obrazovka. */
+.guide { background: var(--bg); animation: guideIn .26s cubic-bezier(.2,.8,.2,1); }
+@keyframes guideIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.guide-head {
+  background: rgba(243,244,247,.92); backdrop-filter: blur(10px); color: var(--ink);
+  padding: max(14px, env(safe-area-inset-top)) 22px 12px; gap: 14px;
+}
+.guide-x { width: 44px; height: 44px; flex-basis: 44px; border-radius: 999px; background: #fff; color: var(--ink-sub); box-shadow: var(--shadow-sm); }
+.guide-x:hover { background: var(--navy); color: #fff; }
+.guide-who strong { font-family: var(--font-head); font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+.guide-who span { font-size: 13px; opacity: 1; color: var(--ink-sub); }
+.guide-count { color: var(--ink-sub); }
+.guide-bar { height: 3px; background: transparent; }
+.guide-bar span { border-radius: 0 3px 3px 0; }
+.guide-q { font-family: var(--font-head); font-size: 28px; letter-spacing: -.03em; }
+.guide-note, .guide-textarea {
+  border: 1px solid transparent; border-radius: 14px; background: #fff; box-shadow: var(--shadow-sm); font-size: 15.5px;
+}
+.guide-note:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(240,126,34,.14); }
+.guide-btn { border-radius: 999px; border: 0; }
+.guide-btn-yes { background: var(--navy); }
+.guide-btn-yes:hover { background: #16305F; }
+.guide-btn-no { box-shadow: var(--shadow-sm); border: 0; }
+.guide-nav { border-top-color: var(--border-soft); }
+.guide-nav-btn { border-radius: 999px; border: 0; background: #fff; box-shadow: var(--shadow-sm); min-height: 46px; padding: 0 20px; transition: background .12s, color .12s; }
+.guide-nav-btn:not(:disabled):hover { background: var(--field); color: var(--ink); }
+.guide-nav-next, .guide-nav-btn.guide-nav-next { background: var(--brand); color: #fff; font-weight: 700; }
+.guide-nav-btn.guide-nav-next:hover { background: var(--brand-dark); color: #fff; }
+.trade-tile, .plan-tile { border: 0; border-radius: 16px; box-shadow: var(--shadow-sm); transition: box-shadow .12s, transform .12s; }
+.trade-tile.on, .plan-tile.on { box-shadow: 0 0 0 2px var(--navy), var(--shadow-md); }
+@media (min-width: 1000px) {
+  .guide-aside { background: transparent; border-left: 0; }
+  .aside-inner { padding: 4px 22px 22px 6px; }
+}
+.aside-card { border: 0; border-radius: 16px; padding: 16px; box-shadow: var(--shadow-sm); }
+.aside-title { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; color: var(--ink-sub); }
+.aside-kv > div, .aside-list { font-size: 13.5px; }
+.atag { border-radius: 999px; }
+.aside-note { border-radius: 10px; }
+.live-score { border-radius: 12px; }
+.guide-mini { border-bottom: 0; background: transparent; }
+/* Zodpovedaná otázka: fajka v rohu, karta zjemnie — vidno, čo ešte ostáva. */
+.cq2 { position: relative; transition: box-shadow .15s, background .15s; }
+.sc-grid .cq2.is-done, .sc-trade .cq2.is-done { box-shadow: 0 0 0 1.5px #BFE5CD; }
+.sc-grid .cq2.is-done::after, .sc-trade .cq2.is-done::after {
+  content: ''; position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
+  animation: popIn .22s cubic-bezier(.3,1.5,.5,1);
+}
+.sc-grid .cq2-q, .sc-trade .cq2-q { padding-right: 26px; }
+.cq2-a { transition: background .12s, border-color .12s, color .12s, transform .1s; }
+.cq2-a:active { transform: scale(.97); }
+.qq-date { border: 0; background: var(--field); border-radius: 12px; }
+@keyframes popIn { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 19 · Plynulé prechody v celej appke. „Smooth všade": nová obrazovka sa
+   jemne vynorí, panel sa zasunie späť, rozbalené veci sa rozvinú. Obnovenie
+   tej istej obrazovky sa neanimuje — to by blikalo. */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fadeOnly { from { opacity: 0; } to { opacity: 1; } }
+.view.view-enter > * { animation: fadeUp .26s cubic-bezier(.2,.8,.2,1) both; }
+.view.view-enter > *:nth-child(2) { animation-delay: .03s; }
+.view.view-enter > *:nth-child(3) { animation-delay: .06s; }
+.view.view-enter > *:nth-child(n+4) { animation-delay: .09s; }
+/* „Načítavam…" sa ukáže až po chvíli — pri rýchlom načítaní neblikne vôbec. */
+.empty.is-loading { animation: fadeOnly .25s ease .22s both; }
+/* Panel a okno pri zavretí (UI.closeModal necháva po sebe len siluetu). */
+.modal-ghost { position: fixed; inset: 0; z-index: 59; pointer-events: none; background: rgba(10,27,61,.38); animation: ghostDim .2s ease forwards; }
+.modal-ghost > i { position: fixed; display: block; background: #fff; animation: ghostOut .2s cubic-bezier(.4,0,1,1) forwards; }
+@keyframes ghostDim { to { opacity: 0; } }
+@keyframes ghostOut { to { transform: translateX(60px); opacity: 0; } }
+@media (max-width: 860px) { @keyframes ghostOut { to { transform: translateY(60px); opacity: 0; } } }
+/* Rozbalené veci (kroky zákazky, „Ďalšie…", filtre) sa rozvinú, nie prepnú. */
+details[open] > :not(summary), .js-body, .dl-panel, .dl-cols { animation: fadeUp .2s ease both; }
+.dl-pop, .gs-pop, .tip-pop { animation: fadeUp .14s ease both; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translateX(-50%); } }
+.toast { animation: toastIn .22s cubic-bezier(.2,.8,.2,1) both; border-radius: 999px; }
+.nowbox, .card, .kpi, .st7-card, .js-step { transition: box-shadow .15s, background .15s, transform .15s; }
+.subtab, .pill, .nav-item, .nav-sub-item, .btn { transition: background .14s, color .14s, box-shadow .14s, border-color .14s, transform .1s; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.subtab.active, .pill.active { transition-duration: .2s; }
+@media (prefers-reduced-motion: reduce) {
+  .guide, .view.view-enter > *, .empty.is-loading, .modal-ghost, .modal-ghost > i, details[open] > :not(summary), .js-body,
+  .dl-panel, .dl-cols, .dl-pop, .gs-pop, .tip-pop, .toast, .cq2.is-done::after { animation: none !important; }
+  .btn:active:not(:disabled), .cq2-a:active { transform: none; }
+}

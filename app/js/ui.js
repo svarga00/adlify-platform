@@ -137,7 +137,7 @@ window.UI = {
   },
 
   loading() {
-    return `<div class="empty"><div class="empty-ico">${window.Icon ? Icon('clock', 30) : ''}</div><div>Načítavam…</div></div>`;
+    return `<div class="empty is-loading"><div class="empty-ico">${window.Icon ? Icon('clock', 30) : ''}</div><div>Načítavam…</div></div>`;
   },
 
   // ── Modal ─────────────────────────────────────────────────────────────────
@@ -146,6 +146,7 @@ window.UI = {
     this._reopening = true;
     this.closeModal();
     this._reopening = false;
+    if (document.querySelectorAll) document.querySelectorAll('.modal-ghost').forEach(n => n.remove());
     const el = document.createElement('div');
     el.className = 'modal-backdrop';
     el.id = 'ui-modal';
@@ -188,7 +189,25 @@ window.UI = {
   closeModal() {
     // Zavretie človekom ukončí aj prechádzanie zoznamu po jednom.
     if (!this._reopening && window.DataList && DataList.endNav) DataList.endNav();
-    document.getElementById('ui-modal')?.remove();
+    const el = document.getElementById('ui-modal');
+    // Plynulé zavretie: okno zmizne hneď (kód po zavretí s ním už nepočíta),
+    // na jeho mieste sa na okamih zasunie prázdna silueta a stmavenie zhasne.
+    if (el && !this._reopening && typeof el.querySelector === 'function' && typeof requestAnimationFrame === 'function') {
+      try {
+        const card = el.querySelector('.modal-card');
+        const r = card && card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+        if (r && r.width) {
+          document.querySelectorAll('.modal-ghost').forEach(n => n.remove());
+          const g = document.createElement('div');
+          g.className = 'modal-ghost'; g.setAttribute('aria-hidden', 'true');
+          const cs = getComputedStyle(card);
+          g.innerHTML = `<i style="left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:${cs.borderRadius}"></i>`;
+          document.body.appendChild(g);
+          setTimeout(() => g.remove(), 220);
+        }
+      } catch (e) { /* bez animácie */ }
+    }
+    el?.remove();
     if (!document.getElementById('ui-ask')) document.body.style.overflow = '';
   },
 

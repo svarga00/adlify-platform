@@ -567,7 +567,7 @@
       const spory = this.ad ? CQ.offerConflicts(AD().promiseLines(this.ad)) : [];
       const note = this.notes.get(seg.key) || '';
       const kam = window.DanubraRoute ? DanubraRoute.destinationOf(this.plan || {}, this.subcontract() || {}) : '';
-      const hotovo = pevne.filter(q => this.callQState(q) != null).length + remeslo.filter(q => this.callQState(q) != null).length;
+      const hotovo = [...pevne, ...remeslo].filter(q => this.isAnswered(q)).length;
       return `
         <section class="sc-sec">
           <h3 class="sc-h"><span>1</span>Povedzte mu</h3>
@@ -816,8 +816,32 @@
         this.cand.expected_start = iso;
         DB.update('candidates', this.cand.id, { expected_start: iso }).then(() => {});
       }
+      // „Keď vyberiem dátum, je to tiež odpoveď." Pri otázke na nástup sa
+      // podľa dátumu zaškrtne aj odpoveď (do dvoch týždňov / neskôr), pokiaľ
+      // ju človek nevybral sám.
+      if (iso && qKey === 'nastup' && a.idx == null && a.other == null) {
+        const dni = Math.round((new Date(`${iso}T00:00:00Z`) - new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)) / 86400000);
+        const i = dni <= 14 ? 0 : 1;
+        q.answers.forEach((x, j) => { if (x.chip && this.ticked.has(x.chip.id) && j !== i) this.toggleChip(x.chip.id); });
+        const ans = q.answers[i];
+        if (ans && ans.chip && !this.ticked.has(ans.chip.id)) this.toggleChip(ans.chip.id);
+        this.answers.set(qKey, { ...a, idx: i });
+      }
       if (q.dbId) this.persistAnswer(q);
-      if (this._stepCtx) this.render(); else this.paintCallQ(segKey, q);
+      if (this._stepCtx) {
+        this.render();
+        // Otázka po otázke: dátum posunie ďalej rovnako ako klik na odpoveď.
+        if (iso && this._stepCtx.segKey === segKey) {
+          clearTimeout(this._stepT);
+          this._stepT = setTimeout(() => this.stepNext(segKey), 350);
+        }
+      } else this.paintCallQ(segKey, q);
+    },
+
+    /** Je otázka zodpovedaná? Klik na odpoveď, vlastný text aj vybraný dátum. */
+    isAnswered(q) {
+      const a = this.answers && this.answers.get(q.key);
+      return this.callQState(q) != null || !!(a && a.date);
     },
 
     setOther(qKey, value) {
@@ -1009,7 +1033,7 @@
     callQHtml(segKey, q) {
       const sel = this.callQState(q);
       const a = this.answers && this.answers.get(q.key);
-      return `<div class="cq2" id="cq2-${q.key}">
+      return `<div class="cq2${this.isAnswered(q) ? ' is-done' : ''}" id="cq2-${q.key}">
         <div class="cq2-q">${UI.esc(q.q)}</div>
         ${q.dbId ? (this.mode !== 'full' ? `<div class="cq2-judge is-open">${this.judgeHtml(q)}</div>`
           : `<details class="cq2-judge"><summary>čo chceme počuť</summary>${this.judgeHtml(q)}</details>`) : ''}
@@ -1032,6 +1056,12 @@
     paintCallQ(segKey, q) {
       const el = document.getElementById(`cq2-${q.key}`);
       if (el) el.outerHTML = this.callQHtml(segKey, q);
+      // Počítadlo „7 z 14 otázok" v jednoobrazovkovom hovore.
+      const cnt = document.getElementById('tick-count');
+      const vsetky = (this._cq || {})[segKey] || [];
+      if (cnt && this.mode !== 'full' && vsetky.length) {
+        cnt.textContent = `${vsetky.filter(x => this.isAnswered(x)).length} z ${vsetky.length} otázok`;
+      }
     },
 
     answer(segKey, qKey, i) {
@@ -1132,7 +1162,8 @@
         el.innerHTML = `${on ? Icon('check', 13) : ''}${UI.esc(chip.label)}`;
       }
       const count = document.getElementById('tick-count');
-      if (count) count.textContent = `${this.ticked.size} zaškrtnutých`;
+      // V jednoobrazovkovom hovore počítadlo hovorí o otázkach (kreslí ho `paintCallQ`).
+      if (count && this.mode === 'full') count.textContent = `${this.ticked.size} zaškrtnutých`;
     },
 
     /** Prekreslí priebeh — bočný panel na širokej obrazovke, lištu na mobile. */

@@ -1569,6 +1569,12 @@ window.Danubra = {
       if (same) view.style.minHeight = `${view.offsetHeight || 0}px`;
       else { view.style.minHeight = ''; window.scrollTo(0, 0); }
     }
+    // Nová obrazovka sa jemne vynorí; obnovenie tej istej sa neanimuje.
+    if (view && view.classList) {
+      view.classList.toggle('view-enter', !same);
+      clearTimeout(this._enterT);
+      if (!same) this._enterT = setTimeout(() => view.classList.remove('view-enter'), 1600);
+    }
     const settle = () => {
       if (!canScroll || !view || !view.style) return;
       view.style.minHeight = '';
