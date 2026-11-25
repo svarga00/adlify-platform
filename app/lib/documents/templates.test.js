@@ -351,7 +351,7 @@ console.log('Infolist k ubytovaniu');
 {
   const tyka = /(?<!\p{L})(tvoj\p{L}*|máš|si vezmi|zavolaj|nerieš|ukáž|nepodpisuj|budeš|dovoláš|ťa|ti|od teba|nemáš|vystavíš|pošli|musíš|môžeš)(?!\p{L})/iu;
   const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  const SUP = { name: 'Partner und Service s. r. o.', phone: '+421 910 523 858', email: 'info@punds.eu' };
+  const SUP = { name: 'Partner und Service s. r. o.', phone: '+421 910 523 858', email: 'info@danubra.eu' };
   const LOD = { name: 'Pension Lerche', address: 'Lerchenstr. 8', city: 'Stuttgart',
     keys_note: 'Kľúče u správcu, zvonček Hausmeister.', house_rules: 'Fajčí sa len na balkóne.',
     date_from: '2026-10-11', date_to: '2026-12-18' };
@@ -373,7 +373,7 @@ console.log('Infolist k ubytovaniu');
   ok(/Fajčí sa len na balkóne/.test(t), 'domáci poriadok z ubytovania');
   ok(/Nočný pokoj/.test(t) && /hostia/.test(t) && /Škodu uhrádza ten, kto ju spôsobil/.test(t),
     'krátke pravidlá: pokoj, hostia, škody');
-  ok(/\+421 910 523 858/.test(t) && /info@punds\.eu/.test(t), 'komu volať: najprv nám');
+  ok(/\+421 910 523 858/.test(t) && /info@danubra\.eu/.test(t), 'komu volať: najprv nám');
   ok(/Majiteľ — len keď sa nám nedovoláte/.test(t) && /\+49 711 123456/.test(t),
     'majiteľ len ako záloha a tak je aj označený');
   ok(!tyka.test(t), 'vyká', (t.match(tyka) || [])[0]);
@@ -406,7 +406,7 @@ console.log('Vzor faktúry');
   const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const SUP = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, 940 71 Nové Zámky',
     company_id: '57553921', tax_id: '2122816839', vat_id: 'SK2122816839', iban: 'SK6711000000002948311291',
-    email: 'info@punds.eu', phone: '+421 910 523 858' };
+    email: 'info@danubra.eu', phone: '+421 910 523 858' };
   const W = { full_name: 'Ján Novák', business_address: 'Hlavná 1', business_zip: '940 01',
     business_city: 'Nové Zámky', company_id: '12345678', tax_id: '1020304050',
     bank_iban: 'SK3112000000198742637541', hourly_cost: 18.5 };
@@ -427,7 +427,7 @@ console.log('Vzor faktúry');
   ok(/SK3112000000198742637541/.test(t), 'jeho IBAN');
   ok(/„Nie som platiteľ DPH\."/.test(t) && /Ak ste platiteľom DPH, zavolajte nám na \+421 910 523 858 skôr, než faktúru vystavíte/.test(t),
     'veta o DPH a čo robiť, keď je platiteľ');
-  ok(/Čo musí byť na faktúre/.test(t) && /Kam ju poslať/.test(t) && /info@punds\.eu/.test(t), 'čo na nej má byť a kam ju poslať');
+  ok(/Čo musí byť na faktúre/.test(t) && /Kam ju poslať/.test(t) && /info@danubra\.eu/.test(t), 'čo na nej má byť a kam ju poslať');
   ok(/Stundennachweis/.test(t) && /Priložte podpísaný výkaz hodín/.test(t), 'priložiť podpísaný výkaz');
   ok(!tyka.test(t), 'vyká', (t.match(tyka) || [])[0]);
 
@@ -750,32 +750,37 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(/Zhotoviteľ Malý Stav s\.r\.o\. konajúca: Peter Malý, konateľ/.test(t), 'pri s.r.o. je zhotoviteľom firma a konateľ', t.slice(0, 400));
 }
 
-// ── Vzhľad punds: značka v hlavičke, päta s údajmi firmy ───────────────────
+// ── Vzhľad DANUBRA: značka v hlavičke, päta s údajmi firmy ─────────────────
 {
-  const PUNDS = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A 940 71 Nové Zámky',
+  const NASA = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A 940 71 Nové Zámky',
     company_id: '57553921', tax_id: '2122816839', vat_id: 'SK2122816839', iban: 'SK6711000000002948311291',
-    email: 'info@punds.eu', phone: '+421 910 523 858', tax_number_de: '214/633/08265',
+    email: 'info@danubra.eu', phone: '+421 910 523 858', tax_number_de: '214/633/08265',
     register: 'Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N' };
-  const b = P.brand(PUNDS);
-  ok(b.brand === 'punds' && b.sub === 'Partner und Service', 'Partner und Service má v hlavičke značku punds', JSON.stringify(b));
+  const b = P.brand(NASA);
+  ok(b.brand === 'DANUBRA' && b.sub === '', 'naša firma má v hlavičke značku DANUBRA, pod ňou žiadny podnadpis', JSON.stringify(b));
+  ok(P.brand({ name: 'DANUBRA s. r. o.' }).brand === 'DANUBRA', 'aj firma s názvom DANUBRA má značku DANUBRA');
+  ok(P.brand({ name: 'Iná firma s. r. o.', brand: 'IF' }).sub === 'Iná firma', 'iná firma so značkou má pod ňou celý názov');
   ok(P.brand({ name: 'Iná firma s. r. o.' }).brand === '', 'iná firma má v hlavičke celý názov');
-  ok(P.brand({ ...PUNDS, brand: 'PuS' }).brand === 'PuS', 'značka sa dá zmeniť v Nastaveniach');
-  ok(P.web(PUNDS) === 'punds.eu' && P.web({ email: 'jano@gmail.com' }) === '', 'web je z domény e-mailu, nie z Gmailu');
+  ok(P.brand({ ...NASA, brand: 'PuS' }).brand === 'PuS', 'značka sa dá zmeniť v Nastaveniach');
+  ok(P.brand({ ...NASA, brand: 'punds' }).brand === 'DANUBRA', 'stará značka z Nastavení sa píše ako DANUBRA');
+  ok(P.web(NASA) === 'danubra.eu' && P.web({ email: 'jano@gmail.com' }) === '', 'web je z domény e-mailu, nie z Gmailu');
+  ok(P.web({ email: 'info@punds.eu' }) === 'danubra.eu' && P.web({ web: 'https://www.punds.sk/' }) === 'www.danubra.sk', 'stará doména punds sa na dokumentoch píše ako danubra');
 
   const f = P.invoice({ invoice: { invoice_number: '2026001', total: 100, issue_date: '2026-10-24', due_date: '2026-11-07' },
-    items: [], client: { name: 'GU Ulm GmbH', country: 'DE' }, supplier: PUNDS });
+    items: [], client: { name: 'GU Ulm GmbH', country: 'DE' }, supplier: NASA });
   const t = f.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  ok(/class="brand-word">punds</.test(f), 'na faktúre je značka punds');
+  ok(/class="brand-word">DANUBRA</.test(f) && !/class="brand-sub"/.test(f), 'na faktúre je značka DANUBRA bez podnadpisu');
+  ok(/Partner und Service s\. r\. o\./.test(t), 'právny názov firmy na faktúre ostáva');
   ok(/Nr\. 2026001/.test(t) && /Rechnungsdatum 24\. ?10\. ?2026/.test(t), 'číslo a dátum sú v hlavičke', t.slice(0, 300));
   const pata = (f.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0].replace(/<[^>]+>/g, ' ');
-  ok(/IČO 57553921/.test(pata) && /USt-IdNr\. SK2122816839/.test(pata) && /IBAN SK67/.test(pata) && /punds\.eu/.test(pata),
+  ok(/IČO 57553921/.test(pata) && /USt-IdNr\. SK2122816839/.test(pata) && /IBAN SK67/.test(pata) && /danubra\.eu/.test(pata),
     'päta má IČO, USt-IdNr., IBAN a web', pata);
   ok(/Steuernummer 214\/633\/08265/.test(pata), 'na nemeckom doklade aj Steuernummer');
-  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: { full_name: 'Ján Novák' }, supplier: PUNDS }) });
+  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: { full_name: 'Ján Novák' }, supplier: NASA }) });
   const pz = (z.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0];
   ok(/DIČ 2122816839/.test(pz) && /IČ DPH SK2122816839/.test(pz) && /69265\/N/.test(pz), 'slovenská päta má DIČ, IČ DPH a zápis v OR', pz);
   ok(/class="cl">Článok I\.</.test(z) && /cols boxed/.test(z), 'články zmluvy majú oranžové číslo a strany sú v rámikoch');
-  const self = P.selfInvoice({ bill: { bill_number: 'ZF-1', amount: 10, lines: [] }, worker: { full_name: 'Ján Novák', company_id: '111' }, company: PUNDS });
+  const self = P.selfInvoice({ bill: { bill_number: 'ZF-1', amount: 10, lines: [] }, worker: { full_name: 'Ján Novák', company_id: '111' }, company: NASA });
   ok(/runfoot plain/.test(self) && !/class="brand-word"/.test(self), 'faktúra za živnostníka je jeho — bez našej značky');
 }
 

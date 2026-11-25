@@ -17,9 +17,9 @@ eq(M.snippet('> citácia\nDobrý deň,\n\nposielam  ponuku.'), 'Dobrý deň, pos
 eq(M.htmlToText('<p>Ahoj<br>svet</p><script>x()</script><div>A&amp;B</div>'), 'Ahoj\nsvet\nA&B', 'HTML → text bez skriptov');
 
 console.log('\nODPOVEĎ A PREPOSLANIE');
-const MB = { id: 'mb1', email: 'info@punds.eu', signature: 'Štefan Varga\nPartner und Service s. r. o.' };
+const MB = { id: 'mb1', email: 'info@danubra.eu', signature: 'Štefan Varga\nPartner und Service s. r. o.' };
 const MSG = { mailbox_id: 'mb1', direction: 'in', message_id: '<m2@x>', refs: '<m1@x>', from_email: 'bau@gu-ulm.de', from_name: 'Hans Bauer',
-  to_list: [{ address: 'info@punds.eu' }, { address: 'office@punds.eu' }], cc_list: [{ address: 'chef@gu-ulm.de', name: 'Chef' }],
+  to_list: [{ address: 'info@danubra.eu' }, { address: 'office@danubra.eu' }], cc_list: [{ address: 'chef@gu-ulm.de', name: 'Chef' }],
   subject: 'AW: Angebot', sent_at: '2026-10-20T08:30:00Z', text_body: 'Wir brauchen 4 Maurer.\nGruß' };
 {
   const r = M.replyDraft(MSG, { mailbox: MB });
@@ -28,10 +28,10 @@ const MSG = { mailbox_id: 'mb1', direction: 'in', message_id: '<m2@x>', refs: '<
   ok(/-- \nŠtefan Varga/.test(r.body) && r.body.indexOf('-- ') < r.body.indexOf('> Wir brauchen'), 'podpis je nad citáciou', r.body);
   ok(/napísal\(a\):\n> Wir brauchen 4 Maurer\.\n> Gruß/.test(r.body), 'citácia pôvodnej správy');
   const all = M.replyDraft(MSG, { mailbox: MB, all: true });
-  eq(all.cc.map(a => a.address), ['office@punds.eu', 'chef@gu-ulm.de'], 'všetkým: ostatní bez vlastnej adresy a bez duplicít');
+  eq(all.cc.map(a => a.address), ['office@danubra.eu', 'chef@gu-ulm.de'], 'všetkým: ostatní bez vlastnej adresy a bez duplicít');
   const f = M.forwardDraft({ ...MSG, attachments: [{ name: 'a.pdf', storage_path: 'mail/x/a.pdf' }] }, { mailbox: MB });
   ok(f.subject === 'Fwd: Angebot' && /Preposlaná správa/.test(f.body) && f.attachments.length === 1, 'preposlanie s hlavičkou a prílohami');
-  const out = M.replyDraft({ ...MSG, direction: 'out', from_email: 'info@punds.eu', to_list: [{ address: 'bau@gu-ulm.de' }] }, { mailbox: MB });
+  const out = M.replyDraft({ ...MSG, direction: 'out', from_email: 'info@danubra.eu', to_list: [{ address: 'bau@gu-ulm.de' }] }, { mailbox: MB });
   eq(out.to.map(a => a.address), ['bau@gu-ulm.de'], 'odpoveď na vlastný odoslaný e-mail ide tomu istému adresátovi');
 }
 
@@ -46,7 +46,7 @@ console.log('\nKOMU E-MAIL PATRÍ');
 
 console.log('\nZO SCHRÁNKY DO DATABÁZY');
 {
-  const r = M.fromParsed({ from: { value: [{ address: 'Bau@GU-Ulm.de', name: 'Hans' }] }, to: { value: [{ address: 'info@punds.eu' }] },
+  const r = M.fromParsed({ from: { value: [{ address: 'Bau@GU-Ulm.de', name: 'Hans' }] }, to: { value: [{ address: 'info@danubra.eu' }] },
     subject: 'Re: Termin', date: new Date('2026-10-21T10:00:00Z'), messageId: '<m3@x>', inReplyTo: '<m2@x>', references: ['<m1@x>', '<m2@x>'],
     text: 'Passt.\n> stará', html: '<p>Passt.</p>', attachments: [{ filename: 'plan.pdf', contentType: 'application/pdf', size: 1200 },
       { filename: 'logo.png', contentType: 'image/png', size: 300, related: true }] }, { mailbox_id: 'mb1', folder: 'INBOX', uid: 42, seen: true });
@@ -67,13 +67,13 @@ console.log('\nZOBRAZENIE');
 
 // ── Grafický podpis ──────────────────────────────────────────────────────
 {
-  const mb = { email: 'stefan@punds.sk', signature_card: { enabled: true, name: 'Štefan Varga', role: 'Koordinátor projektov', phone: '+421 910 523 858', lang: 'sk' } };
+  const mb = { email: 'stefan@danubra.sk', signature_card: { enabled: true, name: 'Štefan Varga', role: 'Koordinátor projektov', phone: '+421 910 523 858', lang: 'sk' } };
   const t = M.sigOf(mb);
-  ok(/^S pozdravom\n\nŠtefan Varga\nKoordinátor projektov · punds\n\+421 910 523 858\nstefan@punds\.sk · punds\.sk$/.test(t), 'textový podpis z vizitky', JSON.stringify(t));
+  ok(/^S pozdravom\n\nŠtefan Varga\nKoordinátor projektov · DANUBRA\n\+421 910 523 858\nstefan@danubra\.sk · danubra\.sk$/.test(t), 'textový podpis z vizitky', JSON.stringify(t));
   ok(M.sigOf({ ...mb, signature: 'Vlastný' }) === 'Vlastný', 'vlastný text má prednosť');
   ok(M.sigOf({ email: 'a@b.sk', signature_card: { enabled: false, name: 'X' } }) === '', 'vypnutá vizitka = bez podpisu');
-  const de = M.sigHtml({ email: 'name@punds.eu', signature_card: { enabled: true, name: 'Max', lang: 'de' } }, 'https://x/web/public');
-  ok(/Mit freundlichen Grüßen/.test(de) && /Fachkräfte anfragen/.test(de) && /punds\.eu/.test(de) && /punds-mark\.png/.test(de), 'nemecký grafický podpis');
+  const de = M.sigHtml({ email: 'name@danubra.eu', signature_card: { enabled: true, name: 'Max', lang: 'de' } }, 'https://x/web/public');
+  ok(/Mit freundlichen Grüßen/.test(de) && /Fachkräfte anfragen/.test(de) && /danubra\.eu/.test(de) && /danubra-mark\.png/.test(de), 'nemecký grafický podpis');
   const text = `Dobrý deň,\nposielam ponuku.\n\n-- \n${t}\n\nDňa 1. 1. 2026 Jano napísal(a):\n> otázka`;
   const html = M.bodyHtml(text, mb, 'https://x/web/public');
   ok(/<table/.test(html) && !/-- <br>/.test(html) && /posielam ponuku/.test(html) && /&gt; otázka/.test(html), 'v HTML je grafický podpis namiesto textového, citácia zostane', html.slice(0, 200));

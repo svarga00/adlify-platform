@@ -56,13 +56,13 @@ const send = require(path.join(FN, 'danubra-outreach-send.js')).handler;
 const draft = require(path.join(FN, 'danubra-outreach-draft.js')).handler;
 
 const SUPPLIER = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, 940 71 Nové Zámky', vat_id: 'SK2122334455',
-  company_id: '57553921', phone: '+421 900 000 000', email: 'info@punds.eu' };
+  company_id: '57553921', phone: '+421 900 000 000', email: 'info@danubra.eu' };
 function base(over = {}) {
   return {
     danubra_members: [{ user_id: 'u-admin', role: 'admin', active: true }, { user_id: 'u-rec', role: 'recruiter', active: true },
       { user_id: 'u-mkt', role: 'recruiter', active: true, modules: ['marketing', 'messages'] }],
-    danubra_mailboxes: [{ id: 'mb1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', smtp_host: 'smtp.x',
-      smtp_port: 465, imap_host: 'imap.x', username: 'info@punds.eu', secret_enc: S.encrypt('heslo'), active: true, sent_folder: 'Sent' }],
+    danubra_mailboxes: [{ id: 'mb1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', smtp_host: 'smtp.x',
+      smtp_port: 465, imap_host: 'imap.x', username: 'info@danubra.eu', secret_enc: S.encrypt('heslo'), active: true, sent_folder: 'Sent' }],
     danubra_mailbox_access: [],
     danubra_leads: [{ id: 'l1', name: 'Müller Bau GmbH', city: 'Ulm', email: 'info@mueller-bau.de', trade: 'Trockenbau', status: 'new', archived_at: null }],
     danubra_settings: [{ id: 's1', supplier: SUPPLIER, marketing: { outreach: { daily_limit: 30, followup_days: 5 } } }],
@@ -77,7 +77,7 @@ function reset(db) {
   return holder.sb;
 }
 const BODY = { lead_id: 'l1', mailbox_id: 'mb1', step: 1, lang: 'de', subject: 'Zusätzliche Fachkräfte für Müller Bau GmbH?',
-  body: 'Sehr geehrte Damen und Herren,\n\nwir stellen Handwerker. Referenzen: https://punds.eu/referenzen\n\nMit freundlichen Grüßen' };
+  body: 'Sehr geehrte Damen und Herren,\n\nwir stellen Handwerker. Referenzen: https://danubra.eu/referenzen\n\nMit freundlichen Grüßen' };
 const call = async (fn, body, jwt = 'admin') => {
   const r = await fn({ httpMethod: 'POST', headers: jwt ? { authorization: `Bearer ${jwt}` } : {}, body: JSON.stringify(body) });
   return { code: r.statusCode, ...JSON.parse(r.body) };
@@ -131,7 +131,7 @@ const call = async (fn, body, jwt = 'admin') => {
     first = o;
     ok(o && O.tokenOk(o.token), 'oslovenie má vlastný kľúč');
     ok(p.html.includes(`https://hub.example/.netlify/functions/danubra-track?t=${o.token}&amp;k=o`), 'v e-maile je sledovací obrázok');
-    ok(/danubra-track\?t=[a-f0-9]{32}&amp;k=c&amp;u=https%3A%2F%2Fpunds.eu%2Freferenzen&amp;s=[a-f0-9]{32}/.test(p.html), 'odkaz ide cez podpísané presmerovanie');
+    ok(/danubra-track\?t=[a-f0-9]{32}&amp;k=c&amp;u=https%3A%2F%2Fdanubra.eu%2Freferenzen&amp;s=[a-f0-9]{32}/.test(p.html), 'odkaz ide cez podpísané presmerovanie');
     ok(p.html.includes(`danubra-unsubscribe?t=${o.token}`) && p.text.includes(`danubra-unsubscribe?t=${o.token}`), 'odhlásenie v HTML aj v texte');
     ok(/USt-IdNr\.: SK2122334455/.test(p.text) && /Podzámska/.test(p.text), 'pätička s Impressum (názov, adresa, IČ DPH)');
     const hlav = String(smtp.sent[0].raw).split('\r\n\r\n')[0].replace(/\r\n[ \t]+/g, ' ');
@@ -182,7 +182,7 @@ const call = async (fn, body, jwt = 'admin') => {
     reset(base({ danubra_settings: [{ id: 's1', supplier: SUPPLIER, marketing: { outreach: { track_opens: false, track_clicks: false } } }] }));
     const r = await call(send, BODY);
     const p = await simpleParser(smtp.sent[0].raw);
-    ok(r.code === 200 && !p.html.includes('danubra-track') && p.html.includes('href="https://punds.eu/referenzen"') && p.html.includes('danubra-unsubscribe'),
+    ok(r.code === 200 && !p.html.includes('danubra-track') && p.html.includes('href="https://danubra.eu/referenzen"') && p.html.includes('danubra-unsubscribe'),
       'bez obrázka a bez prepisu odkazov — odhlásenie zostáva');
   }
 

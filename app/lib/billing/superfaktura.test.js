@@ -22,7 +22,7 @@ eq([SF.envOf(), SF.envOf(''), SF.envOf('prod'), SF.envOf('live'), SF.envOf(' PRO
 eq([SF.baseUrl('sandbox'), SF.baseUrl('production')], ['https://sandbox.superfaktura.sk', 'https://moja.superfaktura.sk'], 'adresy');
 eq(SV.authHeader({ email: 'a+b@x.sk', apiKey: 'k&1', companyId: 7 }),
   'SFAPI email=a%2Bb%40x.sk&apikey=k%261&module=DANUBRA%20Hub&company_id=7', 'hlavička SFAPI, hodnoty enkódované');
-eq(SF.maskEmail('stefan@punds.eu'), 's…@punds.eu', 'e-mail účtu sa ukazuje skrátene');
+eq(SF.maskEmail('stefan@danubra.eu'), 's…@danubra.eu', 'e-mail účtu sa ukazuje skrátene');
 
 // ── Jazyk ───────────────────────────────────────────────────────────────────
 eq([SF.sfLang('de'), SF.sfLang('DE'), SF.sfLang('sk'), SF.sfLang('en'), SF.sfLang(''), SF.sfLang('xx', 'slo'), SF.sfLang('deu')],
@@ -151,7 +151,7 @@ console.log('\njednotky a dodávateľ na doklade');
   eq(SF.splitAddress('Hlavná 12 94901 Nitra, Slovensko'), { address: 'Hlavná 12', zip: '949 01', city: 'Nitra' }, 'aj bez čiarky a s krajinou');
   eq(SF.splitAddress('Nitra'), { address: 'Nitra' }, 'bez PSČ celá adresa ako ulica');
   const SUP = { name: 'Partner und Service s. r. o.', address: 'Hlavná 12, 949 01 Nitra', company_id: '53941870',
-    tax_id: '2122816839', vat_id: 'SK2122816839', register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N', iban: 'SK31 1200', email: 'x@punds.eu' };
+    tax_id: '2122816839', vat_id: 'SK2122816839', register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N', iban: 'SK31 1200', email: 'x@danubra.eu' };
   const p = SF.buildInvoice({ invoice: { invoice_number: '2026010001', total: 980 }, partner: { name: 'X', invoice_language: 'de' }, supplier: SUP });
   eq(p.MyData, { company_name: 'Partner und Service s. r. o.', address: 'Hlavná 12', city: 'Nitra', zip: '949 01', country_id: 191,
     ico: '53941870', dic: '2122816839', ic_dph: 'SK2122816839', business_register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N' },

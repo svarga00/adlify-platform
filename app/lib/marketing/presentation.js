@@ -1,5 +1,5 @@
 // ============================================================================
-// DANUBRA — prezentácia punds pre firmu (PDF, 4 strany A4 na šírku, DE)
+// DANUBRA — prezentácia DANUBRA pre firmu (PDF, 4 strany A4 na šírku, DE)
 // ============================================================================
 // „…prípadne s prezentáciou v prílohe, prispôsobenou konkrétnemu hľadaniu."
 //
@@ -15,7 +15,7 @@
 // 1,41 je blízko 16:9), ale stavbyvedúci si ju vytlačí na bežnú A4 bez
 // zmenšovania a bez okrajov navyše.
 //
-// Texty sú z pitch.js (prevzaté z punds.eu) a z Nastavení
+// Texty sú z pitch.js (prevzaté z danubra.eu) a z Nastavení
 // (marketing.presentation). Nič sa nevymýšľa: ceny, referencie, počty ľudí
 // sa ukážu len vtedy, keď sú v Nastaveniach. Súbor má ~20 kB (vektor,
 // písmo sa nevkladá) — príloha nezaťaží schránku ani spamový filter.
@@ -29,26 +29,25 @@ const Pitch = require('./pitch.js');
 
 const INK = '#0E1626', OR = '#F07F1A', STEEL = '#8C97AD', T2 = '#4A5570', T3 = '#6F7A92', CHALK = '#F4F4F1', LINE = '#E6E8EC', WHITE = '#FFFFFF';
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-const EU_PHONE = '+421 910 523 958', EU_MAIL = 'info@punds.eu', EU_WEB = 'punds.eu';
+const EU_PHONE = '+421 910 523 958', EU_MAIL = 'info@danubra.eu', EU_WEB = 'danubra.eu';
 
 const clean = (v, n = 300) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
-/** Logo: znak + slovo „punds" + „PARTNER UND SERVICE". */
+/** Logo: znak (vlna) + slovo „DANUBRA" veľkými písmenami. */
 function logo(p, x, y, { dark = false, size = 1 } = {}) {
   p.mark(x, y, 34 * size, { a: dark ? WHITE : INK, b: OR });
-  p.text('punds', x + 42 * size, y + 20 * size, { size: 24 * size, font: 'B', color: dark ? WHITE : INK, cs: -0.9 * size });
-  p.text('PARTNER UND SERVICE', x + 43 * size, y + 30 * size, { size: 5.6 * size, color: dark ? STEEL : T3, cs: 1.4 * size });
+  p.text('DANUBRA', x + 42 * size, y + 22 * size, { size: 22 * size, font: 'B', color: dark ? WHITE : INK, cs: 0.3 * size });
 }
 
 /** Spoločná hlavička a päta strán 2–4. */
-function frame(p, doc, { title, kicker, page, total }) {
+function frame(p, doc, { title, kicker, page, total, legal }) {
   const { w, h } = doc;
   logo(p, 48, 34, { size: 0.72 });
   p.text(kicker.toUpperCase(), w - 48, 48, { size: 8, font: 'B', color: OR, cs: 1.4, align: 'right' });
   p.line(48, 70, w - 48, 70, { stroke: LINE, lw: 0.8 });
   p.para(title, 48, 88, 560, { size: 26, font: 'B', color: INK, lead: 1.12, cs: -0.4 });
   p.line(48, h - 40, w - 48, h - 40, { stroke: LINE, lw: 0.8 });
-  p.text('punds · Partner und Service s. r. o.', 48, h - 24, { size: 8, color: T3 });
+  p.text(legal ? `DANUBRA · ${legal}` : 'DANUBRA', 48, h - 24, { size: 8, color: T3 });
   p.text(`Seite ${page} / ${total}`, w - 48, h - 24, { size: 8, color: T3, align: 'right' });
 }
 
@@ -71,9 +70,11 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
   const tr = P.trade;
   const reg = P.region || { name: '', phrase: '' };
   const total = 4;
+  // Právny názov firmy (autor PDF, päta strán, Impressum) je z Nastavení.
+  const legal = clean(supplier.name) || 'Partner und Service s. r. o.';
   const doc = new Doc({ size: A4_LANDSCAPE, lang: 'de-DE', info: {
-    title: P.title, author: clean(supplier.name) || 'Partner und Service s. r. o.', date,
-    subject: `${tr.team} aus der Slowakei${reg.name ? ` für ${reg.name}` : ''}`, keywords: ['punds', tr.label, reg.name].filter(Boolean).join(', '),
+    title: P.title, author: legal, date,
+    subject: `${tr.team} aus der Slowakei${reg.name ? ` für ${reg.name}` : ''}`, keywords: ['DANUBRA', tr.label, reg.name].filter(Boolean).join(', '),
   } });
   const { w, h } = doc;
   const who = {
@@ -92,7 +93,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
     p.mark(w - 430, h - 320, 520, { a: WHITE, b: WHITE, alpha: 0.06 });
     p.rect(w - 14, 0, 14, h, { fill: OR });
     logo(p, 56, 50, { dark: true, size: 1.1 });
-    // Pilulka nad nadpisom (ako na punds.eu)
+    // Pilulka nad nadpisom (ako na danubra.eu)
     const eyebrow = 'Handwerker-Teams aus der Slowakei';
     const ew = doc.measure(eyebrow, 9.5, 'B', 0.3) + 34;
     p.rect(56, 160, ew, 24, { fill: '#1B2638', r: 12 });
@@ -116,7 +117,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
   // ── 2. Wer wir sind + Gewerk ────────────────────────────────────────────
   {
     const p = doc.page();
-    frame(p, doc, { title: T.whyH, kicker: 'Über uns', page: 2, total });
+    frame(p, doc, { title: T.whyH, kicker: 'Über uns', page: 2, total, legal });
     let y = p.para(T.about, 48, 130, 360, { size: 11, color: T2, lead: 1.55 });
     y = p.para(T.why, 48, y + 8, 360, { size: 11, color: T2, lead: 1.55 });
     // Zásady 2 × 2
@@ -151,7 +152,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
   // ── 3. Ablauf ───────────────────────────────────────────────────────────
   {
     const p = doc.page();
-    frame(p, doc, { title: 'So läuft ein Einsatz ab', kicker: 'Ablauf', page: 3, total });
+    frame(p, doc, { title: 'So läuft ein Einsatz ab', kicker: 'Ablauf', page: 3, total, legal });
     p.para('Von der Anfrage bis zum ersten Arbeitstag – ein fester Ansprechpartner koordiniert alles.', 48, 126, 600, { size: 11.5, color: T2 });
     const steps = T.steps.map(([a, b]) => [a, b.replace('{team}', tr.team)]);
     const gap = 14, sw = (w - 96 - gap * 3) / 4;
@@ -185,7 +186,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
   // ── 4. Konditionen + Kontakt ────────────────────────────────────────────
   {
     const p = doc.page();
-    frame(p, doc, { title: 'Konditionen und Kontakt', kicker: 'Zusammenarbeit', page: 4, total });
+    frame(p, doc, { title: 'Konditionen und Kontakt', kicker: 'Zusammenarbeit', page: 4, total, legal });
     let y = 130;
     for (const [title, text] of T.conditions) {
       bullet(p, 48, y + 10);
@@ -207,7 +208,7 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
     const cx = 492, cw = w - 48 - cx;
     p.rect(cx, 124, cw, 300, { fill: INK, r: 14 });
     p.text('IHR ANSPRECHPARTNER', cx + 26, 152, { size: 8, font: 'B', color: OR, cs: 1.4 });
-    let cy = p.para(who.name || 'Team punds', cx + 26, 162, cw - 52, { size: 20, font: 'B', color: WHITE, lead: 1.15 });
+    let cy = p.para(who.name || 'Team DANUBRA', cx + 26, 162, cw - 52, { size: 20, font: 'B', color: WHITE, lead: 1.15 });
     if (who.role) cy = p.para(who.role, cx + 26, cy + 2, cw - 52, { size: 10.5, color: STEEL });
     cy += 18;
     const row = (label, value, url) => {
@@ -226,14 +227,14 @@ function build({ pitch, lead = {}, supplier = {}, contact = {}, date = new Date(
     p.para(reg.name ? `${tr.team} für ${reg.name} anfragen` : `${tr.team} anfragen`, cx + 26, 452, cw - 52, { size: 13, font: 'B', color: WHITE, maxLines: 2 });
     p.link(cx, 436, cw, 60, `mailto:${who.email}?subject=${encodeURIComponent(`Anfrage ${tr.label}`)}`);
     // Impressum
-    const imp = [clean(supplier.name) || 'Partner und Service s. r. o.', clean(supplier.address),
+    const imp = [legal, clean(supplier.address),
       supplier.vat_id ? `USt-IdNr.: ${clean(supplier.vat_id)}` : '', supplier.company_id ? `Reg.-Nr.: ${clean(supplier.company_id)}` : '',
       clean(supplier.register)].filter(Boolean).join(' · ');
     p.para(imp, 48, h - 70, w - 96, { size: 7.5, color: T3, lead: 1.4, maxLines: 2 });
   }
 
   const buffer = doc.toBuffer();
-  return { buffer, pages: total, fileName: P.fileName || 'punds.pdf', size: buffer.length, title: P.title };
+  return { buffer, pages: total, fileName: P.fileName || 'danubra.pdf', size: buffer.length, title: P.title };
 }
 
 module.exports = { build };

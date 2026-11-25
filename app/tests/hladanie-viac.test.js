@@ -27,7 +27,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -110,7 +110,7 @@ const DATA = {
     };
     try { Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => { window.__clip = t; } }, configurable: true }); } catch (e) { /* nič */ }
     DanubraExport.download = (rows, name) => { window.__csv = rows; window.__csvName = name; return 'x.csv'; };
-    Danubra.user = { id: 'u-1', email: 'test@punds.eu' };
+    Danubra.user = { id: 'u-1', email: 'test@danubra.eu' };
     Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
     Danubra.cfgRow = DATA.settings[0];
     document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;

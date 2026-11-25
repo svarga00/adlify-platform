@@ -25,7 +25,7 @@ const SF = require('../lib/billing/superfaktura.js');
 const { createService } = require('../lib/billing/sf-service.js');
 
 const KEY = 'tajny-kluc-limit-456';
-const MAIL = 'fakturacia@punds.eu';
+const MAIL = 'fakturacia@danubra.eu';
 const ENV = { SF_EMAIL: MAIL, SF_API_KEY: KEY, SF_RETRY_DELAY_MS: '0' };
 
 let passed = 0, failed = 0;
@@ -192,7 +192,7 @@ console.log('SuperFaktúra — denný limit požiadaviek');
   // ── Počítadlo SuperFaktúry (hlavičky X-RateLimit-*) ───────────────────────
   {
     reset([{}]);
-    routes.push(['/users/getUserCompaniesData', () => respond(200, [{ Company: { id: 1, name: 'PUNDS' } }],
+    routes.push(['/users/getUserCompaniesData', () => respond(200, [{ Company: { id: 1, name: 'DANUBRA' } }],
       { 'X-RateLimit-DailyLimit': '1000', 'X-RateLimit-DailyRemaining': '40', 'X-RateLimit-DailyReset': '07.11.2026 00:00:00',
         'X-RateLimit-MonthlyRemaining': '20000' })]);
     const r = await svc().ping();

@@ -154,8 +154,8 @@ window.Danubra = {
                     ['outreach', 'Oslovovanie', 'eye'],
                     // Prehľad oslovovania pre vedenie: čísla za obdobie, lievik, KW, kolegovia (lib/marketing/report.js).
                     ['vedenie', 'Prehľad pre vedenie', 'trend'],
-                    // Obsah webov punds.sk a punds.eu (texty, kontakty, tím, fotky).
-                    ['website', 'Weby punds', 'site'],
+                    // Obsah webov danubra.sk a danubra.eu (texty, kontakty, tím, fotky).
+                    ['website', 'Weby DANUBRA', 'site'],
                     ['campaigns', 'E-maily firmám', 'mail'],
                     ['marketing', 'Inzercia a výdavky', 'chart'],
                     // Vizitky, obálky, hlavičkový list — PDF na tlač.
@@ -216,8 +216,8 @@ window.Danubra = {
     outreach: 'Firmy po jednom e-mailom: komu čo išlo, kto otvoril, klikol, odpovedal — a komu sa dnes pripomenúť',
     vedenie: 'Oslovovanie firiem v číslach: obdobie a porovnanie, lievik, trend po KW, kolegovia, remeslá, regióny a čo treba riešiť',
     campaigns: 'E-maily firmám po nemecky, cez Vašu schránku, s odhlásením',
-    printwork: 'Vizitky, obálka DL a hlavičkový list v podobe punds — PDF pre tlačiareň',
-    website: 'Weby punds.sk a punds.eu: čo z nich prišlo, kontakty, tím, fotky a všetky texty po jazykoch',
+    printwork: 'Vizitky, obálka DL a hlavičkový list v podobe DANUBRA — PDF pre tlačiareň',
+    website: 'Weby danubra.sk a danubra.eu: čo z nich prišlo, kontakty, tím, fotky a všetky texty po jazykoch',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
     members: 'Kto smie do appky a na čo',
     archiv: 'Archivované záznamy — nič sa nemaže; admin ich tu vie vrátiť späť',
@@ -521,7 +521,7 @@ window.Danubra = {
    * Názov obrazovky v zozname obrazoviek — rozbalené ľavé menu, vysúvacie
    * podmenu aj mega menu („Všetko"). Jedno meno na všetkých troch miestach:
    * v ľavom menu bolo „Nové firmy" a v mega menu „Marketing", „E-maily"
-   * vs. „E-maily firmám", „Weby" vs. „Weby punds".
+   * vs. „E-maily firmám", „Weby" vs. „Weby DANUBRA".
    */
   itemLabelOf(key) { return this.navSubLabel[key] || this.navTabLabel[key] || this.labelOf(key); },
   /** Nadpis obrazovky Dnes — to isté meno ako jej záložka a riadok v menu. */

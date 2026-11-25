@@ -13,7 +13,7 @@
 //     ~20 kB) s nemeckými aj slovenskými znakmi (ä ö ü ß, č š ž ľ ť ň …
 //     cez vlastné kódovanie /Differences),
 //   * šírky znakov podľa metrík Helvetica (zalamovanie riadkov sedí),
-//   * obdĺžniky aj zaoblené, kruhy, čiary, znak punds ako krivky,
+//   * obdĺžniky aj zaoblené, kruhy, čiary, znak DANUBRA ako krivky,
 //   * priehľadnosť (vodoznak), klikateľné odkazy, metadáta, jazyk dokumentu,
 //   * obsah strán skomprimovaný (zlib, je v Node).
 //
@@ -176,7 +176,7 @@ class Page {
   }
 
   /**
-   * Znak punds (∩∪) — rovnaké krivky ako logo na webe (web/shared/brand.js),
+   * Znak DANUBRA (dva oblúky ako vlna, rieka Dunaj) — rovnaké krivky ako logo na webe (web/shared/brand.js),
    * viewBox 2.25 7.25 43.5 33.5. @param w šírka v bodoch
    */
   mark(x, y, w, { a = '#0E1626', b = '#F07F1A', alpha = 1 } = {}) {

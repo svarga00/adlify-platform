@@ -44,7 +44,7 @@
   font-style: normal; font-weight: 600; font-display: swap;
   src: url('./vendor/fonts/plex-mono-600-latin.woff2') format('woff2');
 }
-/* Hanken Grotesk — text na tlačovinách punds (vizitka, obálka). */
+/* Hanken Grotesk — text na tlačovinách DANUBRA (vizitka, obálka). */
 @font-face {
   font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 400 700; font-display: swap;
   src: url('./vendor/fonts/hanken-latin.woff2') format('woff2');
@@ -55,7 +55,7 @@
   src: url('./vendor/fonts/hanken-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-/* Outfit — písmo nadpisov a súm na dokumentoch punds (výkaz hodín v appke).
+/* Outfit — písmo nadpisov a súm na dokumentoch DANUBRA (výkaz hodín v appke).
    Licencia SIL Open Font License. */
 @font-face {
   font-family: 'Outfit';
@@ -187,8 +187,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: flex; align-items: center; justify-content: center; gap: 11px;
   margin-bottom: 30px;
 }
-.login-brand .logo-word { font-size: 30px; color: #0E1626; }
-.login-brand .logo-tag { color: #6F7A92; }
+.login-brand .logo-word { font-size: 28px; color: #0E1626; }
 #login-form { display: grid; gap: 14px; }
 #login-form label { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink-sub); }
 #login-form input {
@@ -211,12 +210,11 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 6px 10px 14px; }
 .logo-mark { display: block; flex-shrink: 0; }
 .logo-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-/* Slovo punds — písmo Outfit ako na webe a dokumentoch. */
+/* Slovo DANUBRA — písmo Outfit ako na webe a dokumentoch, veľkými písmenami. */
 .logo-word {
-  font: 700 22px/.8 Outfit, Inter, sans-serif; letter-spacing: -.045em;
+  font: 700 21px/.8 Outfit, Inter, sans-serif; letter-spacing: .02em;
   color: #fff; white-space: nowrap;
 }
-.logo-tag { font-size: 6px; font-weight: 500; letter-spacing: .26em; color: #8C97AD; line-height: 1; white-space: nowrap; }
 /* Navigácia sa musí zmestiť celá. Keď sa nezmestí, musí byť **vidieť**, že
    pokračuje — inak sa položky pod okrajom nedajú nájsť a človek si myslí,
    že v appke nie sú. Presne to sa stalo s celou skupinou PENIAZE. */
@@ -2472,7 +2470,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .hs-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .hs-brandrow { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .hs-brandrow > svg { flex: none; }
-.hs-brand { font: 700 28px/.8 Outfit, Inter, sans-serif; letter-spacing: -.045em; color: var(--hs-ink); }
+.hs-brand { font: 700 24px/.8 Outfit, Inter, sans-serif; letter-spacing: .02em; color: var(--hs-ink); white-space: nowrap; }
 .hs-brand-sub { font-size: 6.5px; font-weight: 500; letter-spacing: .26em; color: var(--hs-mute); text-transform: uppercase; margin-top: 9px; }
 .hs-brand.is-name { font-size: 17px; line-height: 1.15; letter-spacing: -.02em; }
 .hs-titlebox { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
@@ -4573,7 +4571,7 @@ iframe.mail-body { width: 100%; min-height: 240px; border: 0; margin-top: 10px; 
 .pw-letter { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #E9EAEC; }
 @media (max-width: 900px) { .pw-grid { grid-template-columns: 1fr; } }
 
-/* Weby punds (Marketing → Weby) */
+/* Weby DANUBRA (Marketing → Weby) */
 .web-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 .web-tile { display: flex; flex-direction: column; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; color: var(--ink); }
 .web-tile:hover { border-color: var(--brand); }

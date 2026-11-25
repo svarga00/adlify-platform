@@ -89,8 +89,8 @@ ani mesačné návrhy faktúr. **Tento kľúč nikdy nedávaj do frontendu.**
 | Premenná | Načo |
 |---|---|
 | `FORMS_SECRET` | aby endpoint nemohol zaplniť ktokoľvek |
-| `FORMS_ALLOWED_ORIGINS` | len kým `FORMS_SECRET` nie je: ďalšie domény formulára (čiarkou, napr. `danubra.sk,www.danubra.sk`); punds.sk a punds.eu sú povolené vždy |
-| `IP_HASH_SECRET` | kľúč k odtlačku IP adresy v záznamoch formulárov punds.sk / punds.eu (dlhý náhodný reťazec) |
+| `FORMS_ALLOWED_ORIGINS` | len kým `FORMS_SECRET` nie je: ďalšie domény formulára (čiarkou, napr. `nabor.example.sk,www.nabor.example.sk`); danubra.sk a danubra.eu (aj ich subdomény) sú povolené vždy |
+| `IP_HASH_SECRET` | kľúč k odtlačku IP adresy v záznamoch formulárov danubra.sk / danubra.eu (dlhý náhodný reťazec) |
 
 Bez `FORMS_SECRET` sa prijme len odoslanie z našich stránok (Origin/Referer)
 a do logu funkcie ide varovanie.

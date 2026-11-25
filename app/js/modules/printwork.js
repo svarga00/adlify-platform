@@ -1,7 +1,7 @@
 // ============================================================================
-// DANUBRA — Tlačoviny punds: vizitky, obálka DL, hlavičkový list
+// DANUBRA — Tlačoviny DANUBRA: vizitky, obálka DL, hlavičkový list
 // ============================================================================
-// Podľa návrhu „PUNDS — Tlačoviny a e-maily". Vizitka a obálka sa stiahnu
+// Podľa návrhu „DANUBRA — Tlačoviny a e-maily". Vizitka a obálka sa stiahnu
 // ako PDF pre tlačiareň (vizitka so spadávkou 3 mm), list sa otvorí ako
 // dokument — dá sa upraviť, stiahnuť, poslať a uloží sa do Dokumentov.
 // Rozloženie strán: lib/documents/printwork.js, list: templates.letter().
@@ -28,9 +28,9 @@
       const me = (Danubra.members || []).find((m) => Danubra.user && m.user_id === Danubra.user.id) || {};
       if (!this.card) {
         this.card = { name: me.full_name || '', role: 'Koordinátor projektov', phone: sup.phone || '', email: (Danubra.user && Danubra.user.email) || sup.email || '',
-          web: 'punds.sk', address: sup.address || '', lang: 'sk', variant: 'dark' };
+          web: 'danubra.sk', address: sup.address || '', lang: 'sk', variant: 'dark' };
       }
-      if (!this.env) this.env = { sender: `${sup.name || 'Partner und Service s. r. o.'}\n${sup.address || ''}`.trim(), to: '' };
+      if (!this.env) this.env = { sender: `${sup.name || ''}\n${sup.address || ''}`.trim(), to: '' };
       if (!this.letter) this.letter = { to: '', subject: '', body: '', signer: me.full_name || '', role: '', lang: 'sk', place: '' };
     },
 
@@ -38,7 +38,7 @@
       this.defaults();
       Danubra.setActions('');
       const tabs = [['card', 'Vizitka', 'user'], ['env', 'Obálka DL', 'mail'], ['letter', 'Hlavičkový list', 'doc']];
-      el.innerHTML = Danubra.header(Danubra.labelOf('printwork'), 'Vizitky, obálky a listy v podobe punds — PDF pre tlačiareň')
+      el.innerHTML = Danubra.header(Danubra.labelOf('printwork'), 'Vizitky, obálky a listy v podobe DANUBRA — PDF pre tlačiareň')
         + `<div class="sec-tabs" role="tablist">${tabs.map(([k, l, i]) => `<button role="tab" class="sec-tab${this.tab === k ? ' on' : ''}" onclick="Print.setTab('${k}')">${Icon(i, 14)} ${l}</button>`).join('')}</div>
         <div class="pw-grid">
           <div class="card card-pad"><form id="pw-form" onsubmit="event.preventDefault()">${this.formHtml()}</form></div>
@@ -49,7 +49,7 @@
                 'Stiahne PDF pripravené pre tlačiareň: presný rozmer, každá strana zvlášť (pri vizitke líce a rub). Pošlite ho tlačiarni tak, ako je — nič neupravujte ani nezmenšujte.')}`}</div>
             <p class="card-note">${this.tab === 'card' ? `Vizitka 85 × 55 mm, PDF má 91 × 61 mm (spadávka 3 mm).${UI.tip('Spadávka = 3 mm navyše na každej strane. Farba a obrázky idú až cez okraj a tlačiareň ich po tlači odreže — takže na hrane vizitky nikdy neostane biely prúžok.')} Tlačiareň ju oreže na presný rozmer. Odporúčanie: matný papier 400 g, tlač 4/4.${UI.tip('400 g = hrubý, tuhý papier, aký majú bežné vizitky. Tlač 4/4 = farebne z oboch strán (4 farby na líci, 4 na rube). Toto stačí povedať tlačiarni.')}`
               : this.tab === 'env' ? `Obálka DL 220 × 110 mm.${UI.tip('DL je bežná podlhovastá obálka, do ktorej sa zmestí list A4 zložený na tretiny. Tlačí sa bez spadávky, takže sa dá tlačiť aj na hotové obálky.')} Adresát je v mieste okienka vpravo; bez adresáta sa vytlačí len odosielateľ.`
-              : `List sa otvorí ako dokument — dá sa ešte upraviť, stiahnuť ako PDF, poslať a uloží sa do Dokumentov.${UI.tip('Hlavičkový list = firemný papier: hore logo punds, telefón, e-mail a web, dole údaje firmy. Berú sa z Nastavení (Fakturačné údaje); ak tam máte nahratú pečiatku, pridá sa nad podpis.')}`}</p></div>
+              : `List sa otvorí ako dokument — dá sa ešte upraviť, stiahnuť ako PDF, poslať a uloží sa do Dokumentov.${UI.tip('Hlavičkový list = firemný papier: hore logo DANUBRA, telefón, e-mail a web, dole údaje firmy. Berú sa z Nastavení (Fakturačné údaje); ak tam máte nahratú pečiatku, pridá sa nad podpis.')}`}</p></div>
         </div>`;
       const f = document.getElementById('pw-form');
       f.addEventListener('input', () => this.read());
@@ -67,10 +67,10 @@
           ${UI.field('role', 'Funkcia', { value: c.role, placeholder: 'Koordinátor projektov' })}
           ${UI.field('phone', 'Telefón', { value: c.phone })}
           ${UI.field('email', 'E-mail', { type: 'email', value: c.email })}
-          ${UI.field('web', 'Web', { value: c.web, options: [['punds.sk', 'punds.sk'], ['punds.eu', 'punds.eu']],
-            tip: 'Ktorý web bude na vizitke. punds.sk = pre remeselníkov a uchádzačov, punds.eu = pre nemecké firmy.' })}
+          ${UI.field('web', 'Web', { value: c.web, options: [['danubra.sk', 'danubra.sk'], ['danubra.eu', 'danubra.eu']],
+            tip: 'Ktorý web bude na vizitke. danubra.sk = pre remeselníkov a uchádzačov, danubra.eu = pre nemecké firmy.' })}
           ${UI.field('variant', 'Variant', { value: c.variant, options: [['dark', 'Tmavá (1a/1b)'], ['orange', 'Biela s oranžovým rubom (1c)']],
-            tip: 'Tmavá: tmavomodré líce s logom, biely rub s kontaktmi. Biela: biele líce s oranžovým pásom, oranžový rub. 1a–1c sú len čísla z grafického návrhu punds.' })}
+            tip: 'Tmavá: tmavomodré líce s logom, biely rub s kontaktmi. Biela: biele líce s oranžovým pásom, oranžový rub. 1a–1c sú len čísla z grafického návrhu DANUBRA.' })}
         </div>
         ${UI.field('address', 'Adresa', { value: c.address,
           tip: 'Vytlačí sa len na tmavej variante (na rube). Biela s oranžovým rubom adresu nemá — je tam len telefón, e-mail a web.' })}`;
@@ -100,7 +100,7 @@
 
     read() {
       const d = UI.formData(document.getElementById('pw-form'));
-      if (this.tab === 'card') Object.assign(this.card, d, { lang: d.web === 'punds.eu' ? 'de' : 'sk' });
+      if (this.tab === 'card') Object.assign(this.card, d, { lang: d.web === 'danubra.eu' ? 'de' : 'sk' });
       else if (this.tab === 'env') Object.assign(this.env, d);
       else Object.assign(this.letter, d);
       this.preview();

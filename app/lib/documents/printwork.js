@@ -1,5 +1,5 @@
 // ============================================================================
-// DANUBRA — tlačoviny punds: vizitky a obálka DL (návrh 1a–1c, 2b)
+// DANUBRA — tlačoviny DANUBRA: vizitky a obálka DL (návrh 1a–1c, 2b)
 // ============================================================================
 // Rozmery sú v milimetroch, so spadávkou 3 mm na každej strane — tak to
 // chce tlačiareň. Vizitka 85 × 55 mm → súbor 91 × 61 mm; obálka DL
@@ -16,7 +16,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const mm = (px, k = 6) => `${Math.round((px / k) * 100) / 100}mm`;
 
-  /** Znak punds; w = šírka v mm (napr. '10.67mm'). */
+  /** Znak DANUBRA (vlna, Dunaj); w = šírka v mm (napr. '10.67mm'). */
   const mark = (w, a = INK, b = OR, op = 1) => {
     // Priehľadnosť cez stroke-opacity — opacity na <svg> knižnica PDF ignoruje.
     const o = op < 1 ? ` stroke-opacity="${op}"` : '';
@@ -33,9 +33,8 @@
       + `<div style="position:absolute;left:${bleed}mm;top:${bleed}mm;width:${w}mm;height:${h}mm;">${inner}</div></div>`;
   }
 
-  const wordmark = (size, color, tagColor) => `<div style="display:flex;flex-direction:column;gap:${mm(13)};">`
-    + `<span style="font:700 ${mm(size)}/.8 ${HEAD};letter-spacing:-.045em;color:${color};">punds</span>`
-    + `<span style="font:500 ${mm(size * 0.2)}/1 ${FONT};letter-spacing:.26em;color:${tagColor};">PARTNER UND SERVICE</span></div>`;
+  /** Slovo DANUBRA — Outfit 700, veľké písmená. */
+  const wordmark = (size, color) => `<span style="display:block;font:700 ${mm(size)}/.8 ${HEAD};letter-spacing:.02em;color:${color};white-space:nowrap;">DANUBRA</span>`;
 
   /**
    * Vizitka — líce a rub.
@@ -44,15 +43,15 @@
    */
   function card(p = {}) {
     const v = p.variant === 'orange' ? 'orange' : 'dark';
-    const web = p.web || (p.lang === 'de' ? 'punds.eu' : 'punds.sk');
+    const web = p.web || (p.lang === 'de' ? 'danubra.eu' : 'danubra.sk');
     const W = CARD.w, H = CARD.h;
-    const logoRow = (markColor, word, tag) => `<div style="display:flex;align-items:center;gap:${mm(18)};">${mark(mm(64), markColor)}${wordmark(42, word, tag)}</div>`;
+    const logoRow = (markColor, word) => `<div style="display:flex;align-items:center;gap:${mm(18)};">${mark(mm(64), markColor)}${wordmark(36, word)}</div>`;
     let front, back;
     if (v === 'dark') {
       // Bleed: tmavé pozadie aj veľký znak idú cez okraj.
       front = face(W, H, INK, `
         <div style="position:absolute;right:${mm(-70)};bottom:${mm(-80)};">${mark(mm(330), '#fff', '#fff', 0.07)}</div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow('#fff', '#fff', STEEL)}</div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow('#fff', '#fff')}</div>
         <span style="position:absolute;left:${mm(30)};bottom:${mm(24)};font:500 ${mm(13)} ${FONT};color:${STEEL};letter-spacing:.04em;">${esc(web)}</span>
         <span style="position:absolute;right:${mm(30)};bottom:${mm(30)};width:${mm(34)};height:${mm(5)};border-radius:${mm(3)};background:${OR};"></span>`);
       const rows = [['T', p.phone], ['E', p.email], ['W', web], ['A', p.address]].filter((r) => r[1]);
@@ -69,7 +68,7 @@
     } else {
       front = face(W, H, '#fff', `
         <div style="position:absolute;left:-${BLEED}mm;top:-${BLEED}mm;bottom:-${BLEED}mm;width:calc(${mm(14)} + ${BLEED}mm);background:${OR};"></div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow(INK, INK, T3)}</div>`);
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${logoRow(INK, INK)}</div>`);
       back = face(W, H, OR, `
         <div style="position:absolute;inset:0;padding:${mm(34)} ${mm(36)};display:flex;flex-direction:column;justify-content:space-between;color:${INK};">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:${mm(12)};">
@@ -89,12 +88,12 @@
    */
   function envelope(p = {}) {
     const k = 3;
-    const sender = String(p.sender || 'Partner und Service s. r. o.\nPodzámska 9468/4A, 940 71 Nové Zámky').split('\n').map(esc).join('<br>');
+    // Odosielateľ je z Nastavení (fakturačné údaje) — v kóde žiadny názov firmy.
+    const sender = String(p.sender || '').split('\n').map(esc).join('<br>');
     const to = String(p.to || '').trim();
     const inner = `
       <div style="position:absolute;left:${mm(40, k)};top:${mm(34, k)};display:flex;align-items:center;gap:${mm(10, k)};">${mark(mm(34, k))}
-        <div style="display:flex;flex-direction:column;gap:${mm(7, k)};"><span style="font:700 ${mm(22, k)}/.8 ${HEAD};letter-spacing:-.045em;color:${INK};">punds</span>
-        <span style="font:500 ${mm(5, k)}/1 ${FONT};letter-spacing:.26em;color:${T3};">PARTNER UND SERVICE</span></div></div>
+        <span style="font:700 ${mm(19, k)}/.8 ${HEAD};letter-spacing:.02em;color:${INK};white-space:nowrap;">DANUBRA</span></div>
       <div style="position:absolute;left:${mm(40, k)};bottom:${mm(34, k)};font:400 ${mm(10, k)}/1.55 ${FONT};color:${T3};">${sender}</div>
       ${to ? `<div style="position:absolute;left:110mm;top:50mm;width:95mm;font:400 3.9mm/1.45 ${FONT};color:${INK};">${to.split('\n').map((l, i) => (i === 0 ? `<strong>${esc(l)}</strong>` : esc(l))).join('<br>')}</div>` : ''}
       <div style="position:absolute;right:0;top:0;bottom:0;width:${mm(8, k)};background:${OR};"></div>`;

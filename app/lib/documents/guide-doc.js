@@ -2,7 +2,7 @@
 // DANUBRA — návod k appke ako PDF a ťahák na jednu stranu A4
 // ============================================================================
 // Obsah je v lib/guide.js (DanubraGuide) — tu sa len skladá papier v podobe
-// punds, rovnakou hlavičkou a pätou ako ostatné dokumenty. Nič sa tu
+// DANUBRA, rovnakou hlavičkou a pätou ako ostatné dokumenty. Nič sa tu
 // nevymýšľa: čo nie je v návode, nie je ani na papieri.
 // ============================================================================
 (function () {

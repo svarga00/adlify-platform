@@ -16,7 +16,7 @@
 // (ktorý vzniká až po úhrade) — nikdy v offer ani order_confirmation.
 // ============================================================================
 (function () {
-  // Vzhľad podľa návrhu „PUNDS — Tlačoviny a e-maily": tmavomodrá a oranžová,
+  // Vzhľad podľa návrhu „Tlačoviny a e-maily": tmavomodrá a oranžová,
   // písmo Outfit na nadpisy a sumy, Hanken Grotesk na text. Rovnaká hlavička
   // a päta na faktúre, výkaze, objednávke aj zmluve — papiere pre nemecké
   // firmy aj pre živnostníkov vyzerajú ako od jednej firmy.
@@ -44,31 +44,37 @@
   /** Text bez diakritiky — pre SMS (GSM-7). */
   const noDia = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-  // Znak punds: dva oblúky, tmavý a oranžový.
+  // Znak DANUBRA: dva oblúky ako vlna (rieka Dunaj), tmavý a oranžový.
   const LOGO = `<svg viewBox="2.25 7.25 43.5 33.5" width="44" height="34" fill="none" style="display:block">
     <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="${BRAND.navy}" stroke-width="7.5" stroke-linecap="round"/>
     <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="${BRAND.orange}" stroke-width="7.5" stroke-linecap="round"/>
   </svg>`;
 
   /**
-   * Značka v hlavičke: krátky názov (punds) a pod ním celý názov drobným
-   * písmom. Krátky názov je z Nastavení (`brand`); kým tam nie je, pri
-   * „Partner und Service" je to punds. Iná firma má v hlavičke celý názov.
+   * Značka v hlavičke: krátky názov (DANUBRA). Krátky názov je z Nastavení
+   * (`brand`); kým tam nie je, pri našej firme („Partner und Service" alebo
+   * „DANUBRA") je to DANUBRA. Pod slovom DANUBRA sa celý názov nepíše —
+   * právny názov je v údajoch strán a v päte. Iná firma so zadanou značkou
+   * má pod ňou celý názov drobným písmom, bez značky celý názov v hlavičke.
    */
   function brandOf(s = {}) {
     const name = String((s && s.name) || '').trim();
-    const brand = String((s && s.brand) || '').trim()
-      || (/^partner\s+und\s+service\b/i.test(name) ? 'punds' : '');
+    // Stará značka uložená v Nastaveniach (punds) sa píše ako DANUBRA.
+    const brand = String((s && s.brand) || '').trim().replace(/^punds$/i, 'DANUBRA')
+      || (/^(partner\s+und\s+service|danubra)\b/i.test(name) ? 'DANUBRA' : '');
     const bezFormy = name.replace(/,?\s*(spol\.\s*s\s*r\.\s*o\.|s\.\s*r\.\s*o\.|a\.\s*s\.|GmbH|UG|k\.\s*s\.)\s*$/i, '').trim();
-    const sub = String((s && s.tagline) || '').trim() || (brand ? bezFormy : '');
+    const sub = String((s && s.tagline) || '').trim() || (brand && !/^danubra$/i.test(brand) ? bezFormy : '');
     return { name, brand, sub };
   }
 
-  /** Web firmy: z Nastavení, inak z domény e-mailu (info@punds.eu → punds.eu). */
+  /** Stará doména punds.* sa na dokumentoch píše ako danubra.* (punds.eu je teraz danubra.eu). */
+  const novaDomena = (d) => String(d || '').replace(/(^|[.@/])punds\.(sk|eu)\b/gi, (m, a, tld) => `${a}danubra.${tld.toLowerCase()}`);
+
+  /** Web firmy: z Nastavení, inak z domény e-mailu (info@danubra.eu na danubra.eu). */
   function webOf(s = {}) {
-    if (s && s.web) return String(s.web).replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (s && s.web) return novaDomena(String(s.web).replace(/^https?:\/\//, '').replace(/\/$/, ''));
     const d = String((s && s.email) || '').split('@')[1] || '';
-    return d && !/^(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|azet|zoznam|centrum|post|atlas|seznam|gmx|web|t-online)\./i.test(d) ? d : '';
+    return d && !/^(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|azet|zoznam|centrum|post|atlas|seznam|gmx|web|t-online)\./i.test(d) ? novaDomena(d) : '';
   }
 
   const CSS = `
@@ -85,7 +91,7 @@
     .head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:26px}
     .brand{display:flex;align-items:center;gap:12px;flex:0 0 auto;min-width:0}
     .brand svg{flex:none}
-    .brand-word{font-weight:700;font-size:31px;line-height:.8;letter-spacing:-.045em;color:${BRAND.navy}}
+    .brand-word{font-weight:700;font-size:27px;line-height:.8;letter-spacing:.02em;color:${BRAND.navy};white-space:nowrap}
     /* „Partner und Service s. r. o." sa nesmie zlomiť na „s. r." a „o." —
        názov firmy na doklade vyzerá potom ako preklep. */
     .brand-name{font-weight:700;font-size:19px;line-height:1.15;letter-spacing:-.02em;text-wrap:balance;max-width:300px}

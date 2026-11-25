@@ -125,7 +125,7 @@
     return [
       'Prečítaj priložený týždenný výkaz hodín (Stundennachweis) a zapíš ho cez nástroj stundennachweis.',
       '',
-      'O čo ide: firma Partner und Service s. r. o. posiela živnostníkov zo Slovenska a Maďarska na stavby',
+      'O čo ide: naša firma (značka DANUBRA) posiela živnostníkov zo Slovenska a Maďarska na stavby',
       'v Nemecku. Každý týždeň si na tento papier rukou píšu hodiny a nemecký majster (Kunde) ho',
       'podpíše. Z neho sa fakturuje — každá hodina je peniaz, preto presnosť je dôležitejšia než úplnosť.',
       'List môže byť za celú partiu (viac mien) alebo za jedného človeka.',

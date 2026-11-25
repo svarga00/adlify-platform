@@ -110,7 +110,7 @@ function reset(inv = {}, partner = {}) {
   db.danubra_subcontracts = [{ ...SUB }];
   db.danubra_periods = [{ ...PERIOD }];
   db.danubra_invoice_items = [];
-  db.danubra_settings = [{ id: 'st1', superfaktura: { cc: 'uctovnictvo@punds.eu' }, supplier: { name: 'Partner und Service s. r. o.', iban: 'SK3112000000198742637541', bic: 'TATRSKBX' } }];
+  db.danubra_settings = [{ id: 'st1', superfaktura: { cc: 'uctovnictvo@danubra.eu' }, supplier: { name: 'Partner und Service s. r. o.', iban: 'SK3112000000198742637541', bic: 'TATRSKBX' } }];
   db.danubra_compliance = [];
   db.danubra_activities = [];
   db.danubra_tasks = [];
@@ -489,7 +489,7 @@ console.log('SuperFaktúra — serverová funkcia');
     const s = parse(await call(handler, { invoice_id: 'i1', action: 'send', cc: 'bauleiter@gu-ulm.de' }));
     eq(s.code, 200, 'vystavená faktúra sa odošle');
     const e = sfCalls('/invoices/send')[0].body.Email;
-    eq([e.invoice_id, e.to, e.cc, e.subject, e.pdf_language], [777, 'bau@gu-ulm.de', ['bauleiter@gu-ulm.de', 'uctovnictvo@punds.eu'], 'Rechnung 2026042', 'deu'],
+    eq([e.invoice_id, e.to, e.cc, e.subject, e.pdf_language], [777, 'bau@gu-ulm.de', ['bauleiter@gu-ulm.de', 'uctovnictvo@danubra.eu'], 'Rechnung 2026042', 'deu'],
       'na e-mail odberateľa, kópia z okna aj z nastavení, po nemecky');
     eq([inv().status, !!inv().sf_sent_at, inv().sf_status], ['sent', true, 'sent'], 'stav: odoslaná');
     reset({ status: 'issued', sf_invoice_id: 777, sf_environment: 'sandbox' });

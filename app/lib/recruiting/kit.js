@@ -31,7 +31,7 @@
    * zmysel až keď je kam poslať človeka.
    */
   const CHANNELS = [
-    { key: 'web', title: 'Web (punds.eu)', lang: 'sk',
+    { key: 'web', title: 'Web (danubra.eu)', lang: 'sk',
       lead: 'Podstránka ponuky. Odtiaľ vedú odkazy zo všetkých ostatných kanálov.' },
     { key: 'bazos_cz', title: 'Bazoš CZ', lang: 'cs',
       lead: 'Práce → Stavebnictví, lokalita Zahraničí. Po pár dňoch topovať, nie pridávať kópie.' },

@@ -106,17 +106,19 @@
   // meno, funkcia, telefón, e-mail, web a odkaz. V e-maile je ako tabuľka
   // (Gmail, Outlook aj mobil), v texte ako niekoľko riadkov.
   const SIG = {
-    sk: { greet: 'S pozdravom', cta: 'Aktuálne pracovné ponuky v Nemecku', url: 'https://punds.sk', web: 'punds.sk' },
-    de: { greet: 'Mit freundlichen Grüßen', cta: 'Fachkräfte anfragen – Antwort in 24 h', url: 'https://punds.eu', web: 'punds.eu' },
+    sk: { greet: 'S pozdravom', cta: 'Aktuálne pracovné ponuky v Nemecku', url: 'https://danubra.sk', web: 'danubra.sk' },
+    de: { greet: 'Mit freundlichen Grüßen', cta: 'Fachkräfte anfragen – Antwort in 24 h', url: 'https://danubra.eu', web: 'danubra.eu' },
   };
   const ADDRESS = 'Partner und Service s. r. o. · Podzámska 9468/4A, 940 71 Nové Zámky · IČO 57553921';
+  // Vizitka uložená ešte so starou doménou (punds.sk) sa ukáže s novou (danubra.sk).
+  const novaDomena = (v) => String(v || '').replace(/(^|[./@])punds\.(sk|eu)\b/gi, (m, a, tld) => `${a}danubra.${tld.toLowerCase()}`);
   const cardOn = (mb) => !!(mb && mb.signature_card && mb.signature_card.enabled && mb.signature_card.name);
 
   /** Textový podpis z vizitky. */
   function cardText(mb = {}) {
     const c = mb.signature_card || {};
     const d = SIG[c.lang === 'de' ? 'de' : 'sk'];
-    return [d.greet, '', c.name, c.role ? `${c.role} · punds` : 'punds', c.phone, [mb.email, c.web || d.web].filter(Boolean).join(' · ')]
+    return [d.greet, '', c.name, c.role ? `${c.role} · DANUBRA` : 'DANUBRA', c.phone, [mb.email, novaDomena(c.web) || d.web].filter(Boolean).join(' · ')]
       .filter((x) => x != null && x !== false).join('\n').replace(/\n{3,}/g, '\n\n');
   }
 
@@ -132,14 +134,14 @@
     const c = mb.signature_card || {};
     const d = SIG[c.lang === 'de' ? 'de' : 'sk'];
     const F = "'Hanken Grotesk',Arial,Helvetica,sans-serif", Hh = "'Outfit',Arial,Helvetica,sans-serif";
-    const web = c.web || d.web, url = c.cta_url || d.url;
+    const web = novaDomena(c.web) || d.web, url = novaDomena(c.cta_url) || d.url;
     return `<div style="font:400 14px/1.6 ${F};color:#4A5570;margin:18px 0 14px;">${esc(d.greet)}</div>`
       + `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>`
       + `<td style="padding-right:18px;border-right:2px solid #F07F1A;vertical-align:top;">`
-      + `<img src="${esc(assets)}/img/email/punds-mark.png" width="54" height="42" alt="punds" style="display:block;border:0;"></td>`
+      + `<img src="${esc(assets)}/img/email/danubra-mark.png" width="54" height="42" alt="DANUBRA" style="display:block;border:0;"></td>`
       + `<td style="padding-left:18px;vertical-align:top;">`
       + `<div style="font:700 18px/1.2 ${Hh};color:#0E1626;">${esc(c.name)}</div>`
-      + `<div style="font:500 13px/1.4 ${F};color:#F07F1A;margin:2px 0 8px;">${esc(c.role ? `${c.role} · punds` : 'punds')}</div>`
+      + `<div style="font:500 13px/1.4 ${F};color:#F07F1A;margin:2px 0 8px;">${esc(c.role ? `${c.role} · DANUBRA` : 'DANUBRA')}</div>`
       + `<div style="font:400 13px/1.65 ${F};color:#4A5570;">${c.phone ? `${esc(c.phone)}<br>` : ''}`
       + `<a href="mailto:${esc(mb.email)}" style="color:#0E1626;text-decoration:none;">${esc(mb.email)}</a> · `
       + `<a href="https://${esc(web)}" style="color:#0E1626;font-weight:600;text-decoration:none;">${esc(web)}</a></div></td></tr></table>`

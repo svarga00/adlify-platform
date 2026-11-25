@@ -42,7 +42,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -5130,7 +5130,7 @@ console.log('Prehliadač');
         await Inv.openDocV2(id);
         window.open = stare;
         res.pdf = { rechnung: /Rechnung/.test(html), adresa: /Hauptstr\. 1/.test(html), riadok: /Montáž zábradlia/.test(html),
-          rc: /§13b UStG/.test(html), bezDopravy: !/Doprava/.test(html) };
+          rc: /Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet\./.test(html), bezDopravy: !/Doprava/.test(html) };
 
         // Schválená sa neupravuje.
         Inv.items[0].status = 'approved'; Inv.items[0].approved_at = 'x';
@@ -5305,7 +5305,7 @@ console.log('Prehliadač');
           if (url.includes('interpreter')) return new Response(JSON.stringify({ elements: [
             { type: 'node', id: 1, lat: 48.4, lon: 9.9, tags: { craft: 'builder', name: 'Müller Bau GmbH', 'addr:city': 'Neu-Ulm', email: 'info@mueller-bau.de' } },
             { type: 'node', id: 2, lat: 48.4, lon: 9.9, tags: { craft: 'tiler', name: 'Fliesen Huber', 'addr:city': 'Ulm' } }] }));
-          if (url.includes('danubra-email-status')) return new Response(JSON.stringify({ smtp: true, from: 'P&S <info@punds.eu>' }));
+          if (url.includes('danubra-email-status')) return new Response(JSON.stringify({ smtp: true, from: 'P&S <info@danubra.eu>' }));
           return new Response('{}');
         };
         Danubra.user = { id: 'test', email: 'test@firma.sk' };
@@ -5389,7 +5389,7 @@ console.log('Prehliadač');
 
         Danubra.route = 'campaigns'; Camp.loaded = false; Lead.loaded = true;
         await Danubra.renderRoute();
-        res.smtp = document.querySelector('#view').textContent.includes('info@punds.eu');
+        res.smtp = document.querySelector('#view').textContent.includes('info@danubra.eu');
         await Camp.form();
         await Camp.preview();
         res.pocet = document.getElementById('cf-count').textContent.replace(/\s+/g, ' ');
@@ -5506,18 +5506,18 @@ console.log('Prehliadač');
         const dnes = new Date().toISOString();
         const DATA = {
           mailboxes: [
-            { id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga\nP&S', last_sync_at: dnes, active: true },
-            { id: 'b2', name: 'Fakturácia', email: 'fakturacia@punds.eu', signature: 'Účtovné oddelenie', last_sync_at: dnes, active: true }],
+            { id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', signature: 'Štefan Varga\nP&S', last_sync_at: dnes, active: true },
+            { id: 'b2', name: 'Fakturácia', email: 'fakturacia@danubra.eu', signature: 'Účtovné oddelenie', last_sync_at: dnes, active: true }],
           mail_messages: [
             { id: 'm1', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'hans@gu-ulm.de', from_name: 'Hans Gruber',
-              to_list: [{ address: 'info@punds.eu' }], cc_list: [], subject: 'Angebot Wohnpark', sent_at: dnes, snippet: 'Guten Tag, wir brauchen…',
+              to_list: [{ address: 'info@danubra.eu' }], cc_list: [], subject: 'Angebot Wohnpark', sent_at: dnes, snippet: 'Guten Tag, wir brauchen…',
               seen: false, attachments: [{ name: 'plan.pdf', size: 20480, storage_path: 'mail/b1/INBOX/7-0-plan.pdf' }], partner_id: 'p1',
               message_id: '<abc@gu-ulm.de>', text_body: 'Guten Tag,\nwir brauchen 4 Fliesenleger.',
               html_body: '<p onclick="x()">Guten Tag</p><script>alert(1)</script><img src="https://track.example/p.gif">' },
-            { id: 'm2', mailbox_id: 'b1', folder: 'Sent', direction: 'out', from_email: 'info@punds.eu', to_list: [{ address: 'bau@gu-ulm.de' }],
+            { id: 'm2', mailbox_id: 'b1', folder: 'Sent', direction: 'out', from_email: 'info@danubra.eu', to_list: [{ address: 'bau@gu-ulm.de' }],
               cc_list: [], subject: 'Ponuka', sent_at: dnes, snippet: 'Dobrý deň', seen: true, attachments: [], partner_id: 'p1' }],
-          members: [{ id: 'u1', user_id: 'uid-1', email: 'jana@punds.eu', full_name: 'Jana', role: 'coordinator', active: true },
-            { id: 'u0', user_id: 'uid-0', email: 'stefan@punds.eu', full_name: 'Štefan', role: 'admin', active: true }],
+          members: [{ id: 'u1', user_id: 'uid-1', email: 'jana@danubra.eu', full_name: 'Jana', role: 'coordinator', active: true },
+            { id: 'u0', user_id: 'uid-0', email: 'stefan@danubra.eu', full_name: 'Štefan', role: 'admin', active: true }],
           mailbox_access: [{ mailbox_id: 'b1', user_id: 'uid-1', active: true }],
           workers: [], partners: [{ id: 'p1', name: 'GU Ulm GmbH', email: 'bau@gu-ulm.de' }], leads: [],
           settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
@@ -5539,7 +5539,7 @@ console.log('Prehliadač');
           if (url.includes('danubra-mail-account')) return new Response(JSON.stringify({ ok: true, id: 'b3', imap: { ok: true }, smtp: { ok: true } }));
           return new Response('{}');
         };
-        Danubra.user = { id: 'uid-0', email: 'stefan@punds.eu' };
+        Danubra.user = { id: 'uid-0', email: 'stefan@danubra.eu' };
         Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
         Danubra.cfgRow = DATA.settings[0];
         document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
@@ -5598,7 +5598,7 @@ console.log('Prehliadač');
         res.imap1 = g.imap_host.value + ':' + g.imap_port.value + ' ' + g.smtp_host.value;
         g.preset.value = 'forpsi'; g.preset.dispatchEvent(new Event('change'));
         res.imap2 = g.imap_host.value;
-        g.email.value = 'zakazky@punds.eu'; g.password.value = 'tajne-heslo'; g.signature.value = 'Tím zákaziek';
+        g.email.value = 'zakazky@danubra.eu'; g.password.value = 'tajne-heslo'; g.signature.value = 'Tím zákaziek';
         g.querySelector('input[name=acc][value="uid-1"]').checked = true;
         await Mbx.save();
         const ul = volania.filter(x => x.body && x.body.action === 'save').map(x => x.body);
@@ -5621,7 +5621,7 @@ console.log('Prehliadač');
 
         // Nastavenia → Používatelia: zoznam (DataList) s filtrom roly a prístupu.
         ['clenovia', 'spravy'].forEach(k => { try { localStorage.removeItem('danubra_dl_' + k); } catch (e) { /* nič */ } });
-        DATA.members.push({ id: 'u2', user_id: 'uid-2', email: 'old@punds.eu', full_name: 'Lucia Stará', role: 'coordinator', active: false });
+        DATA.members.push({ id: 'u2', user_id: 'uid-2', email: 'old@danubra.eu', full_name: 'Lucia Stará', role: 'coordinator', active: false });
         Danubra.route = 'members'; Mem.loaded = false;
         await Danubra.renderRoute();
         const mena = () => [...v.querySelectorAll('#dl-clenovia .dl-row .dl-title b')].map(b => b.textContent.trim());
@@ -5676,7 +5676,7 @@ console.log('Prehliadač');
       ok(JSON.stringify(out.mbx) === '["Info","Fakturácia"]' && out.vidi, 'Schránky ukážu schránky a kto ich vidí', JSON.stringify(out.mbx));
       ok(out.hesla, 'zašifrované heslo sa do prehliadača nedostane');
       ok(out.imap1 === 'imap.websupport.sk:993 smtp.websupport.sk' && out.imap2 === 'imap.forpsi.com', 'servery Websupportu a Forpsi sa doplnia samy', `${out.imap1} / ${out.imap2}`);
-      ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@punds.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
+      ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@danubra.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
         'uloženie pošle heslo len serveru, s prístupmi a podpisom', JSON.stringify(out.ulozenie));
       ok(out.zaSync, 'po uložení sa e-maily hneď začnú sťahovať');
       ok(out.hladaj.riadky === 1 && out.hladaj.pole, 'hľadanie v e-mailoch: slová zvlášť, bez ohľadu na veľkosť písmen, pole sa neprekreslí', JSON.stringify(out.hladaj));
@@ -5706,12 +5706,12 @@ console.log('Prehliadač');
             { id: 'l2', name: 'Schmidt Ausbau', city: 'Augsburg', email: 'off@schmidt.de', status: 'new', source: 'manual' },
             { id: 'l3', name: 'Weber Bau', city: 'Ulm', email: 'info@weber.de', status: 'contacted', source: 'manual' }],
           email_optout: [{ email: 'off@schmidt.de' }],
-          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
           outreach: [{ id: 'o3', lead_id: 'l3', step: 1, lang: 'de', status: 'sent', to_email: 'info@weber.de', subject: 'Fachkräfte für Weber Bau?',
-            sent_at: '2026-01-05T09:00:00Z', message_id: '<x@punds.eu>', opened_at: '2026-01-05T10:00:00Z', open_count: 2,
+            sent_at: '2026-01-05T09:00:00Z', message_id: '<x@danubra.eu>', opened_at: '2026-01-05T10:00:00Z', open_count: 2,
             auto_opened_at: '2026-01-05T09:00:03Z', auto_open_count: 1, clicked_at: '2026-01-05T10:01:00Z', click_count: 1,
             next_followup_at: '2026-01-12T09:00:00Z' }],
-          outreach_events: [{ id: 'e1', outreach_id: 'o3', lead_id: 'l3', type: 'click', url: 'https://punds.eu/referenzen', at: '2026-01-05T10:01:00Z', automated: false },
+          outreach_events: [{ id: 'e1', outreach_id: 'o3', lead_id: 'l3', type: 'click', url: 'https://danubra.eu/referenzen', at: '2026-01-05T10:01:00Z', automated: false },
             { id: 'e2', outreach_id: 'o3', lead_id: 'l3', type: 'open', at: '2026-01-05T09:00:03Z', automated: true, auto_reason: 'Apple Mail (ochrana súkromia) predčítal obrázky' }],
           message_templates: [],
           settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Podzámska 4A, Nové Zámky', vat_id: 'SK2122334455', company_id: '57553921' },
@@ -5796,7 +5796,7 @@ console.log('Prehliadač');
       });
       ok(out.stlpec, 'zoznam firiem: stĺpec Oslovenie ukáže otvoril a klikol');
       ok(/neoslovená/.test(out.neoslovena) && out.akcia, 'neoslovená firma a v riadku tlačidlo Osloviť', out.neoslovena);
-      ok(/Prvý e-mail/.test(out.os) && /Otvoril 2×/.test(out.os) && /možno automaticky/.test(out.os) && /Klikol na punds\.eu\/referenzen/.test(out.os)
+      ok(/Prvý e-mail/.test(out.os) && /Otvoril 2×/.test(out.os) && /možno automaticky/.test(out.os) && /Klikol na danubra\.eu\/referenzen/.test(out.os)
         && /Ďalšie pripomenutie/.test(out.os) && /Pripomenúť sa/.test(out.os), 'detail firmy: časová os s otvorením, klikom a pripomenutím', out.os.slice(0, 400));
       ok(out.predmet === 'Trockenbauer für Ihre Baustellen in Ulm' && /Sehr geehrte Damen und Herren,/.test(out.text) && /in Ulm im Bereich Trockenbau/.test(out.text),
         'okno Osloviť: šablóna po nemecky s údajmi firmy', `${out.predmet} | ${out.text}`);
@@ -5837,7 +5837,7 @@ console.log('Prehliadač');
           leads: [{ id: 'l1', name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', email: 'info@englhardt.de', trade: 'maliarstvo, omietky, zatepľovanie',
             contact_person: 'Herr Thomas Englhardt', status: 'new', source: 'outscraper', seed_search_id: 's1' }],
           email_optout: [], outreach: [], outreach_events: [],
-          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
           // Nemecká šablóna vypnutá, anglická zapnutá — presne stav, v ktorom sa predtým vybrala angličtina.
           message_templates: [
             { id: 't1', key: 'outreach_intro', title: 'Oslovenie — prvý e-mail (DE)', language: 'de', channel: 'outreach', active: false, subject: 'Alt DE', body: 'Alt DE {remeslo}' },

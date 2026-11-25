@@ -72,10 +72,10 @@
     { key: 'bank', label: 'Banka a cash-flow', group: 'Peniaze' },
 
     // Jedno právo na celú časť Marketing v menu (nové firmy, e-maily firmám,
-    // weby punds, inzercia, tlačoviny) — tie obrazovky sa naň odvolávajú
+    // weby DANUBRA, inzercia, tlačoviny) — tie obrazovky sa naň odvolávajú
     // v ROUTE_ALIAS. Kým tu nebolo, ne-adminovi sa nedalo zaškrtnúť.
     { key: 'marketing', label: 'Marketing', group: 'Marketing',
-      hint: 'Celá časť Marketing v menu: nové firmy, e-maily firmám, weby punds, inzercia a výdavky, tlačoviny.' },
+      hint: 'Celá časť Marketing v menu: nové firmy, e-maily firmám, weby DANUBRA, inzercia a výdavky, tlačoviny.' },
 
     { key: 'compliance', label: 'Compliance', group: 'Systém' },
     { key: 'rules', label: 'Cenník a pravidlá', group: 'Systém' },

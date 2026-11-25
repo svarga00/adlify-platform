@@ -42,7 +42,7 @@
     'Prvý kontakt': 'Kedy sme sa mu prvý raz ozvali. V zátvorke je, koľko minút po tom, čo sa ozval on.',
     'Predstava sadzby': 'Koľko si pýta za jednu hodinu práce, bez DPH.',
     'Dostupný od': 'Odkedy je voľný. Nie je to dohodnutý nástup.',
-    'Hovorí': 'Jazyky, ktoré zaškrtol vo formulári na punds.sk. Vedúci partie musí hovoriť po nemecky alebo anglicky — koordinácia na stavbe je po nemecky.',
+    'Hovorí': 'Jazyky, ktoré zaškrtol vo formulári na danubra.sk. Vedúci partie musí hovoriť po nemecky alebo anglicky — koordinácia na stavbe je po nemecky.',
   };
   // Jazyky z formulára na webe (danubra_candidates.languages, migrácia 084).
   const SPOKEN = { de: 'nemčina', en: 'angličtina', sk: 'slovenčina', cs: 'čeština', hu: 'maďarčina', ro: 'rumunčina', pl: 'poľština', bg: 'bulharčina', other: 'iný' };

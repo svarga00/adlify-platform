@@ -1,5 +1,5 @@
 // ============================================================================
-// DANUBRA — e-mail oslovenia v dizajne punds (HTML + textová podoba)
+// DANUBRA — e-mail oslovenia v dizajne DANUBRA (HTML + textová podoba)
 // ============================================================================
 // „Potrebujem, aby oslovenie bol pekný e-mail…"
 //
@@ -8,13 +8,13 @@
 // hlavička je tmavá v oboch režimoch (biele logo), zvyšok má pre Apple Mail
 // a Outlook.com vlastné tmavé farby, aby text nezmizol na tmavom pozadí.
 //
-//   hlavička     logo punds, vpravo „Fachkräfte für <remeslo>"
+//   hlavička     logo DANUBRA, vpravo „Fachkräfte für <remeslo>"
 //   nadpis       z pitch.js („Trockenbauer für Ihre Baustellen in Bayern")
 //   text         to, čo napísal človek alebo AI (oslovenie, 2–3 odseky,
 //                otázka) — AI píše len text, nikdy rozloženie
 //   tri body     z pitch.js (remeslo, doklady, jeden kontakt) — vecné,
 //                prevzaté z webu, bez cien a sľubov
-//   výzva        jedno tlačidlo (odkaz na punds.eu, sleduje sa klik)
+//   výzva        jedno tlačidlo (odkaz na danubra.eu, sleduje sa klik)
 //                a „Antworten Sie einfach auf diese E-Mail"
 //   podpis       podpis schránky zo Správ (vizitka alebo text)
 //   pätička      Impressum, prečo píšeme a odhlásenie (povinné)
@@ -118,7 +118,7 @@ ${points.map((p, i) => `<tr><td valign="top" style="padding:${i ? '4' : '16'}px 
 <html lang="${de ? 'de' : 'en'}" xmlns="http://www.w3.org/1999/xhtml"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
-<title>${esc(subject || 'punds')}</title>
+<title>${esc(subject || 'DANUBRA')}</title>
 <!--[if mso]><style>table,td,p,a,b{font-family:Arial,Helvetica,sans-serif !important;}</style><![endif]-->
 <style>
 :root{color-scheme:light dark;supported-color-schemes:light dark;}
@@ -136,8 +136,8 @@ a{text-decoration:underline;}
 <tr><td bgcolor="${INK}" style="background:${INK};padding:20px 32px;" class="px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td valign="middle" style="padding-right:10px;"><img src="${esc(assets)}/img/email/punds-mark-white.png" width="34" height="26" alt="" style="display:block;border:0;outline:none;"></td>
-<td valign="middle"><div style="font:700 22px/1 ${HEAD};letter-spacing:-1px;color:#ffffff;">punds</div><div style="font:500 6px/1 ${FONT};letter-spacing:1.6px;color:#8C97AD;padding-top:5px;">PARTNER UND SERVICE</div></td>
+<td valign="middle" style="padding-right:10px;"><img src="${esc(assets)}/img/email/danubra-mark-white.png" width="34" height="26" alt="" style="display:block;border:0;outline:none;"></td>
+<td valign="middle"><div style="font:700 20px/1 ${HEAD};letter-spacing:0.4px;color:#ffffff;">DANUBRA</div></td>
 </tr></table></td>
 <td align="right" valign="middle" style="font:500 12px/1.3 ${FONT};color:#8C97AD;">${esc(ref)}</td>
 </tr></table></td></tr>
@@ -172,7 +172,7 @@ ${why ? `${esc(why)}<br>` : ''}${foot.map(esc).join('<br>')}${unsubscribeUrl ? `
 
   /**
    * Podpis schránky pre e-mail oslovenia. Vizitka sa vždy ukáže po nemecky
-   * (pozdrav, web punds.eu) a bez vlastnej výzvy — výzvu má rozloženie.
+   * (pozdrav, web danubra.eu) a bez vlastnej výzvy — výzvu má rozloženie.
    * @param {Object} mb     schránka (signature, signature_card, email)
    * @param {Object} M      mail.js (sigHtml, cardText)
    * @param {string} sigText podpis, ktorý prišiel s textom (za „-- ")

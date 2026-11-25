@@ -19,7 +19,7 @@
 //   Odkazy od kolegov (085) firmy z verejného formulára app/odkazy.html
 //                    (bojová úloha): link pre kolegov, rebríček, pridanie
 //                    do Nových firiem — js/modules/lead-tips.js
-//   e-mail v dizajne punds a prezentácia PDF (remeslo a región firmy):
+//   e-mail v dizajne DANUBRA a prezentácia PDF (remeslo a región firmy):
 //                    náhľad a stiahnutie v okne Osloviť, príloha pri odoslaní
 //   remeslo firmy    (087) stĺpec a filter Remeslo v Odoslaných a vo Firmách
 //                    a kontaktoch, v Dnes na rade čipy a výber remesla
@@ -304,7 +304,7 @@
           <div class="btn-row" style="align-items:center;">
             ${UI.field('attach_presentation', 'Priložiť prezentáciu (PDF)', { type: 'checkbox', value: this._c.step <= 1 && this.pres().attach_default,
               onchange: 'Outreach.attachChanged()',
-              tip: 'Krátka prezentácia punds po nemecky (4 strany, ~15 kB) pre remeslo a región tejto firmy. K prvému e-mailu áno, k pripomenutiu radšej nie — to má byť krátke. Veta o prílohe v texte ({priloha}) sa podľa toho doplní alebo zmizne.' })}
+              tip: 'Krátka prezentácia DANUBRA po nemecky (4 strany, ~15 kB) pre remeslo a región tejto firmy. K prvému e-mailu áno, k pripomenutiu radšej nie — to má byť krátke. Veta o prílohe v texte ({priloha}) sa podľa toho doplní alebo zmizne.' })}
             <button type="button" class="btn btn-ghost btn-sm" id="oc-pdf" onclick="Outreach.downloadPresentation('${leadId}')">${Icon('download', 14)} Stiahnuť prezentáciu</button>
           </div>
           <div class="form-section">Náhľad${UI.tip('Text = čo uvidí program bez obrázkov. E-mail = ako ho uvidí firma v Outlooku či Gmaili: nadpis a body podľa remesla a regiónu, Váš text, tlačidlo, podpis a pätička s odhlásením. Odkaz na odhlásenie je tu ukážkový, skutočný má každý e-mail vlastný.')}
@@ -489,7 +489,7 @@
     },
 
     /**
-     * E-mail v dizajne punds priamo v prehliadači — tie isté knižnice ako
+     * E-mail v dizajne DANUBRA priamo v prehliadači — tie isté knižnice ako
      * server (pitch.js, outreach-email.js), takže náhľad = to, čo odíde.
      */
     htmlPreview() {
@@ -522,7 +522,7 @@
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
         const a = document.createElement('a');
-        a.href = url; a.download = r.file_name || 'punds.pdf';
+        a.href = url; a.download = r.file_name || 'danubra.pdf';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
       } catch (e) {
@@ -1037,10 +1037,10 @@
               placeholder: 'napr. Aktuell verfügbar: Trockenbauer, Maurer und Schweißer, Einsatz ab 2 Wochen.',
               tip: 'Doplní sa namiesto {portfolio} a AI z neho vychádza pri návrhu. Píšte len to, čo naozaj vieme dodať.' })}</div>
           </div>
-          <div class="form-section">E-mail a prezentácia${UI.tip('E-mail oslovenia má dizajn punds: nadpis a tri body podľa remesla a regiónu firmy, Váš text, tlačidlo a podpis. K prvému e-mailu sa prikladá krátka prezentácia PDF. Texty o nás sú z webu punds.eu; ceny a referencie sa ukážu len vtedy, keď ich tu vyplníte — appka si ich nikdy nevymýšľa.')}</div>
+          <div class="form-section">E-mail a prezentácia${UI.tip('E-mail oslovenia má dizajn DANUBRA: nadpis a tri body podľa remesla a regiónu firmy, Váš text, tlačidlo a podpis. K prvému e-mailu sa prikladá krátka prezentácia PDF. Texty o nás sú z webu danubra.eu; ceny a referencie sa ukážu len vtedy, keď ich tu vyplníte — appka si ich nikdy nevymýšľa.')}</div>
           <div class="form-grid">
             ${UI.field('p_attach_default', 'K prvému e-mailu prikladať prezentáciu (PDF)', { type: 'checkbox', value: this.pres().attach_default })}
-            ${UI.field('p_cta_url', 'Odkaz na tlačidle v e-maile', { value: this.pres().cta_url, placeholder: 'https://punds.eu',
+            ${UI.field('p_cta_url', 'Odkaz na tlačidle v e-maile', { value: this.pres().cta_url, placeholder: 'https://danubra.eu',
               tip: 'Kam vedie tlačidlo v e-maile. Len https://. Klik sa zapíše ako „Klikol".' })}
             ${UI.field('p_contact_name', 'Kontakt v prezentácii — meno', { value: (Danubra.cfg('marketing').presentation || {}).contact_name || '',
               placeholder: 'prázdne = meno z vizitky schránky', tip: 'Kto je na poslednej strane prezentácie. Keď je prázdne, berie sa vizitka schránky, z ktorej e-mail odchádza.' })}

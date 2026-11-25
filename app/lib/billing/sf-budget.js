@@ -2,7 +2,7 @@
 // DANUBRA — SuperFaktúra: denný limit požiadaviek (migrácia 093)
 // ============================================================================
 // Len Node (sf-service.js, denný cron). Účet SuperFaktúry má tvrdý limit
-// požiadaviek na deň (PUNDS: 1000) a 30 000 na mesiac. Keď sa minie,
+// požiadaviek na deň (náš účet: 1000) a 30 000 na mesiac. Keď sa minie,
 // SuperFaktúra ďalšie odmieta — a vtedy by nešlo vystaviť ani odoslať faktúru.
 //
 // Pravidlá:

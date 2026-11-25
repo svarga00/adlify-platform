@@ -8,7 +8,7 @@
 //   * e-mail: jedna správa, všetky PDF ako prílohy (otvorí sa na kontrolu
 //     v Správach a odošle sa z firemnej schránky),
 //   * WhatsApp a SMS: jedna správa s krátkym odkazom {web}/b/<token>, kde sú
-//     všetky PDF naraz (netlify/functions/punds-bundle.js). Odkaz platí 30 dní.
+//     všetky PDF naraz (netlify/functions/danubra-bundle.js). Odkaz platí 30 dní.
 //
 // Infolisty a vzor faktúry sa vždy vyrobia nanovo (údaje sa medzitým mohli
 // zmeniť). Objednávka sa vyrobí z uloženej objednávky; zmluva a GDPR sa

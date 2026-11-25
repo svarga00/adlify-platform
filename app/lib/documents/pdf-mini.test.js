@@ -1,5 +1,5 @@
 // ============================================================================
-// DANUBRA — malý zapisovač PDF a prezentácia punds
+// DANUBRA — malý zapisovač PDF a prezentácia DANUBRA
 // Spustenie:  node app/lib/documents/pdf-mini.test.js
 // ============================================================================
 // PDF sa overí bez cudzej knižnice: hlavička, tabuľka xref (odkazy sedia na
@@ -54,7 +54,7 @@ console.log('Zapisovač PDF');
   const p = d.page();
   p.rect(0, 0, 100, 50, { fill: '#F07F1A', r: 8 });
   p.text('Kováčová (Test) \\ ok', 10, 30, { size: 12 });
-  p.mark(10, 60, 40).link(0, 0, 50, 20, 'https://punds.eu');
+  p.mark(10, 60, 40).link(0, 0, 50, 20, 'https://danubra.eu');
   p.circle(50, 100, 10, { fill: '#000', alpha: 0.2 });
   p.link(0, 0, 10, 10, 'javascript:alert(1)');
   const b = d.toBuffer();
@@ -62,15 +62,15 @@ console.log('Zapisovač PDF');
   ok(b.subarray(0, 8).toString() === '%PDF-1.6' && x.okXref, 'hlavička a xref sedia na bajt');
   ok(x.streams.length === 1 && /re\b|c\n/.test(x.streams[0]) && /\/GA1 gs/.test(x.streams[0]), 'obsah je skomprimovaný, tvary aj priehľadnosť');
   ok(textOf(x.streams) === 'Kováčová (Test) \\ ok', 'text je v PDF ako text (dá sa vyhľadať)', textOf(x.streams));
-  ok(/\/URI \(https:\/\/punds\.eu\)/.test(x.s) && !/javascript/.test(x.s), 'odkaz len http(s) — javascript: sa nezapíše');
+  ok(/\/URI \(https:\/\/danubra\.eu\)/.test(x.s) && !/javascript/.test(x.s), 'odkaz len http(s) — javascript: sa nezapíše');
   ok(/\/Title <feff/.test(x.s) && /\/Lang \(de-DE\)/.test(x.s), 'názov (aj s diakritikou) a jazyk dokumentu');
 }
 
-console.log('\nPrezentácia punds');
+console.log('\nPrezentácia DANUBRA');
 const SUP = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, 940 71 Nové Zámky', vat_id: 'SK2122816839', company_id: '57553921' };
 const lead = { name: 'Müller Trockenbau GmbH', city: 'Augsburg', region: 'Bayern', trade: 'Trockenbau', contact_person: 'Herr Hans Müller' };
 const pitch = Pitch.pitch({ lead, search: { seeds: [{ trade: 'Malerarbeiten' }] } });
-const r = Pres.build({ pitch, lead, supplier: SUP, contact: { name: 'Štefan Varga', phone: '+421 910 523 958', email: 'stefan@punds.eu' }, date: new Date('2026-10-30') });
+const r = Pres.build({ pitch, lead, supplier: SUP, contact: { name: 'Štefan Varga', phone: '+421 910 523 958', email: 'stefan@danubra.eu' }, date: new Date('2026-10-30') });
 const x = inspect(r.buffer);
 const txt = textOf(x.streams);
 ok(r.pages === 4 && x.pages === 4 && x.okXref, '4 strany, platné PDF');
@@ -81,7 +81,7 @@ ok(/Ständerwerk/.test(txt) && /Maler/.test(txt), 'typické práce remesla a ďa
 ok(/Werkvertrag, Abrechnung nach Stunden/.test(txt) && /§ 48b/.test(txt) && /Štefan Varga/.test(txt) && /USt-IdNr\.: SK2122816839/.test(txt),
   'podmienky, kontakt a Impressum');
 ok(/Konditionen nennen wir Ihnen im Angebot/.test(txt) && !/REFERENZEN/.test(txt) && !/\d+[,.]?\d*\s?(€|EUR)/.test(txt), 'bez cien a referencií, keď nie sú v Nastaveniach');
-ok(r.fileName === 'punds-trockenbau-bayern.pdf' && /Trockenbau in Bayern/.test(r.title), 'meno súboru a názov dokumentu');
+ok(r.fileName === 'danubra-trockenbau-bayern.pdf' && /Trockenbau in Bayern/.test(r.title), 'meno súboru a názov dokumentu');
 {
   const p2 = Pitch.pitch({ lead: { name: 'Elektro Weber', trade: 'Elektroinstallation', city: 'Köln' }, marketing: { presentation: { prices: 'Stundensatz nach Absprache', references: 'Bürogebäude Köln (2026)' } } });
   const t2 = textOf(inspect(Pres.build({ pitch: p2, lead: { name: 'Elektro Weber' }, supplier: SUP }).buffer).streams);

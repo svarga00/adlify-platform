@@ -21,7 +21,7 @@
 //                 otázky, možnosti a kľúče odpovedí; remeslá sú kľúče
 //                 danubra_trades z trades.js (dajú sa uložiť ako remeslá firmy).
 //
-// Texty o nás berie z pitch.js (prevzaté z punds.eu a z Nastavení), takže
+// Texty o nás berie z pitch.js (prevzaté z danubra.eu a z Nastavení), takže
 // hovor, e-mail a prezentácia hovoria to isté. Nič tu nenahráva ani nevolá.
 //
 // Testy: node app/lib/marketing/callsheet.test.js
@@ -90,7 +90,10 @@
     const generic = !pitch || pitch.trade.key === 'bau';
     const remeslo = pitch ? pitch.words.remeslo : 'Bau und Ausbau';
     const regionPhrase = pitch && pitch.region.phrase ? pitch.region.phrase : 'in Ihrer Region';
-    const firma = clean((supplier && supplier.name) || 'Partner und Service', 80).replace(/\s+s\.\s?r\.\s?o\.?$/i, '');
+    // Do telefónu sa hovorí značka (DANUBRA), nie právny názov firmy.
+    const meno = clean((supplier && supplier.name) || '', 80);
+    const firma = clean(supplier && supplier.brand, 80).replace(/^punds$/i, 'DANUBRA')
+      || (!meno || /^(partner\s+und\s+service|danubra)\b/i.test(meno) ? 'DANUBRA' : meno.replace(/\s+s\.\s?r\.\s?o\.?$/i, ''));
     const who = clean(caller, 80);
     const ask = askFor(lead, contacts);
 

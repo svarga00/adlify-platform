@@ -84,16 +84,16 @@ function reset(members, users) {
   A.users = users || []; A.calls = []; A.failLink = false; A.failMail = false; mails.length = 0;
   holder.sb = F.create({
     danubra_members: members || [
-      { id: 'm1', user_id: 'u-admin', role: 'admin', active: true, full_name: 'Štefan Varga', email: 'stefan@punds.eu' },
-      { id: 'm2', user_id: null, role: 'custom', active: true, full_name: 'Jana Kováčová', email: 'Jana@Punds.eu' },
-      { id: 'm3', user_id: null, role: 'custom', active: true, full_name: 'Peter Horák', email: 'peter@punds.eu' },
-      { id: 'm4', user_id: 'u-rec', role: 'recruiter', active: true, full_name: 'Nábor', email: 'nabor@punds.eu' },
-      { id: 'm5', user_id: 'u-old', role: 'admin', active: false, full_name: 'Starý admin', email: 'old@punds.eu' },
-      { id: 'm6', user_id: null, role: 'custom', active: false, full_name: 'Vypnutý', email: 'off@punds.eu' },
+      { id: 'm1', user_id: 'u-admin', role: 'admin', active: true, full_name: 'Štefan Varga', email: 'stefan@danubra.eu' },
+      { id: 'm2', user_id: null, role: 'custom', active: true, full_name: 'Jana Kováčová', email: 'Jana@Danubra.eu' },
+      { id: 'm3', user_id: null, role: 'custom', active: true, full_name: 'Peter Horák', email: 'peter@danubra.eu' },
+      { id: 'm4', user_id: 'u-rec', role: 'recruiter', active: true, full_name: 'Nábor', email: 'nabor@danubra.eu' },
+      { id: 'm5', user_id: 'u-old', role: 'admin', active: false, full_name: 'Starý admin', email: 'old@danubra.eu' },
+      { id: 'm6', user_id: null, role: 'custom', active: false, full_name: 'Vypnutý', email: 'off@danubra.eu' },
     ],
-    danubra_mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', active: true, created_at: '2026-01-01' }],
+    danubra_mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', active: true, created_at: '2026-01-01' }],
     danubra_settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
-  }, { users: { admin: { id: 'u-admin', email: 'stefan@punds.eu' }, rec: { id: 'u-rec' }, old: { id: 'u-old' }, cudzi: { id: 'u-cudzi' } } });
+  }, { users: { admin: { id: 'u-admin', email: 'stefan@danubra.eu' }, rec: { id: 'u-rec' }, old: { id: 'u-old' }, cudzi: { id: 'u-cudzi' } } });
   return holder.sb;
 }
 const call = async (body, jwt = 'admin') => {
@@ -121,7 +121,7 @@ const authUser = (o) => ({ app_metadata: { provider: 'email' }, user_metadata: {
   const inv = await call({ action: 'invite', member_id: 'm2' });
   const created = A.calls.find(c => c[0] === 'createUser');
   ok(inv.code === 200 && inv.ok && inv.created === true, 'pozvánka prešla a účet je založený', inv.raw);
-  ok(created && created[1].email === 'Jana@Punds.eu' && created[1].email_confirm === true && !('password' in created[1])
+  ok(created && created[1].email === 'Jana@Danubra.eu' && created[1].email_confirm === true && !('password' in created[1])
     && created[1].user_metadata.full_name === 'Jana Kováčová' && created[1].app_metadata.danubra_invited === true,
   'účet bez hesla, e-mail potvrdený, meno v user_metadata, značka „založila appka"', JSON.stringify(created && created[1]));
   ok(member('m2').user_id === A.users[0].id, 'človek je prepojený s účtom (user_id)');
@@ -129,7 +129,7 @@ const authUser = (o) => ({ app_metadata: { provider: 'email' }, user_metadata: {
   ok(gl && gl[1].type === 'recovery' && gl[1].options.redirectTo === 'https://adlify-app.netlify.app/app/?heslo=1', 'odkaz typu recovery, návrat na /app/?heslo=1', JSON.stringify(gl && gl[1]));
   ok(inv.link === P.setLink('https://adlify-app.netlify.app', A.users[0].recovery_token) && inv.link.startsWith('https://adlify-app.netlify.app/app/?heslo=1#k='),
     'admin dostane náš odkaz do appky (kód za #), nie odkaz zo Supabase', inv.link);
-  ok(inv.email === 'Jana@Punds.eu' && /obmedzený čas/.test(inv.expires_hint) && inv.app_url === 'https://adlify-app.netlify.app/app/', 'vráti e-mail, upozornenie na platnosť a adresu appky');
+  ok(inv.email === 'Jana@Danubra.eu' && /obmedzený čas/.test(inv.expires_hint) && inv.app_url === 'https://adlify-app.netlify.app/app/', 'vráti e-mail, upozornenie na platnosť a adresu appky');
   ok(!/supabase\.co|verify\?token|email_otp|864209|password/.test(inv.raw), 'odpoveď neobsahuje odkaz Supabase, kód z e-mailu ani heslo', inv.raw);
   ok(A.users[0].app_metadata.danubra_link_at, 'zapíše sa, kedy dostal odkaz');
   ok(mails.length === 0, 'nič sa neposlalo samo');
@@ -138,16 +138,16 @@ const authUser = (o) => ({ app_metadata: { provider: 'email' }, user_metadata: {
   ok(A.calls.filter(c => c[0] === 'createUser').length === 1, 'účet sa druhýkrát nezakladá');
 
   console.log('\nPozvať: účet už existuje');
-  reset(null, [authUser({ id: 'auth-p', email: 'peter@punds.eu', app_metadata: { provider: 'email', danubra_invited: true } })]);
+  reset(null, [authUser({ id: 'auth-p', email: 'peter@danubra.eu', app_metadata: { provider: 'email', danubra_invited: true } })]);
   const ex = await call({ action: 'invite', member_id: 'm3' });
   ok(ex.code === 200 && ex.link && !A.calls.some(c => c[0] === 'createUser') && member('m3').user_id === 'auth-p',
     'existujúci účet (založený appkou): len prepojí, nezakladá, dá odkaz', ex.raw);
-  reset(null, [authUser({ id: 'auth-adlify', email: 'jana@punds.eu', last_sign_in_at: '2026-10-01T08:00:00Z' })]);
+  reset(null, [authUser({ id: 'auth-adlify', email: 'jana@danubra.eu', last_sign_in_at: '2026-10-01T08:00:00Z' })]);
   const ad = await call({ action: 'invite', member_id: 'm2' });
   ok(ad.code === 200 && ad.link === null && ad.existing && member('m2').user_id === 'auth-adlify' && /Zabudli ste heslo/.test(ad.message),
     'cudzí účet (Adlify, iné veľké písmená v e-maile): prepojí, odkaz na heslo nevydá', ad.raw);
   ok(!A.calls.some(c => c[0] === 'generateLink' || c[0] === 'createUser'), 'cudziemu účtu sa odkaz ani nevytvorí');
-  reset(null, [authUser({ id: 'u-rec', email: 'peter@punds.eu', app_metadata: { danubra_invited: true } })]);
+  reset(null, [authUser({ id: 'u-rec', email: 'peter@danubra.eu', app_metadata: { danubra_invited: true } })]);
   const taken = await call({ action: 'invite', member_id: 'm3' });
   ok(taken.code === 409 && /Nábor/.test(taken.error) && member('m3').user_id === null, 'účet patrí inému človeku v zozname: 409, nič sa neprepojí', taken.raw);
   reset();
@@ -164,24 +164,24 @@ const authUser = (o) => ({ app_metadata: { provider: 'email' }, user_metadata: {
   const r1 = await call({ action: 'reset', member_id: 'm2' });
   ok(r1.code === 400 && /Pozvať do appky/.test(r1.error), 'bez prepojeného účtu: najprv pozvať', r1.raw);
   reset([
-    { id: 'm1', user_id: 'u-admin', role: 'admin', active: true, full_name: 'Štefan', email: 'stefan@punds.eu' },
-    { id: 'm2', user_id: 'auth-j', role: 'custom', active: true, full_name: 'Jana', email: 'jana@punds.eu' },
-    { id: 'm3', user_id: 'auth-x', role: 'custom', active: true, full_name: 'Cudzí', email: 'x@punds.eu' },
-    { id: 'm4', user_id: 'auth-zmazany', role: 'custom', active: true, full_name: 'Zmazaný', email: 'z@punds.eu' },
+    { id: 'm1', user_id: 'u-admin', role: 'admin', active: true, full_name: 'Štefan', email: 'stefan@danubra.eu' },
+    { id: 'm2', user_id: 'auth-j', role: 'custom', active: true, full_name: 'Jana', email: 'jana@danubra.eu' },
+    { id: 'm3', user_id: 'auth-x', role: 'custom', active: true, full_name: 'Cudzí', email: 'x@danubra.eu' },
+    { id: 'm4', user_id: 'auth-zmazany', role: 'custom', active: true, full_name: 'Zmazaný', email: 'z@danubra.eu' },
   ], [
-    authUser({ id: 'auth-j', email: 'jana@punds.eu', app_metadata: { danubra_invited: true, danubra_link_at: '2026-01-01T00:00:00Z' }, last_sign_in_at: '2026-11-01T08:00:00Z' }),
-    authUser({ id: 'auth-x', email: 'x@punds.eu' }),
+    authUser({ id: 'auth-j', email: 'jana@danubra.eu', app_metadata: { danubra_invited: true, danubra_link_at: '2026-01-01T00:00:00Z' }, last_sign_in_at: '2026-11-01T08:00:00Z' }),
+    authUser({ id: 'auth-x', email: 'x@danubra.eu' }),
   ]);
   const r2 = await call({ action: 'reset', member_id: 'm2' });
-  ok(r2.code === 200 && r2.link && r2.link.includes('#k=') && A.calls.some(c => c[0] === 'generateLink' && c[1].email === 'jana@punds.eu'), 'prepojený účet: nový odkaz', r2.raw);
+  ok(r2.code === 200 && r2.link && r2.link.includes('#k=') && A.calls.some(c => c[0] === 'generateLink' && c[1].email === 'jana@danubra.eu'), 'prepojený účet: nový odkaz', r2.raw);
   const r3 = await call({ action: 'reset', member_id: 'm3' });
   ok(r3.code === 409 && /Zabudli ste heslo/.test(r3.error), 'cudzí účet: odkaz z bezpečnosti nevydá', r3.raw);
   ok((await call({ action: 'reset', member_id: 'm4' })).code === 404, 'účet medzitým zmizol: 404 (pozvať znova)');
 
   console.log('\nStav');
   reset(null, [
-    authUser({ id: 'u-admin', email: 'stefan@punds.eu', last_sign_in_at: '2026-11-05T07:00:00Z', phone: '+421900111222', confirmation_token: 'tajne-1', encrypted_password: 'tajne-2' }),
-    authUser({ id: 'auth-j', email: 'jana@punds.eu', app_metadata: { danubra_invited: true, danubra_link_at: '2026-11-04T09:00:00Z' }, recovery_token: 'tajne-3' }),
+    authUser({ id: 'u-admin', email: 'stefan@danubra.eu', last_sign_in_at: '2026-11-05T07:00:00Z', phone: '+421900111222', confirmation_token: 'tajne-1', encrypted_password: 'tajne-2' }),
+    authUser({ id: 'auth-j', email: 'jana@danubra.eu', app_metadata: { danubra_invited: true, danubra_link_at: '2026-11-04T09:00:00Z' }, recovery_token: 'tajne-3' }),
   ]);
   member('m2').user_id = 'auth-j';
   const st = await call({ action: 'status' });
@@ -201,8 +201,8 @@ const authUser = (o) => ({ app_metadata: { provider: 'email' }, user_metadata: {
   ok((await call({ action: 'send', member_id: 'm2', link: `${link}"><script>` })).code === 400, 'pokazený odkaz sa neposiela');
   const sent = await call({ action: 'send', member_id: 'm2', link });
   const m = mails[0];
-  ok(sent.code === 200 && sent.sent_to === 'Jana@Punds.eu' && sent.mailbox === 'info@punds.eu', 'odíde zo schránky firmy človeku z appky', sent.raw);
-  ok(m && m.o.to[0].address === 'Jana@Punds.eu' && m.o.text.includes(link) && /Dobrý deň, Jana Kováčová/.test(m.o.text) && /S pozdravom\nŠtefan Varga/.test(m.o.text),
+  ok(sent.code === 200 && sent.sent_to === 'Jana@Danubra.eu' && sent.mailbox === 'info@danubra.eu', 'odíde zo schránky firmy človeku z appky', sent.raw);
+  ok(m && m.o.to[0].address === 'Jana@Danubra.eu' && m.o.text.includes(link) && /Dobrý deň, Jana Kováčová/.test(m.o.text) && /S pozdravom\nŠtefan Varga/.test(m.o.text),
     'e-mail: oslovenie, odkaz, podpis admina', m && m.o.text);
   ok(m && m.o.subject === 'Prístup do firemnej appky — Partner und Service s. r. o.', 'predmet s názvom firmy z Nastavení', m && m.o.subject);
   ok(m && !m.o.store.text_body.includes('#k=') && m.o.store.text_body.includes('neukladá'), 'do Správ sa uloží text bez odkazu');

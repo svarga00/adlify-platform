@@ -139,7 +139,7 @@ console.log('QR kodér');
 // Kópie boli zapísané naprieč (riadok a stĺpec prehodené) a žiadna aplikácia kód
 // neprečítala, hoci všetky ostatné testy prechádzali. m[riadok][stĺpec].
 {
-  for (const [text, ec] of [['HELLO', 'M'], ['https://punds.sk/', 'L'], ['x'.repeat(200), 'Q']]) {
+  for (const [text, ec] of [['HELLO', 'M'], ['https://danubra.sk/', 'L'], ['x'.repeat(200), 'Q']]) {
     const { modules: m, size: n } = QR.encode(text, ec);
     const b = (x) => (x ? 1 : 0);
     const prva = [];

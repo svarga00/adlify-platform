@@ -24,7 +24,7 @@ function ok(c, msg, extra) {
 const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{25A0}-\u{25FF}]/u;
 const TYKA = /(?<!\p{L})(tvoj\p{L}*|máš|zavolaj|pošli|si vezmi|budeš|nástupíš|ťa|ti|teba|nemáš|môžeš|musíš|ozvi)(?!\p{L})/iu;
 
-const SUP = { name: 'Partner und Service s. r. o.', brand: 'punds', phone: '+421 910 523 858', email: 'info@punds.eu' };
+const SUP = { name: 'Partner und Service s. r. o.', brand: 'DANUBRA', phone: '+421 910 523 858', email: 'info@danubra.eu' };
 const BASE = {
   worker: { full_name: 'Ján Novák', phone: '+421 900 111 111', email: 'jan@novak.sk' },
   subcontract: { title: 'Wohnpark Feuerbach', site_address: 'Stuttgarter Str. 40', site_city: 'Stuttgart',
@@ -38,7 +38,7 @@ const BASE = {
     { title: 'Objednávka OBJ-12', kind: 'objednavka' },
     { title: 'Infolist k ubytovaniu', kind: 'infolist_lodging' },
   ],
-  link: 'https://punds.eu/b/AbCdEfGhIjKlMnOpQrStUvWx',
+  link: 'https://danubra.eu/b/AbCdEfGhIjKlMnOpQrStUvWx',
   supplier: SUP,
 };
 const CREW = { crew: { name: 'Partia Malý', phone: '' }, contact: null, people: [
@@ -105,7 +105,8 @@ console.log('\nWHATSAPP');
   ok(/Infolist na stavbu, Infolist k ubytovaniu, Objednávka OBJ-12, Vzor faktúry/.test(w), 'a ktoré');
   ok(/\*Vaša partia:\* Partia Malý/.test(w), 'partia');
   ok(/\*Kontakt na stavbe:\* Zoltán Kiss/.test(B.texts({ ...BASE, colleagues: KONTAKT }).whatsapp), 'kontaktná osoba');
-  ok(/punds$/.test(w), 'podpis značkou');
+  ok(/DANUBRA$/.test(w), 'podpis značkou');
+  ok(/DANUBRA$/.test(B.texts({ ...BASE, supplier: { ...SUP, brand: '' }, colleagues: CREW }).whatsapp), 'bez značky v Nastaveniach podpis DANUBRA, nie právny názov');
 }
 
 console.log('\nSMS');
@@ -124,7 +125,7 @@ console.log('\nSMS');
   const dlhe = B.texts({ ...BASE, colleagues: KONTAKT,
     worker: { full_name: 'Maximilián-Konštantín Dlhomenný' },
     subcontract: { ...BASE.subcontract, site_city: 'Neustadt an der Weinstraße'.repeat(4) },
-    link: `https://punds.eu/b/${'x'.repeat(150)}`, supplier: { ...SUP, brand: 'Partner und Service s. r. o. — dlhý názov' } }).sms;
+    link: `https://danubra.eu/b/${'x'.repeat(150)}`, supplier: { ...SUP, brand: 'Partner und Service s. r. o. — dlhý názov' } }).sms;
   ok(dlhe.length <= 300, `aj s dlhými údajmi najviac 300 znakov (${dlhe.length})`);
   ok(dlhe.includes('x'.repeat(150)), 'odkaz sa nikdy neskracuje', dlhe);
 }

@@ -249,7 +249,7 @@
         ${UI.safeUrl(x.url) ? `<p style="margin:10px 0 0;"><a href="${UI.safeUrl(x.url)}"
           target="_blank" rel="noopener noreferrer">${Icon('chevron', 13)} Otvoriť inzerát</a></p>` : ''}
         ${x.note ? `<div class="notebox">${UI.esc(x.note)}</div>` : ''}
-        ${x.web_published ? `<div class="form-section">Web punds.sk</div>
+        ${x.web_published ? `<div class="form-section">Web danubra.sk</div>
           <p style="margin:0;font-size:13px;">${Icon('check', 13)} Zverejnené ako <strong>${UI.esc(x.web_title || x.title)}</strong>
             ${x.web_slug ? ` · <a href="${UI.esc(this.webUrl(x))}" target="_blank" rel="noopener">otvoriť na webe</a>` : ''}</p>` : ''}
 
@@ -332,7 +332,7 @@
         ends_on: d.ends_on || null,
         promise: String(d.promise || '').split('\n').map(s => s.trim()).filter(Boolean),
       };
-      // Časť pre web punds.sk — polia web_*, preklady, adresa ponuky.
+      // Časť pre web danubra.sk — polia web_*, preklady, adresa ponuky.
       const W = window.DanubraWebAd;
       const x = id ? this.items.find(i => i.id === id) || {} : {};
       if (W) {
@@ -356,18 +356,18 @@
       Danubra.renderRoute();
     },
 
-    // ── Web punds.sk ────────────────────────────────────────────────────
-    /** Časť formulára: zverejnenie inzerátu ako ponuky na punds.sk. */
+    // ── Web danubra.sk ────────────────────────────────────────────────────
+    /** Časť formulára: zverejnenie inzerátu ako ponuky na danubra.sk. */
     webSection(x) {
       const W = window.DanubraWebAd;
       if (!W) return '';
       this._i18n = JSON.parse(JSON.stringify(x.i18n || {}));
       const tr = W.translated(this._i18n);
-      return `<div class="form-section">Web punds.sk</div>
-        <div class="regimebox">Zverejnená ponuka je na punds.sk do pár minút po uložení.
+      return `<div class="form-section">Web danubra.sk</div>
+        <div class="regimebox">Zverejnená ponuka je na danubra.sk do pár minút po uložení.
           Prihlášky z nej prídu do Kandidátov pri tomto inzeráte.</div>
-        ${UI.field('web_published', 'Zverejniť na punds.sk', { type: 'checkbox', value: !!x.web_published,
-          tip: 'Po zaškrtnutí a uložení sa ponuka do pár minút objaví na našom webe punds.sk. Odškrtnutím ju z webu stiahnete. Musia byť vyplnené povinné polia nižšie.' })}
+        ${UI.field('web_published', 'Zverejniť na danubra.sk', { type: 'checkbox', value: !!x.web_published,
+          tip: 'Po zaškrtnutí a uložení sa ponuka do pár minút objaví na našom webe danubra.sk. Odškrtnutím ju z webu stiahnete. Musia byť vyplnené povinné polia nižšie.' })}
         <div class="form-grid">
           ${UI.field('web_title', 'Verejný názov pozície', { value: x.web_title || '', placeholder: 'Zvárač MIG/MAG (135)' })}
           ${UI.field('web_prof', 'Profesia na webe', { value: x.web_prof || W.FROM_TRADE[x.trade_key] || '',
@@ -410,7 +410,7 @@
         <div id="ad-tr-edit">${this.trEditor()}</div>`;
     },
 
-    webUrl(x) { return `${location.origin}/punds-sk/sk/ponuky/${encodeURIComponent(x.web_slug || '')}`; },
+    webUrl(x) { return `${location.origin}/danubra-sk/sk/ponuky/${encodeURIComponent(x.web_slug || '')}`; },
 
     /** Preklady na úpravu — po jazykoch, rozbalí sa len na požiadanie. */
     trEditor() {
@@ -457,7 +457,7 @@
       btn.disabled = true; st.textContent = 'Prekladám… (asi pol minúty)';
       try {
         const { data: s } = await DB.client.auth.getSession();
-        const res = await fetch('/.netlify/functions/punds-translate', { method: 'POST',
+        const res = await fetch('/.netlify/functions/danubra-translate', { method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(s && s.session && s.session.access_token) || ''}` },
           body: JSON.stringify({ ad: { web_title: d.web_title, web_body: d.web_body, duration: d.duration,
             duties: W.lines(d.duties), requirements: W.lines(d.requirements), benefits: W.lines(d.benefits), faq: W.faqParse(d.faq) } }) });
@@ -478,6 +478,7 @@
       if (file.size > 5 * 1024 * 1024) return UI.toast('Fotka môže mať najviac 5 MB', 'err');
       const ext = (file.name.match(/\.(jpe?g|png|webp)$/i) || ['.jpg'])[0].toLowerCase();
       const path = `ponuky/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}${ext}`;
+      // Úložisko fotiek webu sa volá stále 'punds-web' (migrácia 059) — meno sa nemení.
       const { error } = await DB.client.storage.from('punds-web').upload(path, file, { contentType: file.type, upsert: false });
       if (error) return UI.toast('Fotka sa nenahrala: ' + error.message, 'err');
       const { data } = DB.client.storage.from('punds-web').getPublicUrl(path);

@@ -338,7 +338,7 @@
         '„Idem volať" pred hovorom: koho si pýtať, nemecké vety na prečítanie (remeslo a región firmy, Werkvertrag, A1 a § 48b), časté námietky a stopky. „Hovor skončil" otvorí záznam s dĺžkou a dotazníkom „Čo sme sa dozvedeli" — klikaním (správna osoba, subdodávatelia, remeslá, koľko ľudí a odkedy, stavby, záujem 1–5, čo poslať); appka z neho poskladá text v bodoch a navrhne výsledok. Hovor sa nenahráva — bez súhlasu druhej strany je to trestné.',
         'Ďalší krok: na jeho deň je úloha v Úlohách (zdroj „kontakt s firmou"); kým nepríde, appka nepripomína e-mailom. Termín z textu („o 2–3 týždne", „nach Ostern") navrhne AI alebo pravidlá appky — pri rozsahu berie skorší termín. Nič sa neuloží samo, kliknite „Použiť" a skontrolujte.',
         'Záznam o kontakte sa po uložení nemení — „Opraviť záznam" pridá opravu pod pôvodný s dátumom a menom.',
-        'K prvému e-mailu sa prikladá krátka prezentácia punds po nemecky pre remeslo a región firmy (~15 kB); k pripomenutiu nie. Náhľad e-mailu ukáže, ako ho uvidí firma v Outlooku či Gmaili. Ceny a referencie v prezentácii: prázdne ceny = „Konditionen nennen wir Ihnen im Angebot", prázdne referencie = sekcia sa neukáže.',
+        'K prvému e-mailu sa prikladá krátka prezentácia DANUBRA po nemecky pre remeslo a región firmy (~15 kB); k pripomenutiu nie. Náhľad e-mailu ukáže, ako ho uvidí firma v Outlooku či Gmaili. Ceny a referencie v prezentácii: prázdne ceny = „Konditionen nennen wir Ihnen im Angebot", prázdne referencie = sekcia sa neukáže.',
         'Záložka „Firmy a kontakty": firmy, s ktorými sa niečo dialo — kategória, posledný kontakt, ďalší krok (červené = dnes alebo skôr). Export „Firmy s kontaktmi" a „Všetky kontakty" je CSV pre Excel.',
         'Záložka „Odkazy od kolegov": firmy, ktoré kolegovia zadali vo verejnom formulári bez prihlásenia (názov, web alebo profil, vzťah, čo sme spolu robili, kontakt). Administrátor tu má link pre kolegov, hotovú správu, WhatsApp, vypnutie zberu a nový link (starý prestane platiť). Kľúč je v odkaze za znakom #, takže sa nedostane do záznamov servera.',
         'Pri každej firme s webom appka sama stiahne úvodnú stránku a Impressum (e-mail, telefón, adresa, konateľ) — zadarmo, bez AI. Profily (LinkedIn, Facebook) a Mapy sa nesťahujú; „Nájsť web" otvorí len hľadanie Google, web vložíte sami.',
@@ -488,7 +488,7 @@
     },
     'card.mailboxes.web': {
       title: 'E-maily z webov',
-      lead: 'Čo sa pošle, keď niekto vyplní formulár na punds.sk alebo punds.eu.',
+      lead: 'Čo sa pošle, keď niekto vyplní formulár na danubra.sk alebo danubra.eu.',
       what: [
         'Uchádzač dostane potvrdenie vo svojom jazyku (SK, CZ, HU, DE, EN, RO, PL, BG) — s ponukou, na ktorú sa prihlásil, a ďalšími krokmi.',
         'Nemecká firma dostane potvrdenie dopytu po nemecky alebo anglicky so súhrnom (remeslo, počet, miesto, začiatok).',
@@ -503,18 +503,18 @@
       links: [['candidates', 'Kandidáti'], ['opportunities', 'Dopyty']],
     },
     'screen.website': {
-      title: 'Weby punds',
-      lead: 'Odtiaľto sa spravujú weby punds.sk a punds.eu — bez programátora.',
+      title: 'Weby DANUBRA',
+      lead: 'Odtiaľto sa spravujú weby danubra.sk a danubra.eu — bez programátora.',
       what: [
         'Prehľad: koľko prišlo prihlášok, správ a dopytov za 30 dní a koľko ponúk je zverejnených.',
         'Kontakty a firma: telefóny, e-maily, WhatsApp a konateľ do Impressum.',
         'Tím: ľudia na stránkach O nás a Über uns — meno, funkcia v každom jazyku, fotka.',
         'Fotky: výmena fotiek z doterajšieho WordPressu za vlastné.',
-        'Texty: každý text každej stránky v každom jazyku; zmeny v slovenčine (punds.sk) alebo nemčine (punds.eu) sa dajú preložiť do ostatných jazykov.',
-        'punds.sk je v 8 jazykoch (SK, CZ, HU, DE, EN, RO, PL, BG). Po rumunsky, poľsky a bulharsky web na úvode, v postupe a pri ponuke pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky — tím hovorí SK, CZ, HU, DE, EN. Uchádzač vo formulári zaškrtne, ktorými jazykmi hovorí; vidno to v detaile kandidáta.',
+        'Texty: každý text každej stránky v každom jazyku; zmeny v slovenčine (danubra.sk) alebo nemčine (danubra.eu) sa dajú preložiť do ostatných jazykov.',
+        'danubra.sk je v 8 jazykoch (SK, CZ, HU, DE, EN, RO, PL, BG). Po rumunsky, poľsky a bulharsky web na úvode, v postupe a pri ponuke pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky — tím hovorí SK, CZ, HU, DE, EN. Uchádzač vo formulári zaškrtne, ktorými jazykmi hovorí; vidno to v detaile kandidáta.',
       ],
       how: [
-        'Ponuky práce sa spravujú v Inzerátoch — „Zverejniť na punds.sk".',
+        'Ponuky práce sa spravujú v Inzerátoch — „Zverejniť na danubra.sk".',
         'Zmeny sú na webe do 5 minút. Prázdne pole = pôvodný text.',
         'Nič sa nemaže: človek sa dá skryť, text vrátiť na pôvodný.',
       ],
@@ -523,7 +523,7 @@
     },
     'screen.printwork': {
       title: 'Tlačoviny',
-      lead: 'Vizitky, obálka DL a hlavičkový list v podobe punds — pripravené pre tlačiareň.',
+      lead: 'Vizitky, obálka DL a hlavičkový list v podobe DANUBRA — pripravené pre tlačiareň.',
       what: [
         'Vizitka 85 × 55 mm v dvoch variantoch (tmavá a biela s oranžovým rubom), PDF so spadávkou 3 mm.',
         'Obálka DL 220 × 110 mm, adresát v mieste okienka.',

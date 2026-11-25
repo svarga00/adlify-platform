@@ -33,7 +33,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -54,9 +54,9 @@ function ok(c, msg, extra) {
 
 // Piatok 6. 11. 2026, KW 45 (2.–8. 11.).
 const NOW = '2026-11-06T12:00:00Z';
-const ME = { id: 'm1', user_id: 'u1', email: 'stefan@punds.eu', full_name: 'Štefan Varga', role: 'admin', active: true };
-const JANA = { id: 'm2', user_id: 'u2', email: 'jana@punds.eu', full_name: 'Jana Kováčová', role: 'custom', modules: ['marketing'], active: true };
-const REC = { id: 'm3', user_id: 'u3', email: 'eva@punds.eu', full_name: 'Eva Nováková', role: 'recruiter', active: true };
+const ME = { id: 'm1', user_id: 'u1', email: 'stefan@danubra.eu', full_name: 'Štefan Varga', role: 'admin', active: true };
+const JANA = { id: 'm2', user_id: 'u2', email: 'jana@danubra.eu', full_name: 'Jana Kováčová', role: 'custom', modules: ['marketing'], active: true };
+const REC = { id: 'm3', user_id: 'u3', email: 'eva@danubra.eu', full_name: 'Eva Nováková', role: 'recruiter', active: true };
 const L = (id, name, o = {}) => ({ id, name, city: 'Ulm', postal_code: '89073', country: 'DE', website: `https://${id.toLowerCase()}.de`, status: 'new',
   source: 'outscraper', created_at: '2026-10-01T08:00:00Z', trade_keys: ['trockenbau'], ...o });
 const DATA = {

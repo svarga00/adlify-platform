@@ -30,7 +30,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -54,7 +54,7 @@ const DATA = {
   leads: [{ id: 'l1', name: 'Demirtas Malerbetrieb GmbH', city: 'Augsburg', region: 'Bayern', postal_code: '86150', trade: 'Maler', categories: ['Malerbetrieb'],
     contact_person: 'Herr Ali Demirtas', phone: '+49 821 123456', email: 'info@demirtas.example', status: 'contacted', source: 'outscraper', country: 'DE', created_at: ago(10) }],
   lead_contacts: [{ id: 'c1', lead_id: 'l1', kind: 'call', outcome: 'no_answer', our_member_name: 'Jana Kováčová', happened_at: ago(3), created_at: ago(3) }],
-  members: [{ id: 'm1', user_id: 'u-1', full_name: 'Štefan Varga', email: 'stefan@punds.eu', role: 'admin', active: true }],
+  members: [{ id: 'm1', user_id: 'u-1', full_name: 'Štefan Varga', email: 'stefan@danubra.eu', role: 'admin', active: true }],
   partners: [], subcontracts: [], lead_searches: [], outreach: [], outreach_events: [], email_optout: [], message_templates: [], mailboxes: [],
   settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' }, marketing: {} }],
 };
@@ -102,7 +102,7 @@ const DATA = {
       if (url.includes('/.netlify/functions/')) return new Response('{}', { status: 202 });
       return pf(u, o);
     };
-    Danubra.user = { id: 'u-1', email: 'stefan@punds.eu' };
+    Danubra.user = { id: 'u-1', email: 'stefan@danubra.eu' };
     Danubra.members = DATA.members; Danubra.me = DATA.members[0];
     Danubra.cfgRow = DATA.settings[0];
     document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;

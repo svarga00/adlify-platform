@@ -127,22 +127,22 @@ console.log('\nPODPIS ODKAZOV');
 
 console.log('\nSLEDOVANIE V TELE');
 {
-  const html = '<p>Viac na <a href="https://punds.eu/referenzen?a=1&amp;b=2">webe</a>, '
-    + '<a href="mailto:info@punds.eu">napíšte</a>, <a href="#x">kotva</a>, <a href=\'http://x.de\'>x</a></p>';
+  const html = '<p>Viac na <a href="https://danubra.eu/referenzen?a=1&amp;b=2">webe</a>, '
+    + '<a href="mailto:info@danubra.eu">napíšte</a>, <a href="#x">kotva</a>, <a href=\'http://x.de\'>x</a></p>';
   const r = O.rewriteLinks(html, { site: SITE, token: TOKEN, secret: SECRET });
-  eq(r.links, ['https://punds.eu/referenzen?a=1&b=2', 'http://x.de/'], 'prepíšu sa len http/https odkazy');
-  ok(r.html.includes('mailto:info@punds.eu') && r.html.includes('href="#x"'), 'mailto a kotva zostanú');
+  eq(r.links, ['https://danubra.eu/referenzen?a=1&b=2', 'http://x.de/'], 'prepíšu sa len http/https odkazy');
+  ok(r.html.includes('mailto:info@danubra.eu') && r.html.includes('href="#x"'), 'mailto a kotva zostanú');
   const m = r.html.match(/href="([^"]*danubra-track[^"]*)"/);
   const u = new URL(m[1].replace(/&amp;/g, '&'));
-  eq([u.searchParams.get('t'), u.searchParams.get('k'), u.searchParams.get('u')], [TOKEN, 'c', 'https://punds.eu/referenzen?a=1&b=2'], 'odkaz vedie cez sledovanie s pôvodnou adresou');
+  eq([u.searchParams.get('t'), u.searchParams.get('k'), u.searchParams.get('u')], [TOKEN, 'c', 'https://danubra.eu/referenzen?a=1&b=2'], 'odkaz vedie cez sledovanie s pôvodnou adresou');
   ok(O.verify(TOKEN, u.searchParams.get('u'), u.searchParams.get('s'), SECRET), 'a je podpísaný');
-  const c = O.compose({ html: '<p>Hallo <a href="https://punds.eu">punds</a></p><script>x()</script><p onclick="y()">z</p>',
-    text: 'Hallo https://punds.eu', supplier: { name: 'P&S', address: 'NZ' }, site: SITE, token: TOKEN, secret: SECRET, cfg: O.DEFAULTS });
+  const c = O.compose({ html: '<p>Hallo <a href="https://danubra.eu">DANUBRA</a></p><script>x()</script><p onclick="y()">z</p>',
+    text: 'Hallo https://danubra.eu', supplier: { name: 'P&S', address: 'NZ' }, site: SITE, token: TOKEN, secret: SECRET, cfg: O.DEFAULTS });
   ok(c.html.includes(`${SITE}/.netlify/functions/danubra-track?t=${TOKEN}&amp;k=o`) && /width="1" height="1"/.test(c.html), 'pixel na konci e-mailu');
   ok(!/script|onclick/.test(c.html), 'skripty a udalosti z editora sa vyhodia');
   ok(c.html.includes(`danubra-unsubscribe?t=${TOKEN}`) && c.text.includes(`danubra-unsubscribe?t=${TOKEN}`), 'odhlásenie je v HTML aj v texte');
-  ok(!c.copyHtml.includes('danubra-track') && c.copyHtml.includes('href="https://punds.eu"'), 'kópia do Odoslaných je bez sledovania (vlastné otvorenie sa neráta)');
-  const off = O.compose({ html: '<a href="https://punds.eu">x</a>', supplier: {}, site: SITE, token: TOKEN, secret: SECRET,
+  ok(!c.copyHtml.includes('danubra-track') && c.copyHtml.includes('href="https://danubra.eu"'), 'kópia do Odoslaných je bez sledovania (vlastné otvorenie sa neráta)');
+  const off = O.compose({ html: '<a href="https://danubra.eu">x</a>', supplier: {}, site: SITE, token: TOKEN, secret: SECRET,
     cfg: { track_opens: false, track_clicks: false } });
   ok(!off.html.includes('danubra-track') && off.html.includes('danubra-unsubscribe'), 'vypnuté sledovanie = bez pixelu a prepisu, odhlásenie zostáva');
   ok(!O.compose({ html: '<a href="https://a.de">x</a>', site: SITE, token: TOKEN, secret: null, cfg: O.DEFAULTS }).html.includes('k=c'),
@@ -173,7 +173,7 @@ console.log('\nODPOVEDE A NEDORUČENIA');
   ok(O.isDsn({ from: 'x@y.de', subject: 'x', contentType: 'multipart/report; report-type=delivery-status' }), 'multipart/report');
   ok(!O.isDsn({ from: 'postmaster@x.de', subject: 'Delivery Status Notification (Delay)' }), 'oneskorenie nie je nedoručenie');
   ok(!O.isDsn({ from: 'hans@firma.de', subject: 'Re: Fachkräfte' }), 'bežná odpoveď nie je nedoručenka');
-  eq(O.messageIds('Original-Message-ID: <abc.1@punds.eu>\nIn-Reply-To: <z@q>'), ['<abc.1@punds.eu>', '<z@q>'], 'Message-ID z textu nedoručenky');
+  eq(O.messageIds('Original-Message-ID: <abc.1@danubra.eu>\nIn-Reply-To: <z@q>'), ['<abc.1@danubra.eu>', '<z@q>'], 'Message-ID z textu nedoručenky');
   ok(O.isAutoReply({ subject: 'Abwesenheitsnotiz: Fachkräfte' }) && O.isAutoReply({ subject: 'x', headers: { 'auto-submitted': 'auto-replied' } }),
     'automatická odpoveď (dovolenka) sa rozozná');
   ok(!O.isAutoReply({ subject: 'Re: Fachkräfte', headers: { 'auto-submitted': 'no' } }), 'odpoveď človeka nie je automatická');

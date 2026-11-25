@@ -1,9 +1,9 @@
 // ============================================================================
-// DANUBRA — e-mail oslovenia v dizajne punds s prezentáciou (odoslanie, náhľad)
+// DANUBRA — e-mail oslovenia v dizajne DANUBRA s prezentáciou (odoslanie, náhľad)
 // Spustenie:  node app/tests/outreach-layout.test.js
 // ============================================================================
 // Bez siete (ako outreach-send.test.js). Stráži sa:
-//   * odíde HTML v dizajne punds aj textová podoba, s odhlásením a Impressum,
+//   * odíde HTML v dizajne DANUBRA aj textová podoba, s odhlásením a Impressum,
 //   * k prvému e-mailu prezentácia PDF (remeslo a región z firmy a hľadania),
 //     k pripomenutiu nie; voľba z okna platí; čo išlo v prílohe, sa zapíše,
 //   * náhľad a stiahnutie prezentácie = to isté, čo odíde, nič sa neposiela.
@@ -46,8 +46,8 @@ const SUPPLIER = { name: 'Partner und Service s. r. o.', address: 'Podzámska 94
 function base(over = {}) {
   return {
     danubra_members: [{ user_id: 'u-admin', role: 'admin', active: true }, { user_id: 'u-rec', role: 'recruiter', active: true }],
-    danubra_mailboxes: [{ id: 'mb1', name: 'Info', email: 'stefan@punds.eu', display_name: 'Štefan Varga · punds', smtp_host: 'smtp.x', smtp_port: 465, imap_host: 'imap.x',
-      username: 'stefan@punds.eu', secret_enc: S.encrypt('heslo'), active: true, sent_folder: 'Sent',
+    danubra_mailboxes: [{ id: 'mb1', name: 'Info', email: 'stefan@danubra.eu', display_name: 'Štefan Varga · DANUBRA', smtp_host: 'smtp.x', smtp_port: 465, imap_host: 'imap.x',
+      username: 'stefan@danubra.eu', secret_enc: S.encrypt('heslo'), active: true, sent_folder: 'Sent',
       signature_card: { enabled: true, name: 'Štefan Varga', role: 'Projektkoordination DACH', phone: '+421 910 523 958', lang: 'sk' } }],
     danubra_mailbox_access: [],
     danubra_leads: [{ id: 'l1', name: 'Müller Bau GmbH', city: 'Augsburg', email: 'info@mueller-bau.de', status: 'new', archived_at: null,
@@ -68,20 +68,20 @@ const BODY = { lead_id: 'l1', mailbox_id: 'mb1', step: 1, lang: 'de', subject: '
   body: 'Sehr geehrter Herr Müller,\n\nwir sind ein Nachunternehmer aus der Slowakei.\n\nDarf ich Sie kurz anrufen?\n\nMit freundlichen Grüßen\n\n-- \nS pozdravom\n\nŠtefan Varga' };
 
 (async () => {
-  console.log('Prvý e-mail: dizajn punds a prezentácia');
+  console.log('Prvý e-mail: dizajn DANUBRA a prezentácia');
   {
     const sb = reset(base());
     const r = await call(send, BODY);
     ok(r.code === 200 && r.attachment && r.attachment.kind === 'presentation' && r.trade === 'trockenbau', 'odišiel s prezentáciou, remeslo z hľadania', JSON.stringify(r));
     const p = await simpleParser(smtp.sent[0].raw);
-    ok(p.html.includes('Trockenbauer für Ihre Baustellen in Augsburg und Umgebung') && p.html.includes('punds-mark-white.png'), 'HTML v dizajne punds s nadpisom podľa remesla a mesta');
+    ok(p.html.includes('Trockenbauer für Ihre Baustellen in Augsburg und Umgebung') && p.html.includes('danubra-mark-white.png'), 'HTML v dizajne DANUBRA s nadpisom podľa remesla a mesta');
     ok(/Sehr geehrter Herr Müller,/.test(p.html) && (p.html.match(/Mit freundlichen Grüßen/g) || []).length === 1 && /Projektkoordination DACH/.test(p.html) && !/S pozdravom/.test(p.html),
       'text, jeden pozdrav a vizitka schránky po nemecky');
-    ok(/danubra-track\?t=[a-f0-9]{32}&amp;k=c&amp;u=https%3A%2F%2Fpunds\.eu/.test(p.html) && /danubra-track\?t=[a-f0-9]{32}&amp;k=o/.test(p.html), 'výzva so sledovaním kliku, obrázok na otvorenie');
+    ok(/danubra-track\?t=[a-f0-9]{32}&amp;k=c&amp;u=https%3A%2F%2Fdanubra\.eu/.test(p.html) && /danubra-track\?t=[a-f0-9]{32}&amp;k=o/.test(p.html), 'výzva so sledovaním kliku, obrázok na otvorenie');
     ok(/danubra-unsubscribe\?t=[a-f0-9]{32}/.test(p.html) && /danubra-unsubscribe\?t=[a-f0-9]{32}/.test(p.text) && /USt-IdNr\.: SK2122816839/.test(p.text), 'odhlásenie a Impressum v HTML aj texte');
     ok(p.text.startsWith('Trockenbauer für Ihre Baustellen') && /- Vollständige Unterlagen/.test(p.text), 'textová podoba je kompletná');
     const a = p.attachments[0];
-    ok(p.attachments.length === 1 && a.contentType === 'application/pdf' && /^punds-trockenbau-augsburg\.pdf$/.test(a.filename) && a.content.subarray(0, 5).toString() === '%PDF-',
+    ok(p.attachments.length === 1 && a.contentType === 'application/pdf' && /^danubra-trockenbau-augsburg\.pdf$/.test(a.filename) && a.content.subarray(0, 5).toString() === '%PDF-',
       'príloha PDF s menom podľa remesla a mesta', a && a.filename);
     ok(a.size < 300 * 1024, `príloha je malá (${Math.round(a.size / 1024)} kB)`);
     const o = sb.db.danubra_outreach[0];
@@ -99,7 +99,7 @@ const BODY = { lead_id: 'l1', mailbox_id: 'mb1', step: 1, lang: 'de', subject: '
     ok(p.attachments.length === 0 && /Trockenbauer für Ihre Baustellen/.test(p.html), 'bez zaškrtnutia bez prílohy (dizajn zostáva)');
   }
   {
-    const prev = { id: 'o-prev', lead_id: 'l1', step: 1, status: 'sent', sent_at: '2026-10-20T09:00:00Z', subject: 'Trockenbauer?', message_id: '<p@punds.eu>', to_email: 'info@mueller-bau.de' };
+    const prev = { id: 'o-prev', lead_id: 'l1', step: 1, status: 'sent', sent_at: '2026-10-20T09:00:00Z', subject: 'Trockenbauer?', message_id: '<p@danubra.eu>', to_email: 'info@mueller-bau.de' };
     reset(base({ danubra_leads: [{ ...base().danubra_leads[0], status: 'contacted' }], danubra_outreach: [prev] }));
     const r = await call(send, { ...BODY, step: 2, subject: 'Re: Trockenbauer?', body: 'Guten Tag,\n\nkurze Nachfrage.\n\nMit freundlichen Grüßen' });
     const p = await simpleParser(smtp.sent[0].raw);
@@ -117,7 +117,7 @@ const BODY = { lead_id: 'l1', mailbox_id: 'mb1', step: 1, lang: 'de', subject: '
     ok((await call(preview, { lead_id: 'l1', kind: 'pdf' }, 'rec')).code === 403, 'len s Marketingom');
     const pdf = await call(preview, { lead_id: 'l1', kind: 'pdf', mailbox_id: 'mb1' });
     const buf = Buffer.from(pdf.pdf_base64 || '', 'base64');
-    ok(pdf.code === 200 && buf.subarray(0, 5).toString() === '%PDF-' && pdf.file_name === 'punds-trockenbau-augsburg.pdf' && pdf.pages === 4, 'PDF na stiahnutie');
+    ok(pdf.code === 200 && buf.subarray(0, 5).toString() === '%PDF-' && pdf.file_name === 'danubra-trockenbau-augsburg.pdf' && pdf.pages === 4, 'PDF na stiahnutie');
     const h = await call(preview, { ...BODY, kind: 'email' });
     ok(h.code === 200 && h.html.includes('Trockenbauer für Ihre Baustellen') && !h.html.includes('danubra-track') && h.html.includes('Hier abmelden') && h.attachment,
       'náhľad e-mailu bez sledovania, s odhlásením a ohlásenou prílohou');

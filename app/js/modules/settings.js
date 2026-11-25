@@ -415,10 +415,10 @@
             'Súradnice kancelárie (alebo odkaz z Google Máp). Pri nových firmách sa podľa nich ukazuje, ako ďaleko sú od nás '
               + '(vzdušnou čiarou). Keď pole necháte prázdne, appka ho doplní sama z adresy pri „Obnoviť logá a náhľady" '
               + '(Marketing → Nové firmy). Netlačí sa na dokumenty.'],
-          // Hlavička a päta dokumentov (vzhľad punds). Prázdne = pri Partner
-          // und Service „punds" a web z domény e-mailu.
-          ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. punds'],
-          ['web', 'Web na dokumentoch', 'text', '', 'napr. punds.eu'],
+          // Hlavička a päta dokumentov (vzhľad DANUBRA). Prázdne = pri našej
+          // firme značka DANUBRA a web z domény e-mailu.
+          ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. DANUBRA'],
+          ['web', 'Web na dokumentoch', 'text', '', 'napr. danubra.eu'],
           ['bic', 'BIC / SWIFT', 'text', '', 'napr. TATRSKBX', null,
             'BIC (SWIFT) je medzinárodný kód banky, napr. TATRSKBX = Tatra banka. '
               + 'Tlačí sa na faktúru vedľa IBAN-u.'],

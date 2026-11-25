@@ -434,18 +434,18 @@ console.log('Úlohy a pravidlá');
 // ── Ľudia sú používatelia appky ─────────────────────────────────────────────
 {
   const M = [
-    { id: 'm1', user_id: 'u1', full_name: 'Štefan Varga', email: 'stefan@punds.eu', active: true },
-    { id: 'm2', user_id: 'u2', full_name: 'Jana Kováčová', email: 'jana@punds.eu', active: true },
-    { id: 'm3', user_id: 'u3', full_name: 'Jana Horná', email: 'horna@punds.eu', active: true },
-    { id: 'm4', user_id: null, full_name: '', email: 'peter@punds.eu', active: true },
+    { id: 'm1', user_id: 'u1', full_name: 'Štefan Varga', email: 'stefan@danubra.eu', active: true },
+    { id: 'm2', user_id: 'u2', full_name: 'Jana Kováčová', email: 'jana@danubra.eu', active: true },
+    { id: 'm3', user_id: 'u3', full_name: 'Jana Horná', email: 'horna@danubra.eu', active: true },
+    { id: 'm4', user_id: null, full_name: '', email: 'peter@danubra.eu', active: true },
   ];
   eq(T.findMember('Štefan Varga', M).id, 'm1', 'presné meno');
   eq(T.findMember('stefan varga', M).id, 'm1', 'bez diakritiky a veľkých písmen');
   eq(T.findMember('Štefan', M).id, 'm1', 'krstné meno, keď je jediné');
   eq(T.findMember('Jana', M), null, 'dve Jany — nehádže sa');
-  eq(T.findMember('peter@punds.eu', M).id, 'm4', 'člen bez mena podľa e-mailu');
+  eq(T.findMember('peter@danubra.eu', M).id, 'm4', 'člen bez mena podľa e-mailu');
   eq(T.findMember('Michaela', M), null, 'meno mimo appky');
-  eq(T.memberName(M[3]), 'peter@punds.eu', 'bez mena sa ukáže e-mail');
+  eq(T.memberName(M[3]), 'peter@danubra.eu', 'bez mena sa ukáže e-mail');
 
   eq(T.ownerOf({ assigned_name: 'Štefan' }, M).name, 'Štefan Varga', 'úloha so starým krstným menom patrí členovi');
   eq(T.ownerOf({ assigned_name: 'Michaela' }, M).kind, 'outside', 'neznáme meno = mimo appky');
@@ -466,10 +466,10 @@ console.log('Úlohy a pravidlá');
   eq(T.outsideNames(rows, M), ['Michaela'], 'mená mimo appky sa dajú nájsť a prehodiť');
 
   eq(T.assignPatch(M[0]), { assigned_name: 'Štefan Varga', assigned_to: 'u1' }, 'priradenie zapíše meno aj používateľa');
-  eq(T.assignPatch(M[3]), { assigned_name: 'peter@punds.eu', assigned_to: null }, 'člen bez účtu len menom');
+  eq(T.assignPatch(M[3]), { assigned_name: 'peter@danubra.eu', assigned_to: null }, 'člen bez účtu len menom');
   eq(T.assignPatch(null), { assigned_name: null, assigned_to: null }, 'nikomu');
   eq(T.initials('Štefan Varga'), 'ŠV', 'iniciály');
-  eq(T.initials('peter@punds.eu'), 'PP', 'aj z e-mailu');
+  eq(T.initials('peter@danubra.eu'), 'PD', 'aj z e-mailu');
   eq(T.initials(''), '', 'prázdne');
 }
 

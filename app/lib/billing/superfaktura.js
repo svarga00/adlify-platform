@@ -37,7 +37,7 @@
   function envOf(v) { return String(v || '').trim().toLowerCase() === 'production' ? 'production' : 'sandbox'; }
   function baseUrl(env) { return BASE[envOf(env)]; }
 
-  /** „stefan@punds.eu" → „s…@punds.eu". E-mail účtu sa celý nevypisuje. */
+  /** „stefan@danubra.eu" → „s…@danubra.eu". E-mail účtu sa celý nevypisuje. */
   function maskEmail(e) {
     const m = String(e || '').match(/^(.)[^@]*(@.+)$/);
     return m ? `${m[1]}…${m[2]}` : '';

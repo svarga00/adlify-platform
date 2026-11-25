@@ -32,7 +32,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -53,9 +53,9 @@ function ok(c, msg, extra) {
 
 // Streda 4. 11. 2026, KW 45 (2.–8. 11.).
 const NOW = '2026-11-04T09:00:00Z';
-const ME = { id: 'm1', user_id: 'u1', email: 'stefan@punds.eu', full_name: 'Štefan Varga', role: 'admin', active: true };
+const ME = { id: 'm1', user_id: 'u1', email: 'stefan@danubra.eu', full_name: 'Štefan Varga', role: 'admin', active: true };
 const DATA = {
-  members: [ME, { id: 'm2', user_id: 'u2', email: 'jana@punds.eu', full_name: 'Jana Kováčová', role: 'recruiter', active: true }],
+  members: [ME, { id: 'm2', user_id: 'u2', email: 'jana@danubra.eu', full_name: 'Jana Kováčová', role: 'recruiter', active: true }],
   tasks: [
     { id: 't1', title: 'Zavolať Bauleiterovi Müller', status: 'open', priority: 'high', due_date: '2026-11-05', due_time: null,
       entity_type: 'lead', entity_id: 'l1', entity_label: 'Müller Bau GmbH', assigned_to: 'u1', assigned_name: 'Štefan Varga', source: 'manual', created_at: '2026-11-01T08:00:00Z' },
@@ -333,7 +333,10 @@ const go = async (page, route) => {
     const f = el.querySelector('[data-lc-form]');
     f.querySelector('[name=summary]').value = 'Hr. Müller: Termin vor Ort, Donnerstag';
     f.querySelector('[name=contact_name]').value = 'Hans Müller';
-    f.querySelector('[name=next_step_at]').value = '2026-11-12';
+    // Termín vždy v budúcnosti — pevný dátum by test po čase zhodil (minulý termín appka odmietne).
+    const d = new Date(); d.setDate(d.getDate() + 7);
+    const den = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    f.querySelector('[name=next_step_at]').value = den;
     f.querySelector('[name=next_step_text]').value = 'Stretnutie na stavbe';
     await i.save();
     const offer = el.querySelector('.lc-meet');
@@ -341,13 +344,13 @@ const go = async (page, route) => {
     if (offer) offer.querySelector('[data-lc-a="meetcal"]').click();
     await new Promise(r => setTimeout(r, 150));
     const ff = document.getElementById('kal-ev-form');
-    const out = { txt, form: ff ? { title: ff.title.value, day: ff.starts_on.value, type: ff.entity_type.value, label: ff.entity_label.value,
+    const out = { den, txt, form: ff ? { title: ff.title.value, day: ff.starts_on.value, type: ff.entity_type.value, label: ff.entity_label.value,
       place: ff.place.value, rem: ff.remind_minutes.value, desc: ff.description.value } : null };
     UI.closeModal(); el.remove();
     return out;
   });
   ok(/Stretnutie dohodnuté/.test(lc.txt) && /Zapísať stretnutie do kalendára/.test(lc.txt), 'po uložení ponuka „Zapísať stretnutie do kalendára"', lc.txt);
-  ok(lc.form && lc.form.title === 'Stretnutie: Müller Bau GmbH' && lc.form.day === '2026-11-12' && lc.form.type === 'lead'
+  ok(lc.form && lc.form.title === 'Stretnutie: Müller Bau GmbH' && lc.form.day === lc.den && lc.form.type === 'lead'
     && lc.form.label === 'Müller Bau GmbH' && /Ulm/.test(lc.form.place) && lc.form.rem === '60' && /Hans Müller/.test(lc.form.desc),
   'otvorí udalosť: firma, deň stretnutia, miesto, kontakt, pripomienka hodinu vopred', JSON.stringify(lc.form));
 

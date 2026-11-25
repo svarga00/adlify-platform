@@ -1187,7 +1187,7 @@
         },
         {
           title: 'E-mail a prezentácia',
-          what: 'E-mail oslovenia má dizajn punds: nadpis a tri body podľa remesla a regiónu firmy, Váš text, tlačidlo na punds.eu, podpis schránky a pätičku s Impressum a odhlásením.',
+          what: 'E-mail oslovenia má dizajn DANUBRA: nadpis a tri body podľa remesla a regiónu firmy, Váš text, tlačidlo na danubra.eu, podpis schránky a pätičku s Impressum a odhlásením.',
           how: [
             'Ako e-mail uvidí firma, ukáže tlačidlo „Náhľad e-mailu". Sledovanie otvorenia a kliku pridá až odoslanie.',
             'K prvému e-mailu sa prikladá krátka prezentácia PDF (4 strany, po nemecky) pre remeslo a región firmy — stiahnuť si ju môžete tlačidlom „Stiahnuť prezentáciu". K pripomenutiu sa neprikladá.',
