@@ -153,7 +153,7 @@
     }
     return {
       key: 'quick',
-      title: 'Krátky hovor',
+      title: 'Pohovor',
       lead: 'Štyri veci, ktoré rozhodnú, či sa oplatí pokračovať. Do troch minút.',
       chips: out,
     };

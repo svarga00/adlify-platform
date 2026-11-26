@@ -1343,10 +1343,10 @@
       title: 'Krok 1 — Zavolať',
       lead: 'Ozval sa a čaká. Zavolať mu treba do desiatich minút od ozvania.',
       what: [
-        'Prvý hovor s človekom, ktorý sa ozval na inzerát. Appka ho vedie po '
-        + 'častiach a zapisuje, čo zaznelo — neznámkuje sa, odškrtáva sa.',
-        'Krátky hovor má štyri veci (remeslo, papiere, kedy, peniaze) a trvá tri '
-        + 'minúty. Plný pohovor má šesť častí a dvadsať minút.',
+        'Prvý hovor s človekom, ktorý sa ozval na inzerát. Je na jednej obrazovke: '
+        + 'čo mu povedať, na čo sa opýtať a overenie remesla. Neznámkuje sa, odpovede sa odklikávajú.',
+        'Pohovor je len jeden. Ponuka v ňom sedí so zmluvami: živnosť a zmluva o dielo, '
+        + 'hodinová sadzba, vlastná faktúra za 2 týždne, ubytovanie odpočítané z faktúry, A1 ako živnostník.',
       ],
       how: [
         'Že sa zavolalo, sa nikde neodklikáva — appka to vie z hovoru. Preto je '

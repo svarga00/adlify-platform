@@ -149,7 +149,9 @@ const CHIPS = [
 {
   const C = require('./callq');
   const g = C.group('quick', [{ id: 'c1', label: 'Sadzba sedí s ponukou' }, { id: 'c2', label: 'Pýtal zálohu vopred' }], [], { rate: '21', weeks: 2, due: 14 });
-  ok(g.questions.length === C.CORE.length && g.questions.length <= 12, 'hovor má jedno jadro otázok — najviac dvanásť', String(g.questions.length));
+  ok(g.questions.length === C.CORE.length && g.questions.length <= 13, 'pohovor je jeden a má najviac trinásť otázok', String(g.questions.length));
+  ok(['zivnost', 'odbory', 'a1', 'sadzba', 'faktura', 'stavba', 'referencia'].every(k => C.CORE.some(q => q.key === k)),
+    'sú v ňom veci, ktoré menia rozhodnutie: živnosť a jej odbory, A1, peniaze, prax a referencia');
   const sad = g.questions.find(q => q.key === 'sadzba');
   ok(/21 €\/h/.test(sad.q) && sad.answers[0].chip && sad.answers[0].chip.id === 'c1', 'otázka na sadzbu povie sumu z ponuky a odpoveď zaškrtne pole', sad.q);
   const fak = g.questions.find(q => q.key === 'faktura');

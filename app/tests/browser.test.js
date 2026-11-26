@@ -1072,8 +1072,8 @@ console.log('Prehliadač');
         'hovor je jedna obrazovka: povedzte mu, opýtajte sa, ukončiť', out.hovor.slice(0, 200));
       ok(/Robí sa na živnosť/.test(out.hovor) && /Faktúru vystavujete/.test(out.hovor) && /A1 ako živnostník/.test(out.hovor),
         'ponuka sedí so zmluvami: živnosť, vlastná faktúra, A1 ako živnostník');
-      ok(/Máte živnosť\?/.test(out.hovor) && !/turnus/i.test(out.hovor) && /Podrobný pohovor/.test(out.hovor),
-        'otázky sú jadro podľa konceptu; podrobný pohovor je len na požiadanie');
+      ok(/Máte živnosť\?/.test(out.hovor) && !/turnus/i.test(out.hovor) && !/Podrobný pohovor|Plný pohovor/.test(out.hovor),
+        'otázky sú jadro podľa konceptu a pohovor je len jeden');
 
       ok(out.kratkySegmentov === 1, 'krátky hovor je jedna obrazovka',
         `${out.kratkySegmentov}`);

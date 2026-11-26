@@ -110,7 +110,9 @@
   //
   // Hovor má preto tri veci na jednej obrazovke: čo mu povedať (`offer`),
   // na čo sa opýtať (toto jadro) a overenie remesla (otázky z príručky).
-  // Ostatné otázky ostávajú — sú pod „Ďalšie otázky" a v podrobnom pohovore.
+  // „Nemiešajme podrobný a základný pohovor, stačí jeden — ale nech je
+  // kvalitný a k veci": pohovor je len tento. Otázka je v ňom vtedy, keď
+  // odpoveď mení rozhodnutie (berieme / neberieme / čo treba vybaviť).
   const CORE = [
     Q('zivnost', 'Máte živnosť?', [
       ['Áno, aktívnu', 'Má aktívnu živnosť'],
@@ -132,6 +134,10 @@
       ['Je to v poriadku', 'Zdieľané ubytovanie je v poriadku'],
       ['Chce vlastnú izbu', 'Trvá na vlastnej izbe'],
       ['Ubytovanie má vlastné']]),
+    Q('odbory', 'Máte v živnosti zapísané toto remeslo?', [
+      ['Áno', 'Má odbory na to remeslo'],
+      ['Nie — doplní si'],
+      ['Nevie']]),
     Q('a1', 'Máte formulár A1 ako živnostník, alebo viete, čo to je?', [
       ['Vie / má', 'Vie, čo je A1'],
       ['Tvrdí, že netreba', 'Tvrdí, že A1 netreba'],
@@ -144,6 +150,9 @@
       ['Áno', 'Má vlastné náradie'], ['Nie']]),
     Q('auto', 'Máte auto, viete sa na stavbu dopraviť sám?', [
       ['Áno', 'Má vlastné auto'], ['Nie', 'Nemá ako sa dopraviť']]),
+    Q('stavba', 'Opíšte mi poslednú stavbu — čo presne ste tam robili?', [
+      ['Konkrétne', 'Vie opísať konkrétnu stavbu'],
+      ['Len všeobecne', 'Prax opisuje len všeobecne']]),
     Q('referencia', 'Pre koho ste naposledy robili? Môžem si tam zavolať?', [
       ['Dal meno aj číslo', 'Dal meno aj číslo na toho, pre koho robil'],
       ['Nepamätá si', 'Nepamätá si, pre koho robil']]),

@@ -245,6 +245,7 @@
       }
 
       this.cand = cand;
+      this.mode = 'quick';          // pohovor je len jeden
       this.trade = this.trades.find(t => t.key === cand.profession) || null;
       this.plan = this.plans.find(p => p.id === cand.plan_id) || null;
       this.ad = this.ads.find(a => a.id === cand.ad_id) || null;
@@ -461,78 +462,75 @@
             onclick="Guide.close()">Zavrieť</button>`;
       }
       const byAd = this.pickMode === 'ad' && this.ads.length;
+      // Začiatok hovoru na celú šírku: vľavo kto volá, vpravo na čo volá.
+      // Dovtedy to bol úzky stĺpec v strede s dlhým zoznamom veľkých dlaždíc
+      // (aj dobehnutých inzerátov) a meno sa písalo až pod ním.
+      const eur = (n) => `${String(n).replace('.', ',')} €/h`;
+      const row = ({ on, off, onclick, title, meta, rate }) => `<button type="button" class="su-row${on ? ' on' : ''}${off ? ' is-off' : ''}" onclick="${onclick}">
+          <span class="su-pick" aria-hidden="true">${on ? Icon('check', 13) : ''}</span>
+          <span class="su-main"><b>${UI.esc(title)}</b>${meta ? `<small>${UI.esc(meta)}</small>` : ''}</span>
+          ${rate ? `<span class="su-rate">${UI.esc(rate)}</span>` : ''}
+        </button>`;
+      const adRow = (a) => row({ on: this.ad?.id === a.id, off: !a.running, onclick: `Guide.pickAd('${a.id}')`, title: a.title,
+        meta: [AD().channelLabel ? AD().channelLabel(a.channel) : '', a.channel_detail, a.city].filter(Boolean).join(' · '),
+        rate: a.rate_offered ? eur(a.rate_offered) : '' });
+      const bezia = this.ads.filter(a => a.running), dobehli = this.ads.filter(a => !a.running);
+      const vybrane = this.ad ? this.ad.title : this.plan ? this.plan.title : this.trade ? this.trade.name_sk : '';
+      const zoznam = byAd ? `
+          ${bezia.length ? bezia.map(adRow).join('') : '<p class="su-none">Práve nebeží žiadny inzerát.</p>'}
+          ${dobehli.length ? `<details class="sc-more"${this.ad && !this.ad.running ? ' open' : ''}><summary>Dobehnuté inzeráty (${dobehli.length})</summary>
+            ${dobehli.map(adRow).join('')}</details>` : ''}`
+        : byPlan ? this.plans.map((p) => {
+          const t = this.trades.find(x => x.key === p.trade_key);
+          return row({ on: this.plan?.id === p.id, onclick: `Guide.pickPlan('${p.id}')`, title: p.title,
+            meta: [t?.name_sk || p.trade_key, p.headcount ? `treba ${p.headcount}` : '', p.city, p.start_date ? `nástup ${UI.date(p.start_date)}` : ''].filter(Boolean).join(' · '),
+            rate: p.offer_rate ? eur(p.offer_rate) : '' });
+        }).join('')
+        : this.trades.map(t => row({ on: this.trade?.key === t.key, onclick: `Guide.pickTrade('${t.key}')`, title: t.name_sk,
+          rate: t.rate_worker_min || t.rate_worker_max ? `${t.rate_worker_min || '?'}–${t.rate_worker_max || '?'} €/h` : '' })).join('');
       return `
-        <div class="guide-q">Na ktorý inzerát volá?</div>
-        <div class="guide-lead">Od toho sa odvíja zvyšok hovoru — remeslo, mesto
-          aj to, čo sme sľúbili.</div>
-        <div style="display:flex;align-items:center;gap:4px;margin-bottom:12px;">
-        <div class="pillbar" style="width:max-content;max-width:100%;overflow-x:auto;">
-          ${this.ads.length ? `<button class="pill${byAd ? ' active' : ''}"
-            onclick="Guide.setPickMode('ad')">Inzerát</button>` : ''}
-          ${this.plans.length ? `<button class="pill${byPlan ? ' active' : ''}"
-            onclick="Guide.setPickMode('plan')">Bežiaci nábor</button>` : ''}
-          <button class="pill${!byAd && !byPlan ? ' active' : ''}"
-            onclick="Guide.setPickMode('trade')">Do zásoby</button>
-        </div>
-        ${UI.tip('Inzerát = volá na konkrétny inzerát, vpravo uvidíte, čo sme v ňom sľúbili. Bežiaci nábor = naberáme pre konkrétnu stavbu. Do zásoby = teraz nič konkrétne, zapíšeme ho len podľa remesla na neskôr.')}
-        </div>
+        <div class="su">
+          <section class="su-card">
+            <h3 class="sc-h"><span>1</span>Kto volá</h3>
+            <label class="su-fld"><span>Meno</span>
+              <input id="call-name" class="guide-note" placeholder="Ako sa volá?"
+                value="${UI.esc((this.draft || {}).name || '')}" autocomplete="off"
+                oninput="Guide.draft.name=this.value"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.beginCall()}"></label>
+            <label class="su-fld"><span>Telefón <em>nepovinné</em></span>
+              <input id="call-phone" class="guide-note" placeholder="+421 …"
+                type="tel" value="${UI.esc((this.draft || {}).phone || '')}" autocomplete="off"
+                oninput="Guide.draft.phone=this.value"></label>
+            <label class="chk chk-lg su-chk">
+              <input type="checkbox" id="call-crew" ${(this.draft || {}).crew ? 'checked' : ''}
+                onchange="Guide.draft.crew=this.checked">
+              <span>Volá za partiu, nie sám za seba</span>
+              ${UI.tip('Zaškrtnite, keď volá za celú skupinu ľudí, ktorí chcú robiť spolu (napr. „sme traja murári"). Založí sa ako jedna partia, nie ako jeden človek.')}
+            </label>
+            <button class="guide-btn guide-btn-yes su-go" id="call-go"
+              onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>
+            <p class="su-hint">${vybrane ? `Volá na: <b>${UI.esc(vybrane)}</b>. ` : 'Vpravo vyberte, na čo volá. '}Po kliknutí sa kandidát založí a ukáže sa, čo povedať a na čo sa opýtať.${UI.tip('Kandidát sa hneď založí v zozname Kandidáti so stavom Kontaktovaný a časom prvého kontaktu „teraz". Všetko sa ukladá priebežne, takže keď hovor spadne, nič sa nestratí.')}</p>
+          </section>
 
-        ${byAd ? `<div class="plan-grid">
-          ${this.ads.map(a => `
-            <button class="plan-tile${this.ad?.id === a.id ? ' on' : ''}${a.running ? '' : ' pt-off'}"
-              onclick="Guide.pickAd('${a.id}')">
-              <span class="pt-name">${UI.esc(a.title)}${a.running ? '' : ' · dobehol'}</span>
-              <span class="pt-meta">${UI.esc(AD().subtitle(a))}</span>
-              ${AD().promiseLines(a).length ? `<span class="pt-meta pt-promise">${
-                AD().promiseLines(a).map(t => UI.esc(t)).join(' · ')}</span>` : ''}
-            </button>`).join('')}
-        </div>`
-        : byPlan ? `<div class="plan-grid">
-          ${this.plans.map(p => {
-            const t = this.trades.find(x => x.key === p.trade_key);
-            const sub = p.subcontract_id ? this.subcontracts.find(s => s.id === p.subcontract_id) : null;
-            return `<button class="plan-tile${this.plan?.id === p.id ? ' on' : ''}"
-              onclick="Guide.pickPlan('${p.id}')">
-              <span class="pt-name">${UI.esc(p.title)}</span>
-              <span class="pt-meta">${UI.esc(t?.name_sk || p.trade_key || '')}${p.headcount ? ` · treba ${p.headcount}` : ''}${p.city ? ` · ${UI.esc(p.city)}` : ''}</span>
-              <span class="pt-meta">${p.offer_rate ? `${p.offer_rate} €/h` : ''}${p.start_date ? ` · nástup ${UI.date(p.start_date)}` : ''}${sub?.contract_number ? ` · ${UI.esc(sub.contract_number)}` : ''}</span>
-            </button>`;
-          }).join('')}
-        </div>`
-        : `<div class="trade-grid">
-          ${this.trades.map(t => `
-            <button class="trade-tile${this.trade?.key === t.key ? ' on' : ''}"
-              onclick="Guide.pickTrade('${t.key}')">
-              <span class="tt-name">${UI.esc(t.name_sk)}</span>
-              ${t.rate_worker_min || t.rate_worker_max ? `<span class="tt-rate">${
-                t.rate_worker_min || '?'}–${t.rate_worker_max || '?'} €/h</span>` : ''}
-            </button>`).join('')}
-        </div>`}
-
-        ${this.noTradeHtml()}
-        <input id="call-name" class="guide-note" style="margin-top:16px;" placeholder="Ako sa volá?"
-          value="${UI.esc((this.draft || {}).name || '')}" autocomplete="off"
-          oninput="Guide.draft.name=this.value"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.beginCall()}">
-        <input id="call-phone" class="guide-note" style="margin-top:10px;" placeholder="Telefón (nepovinné)"
-          type="tel" value="${UI.esc((this.draft || {}).phone || '')}" autocomplete="off"
-          oninput="Guide.draft.phone=this.value">
-        <label class="chk chk-lg" style="margin-top:12px;display:flex;gap:10px;align-items:center;">
-          <input type="checkbox" id="call-crew" ${(this.draft || {}).crew ? 'checked' : ''}
-            onchange="Guide.draft.crew=this.checked">
-          <span style="font-size:15px;">Je to partia, nie jednotlivec</span>
-          ${UI.tip('Zaškrtnite, keď volá za celú skupinu ľudí, ktorí chcú robiť spolu (napr. „sme traja murári"). Založí sa ako jedna partia, nie ako jeden človek.')}
-        </label>
-
-        <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:14px;"
-          onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>
-        <div class="guide-note-hint">Čo sa stane po kliknutí${UI.tip('Kandidát sa hneď založí v zozname Kandidáti so stavom Kontaktovaný a časom prvého kontaktu „teraz". Potom sa ukážu otázky. Všetko sa ukladá priebežne, takže keď hovor spadne, nič sa nestratí.')}</div>
-        ${!this.trade && !this.plan && !this.ad ? `<div class="guide-note-hint">Vyberte inzerát, nábor
-          alebo remeslo — podľa toho sa poskladajú polia aj otázky a vpravo uvidíte,
-          čo sme sľúbili.</div>` : ''}`;
+          <section class="su-card">
+            <h3 class="sc-h"><span>2</span>Na čo volá</h3>
+            <div class="su-tabs">
+              <div class="pillbar">
+                ${this.ads.length ? `<button class="pill${byAd ? ' active' : ''}"
+                  onclick="Guide.setPickMode('ad')">Inzerát</button>` : ''}
+                ${this.plans.length ? `<button class="pill${byPlan ? ' active' : ''}"
+                  onclick="Guide.setPickMode('plan')">Bežiaci nábor</button>` : ''}
+                <button class="pill${!byAd && !byPlan ? ' active' : ''}"
+                  onclick="Guide.setPickMode('trade')">Do zásoby</button>
+              </div>
+              ${UI.tip('Inzerát = volá na konkrétny inzerát, vpravo uvidíte, čo sme v ňom sľúbili. Bežiaci nábor = naberáme pre konkrétnu stavbu. Do zásoby = teraz nič konkrétne, zapíšeme ho len podľa remesla na neskôr.')}
+            </div>
+            <div class="su-list">${zoznam}</div>
+            ${this.noTradeHtml()}
+          </section>
+        </div>`;
     },
 
-    // ── Jedna obrazovka = jeden segment ───────────────────────────────────
     // ── Jeden hovor na jednej obrazovke ───────────────────────────────────
     // „Treba ten telefonát zjednodušiť … nech to nie je takéto komplikované."
     // Dovtedy sa hovor preklikával otázka po otázke v šiestich častiach.
@@ -541,7 +539,8 @@
     //   2. Opýtajte sa  — jadro otázok, odpoveď na klik,
     //   3. Overte remeslo — dve-tri otázky z príručky a čo chceme počuť,
     //   poznámka a „Ukončiť hovor".
-    // Podrobný pohovor (šesť častí) ostáva na druhý telefonát.
+    // Pohovor je len jeden. Podrobný (šesť častí po krokoch) sa z ponuky
+    // stratil — jeho kód ostal pre staré rozpracované hovory.
 
     /** Čísla z ponuky do otázok a do toho, čo má povedať. */
     offerTerms() {
@@ -604,8 +603,8 @@
         </section>
 
         <div class="guide-nav sc-nav">
-          <button class="guide-nav-btn" onclick="Guide.goFull()" title="Šesť častí, asi dvadsať minút — na druhý telefonát alebo keď má čas">
-            Podrobný pohovor</button>
+          <button class="guide-nav-btn" onclick="Guide.close()" title="Čo je zaškrtnuté, je uložené — v hovore sa dá pokračovať z karty kandidáta">
+            Zavrieť, dokončím neskôr</button>
           <span class="guide-nav-mid" id="tick-count">${hotovo} z ${pevne.length + remeslo.length} otázok</span>
           <button class="guide-nav-btn guide-nav-next" onclick="Guide.nextSegment()">
             Ukončiť hovor ${Icon('chevron', 16)}</button>

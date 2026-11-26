@@ -229,15 +229,19 @@
 
     // ── 4. Ako vyzerá hovor ───────────────────────────────────────────────
     callHtml() {
-      const casti = window.DanubraChips ? DanubraChips.SEGMENTS : [];
+      // Pohovor je jeden a je na jednej obrazovke — tri časti v poradí, v akom hovor ide.
+      const casti = [
+        { title: 'Povedzte mu', lead: 'Ponuka v pár vetách, presne podľa zmlúv: robí sa na živnosť (zmluva o dielo a objednávka), hodinová sadzba, hodiny potvrdí majster, faktúru vystavuje on za 2 týždne, ubytovanie sa odpočíta z faktúry, A1 má ako živnostník.' },
+        { title: 'Opýtajte sa', lead: 'Trinásť otázok s odpoveďami na klik: živnosť a jej odbory, nástup, na ako dlho, sadzba, faktúra, ubytovanie, A1, nemčina, náradie, auto, posledná stavba a referencia. Vybraný dátum sa počíta ako odpoveď.' },
+        { title: 'Overte remeslo', lead: 'Dve až tri otázky z príručky remesla. Znejú ako bežné, ale kto remeslo robil, odpovie hneď a číslom. Pri otázke je napísané, čo chceme počuť.' },
+      ];
       return `<div class="card card-pad" style="margin-bottom:12px;">
-          <p class="lesson-text">Hovor má dva tvary. <strong>Krátky</strong> do
-          troch minút rozhodne, či sa oplatí pokračovať: remeslo, papiere, kedy
-          môže, peniaze. <strong>Plný pohovor</strong> má šesť častí a ide sa
-          naň až vtedy, keď krátky sedí — alebo keď má človek práve čas.</p>
-          <p class="lesson-text" style="margin-top:8px;">Prvá otázka je vždy tá
-          istá: <strong>na ktorý inzerát voláte</strong>. Od nej sa odvíja
-          zvyšok a vďaka nej viete, čo sme tomu človeku sľúbili.</p>
+          <p class="lesson-text">Pohovor je <strong>jeden</strong> a je na jednej
+          obrazovke. Nič sa neznámkuje — odpovede sa odklikávajú a zvyšok sa
+          zapíše vlastnými slovami do poznámky.</p>
+          <p class="lesson-text" style="margin-top:8px;">Na začiatku zapíšete,
+          kto volá a <strong>na ktorý inzerát</strong>. Od neho sa odvíja
+          sadzba, mesto aj to, čo sme tomu človeku sľúbili.</p>
         </div>
         <div class="lesson">${casti.map((c, i) => `
           <div class="card card-pad lesson-card">
