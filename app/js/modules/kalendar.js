@@ -962,8 +962,8 @@
 .kw-badge{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;}
 .kw-badge .ico{color:var(--brand);}
 .kw-badge:hover{border-color:var(--brand);background:var(--brand-50);}
-.mobile-head .kw-badge{height:34px;padding:0 8px;gap:4px;background:var(--navy-2);border-color:var(--navy-line);color:#fff;font-size:12.5px;}
-.mobile-head .kw-badge:hover{background:var(--navy-line);}
+.mobile-head .kw-badge{height:34px;padding:0 8px;gap:4px;background:#fff;border-color:transparent;color:var(--ink);border-radius:999px;font-size:12.5px;}
+.mobile-head .kw-badge:hover{background:#fff;}
 .kal{display:flex;flex-direction:column;gap:12px;}
 .kal-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;}
 .kal-nav{display:flex;align-items:center;gap:6px;flex:1 1 360px;min-width:0;}

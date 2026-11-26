@@ -2,14 +2,14 @@
 // Balík dokumentov pre živnostníka — verejná stránka /b/<token>
 // Spustenie:  node app/tests/bundle-page.test.js
 // ============================================================================
-// Funkcia netlify/functions/punds-bundle.js sa testuje bez Supabase: databáza
+// Funkcia netlify/functions/danubra-bundle.js sa testuje bez Supabase: databáza
 // a podpísané odkazy sú podstrčené (deps). Overuje sa, že zlý token sa nepýta
 // databázy, neplatný/zrušený/prepadnutý odkaz nič neprezradí, text z DB sa
 // escapuje a stiahnuť sa dá len dokument, ktorý je v balíku.
 // ============================================================================
 'use strict';
 const path = require('path');
-const fn = require(path.join(__dirname, '..', '..', 'netlify', 'functions', 'punds-bundle.js'));
+const fn = require(path.join(__dirname, '..', '..', 'netlify', 'functions', 'danubra-bundle.js'));
 
 let passed = 0, failed = 0;
 function ok(c, msg, extra) {
@@ -49,7 +49,7 @@ function makeDeps(bundle) {
       bundle: async (t) => { calls.bundle.push(t); return bundle && bundle.token === t ? bundle : null; },
       archive: async (ids) => { calls.archive.push(ids); return ids.map((i) => archive[i]).filter(Boolean); },
       worker: async (id) => { calls.worker.push(id); return { full_name: 'Ján <i>Novák</i>' }; },
-      settings: async () => { calls.settings++; return { supplier: { phone: '+421 900 123 456', email: 'nabor@punds.sk' } }; },
+      settings: async () => { calls.settings++; return { supplier: { phone: '+421 900 123 456', email: 'nabor@danubra.sk' } }; },
       touch: async (id) => { calls.touch.push(id); },
     },
     signedUrl: async (p, name) => { calls.sign.push([p, name]); return `https://store.example/sign/${p}?download=${name}&token=x`; },
@@ -74,7 +74,7 @@ const dbCalls = (c) => c.bundle.length + c.archive.length + c.worker.length + c.
     const d = makeDeps(null);
     const r = await get('/b/' + TOKEN, d);
     ok(r.status === 404 && /Odkaz už neplatí — zavolajte nám/.test(r.body), 'neexistujúci token → „Odkaz už neplatí"');
-    ok(/href="tel:\+421900123456"/.test(r.body) && /nabor@punds\.sk/.test(r.body), '  … s naším telefónom a e-mailom');
+    ok(/href="tel:\+421900123456"/.test(r.body) && /nabor@danubra\.sk/.test(r.body), '  … s naším telefónom a e-mailom');
     ok(d.calls.touch.length === 0 && d.calls.archive.length === 0 && d.calls.worker.length === 0, '  … a nič iné sa nečíta ani nezapisuje');
     ok(r.headers['Cache-Control'] === 'no-store' && r.headers['X-Robots-Tag'] === 'noindex, nofollow'
       && r.headers['Referrer-Policy'] === 'no-referrer', '  … hlavičky no-store, noindex, no-referrer');
@@ -119,7 +119,7 @@ const dbCalls = (c) => c.bundle.length + c.archive.length + c.worker.length + c.
     ok(r.body.includes(`href="/b/${TOKEN}/${A1}"`) && r.body.includes(`href="/b/${TOKEN}/${A2}"`), '  … oba dokumenty v zozname s odkazom');
     ok((r.body.match(/Stiahnuť PDF/g) || []).length === 2, '  … pri každom „Stiahnuť PDF"');
     ok(/Odkaz platí do 25\. 11\. 2026/.test(r.body), '  … „Odkaz platí do 25. 11. 2026"');
-    ok(/href="tel:\+421900123456"/.test(r.body) && /href="mailto:nabor@punds\.sk"/.test(r.body), '  … telefón a e-mail v pätičke');
+    ok(/href="tel:\+421900123456"/.test(r.body) && /href="mailto:nabor@danubra\.sk"/.test(r.body), '  … telefón a e-mail v pätičke');
     ok(d.calls.touch.length === 1 && d.calls.touch[0] === 'b-1', '  … otvorenie sa zapíše (touch)');
     ok(!/storage_path|w-1\/infolist/.test(r.body), '  … cesta v úložisku sa neukáže');
     ok(!EMOJI.test(r.body), '  … žiadne emoji ani obrázkové znaky');
@@ -135,10 +135,10 @@ const dbCalls = (c) => c.bundle.length + c.archive.length + c.worker.length + c.
   {
     // Adresa funkcie (prepis z netlify.toml) aj lomka na konci.
     const d = makeDeps(bundleRow());
-    const r = await get(`/.netlify/functions/punds-bundle/${TOKEN}/`, d);
-    ok(r.status === 200 && /Feuerbach/.test(r.body), 'funguje aj /.netlify/functions/punds-bundle/<token>');
-    ok(fn.pickPath({ path: '/.netlify/functions/punds-bundle', rawUrl: `https://x.netlify.app/b/${TOKEN}` }) === `/b/${TOKEN}`, 'cesta sa nájde aj z rawUrl');
-    ok(fn.pickPath({ path: `/b/${TOKEN}`, rawUrl: `https://x.netlify.app/.netlify/functions/punds-bundle/${TOKEN}` }) === `/b/${TOKEN}`, 'cesta z event.path má prednosť');
+    const r = await get(`/.netlify/functions/danubra-bundle/${TOKEN}/`, d);
+    ok(r.status === 200 && /Feuerbach/.test(r.body), 'funguje aj /.netlify/functions/danubra-bundle/<token>');
+    ok(fn.pickPath({ path: '/.netlify/functions/danubra-bundle', rawUrl: `https://x.netlify.app/b/${TOKEN}` }) === `/b/${TOKEN}`, 'cesta sa nájde aj z rawUrl');
+    ok(fn.pickPath({ path: `/b/${TOKEN}`, rawUrl: `https://x.netlify.app/.netlify/functions/danubra-bundle/${TOKEN}` }) === `/b/${TOKEN}`, 'cesta z event.path má prednosť');
   }
 
   // ── Stiahnutie ──

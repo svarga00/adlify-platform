@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — čiarové ikony (SVG), jediný zdroj pre oba weby
+// DANUBRA web — čiarové ikony (SVG), jediný zdroj pre oba weby
 // ============================================================================
 // Žiadne emoji ani piktogramy z písma — len tieto ikony. Kreslia sa farbou
 // textu (currentColor), veľkosť je 1em (riadi sa font-size rodiča) a sú

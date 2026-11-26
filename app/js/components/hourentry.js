@@ -236,6 +236,7 @@
             <span class="muted" id="he-scan-st">${st.scan ? `Nahraté: ${UI.esc(st.scan.name)}` : 'Fotka z mobilu stačí — aj otočená.'}</span>
             ${UI.tip('Appka z fotky prečíta dátumy, časy, mená a hodiny a vyplní ich do tabuľky. Skontrolujte to — rukopis sa dá prečítať zle. Fotka sa uloží k výkazu ako doklad.')}
           </div>
+          ${st.note ? `<div class="${st.recognized ? 'regimebox he-note' : 'warnbox br-warn'}"><div>${Icon(st.recognized ? 'check' : 'alert', 13)} ${UI.esc(st.note)}</div></div>` : ''}
           ${st.warnings.length ? `<div class="warnbox br-warn">${st.warnings.map(w => `<div>${Icon('alert', 13)} ${UI.esc(w)}</div>`).join('')}</div>` : ''}
           ${st.loadError ? `<div class="warnbox br-warn">${Icon('alert', 13)} Zapísané hodiny tohto týždňa sa nenačítali (${UI.esc(st.loadError)}). Kým sa nenačítajú, uložiť sa nedá — inak by sa zapísali druhýkrát. Skúste týždeň otvoriť znova.</div>` : ''}
 
@@ -332,8 +333,16 @@
     },
     async setSub(id) {
       this.keepForm();
-      Object.assign(this.st, { subId: id, extra: [], scan: null, unmatched: [], warnings: [], sunday: false });
-      await this.loadWeek(); this.render();
+      // Nahratý výkaz pri zmene zákazky ostáva: sken aj prečítané hodiny sa
+      // priradia ľuďom novej zákazky (appka zákazku z listu netrafila).
+      const keep = this.st.fromFile ? { scan: this.st.scan, sheetRaw: this.st.sheetRaw, fromFile: true } : null;
+      Object.assign(this.st, { subId: id, extra: [], scan: null, unmatched: [], warnings: [], sunday: false, note: '' });
+      await this.loadWeek();
+      if (keep) {
+        Object.assign(this.st, keep);
+        if (keep.sheetRaw) return this.applySheet(keep.sheetRaw);
+      }
+      this.render();
     },
     async shift(n) {
       this.keepForm();
@@ -395,6 +404,84 @@
     },
 
     // ── Fotka → hodiny ───────────────────────────────────────────────────
+    // ── Najprv súbor, potom všetko ostatné ─────────────────────────────────
+    // „Len nahráme PDF, ktoré si prečítaš a vytvoríš hodiny, my len
+    // skontrolujeme." Sken sa nahrá, prečíta a appka z neho sama určí zákazku
+    // (stavba, odberateľ a ľudia na liste — `DanubraHourScan.pickSubcontract`),
+    // týždeň aj mená. Otvorí sa to isté okno ako pri ručnom zápise, už vyplnené.
+    // Viac súborov naraz ide po jednom: po uložení sa otvorí ďalší.
+    queue: [],
+    /** Otvorí výber súborov (tlačidlo „Nahrať výkaz"). */
+    pickFiles() {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*,application/pdf'; inp.multiple = true;
+      inp.onchange = () => { const files = [...inp.files]; if (files.length) this.fromFiles(files); };
+      inp.click();
+    },
+    async fromFiles(files) {
+      this.queue = files.slice(1);
+      this.queueTotal = files.length;
+      return this.fromFile(files[0]);
+    },
+    async nextFile() {
+      const f = this.queue.shift();
+      if (f) return this.fromFile(f);
+      this.queueTotal = 0;
+    },
+    async fromFile(file) {
+      if (!file) return;
+      if (!window.Sub) return UI.toast('Zákazky nie sú dostupné', 'err');
+      if (!Sub.loaded) await Sub.load();
+      if (!Sub.items.length) return UI.toast('Najprv založte zákazku', 'warn');
+      const kolko = this.queueTotal > 1 ? ` (${this.queueTotal - this.queue.length} z ${this.queueTotal})` : '';
+      const say = (t) => UI.modal(`Čítam výkaz${kolko}`, `<p class="modal-lead">${UI.esc(file.name)}</p>
+        <div class="regimebox">${Icon('clock', 14)} ${UI.esc(t)}</div>`);
+      say('Pripravujem súbor…');
+      if (/^image\/(jpeg|png|webp)$/.test(file.type)) {
+        try { file = await this.shrink(file, 2000); } catch (e) { /* pošle sa pôvodný */ }
+      }
+      if (file.size > 6 * 1024 * 1024) { UI.closeModal(); return UI.toast('Súbor je väčší ako 6 MB — odfoťte ho v menšom rozlíšení.', 'err'); }
+      say('Nahrávam…');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const path = `hours/_nove/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const up = await DB.client.storage.from(DB.DOCS_BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+      if (up.error) { UI.closeModal(); return UI.toast('Nahratie zlyhalo: ' + up.error.message, 'err'); }
+      say('Čítam stavbu, týždeň, mená a hodiny… (asi 20 sekúnd)');
+      const dnes = (window.Danubra && Danubra._dayISO) ? Danubra._dayISO() : new Date().toISOString().slice(0, 10);
+      let sheet = null, chyba = '';
+      try {
+        const { data: s } = await DB.client.auth.getSession();
+        const res = await fetch('/.netlify/functions/danubra-read-hours', { method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(s && s.session && s.session.access_token) || ''}` },
+          body: JSON.stringify({ storage_path: path, year: Number(dnes.slice(0, 4)), workers: (Sub.workers || []).map(w => w.full_name) }) });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.sheet) throw new Error(out.error || 'Výkaz sa nepodarilo prečítať.');
+        sheet = out.sheet;
+      } catch (e) { chyba = e.message || 'Výkaz sa nepodarilo prečítať.'; }
+
+      // Zákazka: z listu, inak naposledy použitá — a povie sa, že ju treba vybrať.
+      const S = SCAN();
+      const tip = sheet && S && S.pickSubcontract ? S.pickSubcontract(sheet, {
+        subcontracts: Sub.items.filter(x => !['lost', 'cancelled'].includes(x.status)),
+        partners: Sub.partners || [], assignments: Sub.assignments || [], workers: Sub.workers || [] }) : { id: null, sure: false, why: [] };
+      const w = sheet && sheet.kw_from ? HSL().isoWeek(new Date(`${sheet.kw_from}T12:00:00Z`)) : null;
+      await this.open({ subcontractId: tip.id || undefined, year: w ? w.year : undefined, week: w ? w.week : undefined });
+      if (!this.st) return;
+      this.st.scan = { path, name: file.name };
+      this.st.fromFile = true;
+      this.st.sheetRaw = sheet;
+      if (sheet) await this.applySheet(sheet);
+      const sc = Sub.items.find(x => x.id === this.st.subId) || {};
+      const hlavicka = sheet ? [sheet.site, sheet.customer].filter(Boolean).join(' · ') : '';
+      const uvod = chyba ? `${chyba} Sken je uložený — hodiny natukajte ručne.`
+        : tip.id ? `Rozpoznané: zákazka „${sc.title || ''}" (${tip.why.join(', ') || 'podobnosť'})${hlavicka ? ` — na liste „${hlavicka}"` : ''}.${tip.sure ? '' : ' Podobných zákaziek je viac — overte, že je to tá správna.'}`
+        : `Zákazku sa z listu nepodarilo určiť${hlavicka ? ` (na liste „${hlavicka}")` : ''} — vyberte ju hore. Hodiny ostanú vyplnené.`;
+      this.st.note = uvod;
+      this.st.recognized = !chyba && !!tip.id && tip.sure;
+      this.render();
+      if (chyba) UI.toast(chyba, 'err'); else UI.toast('Výkaz je prečítaný — skontrolujte ho a uložte', 'ok');
+    },
+
     async scan(file) {
       if (!file) return;
       this.keepForm();
@@ -625,8 +712,12 @@
             <span class="bdl-ico">${Icon('invoices', 18)}</span><span class="bdl-txt"><b>Fakturovať odberateľovi</b><em>Zo zákazky — z odpracovaných hodín, alebo celý mesiac naraz</em></span></button>` : ''}
           ${Danubra.routeAvailable('hoursheet') && window.HS ? `<button type="button" class="pick-tile" onclick="UI.closeModal();HS.openFor({ subcontractId: '${st.subId}', year: ${st.year}, week: ${st.week} })">
             <span class="bdl-ico">${Icon('print', 18)}</span><span class="bdl-txt"><b>Výkaz pre odberateľa</b><em>Ten istý týždeň na tlač, po nemecky</em></span></button>` : ''}
+          ${this.queue.length ? `<button type="button" class="pick-tile is-first" onclick="HourEntry.nextFile()">
+            <span class="bdl-ico">${Icon('upload', 18)}</span><span class="bdl-txt"><b>Ďalší nahratý výkaz</b><em>Ešte ${this.queue.length} ${this.queue.length === 1 ? 'čaká' : 'čakajú'} na kontrolu</em></span></button>` : ''}
+          <button type="button" class="pick-tile" onclick="HourEntry.pickFiles()">
+            <span class="bdl-ico">${Icon('upload', 18)}</span><span class="bdl-txt"><b>Nahrať ďalší výkaz</b><em>PDF alebo fotka — appka ho prečíta a priradí</em></span></button>
           <button type="button" class="pick-tile" onclick="HourEntry.open({ subcontractId: '${st.subId}' })">
-            <span class="bdl-ico">${Icon('plus', 18)}</span><span class="bdl-txt"><b>Zapísať ďalší list</b><em>Iný týždeň alebo iná zákazka</em></span></button>
+            <span class="bdl-ico">${Icon('plus', 18)}</span><span class="bdl-txt"><b>Zapísať ďalší list ručne</b><em>Iný týždeň alebo iná zákazka</em></span></button>
         </div>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal();Danubra.renderRoute()">Zavrieť</button></div>`, { wide: true });
     },

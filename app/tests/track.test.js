@@ -64,7 +64,7 @@ function hitRpc(args, db) {
 function reset(over = {}) {
   holder.sb = F.create({
     danubra_outreach: [{ id: 'o1', lead_id: 'l1', token: TOKEN, status: 'sent', step: 1, sent_at: '2026-10-01T08:00:00Z',
-      to_email: 'info@mueller-bau.de', message_id: '<abc.1@punds.eu>', next_followup_at: '2026-10-06T08:00:00Z', subject: 'Fachkräfte' }],
+      to_email: 'info@mueller-bau.de', message_id: '<abc.1@danubra.eu>', next_followup_at: '2026-10-06T08:00:00Z', subject: 'Fachkräfte' }],
     danubra_outreach_events: [], danubra_leads: [{ id: 'l1', name: 'Müller Bau GmbH', city: 'Ulm', status: 'contacted' }],
     danubra_email_optout: [], danubra_campaign_sends: [], danubra_mail_messages: [], danubra_tasks: [], danubra_settings: [{ marketing: {} }],
     ...over,
@@ -96,7 +96,7 @@ const get = (q, ua = HUMAN, ip = '1.2.3.4', method = 'GET') => track.handler({ h
   console.log('\nKlik (presmerovanie)');
   {
     const sb = reset();
-    const url = 'https://punds.eu/referenzen?a=1&b=2';
+    const url = 'https://danubra.eu/referenzen?a=1&b=2';
     const s = O.sign(TOKEN, url, SECRET);
     const r = await get({ t: TOKEN, k: 'c', u: url, s });
     ok(r.statusCode === 302 && r.headers.Location === url, 'presmeruje na pôvodnú adresu');
@@ -152,8 +152,8 @@ const get = (q, ua = HUMAN, ip = '1.2.3.4', method = 'GET') => track.handler({ h
   {
     const sb = reset({ danubra_tasks: [{ id: 't1', source_key: 'outreach:o1:1', entity_type: 'lead', entity_id: 'l1', status: 'open' },
       { id: 't2', source_key: null, entity_type: 'lead', entity_id: 'l1', status: 'open' }] });
-    const row = { direction: 'in', from_email: 'hans@mueller-bau.de', subject: 'Re: Fachkräfte', in_reply_to: '<abc.1@punds.eu>',
-      refs: '<abc.1@punds.eu>', sent_at: '2026-10-02T09:00:00Z', lead_id: null };
+    const row = { direction: 'in', from_email: 'hans@mueller-bau.de', subject: 'Re: Fachkräfte', in_reply_to: '<abc.1@danubra.eu>',
+      refs: '<abc.1@danubra.eu>', sent_at: '2026-10-02T09:00:00Z', lead_id: null };
     const r = await OS.onIncoming(sb, { row, id: 'm9', parsed: { headers: new Map() } });
     const o = sb.db.danubra_outreach[0];
     ok(r && r.type === 'reply' && o.replied_at === row.sent_at && o.reply_message_id === 'm9' && o.next_followup_at === null,
@@ -165,19 +165,19 @@ const get = (q, ua = HUMAN, ip = '1.2.3.4', method = 'GET') => track.handler({ h
   }
   {
     const sb = reset({ danubra_leads: [{ id: 'l1', name: 'X', status: 'interested' }] });
-    await OS.onIncoming(sb, { row: { direction: 'in', subject: 'Re: x', in_reply_to: '<abc.1@punds.eu>', lead_id: 'l1' }, id: 'm1', parsed: {} });
+    await OS.onIncoming(sb, { row: { direction: 'in', subject: 'Re: x', in_reply_to: '<abc.1@danubra.eu>', lead_id: 'l1' }, id: 'm1', parsed: {} });
     ok(sb.db.danubra_leads[0].status === 'interested', 'firmu, ktorá má záujem, odpoveď nevráti na „Odpísala"');
   }
   {
     const sb = reset();
-    await OS.onIncoming(sb, { row: { direction: 'in', subject: 'Abwesenheitsnotiz: Fachkräfte', in_reply_to: '<abc.1@punds.eu>' }, id: 'm2', parsed: {} });
+    await OS.onIncoming(sb, { row: { direction: 'in', subject: 'Abwesenheitsnotiz: Fachkräfte', in_reply_to: '<abc.1@danubra.eu>' }, id: 'm2', parsed: {} });
     ok(!sb.db.danubra_outreach[0].replied_at && sb.db.danubra_outreach[0].next_followup_at
       && sb.db.danubra_outreach_events[0].automated, 'automatická odpoveď (dovolenka) nezruší pripomenutie');
   }
   {
     const sb = reset();
     const parsed = { text: 'Your message could not be delivered.', headers: new Map([['content-type', { value: 'multipart/report', params: {} }]]),
-      attachments: [{ contentType: 'message/rfc822', content: Buffer.from('From: info@punds.eu\r\nMessage-ID: <abc.1@punds.eu>\r\nSubject: Fachkräfte\r\n') }] };
+      attachments: [{ contentType: 'message/rfc822', content: Buffer.from('From: info@danubra.eu\r\nMessage-ID: <abc.1@danubra.eu>\r\nSubject: Fachkräfte\r\n') }] };
     const r = await OS.onIncoming(sb, { row: { direction: 'in', from_email: 'mailer-daemon@mx.mueller-bau.de', subject: 'Undelivered Mail Returned to Sender',
       sent_at: '2026-10-01T08:01:00Z' }, id: 'm3', parsed });
     const o = sb.db.danubra_outreach[0];
@@ -187,7 +187,7 @@ const get = (q, ua = HUMAN, ip = '1.2.3.4', method = 'GET') => track.handler({ h
   {
     const sb = reset();
     ok(await OS.onIncoming(sb, { row: { direction: 'in', subject: 'Hallo', in_reply_to: '<cudzi@x.de>' }, id: 'm4', parsed: {} }) === null
-      && await OS.onIncoming(sb, { row: { direction: 'out', in_reply_to: '<abc.1@punds.eu>' } }) === null, 'cudzí a odoslaný e-mail nič nemení');
+      && await OS.onIncoming(sb, { row: { direction: 'out', in_reply_to: '<abc.1@danubra.eu>' } }) === null, 'cudzí a odoslaný e-mail nič nemení');
   }
 
   console.log('\nNočná kontrola — úloha „Pripomenúť sa"');

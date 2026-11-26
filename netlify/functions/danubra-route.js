@@ -20,7 +20,7 @@ const supabase = createClient(
 );
 const guard = require('../../app/lib/server-guard.js')(supabase);
 
-const UA ='DANUBRA-Hub/1.0 (info@punds.eu)';
+const UA ='DANUBRA-Hub/1.0 (info@danubra.eu)';
 
 async function geocode(q) {
   const res = await fetch(R.geocodeUrl(q), {

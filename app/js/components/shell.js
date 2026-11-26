@@ -435,9 +435,15 @@
     const act = (r) => (r.act && r.act.onclick && r.act.label)
       ? `<button type="button" class="btn btn-outline btn-sm bl-act" onclick="${r.act.onclick}">${
         Icon(r.act.ico || 'upload', 14)} ${esc(r.act.label)}</button>` : '';
+    // Prekážka, ktorú výnimka nerieši, má rovno pri sebe napísané, čo s ňou.
+    // Dovtedy stála v zozname a hneď pod ním ešte raz („Tieto výnimka
+    // nerieši: …") — tá istá vec dvakrát pod sebou.
+    const OV = typeof window !== 'undefined' ? window.DanubraOverrides : null;
+    const hardRules = new Set((v.hard || []).map(r => r.rule));
+    const detailOf = (r, kind) => ((kind === 'stop' && OV && hardRules.has(r.rule) && OV.hardWhy(r.rule)) || r.detail || '');
     const item = (r, kind) => `<li class="bl-${kind}">
       ${Icon(kind === 'waived' ? 'check' : (kind === 'warn' ? 'shield' : 'x'), 14)}
-      <div><b>${esc(r.label)}</b>${r.detail ? `<span>${esc(r.detail)}</span>` : ''}
+      <div><b>${esc(r.label)}</b>${detailOf(r, kind) ? `<span>${esc(detailOf(r, kind))}</span>` : ''}
       ${kind === 'waived' ? '<em>povolené výnimkou</em>' : ''}${kind !== 'waived' ? act(r) : ''}</div></li>`;
 
     const warn = v.warnings.length
@@ -482,9 +488,9 @@
     // v appke namiesto v doklade.
     const hardHtml = (O && hard.length)
       ? `<div class="bl-hard">
-          <b>${hard.length === 1 ? 'Toto výnimka nerieši' : 'Tieto výnimka nerieši'}:</b>
-          <ul>${hard.map(r => `<li><b>${esc(r.label)}</b>${
-            O.hardWhy(r.rule) ? ` — ${esc(O.hardWhy(r.rule))}` : ''}</li>`).join('')}</ul>
+          <b>${hard.length === 1 ? 'Toto výnimka nerieši' : 'Tieto výnimka nerieši'}</b> — ${
+            hard.length === v.open.length ? 'treba to doplniť.'
+              : `${hard.map(r => esc(r.label)).join(', ')}. Treba to doplniť.`}
         </div>` : '';
 
     if (!canWaive.length) return hardHtml;

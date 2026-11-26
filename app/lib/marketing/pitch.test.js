@@ -89,16 +89,16 @@ console.log('\nPosolstvo');
 {
   const p = P.pitch({ lead: { name: 'Müller Trockenbau GmbH', region: 'Bayern', trade: 'Trockenbau', categories: ['Malerbetrieb'] } });
   ok(p.headline === 'Trockenbauer für Ihre Baustellen in Bayern', 'nadpis z remesla a regiónu', p.headline);
-  ok(p.title === 'punds – Ihr Partner für Trockenbau in Bayern', 'titul prezentácie', p.title);
+  ok(p.title === 'DANUBRA – Ihr Partner für Trockenbau in Bayern', 'titul prezentácie', p.title);
   ok(p.points.length === 3 && /Ständerwerk/.test(p.points[0].text) && /Maler/.test(p.points[0].text), 'tri body: remeslo (aj ďalšie)', p.points[0].text);
   ok(/§ 48b EStG/.test(p.points[1].text) && /Bayern/.test(p.points[2].text), 'doklady a jeden kontakt s regiónom');
   ok(!/\d+\s?(€|EUR|Euro)/.test(JSON.stringify(p)) && !/Referenz/.test(JSON.stringify(p.points)), 'žiadne ceny ani referencie, ktoré nemáme');
-  ok(p.fileName === 'punds-trockenbau-bayern.pdf', 'meno súboru');
+  ok(p.fileName === 'danubra-trockenbau-bayern.pdf', 'meno súboru');
   const s = P.pitch({ lead: { trade: 'Trockenbau' }, marketing: { presentation: { prices: 'ab 38 EUR/Std.', cta_url: 'javascript:x', trades: { trockenbau: { tasks: ['Nur Akustikdecken'] } } } } });
-  ok(s.texts.prices === 'ab 38 EUR/Std.' && s.cta.url === 'https://punds.eu' && s.trade.tasks[0] === 'Nur Akustikdecken', 'Nastavenia prepíšu ceny a úlohy, zlý odkaz nie');
+  ok(s.texts.prices === 'ab 38 EUR/Std.' && s.cta.url === 'https://danubra.eu' && s.trade.tasks[0] === 'Nur Akustikdecken', 'Nastavenia prepíšu ceny a úlohy, zlý odkaz nie');
 }
 
-console.log('\nTexty sedia s webom punds.eu');
+console.log('\nTexty sedia s webom danubra.eu');
 {
   const TRADE = require('../../../web/eu/pages/trade.js');
   const T = require('../../../web/eu/pages/trade.js').TRADES || null;
@@ -113,7 +113,7 @@ console.log('\nTexty sedia s webom punds.eu');
   ok(about.includes(P.TEXT.about) && P.TEXT.values.every(([h, x]) => about.includes(`'${h}', '${x}'`)), 'o nás a zásady sú z web/eu/pages/about.js');
   const fs = require('fs'), path = require('path');
   const prof = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'web', 'shared', 'professions.js'), 'utf8');
-  ok(P.TRADES.filter(t => t.slug).every(t => prof.includes(`de: '${t.slug}'`)), 'odkazy na remeslá existujú na punds.eu');
+  ok(P.TRADES.filter(t => t.slug).every(t => prof.includes(`de: '${t.slug}'`)), 'odkazy na remeslá existujú na danubra.eu');
 }
 
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);

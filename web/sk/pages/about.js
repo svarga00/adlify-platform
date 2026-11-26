@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — O nás (návrh 2d)
+// danubra.sk — O nás (návrh 2d)
 // ============================================================================
 // Tím: mená a fotky zatiaľ nemáme — na skúšobnej adrese sa ukážu zástupné
 // karty s poznámkou, naostro sa sekcia skryje, kým TEAM nie je vyplnený.
@@ -25,7 +25,7 @@ const TEAM_DEMO = [
 
 const T = {
   sk: {
-    title: 'O nás – Partner und Service s. r. o. | punds', desc: 'Sme slovenská firma z Nových Zámkov. Remeselníkom pomáhame nájsť férovú prácu v Nemecku a Rakúsku – s ubytovaním, papiermi aj fakturáciou.',
+    title: 'O nás – Partner und Service s. r. o. | DANUBRA', desc: 'Sme slovenská firma z Nových Zámkov. Remeselníkom pomáhame nájsť férovú prácu v Nemecku a Rakúsku – s ubytovaním, papiermi aj fakturáciou.',
     home: 'Domov', crumb: 'O nás',
     h1: 'Spájame dobrých remeselníkov s dobrými', h1b: 'stavbami.',
     lead: 'Sme slovenská firma z Nových Zámkov. Remeselníkom zo Slovenska, Česka a Maďarska pomáhame nájsť férovú prácu v Nemecku a Rakúsku a nemeckým firmám hľadáme spoľahlivých ľudí. Ubytovanie, papiere aj fakturáciu riešime my, Vy sa môžete venovať svojej práci.',
@@ -41,7 +41,7 @@ const T = {
     coK: 'Firemné údaje', seat: 'Sídlo', ico: 'IČO', phone: 'Telefón', mail: 'E-mail', open: 'Otvorené', hours: 'Po–Pia 8:00–16:00', openMap: 'Otvoriť v mapách',
   },
   cz: {
-    title: 'O nás – Partner und Service s. r. o. | punds', desc: 'Jsme slovenská firma z Nových Zámků. Řemeslníkům pomáháme najít férovou práci v Německu a Rakousku – s ubytováním, papíry i fakturací.',
+    title: 'O nás – Partner und Service s. r. o. | DANUBRA', desc: 'Jsme slovenská firma z Nových Zámků. Řemeslníkům pomáháme najít férovou práci v Německu a Rakousku – s ubytováním, papíry i fakturací.',
     home: 'Domů', crumb: 'O nás',
     h1: 'Spojujeme dobré řemeslníky s dobrými', h1b: 'stavbami.',
     lead: 'Jsme slovenská firma z Nových Zámků. Řemeslníkům ze Slovenska, Česka a Maďarska pomáháme najít férovou práci v Německu a Rakousku a německým firmám hledáme spolehlivé lidi. Ubytování, papíry i fakturaci řešíme my, Vy se můžete věnovat své práci.',
@@ -57,7 +57,7 @@ const T = {
     coK: 'Firemní údaje', seat: 'Sídlo', ico: 'IČO', phone: 'Telefon', mail: 'E-mail', open: 'Otevřeno', hours: 'Po–Pá 8:00–16:00', openMap: 'Otevřít v mapách',
   },
   hu: {
-    title: 'Rólunk – Partner und Service s. r. o. | punds', desc: 'Érsekújvári (Nové Zámky) szlovák cég vagyunk. Szakembereknek segítünk tisztességes munkát találni Németországban és Ausztriában – szállással, iratokkal és számlázással.',
+    title: 'Rólunk – Partner und Service s. r. o. | DANUBRA', desc: 'Érsekújvári (Nové Zámky) szlovák cég vagyunk. Szakembereknek segítünk tisztességes munkát találni Németországban és Ausztriában – szállással, iratokkal és számlázással.',
     home: 'Kezdőlap', crumb: 'Rólunk',
     h1: 'Jó szakembereket kötünk össze jó', h1b: 'építkezésekkel.',
     lead: 'Érsekújvári (Nové Zámky) szlovák cég vagyunk. Szlovákiai, csehországi és magyarországi szakembereknek segítünk tisztességes munkát találni Németországban és Ausztriában, a német cégeknek pedig megbízható embereket keresünk. A szállást, a papírokat és a számlázást mi intézzük, Ön a munkájára koncentrálhat.',
@@ -73,7 +73,7 @@ const T = {
     coK: 'Cégadatok', seat: 'Székhely', ico: 'Cégazonosító (IČO)', phone: 'Telefon', mail: 'E-mail', open: 'Nyitvatartás', hours: 'H–P 8:00–16:00', openMap: 'Megnyitás térképen',
   },
   de: {
-    title: 'Über uns – Partner und Service s. r. o. | punds', desc: 'Wir sind ein slowakisches Unternehmen aus Nové Zámky. Wir helfen Handwerkern, faire Arbeit in Deutschland und Österreich zu finden – mit Unterkunft, Papieren und Abrechnung.',
+    title: 'Über uns – Partner und Service s. r. o. | DANUBRA', desc: 'Wir sind ein slowakisches Unternehmen aus Nové Zámky. Wir helfen Handwerkern, faire Arbeit in Deutschland und Österreich zu finden – mit Unterkunft, Papieren und Abrechnung.',
     home: 'Start', crumb: 'Über uns',
     h1: 'Wir bringen gute Handwerker und gute', h1b: 'Baustellen zusammen.',
     lead: 'Wir sind ein slowakisches Unternehmen aus Nové Zámky. Wir helfen Handwerkern aus der Slowakei, Tschechien und Ungarn, faire Arbeit in Deutschland und Österreich zu finden, und suchen für deutsche Firmen zuverlässige Leute. Unterkunft, Papiere und Abrechnung übernehmen wir – Sie können sich auf Ihre Arbeit konzentrieren.',
@@ -89,7 +89,7 @@ const T = {
     coK: 'Firmendaten', seat: 'Sitz', ico: 'IČO (Firmennummer)', phone: 'Telefon', mail: 'E-Mail', open: 'Geöffnet', hours: 'Mo–Fr 8:00–16:00', openMap: 'In Karten öffnen',
   },
   en: {
-    title: 'About us – Partner und Service s. r. o. | punds', desc: 'We are a Slovak company based in Nové Zámky. We help tradespeople find fair work in Germany and Austria – with housing, paperwork and invoicing taken care of.',
+    title: 'About us – Partner und Service s. r. o. | DANUBRA', desc: 'We are a Slovak company based in Nové Zámky. We help tradespeople find fair work in Germany and Austria – with housing, paperwork and invoicing taken care of.',
     home: 'Home', crumb: 'About us',
     h1: 'We connect good tradespeople with good', h1b: 'construction sites.',
     lead: 'We are a Slovak company based in Nové Zámky. We help tradespeople from Slovakia, Czechia and Hungary find fair work in Germany and Austria, and we find reliable people for German companies. We take care of housing, paperwork and invoicing, so you can focus on your work.',
@@ -105,7 +105,7 @@ const T = {
     coK: 'Company details', seat: 'Registered office', ico: 'Company ID (IČO)', phone: 'Phone', mail: 'Email', open: 'Open', hours: 'Mon–Fri 8:00–16:00', openMap: 'Open in Maps',
   },
   ro: {
-    title: 'Despre noi – Partner und Service s. r. o. | punds', desc: 'Suntem o firmă slovacă din Nové Zámky. Ajutăm meseriașii să găsească muncă în condiții corecte în Germania și Austria – cu cazare, acte și facturare.',
+    title: 'Despre noi – Partner und Service s. r. o. | DANUBRA', desc: 'Suntem o firmă slovacă din Nové Zámky. Ajutăm meseriașii să găsească muncă în condiții corecte în Germania și Austria – cu cazare, acte și facturare.',
     home: 'Acasă', crumb: 'Despre noi',
     h1: 'Aducem împreună meseriași buni și', h1b: 'șantiere bune.',
     lead: 'Suntem o firmă slovacă din Nové Zámky. Ajutăm meseriașii din Slovacia, Cehia, Ungaria, România, Polonia și Bulgaria să găsească muncă în condiții corecte în Germania și Austria, iar firmelor germane le găsim oameni de încredere. De cazare, acte și facturare ne ocupăm noi, Dvs. vă puteți dedica muncii.',
@@ -121,7 +121,7 @@ const T = {
     coK: 'Date firmă', seat: 'Sediu', ico: 'Nr. înreg. (IČO)', phone: 'Telefon', mail: 'E-mail', open: 'Program', hours: 'Lu–Vi 8:00–16:00', openMap: 'Deschide în Maps',
   },
   pl: {
-    title: 'O nas – Partner und Service s. r. o. | punds', desc: 'Jesteśmy słowacką firmą z Nových Zámków. Pomagamy fachowcom znaleźć uczciwą pracę w Niemczech i Austrii – z zakwaterowaniem, formalnościami i fakturowaniem.',
+    title: 'O nas – Partner und Service s. r. o. | DANUBRA', desc: 'Jesteśmy słowacką firmą z Nových Zámków. Pomagamy fachowcom znaleźć uczciwą pracę w Niemczech i Austrii – z zakwaterowaniem, formalnościami i fakturowaniem.',
     home: 'Start', crumb: 'O nas',
     h1: 'Łączymy dobrych fachowców z dobrymi', h1b: 'budowami.',
     lead: 'Jesteśmy słowacką firmą z Nových Zámków. Fachowcom ze Słowacji, Czech, Węgier, Rumunii, Polski i Bułgarii pomagamy znaleźć uczciwą pracę w Niemczech i Austrii, a niemieckim firmom szukamy solidnych ludzi. Zakwaterowanie, formalności i fakturowanie załatwiamy my – Państwo mogą zająć się swoją pracą.',
@@ -137,7 +137,7 @@ const T = {
     coK: 'Dane firmy', seat: 'Siedziba', ico: 'Nr rej. (IČO)', phone: 'Telefon', mail: 'E-mail', open: 'Otwarte', hours: 'Pn–Pt 8:00–16:00', openMap: 'Otwórz w mapach',
   },
   bg: {
-    title: 'За нас – Partner und Service s. r. o. | punds', desc: 'Ние сме словашка фирма от Нове Замки. Помагаме на строителни специалисти да намерят честна работа в Германия и Австрия – с квартира, документи и фактуриране.',
+    title: 'За нас – Partner und Service s. r. o. | DANUBRA', desc: 'Ние сме словашка фирма от Нове Замки. Помагаме на строителни специалисти да намерят честна работа в Германия и Австрия – с квартира, документи и фактуриране.',
     home: 'Начало', crumb: 'За нас',
     h1: 'Свързваме добри майстори с добри', h1b: 'строежи.',
     lead: 'Ние сме словашка фирма от Нове Замки. Помагаме на специалисти от Словакия, Чехия, Унгария, Румъния, Полша и България да намерят честна работа в Германия и Австрия, а за немските фирми търсим надеждни хора. За квартирата, документите и фактурирането се грижим ние – Вие можете да се посветите на работата си.',
@@ -193,7 +193,7 @@ async function render(ctx) {
 </section>
 <section class="wrap ab-aud">
   <div class="ab-aud-c rv"><span class="sp-kicker">${esc(t.forK)}</span><h2 class="ab-aud-h">${esc(t.forH)}</h2><ul class="sp-checks">${checks(t.forL)}</ul><a class="btn btn-primary ab-aud-btn" href="${esc(ctx.url('jobs'))}">${esc(t.ctaJobs)} →</a></div>
-  <div class="ab-aud-c ab-aud-dark rv"><span class="sp-kicker">${esc(t.b2bK)}</span><h2 class="ab-aud-h">${esc(t.b2bH)}</h2><ul class="sp-checks">${checks(t.b2bL)}</ul><a class="btn ab-aud-btn ab-btn-white" href="${esc(euUrl(ctx))}">punds.eu →</a></div>
+  <div class="ab-aud-c ab-aud-dark rv"><span class="sp-kicker">${esc(t.b2bK)}</span><h2 class="ab-aud-h">${esc(t.b2bH)}</h2><ul class="sp-checks">${checks(t.b2bL)}</ul><a class="btn ab-aud-btn ab-btn-white" href="${esc(euUrl(ctx))}">danubra.eu →</a></div>
 </section>
 ${team.length ? `<section class="wrap ab-sec" aria-labelledby="ab-team-h">
   <div class="ab-team-head"><h2 class="h2" id="ab-team-h">${esc(t.teamH)}</h2>${demoTeam ? `<span class="warn">${esc(t.teamNote)}</span>` : ''}</div>

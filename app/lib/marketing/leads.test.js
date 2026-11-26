@@ -54,7 +54,7 @@ console.log('\nE-MAILY');
     'natrvalo zatvorenej firme (Google Mapy) kampaň nejde');
   const t = L.fill('Guten Tag {firma} in {mesto} — {nasa_firma} {nezname}', { name: 'Huber', city: 'Ulm' }, { name: 'P&S' });
   eq(t, 'Guten Tag Huber in Ulm — P&S {nezname}', 'doplní údaje, neznáme nechá');
-  const f = L.footer({ name: 'Partner und Service s. r. o.', address: 'Nové Zámky', company_id: '57553921', email: 'info@punds.eu' }, 'https://x/abmelden');
+  const f = L.footer({ name: 'Partner und Service s. r. o.', address: 'Nové Zámky', company_id: '57553921', email: 'info@danubra.eu' }, 'https://x/abmelden');
   ok(/Partner und Service s\. r\. o\., Nové Zámky/.test(f) && /57553921/.test(f) && /Keine weiteren E-Mails erhalten: https:\/\/x\/abmelden/.test(f),
     'pätička: kto posiela a ako sa odhlásiť (povinné v Nemecku)', f);
   ok(/Stunden/.test(L.TEMPLATE_DE.body) && /\{mesto\}/.test(L.TEMPLATE_DE.body), 'šablóna: po hodinách, s mestom');

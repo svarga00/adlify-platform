@@ -1,7 +1,7 @@
 // ============================================================================
-// punds web — drobné pomocníky na skladanie HTML
+// DANUBRA web — drobné pomocníky na skladanie HTML
 // ============================================================================
-// Stránky sa skladajú ako reťazce na serveri (netlify/functions/punds-web.js).
+// Stránky sa skladajú ako reťazce na serveri (netlify/functions/danubra-web.js).
 // Všetko, čo prichádza z dát (inzerát, meno mesta…), ide cez esc().
 // ============================================================================
 'use strict';

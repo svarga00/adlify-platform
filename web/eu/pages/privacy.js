@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — Datenschutzerklärung / Privacy policy (DSGVO)
+// danubra.eu — Datenschutzerklärung / Privacy policy (DSGVO)
 // ============================================================================
 // Návrh textu pre web pre firmy (dopytový formulár, hosting Netlify, bez
 // sledovacích cookies, písma u nás). Pred zverejnením právne preveriť.
@@ -12,13 +12,14 @@ const { PHONE, MAIL, tel } = require('../common');
 
 const T = {
   de: {
-    title: 'Datenschutzerklärung | punds', desc: 'Datenschutzerklärung von punds.eu: welche Daten wir bei Anfragen verarbeiten, auf welcher Rechtsgrundlage, wie lange und welche Rechte Sie haben.',
+    title: 'Datenschutzerklärung | DANUBRA', desc: 'Datenschutzerklärung von danubra.eu: welche Daten wir bei Anfragen verarbeiten, auf welcher Rechtsgrundlage, wie lange und welche Rechte Sie haben.',
     home: 'Startseite', h1: 'Datenschutzerklärung', sub: 'Stand: Oktober 2026', toc: 'Inhalt',
     warn: 'Entwurf – vor Veröffentlichung rechtlich prüfen.',
     secs: [
       ['Verantwortlicher', [
         'Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:',
         '<b>Partner und Service s. r. o.</b><br>Podzámska 9468/4A, 940 71 Nové Zámky, Slowakische Republik<br>IČO: 57553921 · USt-IdNr.: SK2122816839<br>E-Mail: {MAIL} · Telefon: {PHONE}',
+        'DANUBRA ist eine Marke der Partner und Service s. r. o.',
         'Bei Fragen zum Datenschutz erreichen Sie uns unter den oben genannten Kontaktdaten.']],
       ['Überblick', [
         'Wir verarbeiten personenbezogene Daten nur, soweit dies für den Betrieb dieser Website und die Bearbeitung Ihrer Anfragen erforderlich ist. Wir setzen keine Analyse- oder Werbe-Tools ein, verwenden keine Tracking-Cookies und verkaufen keine Daten.']],
@@ -49,13 +50,14 @@ const T = {
     ],
   },
   en: {
-    title: 'Privacy policy | punds', desc: 'Privacy policy of punds.eu: what data we process for enquiries, on what legal basis, for how long, and what rights you have.',
+    title: 'Privacy policy | DANUBRA', desc: 'Privacy policy of danubra.eu: what data we process for enquiries, on what legal basis, for how long, and what rights you have.',
     home: 'Home', h1: 'Privacy policy', sub: 'Last updated: October 2026', toc: 'Contents',
     warn: 'Draft – legal review required before publication.',
     secs: [
       ['Controller', [
         'The controller responsible for data processing on this website within the meaning of the General Data Protection Regulation (GDPR) is:',
         '<b>Partner und Service s. r. o.</b><br>Podzámska 9468/4A, 940 71 Nové Zámky, Slovak Republic<br>Company ID (IČO): 57553921 · VAT ID: SK2122816839<br>Email: {MAIL} · Phone: {PHONE}',
+        'DANUBRA is a brand of Partner und Service s. r. o.',
         'If you have any questions about data protection, please contact us using the details above.']],
       ['Overview', [
         'We process personal data only to the extent necessary to operate this website and handle your enquiries. We do not use analytics or advertising tools, do not use tracking cookies and do not sell any data.']],

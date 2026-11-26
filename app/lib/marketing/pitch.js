@@ -12,7 +12,7 @@
 //   * tri krátke body (čo robíme v tom remesle, doklady, jeden kontakt),
 //   * oslovenie „Sehr geehrter Herr Müller," / „Sehr geehrte Damen und Herren,".
 //
-// Texty sú vecné a prevzaté z webu punds.eu (web/eu/pages/*.js) — test
+// Texty sú vecné a prevzaté z webu danubra.eu (web/eu/pages/*.js) — test
 // stráži, aby sa od webu nerozišli. Remeslá, ktoré na webe ešte nie sú
 // (obklady, elektro, debnenie, armovanie, murári), majú opis práce, nie
 // sľuby; dajú sa prepísať v Nastaveniach (marketing.presentation.trades).
@@ -133,11 +133,11 @@
   }
 
   /**
-   * Vecné texty o nás (DE). Prevzaté z punds.eu (o nás, remeslá, Impressum);
+   * Vecné texty o nás (DE). Prevzaté z danubra.eu (o nás, remeslá, Impressum);
    * Nastavenia (marketing.presentation) môžu ktorýkoľvek prepísať.
    */
   const TEXT = {
-    about: 'Partner und Service ist ein slowakisches Unternehmen mit Sitz in Nové Zámky. Wir vermitteln erfahrene Handwerker und eingespielte Teams an Bau- und Industrieunternehmen in Deutschland und Österreich, mit vollständigen Unterlagen und einem festen Ansprechpartner.',
+    about: 'DANUBRA ist eine Marke der Partner und Service s. r. o., eines slowakischen Unternehmens mit Sitz in Nové Zámky. Wir vermitteln erfahrene Handwerker und eingespielte Teams an Bau- und Industrieunternehmen in Deutschland und Österreich, mit vollständigen Unterlagen und einem festen Ansprechpartner.',
     whyH: 'Wir kennen jeden Handwerker persönlich.',
     why: 'Jede Fachkraft haben wir vorher persönlich geprüft: Qualifikation, Erfahrung und Zuverlässigkeit.',
     values: [['Geprüfte Qualität', 'Nur Fachkräfte mit nachgewiesener Erfahrung und gültigen Zertifikaten.'],
@@ -156,8 +156,8 @@
     ],
     prices: 'Konditionen nennen wir Ihnen im Angebot – passend zu Gewerk, Teamgröße und Einsatzort.',
     references: '',
-    cta_url: 'https://punds.eu',
-    cta_label: 'Mehr auf punds.eu',
+    cta_url: 'https://danubra.eu',
+    cta_label: 'Mehr auf danubra.eu',
     reply_label: 'Antworten Sie einfach auf diese E-Mail',
   };
 
@@ -335,10 +335,10 @@
     const preheader = `${main.team} aus der Slowakei${reg.name ? ` für ${reg.name}` : ''} – mit vollständigen Unterlagen und einem festen Ansprechpartner.`;
     return {
       lang, trade: main, also, trades: [main, ...also], region: reg, headline, preheader, points, texts: T, words,
-      title: `punds – Ihr Partner für ${main.label}${reg.name ? ` in ${reg.name}` : ''}`,
+      title: `DANUBRA – Ihr Partner für ${main.label}${reg.name ? ` in ${reg.name}` : ''}`,
       salutation: salutation(lead.contact_person, lang),
       cta: { url: T.cta_url, label: T.cta_label, reply: T.reply_label },
-      fileName: `punds-${main.key}${reg.name ? `-${fold(reg.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` : ''}.pdf`,
+      fileName: `danubra-${main.key}${reg.name ? `-${fold(reg.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` : ''}.pdf`,
     };
   }
 

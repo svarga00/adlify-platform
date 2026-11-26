@@ -536,7 +536,7 @@
     },
 
     /**
-     * Automatické e-maily z webov punds.sk / punds.eu: potvrdenie uchádzačovi
+     * Automatické e-maily z webov danubra.sk / danubra.eu: potvrdenie uchádzačovi
      * alebo firme a upozornenie nám. Posiela sa zo zvolenej schránky.
      */
     async webCard() {
@@ -544,18 +544,18 @@
       const w = row.web || {};
       const opts = [['', '— neposielať —'], ...this.rows.filter(b => b.active !== false).map(b => [b.id, `${b.name} <${b.email}>`])];
       return `<div class="card card-pad" style="margin-top:16px;">
-        <div class="card-head"><div class="card-title">E-maily z webov punds.sk a punds.eu${Help.btn('card.mailboxes.web', { size: 13 })}</div></div>
+        <div class="card-head"><div class="card-title">E-maily z webov danubra.sk a danubra.eu${Help.btn('card.mailboxes.web', { size: 13 })}</div></div>
         <p class="card-note" style="margin:0 0 10px;">Keď je zvolená schránka, príde Vám upozornenie na každú prihlášku a dopyt — vždy.
           Potvrdenie odosielateľovi v jeho jazyku sa posiela, len keď je zapnuté. Prihláška sa do appky uloží vždy.</p>
         <form id="web-mail" onsubmit="event.preventDefault();Mbx.saveWeb()">
           ${UI.field('confirm', 'Posielať potvrdenie odosielateľovi (uchádzačovi alebo firme)', { type: 'checkbox', value: !!w.confirm })}
           <div class="form-grid">
-            ${UI.field('mailbox_sk', 'punds.sk — posielať zo schránky', { value: w.mailbox_sk || '', options: opts })}
-            ${UI.field('notify_sk', 'punds.sk — upozornenie na adresu', { type: 'email', value: w.notify_sk || '', placeholder: 'info@punds.sk' })}
-            ${UI.field('mailbox_eu', 'punds.eu — posielať zo schránky', { value: w.mailbox_eu || '', options: opts })}
-            ${UI.field('notify_eu', 'punds.eu — upozornenie na adresu', { type: 'email', value: w.notify_eu || '', placeholder: 'info@punds.eu' })}
-            ${UI.field('contact_eu', 'punds.eu — meno kontaktnej osoby v potvrdení', { value: w.contact_eu || '', placeholder: 'napr. Štefan Varga' })}
-            ${UI.field('phone_eu', 'punds.eu — telefón v potvrdení', { value: w.phone_eu || '', placeholder: '+421 910 523 958' })}
+            ${UI.field('mailbox_sk', 'danubra.sk — posielať zo schránky', { value: w.mailbox_sk || '', options: opts })}
+            ${UI.field('notify_sk', 'danubra.sk — upozornenie na adresu', { type: 'email', value: w.notify_sk || '', placeholder: 'info@danubra.sk' })}
+            ${UI.field('mailbox_eu', 'danubra.eu — posielať zo schránky', { value: w.mailbox_eu || '', options: opts })}
+            ${UI.field('notify_eu', 'danubra.eu — upozornenie na adresu', { type: 'email', value: w.notify_eu || '', placeholder: 'info@danubra.eu' })}
+            ${UI.field('contact_eu', 'danubra.eu — meno kontaktnej osoby v potvrdení', { value: w.contact_eu || '', placeholder: 'napr. Štefan Varga' })}
+            ${UI.field('phone_eu', 'danubra.eu — telefón v potvrdení', { value: w.phone_eu || '', placeholder: '+421 910 523 958' })}
           </div>
           <div class="modal-actions"><button type="submit" class="btn btn-primary">Uložiť</button></div>
         </form></div>`;
@@ -581,9 +581,9 @@
       UI.modal(id ? `Upraviť schránku ${b.email}` : 'Pridať schránku', `<form id="mb-form" onsubmit="event.preventDefault();Mbx.save(${id ? `'${id}'` : ''})">
         <div class="form-grid">
           ${UI.field('preset', 'Hosting', { value: preset, options: Object.entries(P).map(([k, v]) => [k, v.label]) })}
-          ${UI.field('email', 'E-mailová adresa', { value: b.email || '', required: true, placeholder: 'info@punds.eu' })}
+          ${UI.field('email', 'E-mailová adresa', { value: b.email || '', required: true, placeholder: 'info@danubra.eu' })}
           ${UI.field('name', 'Názov v appke', { value: b.name || '', placeholder: 'napr. Info, Fakturácia' })}
-          ${UI.field('display_name', 'Meno odosielateľa', { value: b.display_name || '', placeholder: 'Partner und Service s. r. o.' })}
+          ${UI.field('display_name', 'Meno odosielateľa', { value: b.display_name || '', placeholder: 'DANUBRA' })}
           ${UI.field('password', id ? 'Heslo (prázdne = nemeniť)' : 'Heslo schránky', { type: 'password', required: !id })}
           ${UI.field('username', 'Prihlasovacie meno (ak nie je e-mail)', { value: b.username && b.username !== b.email ? b.username : '' })}
         </div>
@@ -597,13 +597,13 @@
         <div class="form-section">Podpis</div>
         ${(() => { const c = b.signature_card || {}; return `
         <div class="form-grid">
-          <div class="fld-full">${UI.field('sig_enabled', 'Grafický podpis punds (logo, meno, kontakty)', { type: 'checkbox', value: !!c.enabled })}</div>
+          <div class="fld-full">${UI.field('sig_enabled', 'Grafický podpis DANUBRA (logo, meno, kontakty)', { type: 'checkbox', value: !!c.enabled })}</div>
           ${UI.field('sig_name', 'Meno', { value: c.name || '', placeholder: 'Štefan Varga' })}
           ${UI.field('sig_role', 'Funkcia', { value: c.role || '', placeholder: 'Koordinátor projektov' })}
           ${UI.field('sig_phone', 'Telefón', { value: c.phone || '', placeholder: '+421 910 523 858' })}
-          ${UI.field('sig_lang', 'Jazyk podpisu', { value: c.lang || 'sk', options: [['sk', 'Slovensky (punds.sk)'], ['de', 'Nemecky (punds.eu)']] })}
+          ${UI.field('sig_lang', 'Jazyk podpisu', { value: c.lang || 'sk', options: [['sk', 'Slovensky (danubra.sk)'], ['de', 'Nemecky (danubra.eu)']] })}
           ${UI.field('sig_cta_label', 'Odkaz pod podpisom (text)', { value: c.cta_label || '', placeholder: 'prázdne = podľa jazyka' })}
-          ${UI.field('sig_cta_url', 'Odkaz pod podpisom (adresa)', { value: c.cta_url || '', placeholder: 'https://punds.sk' })}
+          ${UI.field('sig_cta_url', 'Odkaz pod podpisom (adresa)', { value: c.cta_url || '', placeholder: 'https://danubra.sk' })}
           <div class="sig-preview fld-full" id="sig-preview"></div>
           <div class="fld-full">${UI.field('signature', 'Vlastný textový podpis (namiesto grafického)', { type: 'textarea', rows: 4, value: b.signature || '',
             placeholder: 'Prázdne = z grafického podpisu. Text sa použije v textovej verzii e-mailu.' })}</div>
@@ -631,7 +631,7 @@
         const d = UI.formData(f);
         const box = document.getElementById('sig-preview');
         if (!box) return;
-        const mb = { email: d.email || 'info@punds.eu', signature_card: this.cardOf(d) };
+        const mb = { email: d.email || 'info@danubra.eu', signature_card: this.cardOf(d) };
         box.innerHTML = mb.signature_card.enabled && mb.signature_card.name
           ? `<div class="sig-frame">${MM().sigHtml(mb, `${location.origin}/web/public`)}</div>` : '';
       };

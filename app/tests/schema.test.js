@@ -178,12 +178,121 @@ t('appka si nepýta nič, čo v databáze nie je', problems.length === 0);
   t('obdobie s faktúrou sa neotvorí späť', /create trigger danubra_period_reopen_guard/.test(m));
   t('príjem sa spáruje len pri sedí aj suma, nie len VS',
     /abs\(coalesce\(i\.amount_net, i\.total\) - tx\.amount\) <= 0\.01/.test(m));
-  // Neskoršia migrácia by funkciu mohla prepísať starou verziou.
+  // Neskoršia migrácia by funkciu mohla prepísať starou verziou. Číslovanie
+  // zámerne prepisuje 094 (formát z nastavení) — tá sa stráži nižšie.
   const neskorsie = fs.readdirSync(migDir).filter(x => x.endsWith('.sql') && parseInt(x, 10) > 70)
-    .filter(x => /function danubra_(next_number|invoice_from_period|bank_automatch)\b/
-      .test(fs.readFileSync(path.join(migDir, x), 'utf8')));
-  t('žiadna neskoršia migrácia neprepisuje číslovanie, faktúru z obdobia ani párovanie',
-    neskorsie.length === 0);
+    .filter(x => {
+      const txt = fs.readFileSync(path.join(migDir, x), 'utf8');
+      if (/function danubra_bank_automatch\b/.test(txt) && !x.startsWith('095_')) return true;
+      // 095 zámerne vypína automatickú zrážku §48b — stráži sa nižšie.
+      if (/function danubra_invoice_from_period\b/.test(txt) && !x.startsWith('095_')) return true;
+      return /function danubra_next_number\b/.test(txt) && !x.startsWith('094_');
+    });
+  t('žiadna neskoršia migrácia neprepisuje číslovanie (okrem 094), faktúru z obdobia (okrem 095) ani párovanie',
+    neskorsie.length === 0, neskorsie.join(', '));
+
+  // 095: faktúra z obdobia bez automatickej zrážky — zámok, centy a číslo ostali.
+  const f95 = path.join(migDir, '095_faktura_upravy.sql');
+  const m95 = fs.existsSync(f95) ? fs.readFileSync(f95, 'utf8') : '';
+  t('095: faktúra z obdobia stále zamkne obdobie, zaokrúhli na centy a vezme číslo z radu',
+    /from danubra_periods where id = p_period_id for update/.test(m95)
+    && /round\(coalesce\(per\.amount_charged, 0\), 2\)/.test(m95)
+    && /danubra_next_number\('invoice'\)/.test(m95)
+    && /status <> 'cancelled'/.test(m95));
+  t('095: párovanie platieb stále páruje len pri sedí aj suma a berie VS z faktúry',
+    /abs\(coalesce\(i\.amount_net, i\.total\) - tx\.amount\) <= 0\.01/.test(m95)
+    && /coalesce\(nullif\(i\.variable_symbol, ''\)/.test(m95));
+  t('095: schválená faktúra nemení ani číslo a VS',
+    /new\.invoice_number is distinct from old\.invoice_number/.test(m95)
+    && /new\.variable_symbol is distinct from old\.variable_symbol/.test(m95));
+  t('095: zrážka §48b sa nedáva sama (0, 0, celá suma)',
+    /'draft',\s*0, 0, v_amount\s*\)/.test(m95) && !/withholding_pct'\)::numeric/.test(m95));
+}
+
+// ── Číselné rady (migrácia 094) ─────────────────────────────────────────────
+// Overené na skutočnom Postgres 16 pri písaní migrácie (pridelenie, preskočenie
+// obsadeného čísla, nový rok, nižšie číslo, kolízia, kód iného radu, práva).
+{
+  const f = path.join(migDir, '094_ciselne_rady.sql');
+  const m = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  const fn = (name) => { const i = m.indexOf(`create or replace function ${name}(`); return i < 0 ? '' : m.slice(i, m.indexOf('$$;', m.indexOf('$$', i) + 2)); };
+  t('094: číslo sa doplní nulami, nikdy sa neoreže (lpad s greatest)',
+    /lpad\(v_seq, greatest\(v_digits, length\(v_seq\)\), '0'\)/.test(fn('danubra_series_format')));
+  t('094: pridelenie je atomické (FOR UPDATE nad riadkom nastavení)',
+    /from danubra_settings order by created_at limit 1 for update/.test(fn('danubra_series_take')));
+  t('094: číslo si vypýta len člen appky, faktúru za živnostníka nie',
+    /if not danubra_is_member\(\)/.test(fn('danubra_next_number')) && /p_kind = 'self_bill'/.test(fn('danubra_next_number')));
+  t('094: rad mení len admin a nižšie než použité číslo odmietne',
+    /if not danubra_is_admin\(\)/.test(fn('danubra_set_series')) && /if p_next <= v_used then/.test(fn('danubra_set_series')));
+  t('094: zmena radu kontroluje číslo iného dokladu a kód iného radu',
+    /danubra_number_taken\(p_kind, v_number\)/.test(fn('danubra_set_series')) && /Každý druh dokladu potrebuje vlastný kód/.test(fn('danubra_set_series')));
+  t('094: zmena radu sa zapíše do histórie', /insert into danubra_activities/.test(fn('danubra_set_series')));
+  t('094: obsadené číslo sa preskočí (aj ručne zapísané alebo vzorové)',
+    /exit when not danubra_number_taken\(p_kind, number\)/.test(fn('danubra_series_next')));
+  t('094: s rokom v čísle sa rad v januári vynuluje, bez roka nie',
+    /v_fmt->>'year_style' <> 'none' and coalesce\(\(p_series->>'year'\)::int, 0\) <> p_year/.test(fn('danubra_series_next')));
+  t('094: variabilný symbol najviac 10 číslic', /length\(v_vs\) > 10/.test(fn('danubra_set_series')));
+  t('094: priamy zápis do radov stráži spúšťač',
+    /create trigger danubra_settings_series_guard before update on danubra_settings/.test(m));
+  t('094: kontrola duplicity pozná všetky tabuľky dokladov',
+    ['danubra_invoices', 'danubra_orders', 'danubra_work_orders', 'danubra_subcontracts', 'danubra_quotes',
+      'danubra_contracts', 'danubra_contract_amendments', 'danubra_worker_documents', 'danubra_bills']
+      .every(tb => fn('danubra_number_taken').includes(tb)));
+  t('094: rad faktúr od 1 len bez iných než vzorových faktúr v roku',
+    /invoice_number not ilike '%VZOR%'/.test(m) && /if v_real = 0 then/.test(m));
+  t('094: anonymný nesmie volať nič z číselných radov',
+    /revoke execute on function %s from public, anon/.test(m));
+  // Kódy druhov v SQL a v lib/numbering.js musia sedieť (náhľad = skutočné číslo).
+  const N = require(path.join(root, 'lib', 'numbering.js'));
+  const sqlCodes = Object.fromEntries([...fn('danubra_series_defaults').matchAll(/when '(\w+)' then '(\d{2})'/g)].map(x => [x[1], x[2]]));
+  t('094: kódy druhov dokladov sú v SQL aj v appke rovnaké',
+    N.SERIES.every(s => sqlCodes[s.kind] === s.defaults.code) && Object.keys(sqlCodes).length === N.SERIES.length);
+  t('094: kódy druhov sú jedinečné', new Set(Object.values(sqlCodes)).size === Object.keys(sqlCodes).length);
+  const kinds = (fn('danubra_series_kinds').match(/array\[([^\]]+)\]/) || [, ''])[1].match(/'(\w+)'/g) || [];
+  t('094: zoznam radov v SQL = zoznam v appke', kinds.map(k => k.replace(/'/g, '')).sort().join() === N.SERIES.map(s => s.kind).sort().join());
+}
+
+// ── Zmluvy a fakturácia podľa šablón (migrácia 096) ─────────────────────────
+// Overené na lokálnom Postgres 16 (všetky migrácie 001–096 na prázdnej
+// databáze): poradie objednávok v rade živnostníka, faktúra za 2 KW,
+// odmietnutie prekrytia, idempotencia.
+{
+  const f = path.join(migDir, '096_zmluvy_podla_sablon.sql');
+  const m = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  const fn = (name) => { const i = m.indexOf(`create or replace function ${name}(`); return i < 0 ? '' : m.slice(i, m.indexOf('$$;', m.indexOf('$$', i) + 2)); };
+  const has = (t, c) => schema.has(t) && schema.get(t).has(c);
+  t('096: nastavenia majú stĺpce subcontract a framework_de (Nastavenia do nich zapisujú)',
+    has('danubra_settings', 'subcontract') && has('danubra_settings', 'framework_de'));
+  t('096: staré predvolené sumy sa prepíšu na šablónu len pri presnej zhode (250 → 300, 2500 → 3000, 14 → 7)',
+    /'\{"pokuta_omeskanie_den": 300\}'::jsonb\s*where \(subcontract->>'pokuta_omeskanie_den'\)::numeric = 250/.test(m)
+    && /'\{"pokuta_nenastupenie": 3000\}'::jsonb\s*where \(subcontract->>'pokuta_nenastupenie'\)::numeric = 2500/.test(m)
+    && /'\{"fakturacia_dni": 7\}'::jsonb\s*where \(framework_de->>'fakturacia_dni'\)::numeric = 14/.test(m));
+  t('096: odberateľ má údaje do Rahmenvertrag a dĺžku obdobia (predvolene 7 dní)',
+    ['register', 'tax_number', 'statutory_body', 'representative', 'invoice_email', 'billing_period_days'].every(c => has('danubra_partners', c))
+    && /billing_period_days int not null default 7/.test(m));
+  t('096: nový odberateľ má splatnosť 7 dní (Rahmenvertrag čl. III bod 2), existujúcim sa nemení',
+    /alter column payment_terms_days set default 7/.test(m) && !/update danubra_partners/.test(m));
+  t('096: objednávka má poradie, činnosť, miesta, počet ľudí a rozsah hodín',
+    ['seq_no', 'activity', 'places', 'headcount', 'hours_week_min', 'hours_week_max', 'scope_de', 'notes_de'].every(c => has('danubra_work_orders', c)));
+  t('096: poradie č. N v rade živnostníka (worker_id), Nr. N v rade odberateľa (partner_id), so zámkom',
+    /case when new\.kind = 'worker' then new\.worker_id else new\.partner_id end/.test(fn('danubra_work_order_seq'))
+    && /pg_advisory_xact_lock/.test(fn('danubra_work_order_seq'))
+    && /create trigger danubra_work_order_seq_trg before insert on danubra_work_orders/.test(m)
+    && /on danubra_work_orders \(worker_id, seq_no\) where kind = 'worker'/.test(m)
+    && /on danubra_work_orders \(partner_id, seq_no\) where kind = 'customer'/.test(m));
+  t('096: existujúce objednávky dostanú poradie podľa dátumu založenia',
+    /partition by w\.kind, coalesce\(w\.worker_id, w\.partner_id\)\s*order by w\.created_at, w\.id/.test(m));
+  t('096: živnostník má zápis v ŽR, SWIFT a činnosť', ['trade_register', 'bank_bic', 'activity'].every(c => has('danubra_workers', c)));
+  t('096: kontrola faktúry ráta hodiny zo všetkých jej období (period_ids)',
+    has('danubra_bills', 'period_ids') && /t\.period_id = any \(v_periods\)/.test(fn('danubra_bill_check'))
+    && /new\.status := 'disputed'/.test(fn('danubra_bill_check')) && /Schváliť sa dá len s poznámkou/.test(fn('danubra_bill_check')));
+  t('096: faktúra za 2 KW len z uzavretých období jednej zákazky, s dohodou a nie pre platiteľa DPH',
+    /dve stavby sú dve faktúry/.test(fn('danubra_self_bill_draft_kw')) && /v_open > 0/.test(fn('danubra_self_bill_draft_kw'))
+    && /self_billing, false/.test(fn('danubra_self_bill_draft_kw')) && /vat_payer, false/.test(fn('danubra_self_bill_draft_kw')));
+  t('096: to isté obdobie nemá dve faktúry za živnostníka (ani cez 2 KW)',
+    /&& v_mine/.test(fn('danubra_self_bill_overlap_guard')) && /create trigger danubra_self_bill_overlap_trg/.test(m));
+  t('096: anonymný nesmie volať faktúru za 2 KW',
+    /revoke execute on function danubra_self_bill_draft_kw\(uuid\[\], uuid\) from public, anon/.test(m));
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);

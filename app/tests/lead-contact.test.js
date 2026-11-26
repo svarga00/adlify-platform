@@ -39,16 +39,16 @@ const fn = require(FN);
 function base(over = {}) {
   return {
     danubra_members: [
-      { id: 'm1', user_id: 'u-admin', role: 'admin', active: true, full_name: 'Štefan Varga', email: 'stefan@punds.eu' },
-      { id: 'm2', user_id: 'u-rec', role: 'recruiter', active: true, full_name: 'Nábor', email: 'nabor@punds.eu' },
-      { id: 'm3', user_id: 'u-mkt', role: 'recruiter', active: true, modules: ['marketing'], full_name: 'Jana Kováčová', email: 'jana@punds.eu' }],
+      { id: 'm1', user_id: 'u-admin', role: 'admin', active: true, full_name: 'Štefan Varga', email: 'stefan@danubra.eu' },
+      { id: 'm2', user_id: 'u-rec', role: 'recruiter', active: true, full_name: 'Nábor', email: 'nabor@danubra.eu' },
+      { id: 'm3', user_id: 'u-mkt', role: 'recruiter', active: true, modules: ['marketing'], full_name: 'Jana Kováčová', email: 'jana@danubra.eu' }],
     danubra_leads: [{ id: 'l1', name: 'Müller Bau GmbH', city: 'Ulm', phone: null, contact_person: null, status: 'contacted', archived_at: null }],
     danubra_lead_contacts: [], danubra_tasks: [], danubra_outreach: [{ id: 'o1', lead_id: 'l1', status: 'sent', next_followup_at: '2026-11-04T09:00:00Z' }],
     ...over,
   };
 }
 function reset(db, opts = {}) {
-  holder.sb = F.create(db, { users: { admin: { id: 'u-admin', email: 'stefan@punds.eu' }, rec: { id: 'u-rec' }, mkt: { id: 'u-mkt' } }, ...opts });
+  holder.sb = F.create(db, { users: { admin: { id: 'u-admin', email: 'stefan@danubra.eu' }, rec: { id: 'u-rec' }, mkt: { id: 'u-mkt' } }, ...opts });
   return holder.sb;
 }
 const call = async (body, jwt = 'admin') => {

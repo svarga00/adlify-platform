@@ -125,7 +125,7 @@
     return [
       'Prečítaj priložený týždenný výkaz hodín (Stundennachweis) a zapíš ho cez nástroj stundennachweis.',
       '',
-      'O čo ide: firma Partner und Service s. r. o. posiela živnostníkov zo Slovenska a Maďarska na stavby',
+      'O čo ide: naša firma (značka DANUBRA) posiela živnostníkov zo Slovenska a Maďarska na stavby',
       'v Nemecku. Každý týždeň si na tento papier rukou píšu hodiny a nemecký majster (Kunde) ho',
       'podpíše. Z neho sa fakturuje — každá hodina je peniaz, preto presnosť je dôležitejšia než úplnosť.',
       'List môže byť za celú partiu (viac mien) alebo za jedného človeka.',
@@ -854,7 +854,76 @@
     return { writes, locked, missing };
   }
 
+  // ── Ku ktorej zákazke list patrí ──────────────────────────────────────────
+  // „Ideálne by bolo, keby si to celé rozpoznal a rovno priradil." Na liste je
+  // rukou napísaná stavba („BACK STRASSE, STAUBING"), odberateľ a mená ľudí.
+  // Zákazka sa hľadá podľa všetkých troch: slová stavby v názve, mieste a meste
+  // zákazky, slová odberateľa v jeho mene a koľko ľudí z listu je na zákazke
+  // nasadených. Rukopis sa číta s chybami (STAUBING = Straubing), preto sa
+  // slová porovnávajú aj približne.
+  const SITE_STOP = new Set(['gmbh', 'ag', 'kg', 'co', 'und', 'the', 'der', 'die', 'das', 'bau', 'strasse', 'str', 'baustelle',
+    'projekt', 'kunde', 'sro', 'spol', 'von', 'am', 'im', 'in']);
+  const siteWords = (v) => fold(v).replace(/ß/g, 'ss').split(/[^a-z0-9]+/).filter((x) => x.length >= 3 && !SITE_STOP.has(x));
+  /** Podobnosť dvoch slov 0–1 (Levenshtein vzhľadom na dĺžku). */
+  function wordSim(a, b) {
+    if (a === b) return 1;
+    if (a.length < 4 || b.length < 4) return 0;
+    if (a.includes(b) || b.includes(a)) return 0.85;
+    const m = a.length, n = b.length;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    const sim = 1 - prev[n] / Math.max(m, n);
+    return sim >= 0.72 ? sim : 0;
+  }
+  /** Koľko zo slov `needle` sa nájde v `hay` (0–1). */
+  function wordsHit(needle, hay) {
+    const a = siteWords(needle), b = siteWords(hay);
+    if (!a.length || !b.length) return 0;
+    const sims = a.map((x) => Math.max(0, ...b.map((y) => wordSim(x, y))));
+    // Jedno jasne zhodné slovo (mesto) váži viac než priemer — zvyšok riadku
+    // býva ulica napísaná rukou, ktorú v zákazke nikto nemá.
+    return Math.max(sims.reduce((s, x) => s + x, 0) / a.length, 0.7 * Math.max(...sims));
+  }
+
+  /**
+   * @param {Object} sheet  prečítaný list (site, customer, project, rows, kw_from)
+   * @param {Object} o      { subcontracts, partners, assignments, workers }
+   * @returns {{ id, score, sure, why: string[], candidates: [{ id, score }] }}
+   *   `sure` = prvá zákazka je jasne lepšia než druhá; inak má vybrať človek.
+   */
+  function pickSubcontract(sheet, o = {}) {
+    const subs = (o.subcontracts || []).filter((x) => x && x.id);
+    const partnerOf = new Map((o.partners || []).map((p) => [p.id, p]));
+    const matched = matchWorkers((sheet && sheet.rows) || [], o.workers || []).map((r) => r.worker_id).filter(Boolean);
+    const day = (sheet && sheet.kw_from) || null;
+    const end = day ? addDays(day, 6) : null;
+    const scored = subs.map((sc) => {
+      const why = [];
+      const p = partnerOf.get(sc.partner_id);
+      const place = [sc.title, sc.site_name, sc.site_city, sc.contract_number].filter(Boolean).join(' ');
+      const site = Math.max(wordsHit(sheet && sheet.site, place), wordsHit(sheet && sheet.project, place));
+      if (site >= 0.4) why.push('stavba');
+      const cust = p ? wordsHit(sheet && sheet.customer, p.name) : 0;
+      if (cust >= 0.5) why.push('odberateľ');
+      const on = new Set((o.assignments || []).filter((a) => a.subcontract_id === sc.id && a.status !== 'cancelled'
+        && (!day || ((!a.date_from || String(a.date_from).slice(0, 10) <= end) && (!a.date_to || String(a.date_to).slice(0, 10) >= day))))
+        .map((a) => a.worker_id));
+      const people = matched.length ? matched.filter((id) => on.has(id)).length / matched.length : 0;
+      if (people >= 0.5) why.push('ľudia');
+      const live = ['active', 'won'].includes(sc.status) ? 0.05 : 0;
+      return { id: sc.id, score: Math.round((site * 0.45 + cust * 0.2 + people * 0.35 + live) * 1000) / 1000, why };
+    }).sort((a, b) => b.score - a.score);
+    const top = scored[0], second = scored[1];
+    const sure = !!top && top.score >= 0.3 && (!second || top.score - second.score >= 0.1);
+    return { id: top && top.score >= 0.3 ? top.id : null, score: top ? top.score : 0, sure, why: top ? top.why : [], candidates: scored.slice(0, 3) };
+  }
+
   const API = {
+    pickSubcontract,
     pickSheet, sheetSnapshot, planWeek, cellMinutes, gridRowsOf, isGridRow, spanTimes,
     TOOL, instructions, normalize, matchWorkers, check, toTimesheets,
     minutesFrom, parseHours, parsePause, parseTime, parseDate, nameScore,

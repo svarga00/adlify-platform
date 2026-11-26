@@ -28,7 +28,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -82,18 +82,18 @@ const DATA = {
     { id: 't2', title: 'Pripomenúť faktúru', status: 'open', due_date: DNES, entity_type: 'partner', entity_id: 'p1', entity_label: 'GU Ulm GmbH', source: 'manual' },
     { id: 't3', title: 'Doklady pre Jána', status: 'open', due_date: DNES, entity_type: 'worker', entity_id: 'w1', entity_label: 'Ján Kováčik', source: 'manual' },
   ],
-  mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', active: true, last_sync_at: new Date().toISOString() }],
+  mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', active: true, last_sync_at: new Date().toISOString() }],
   mail_messages: [
-    { id: 'm1', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'hans@gu-ulm.de', from_name: 'Hans Gruber', to_list: [{ address: 'info@punds.eu' }], cc_list: [],
+    { id: 'm1', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'hans@gu-ulm.de', from_name: 'Hans Gruber', to_list: [{ address: 'info@danubra.eu' }], cc_list: [],
       subject: 'Angebot Wohnpark', sent_at: new Date().toISOString(), snippet: 'Guten Tag', seen: false, attachments: [], partner_id: 'p1', text_body: 'Guten Tag' },
-    { id: 'm2', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'peter.novak77@gmail.com', from_name: 'Peter Novák', to_list: [{ address: 'info@punds.eu' }], cc_list: [],
+    { id: 'm2', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'peter.novak77@gmail.com', from_name: 'Peter Novák', to_list: [{ address: 'info@danubra.eu' }], cc_list: [],
       subject: 'Práca', sent_at: new Date().toISOString(), snippet: 'Dobrý deň', seen: true, attachments: [], text_body: 'Dobrý deň' },
-    { id: 'm3', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'anfrage@bau-pasing.de', from_name: 'Bau Pasing', to_list: [{ address: 'info@punds.eu' }], cc_list: [],
+    { id: 'm3', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'anfrage@bau-pasing.de', from_name: 'Bau Pasing', to_list: [{ address: 'info@danubra.eu' }], cc_list: [],
       subject: 'Anfrage Trockenbau', sent_at: new Date().toISOString(), snippet: 'Hallo', seen: true, attachments: [], text_body: 'Hallo' },
-    { id: 'm4', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'kontakt@neznama-firma.de', from_name: 'Neznáma Firma', to_list: [{ address: 'info@punds.eu' }], cc_list: [],
+    { id: 'm4', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'kontakt@neznama-firma.de', from_name: 'Neznáma Firma', to_list: [{ address: 'info@danubra.eu' }], cc_list: [],
       subject: 'Dotaz', sent_at: new Date().toISOString(), snippet: 'Hallo', seen: true, attachments: [], text_body: 'Hallo' },
   ],
-  members: [{ id: 'u0', user_id: 'uid-0', email: 'stefan@punds.eu', full_name: 'Štefan', role: 'admin', active: true }],
+  members: [{ id: 'u0', user_id: 'uid-0', email: 'stefan@danubra.eu', full_name: 'Štefan', role: 'admin', active: true }],
   workers: [{ id: 'w1', full_name: 'Ján Kováčik' }],
   subcontracts: [], outreach_events: [], email_optout: [], message_templates: [], lead_contacts: [], lead_searches: [], lead_tips: [], mailbox_access: [], trades: [],
   settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' }, marketing: { outreach: { daily_limit: 30 } } }],
@@ -133,7 +133,7 @@ async function setup(page, base) {
     const ROWS = { danubra_partners: DATA.partners, danubra_invoices: DATA.invoices };
     DB.from = (t) => { const k = t.startsWith('danubra_') ? t : `danubra_${t}`; const b = { select() { return b; }, limit() { return Promise.resolve({ data: ROWS[k] || [], error: null }); } }; return b; };
     window.fetch = async () => new Response('{}', { status: 200 });
-    Danubra.user = { id: 'uid-0', email: 'stefan@punds.eu' };
+    Danubra.user = { id: 'uid-0', email: 'stefan@danubra.eu' };
     Danubra.me = { id: 'u0', user_id: 'uid-0', role: 'admin', active: true, full_name: 'Štefan' }; Danubra.members = DATA.members;
     Danubra.cfgRow = DATA.settings[0];
     document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;

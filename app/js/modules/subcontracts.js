@@ -72,7 +72,7 @@
         DB.list('v_worker_stay', { limit: 2000 }),
         // Faktúry: bez nich sa nedá povedať, že uzavreté obdobie nikto
         // nevyfakturoval — a to je najtichšia diera v celom reťazci.
-        DB.list('invoices', { select: 'id,subcontract_id,period_id,status,total,due_date', limit: 1000 }),
+        DB.list('invoices', { select: 'id,subcontract_id,period_id,status,total,due_date,invoice_number,issue_date', limit: 1000 }),
       ]);
       // Pre sedem krokov: z dopytu počet ľudí, zmluva s Nemcom a objednávky.
       // Keď niektorá tabuľka nie je dostupná (právo), krok len nepovie viac.
@@ -83,6 +83,9 @@
         // Záznamy o predĺžení / zmene konca nasadení a zákaziek (migrácia 074).
         DB.list('assignment_extensions', { order: { column: 'created_at', ascending: false }, limit: 3000 }),
       ]);
+      // Skeny podpísaných výkazov — sú uložené k zákazke a týždňu.
+      const hs = await DB.list('hour_sheets', { select: 'id,subcontract_id,iso_year,iso_week,storage_path,signed_at,total_hours', limit: 3000 });
+      this.sheets = (hs && hs.data) || [];
       this.extensions = (ext && ext.data) || [];
       this.opportunities = (op && op.data) || [];
       this.contracts = (con && con.data) || [];
@@ -329,21 +332,24 @@
             render: (r) => `<span class="dl-title"><b>${UI.esc(r.title)}</b>${
               r.sc.contract_number || r.city ? `<small>${[r.sc.contract_number, r.city].filter(Boolean).map(UI.esc).join(' · ')}</small>` : ''}</span>`,
             sortValue: (r) => r.title, sortLabel: 'Názov' },
-          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(124px, 1fr)',
+          { key: 'odberatel', label: 'Odberateľ', width: 'minmax(124px, 1.4fr)',
             render: (r) => (r.partnerId ? Danubra.link('partner', r.partnerId, r.partner) : ''),
             sortValue: (r) => r.partner },
           { key: 'stav', label: 'Stav', width: '88px', mobile: 'badge',
             render: (r) => this.badge(r.sc.status), sortValue: (r) => statusIdx(r.sc.status) },
-          { key: 'typ', label: 'Typ prác', width: '84px', hideBelow: 1000,
+          // Typ prác a podmienky vyslania sú v základe skryté (panel Stĺpce ich
+          // vráti): v riadku ostáva to, podľa čoho sa rozhoduje — kto, koľko
+          // ľudí, dokedy a čo chýba.
+          { key: 'typ', label: 'Typ prác', width: '84px', hideBelow: 1000, hidden: true,
             render: (r) => (shortType[r.sc.work_type]
               ? `<span class="dl-tag" title="${UI.esc(this.typeLabel(r.sc.work_type))}">${Icon(r.sc.work_type === 'construction' ? 'site' : 'wrench', 14)}${shortType[r.sc.work_type]}</span>` : ''),
             sortValue: (r) => this.typeLabel(r.sc.work_type) },
           // Ľudia a sadzba v jednom stĺpci: dva krátke čísla vedľa seba by
           // zobrali miesto názvu zákazky a vete, čo chýba.
-          { key: 'ludia', label: 'Ľudia', width: '76px', mobileLabel: 'Ľudia',
+          { key: 'ludia', label: 'Ľudia', width: '132px', mobileLabel: 'Ľudia',
             tip: 'Hore nasadení / koľko treba (z dopytu), dole sadzba pre odberateľa za hodinu.',
             render: (r) => `<span class="dl-two"><span class="dl-num" title="Nasadených ${r.people}${
-              r.need ? ` z ${r.need} potrebných` : ''}"><b${r.need && r.people < r.need ? ' class="is-short"' : ''}>${
+              r.need ? ` z ${r.need} potrebných` : ''}">${UI.heads(r.people, r.need, { max: 5 })}<b${r.need && r.people < r.need ? ' class="is-short"' : ''}>${
               r.people}</b>${r.need ? ` / ${r.need}` : ''}</span>${
               Number(r.sc.charge_rate) ? `<small class="dl-num">${rate(r.sc.charge_rate)}</small>` : ''}</span>`,
             sortValue: (r) => r.people, sortDir: -1, sortLabel: 'Počet ľudí' },
@@ -359,7 +365,7 @@
             // Čo horí hore, potom čo má problém, potom podľa kroku; uzavreté na koniec.
             sortValue: (r) => [r.closed ? 1 : 0, r.hot ? 0 : 1, r.problem ? 0 : 1, r.step || 8, r.title],
             sortLabel: 'Čo horí (krok)' },
-          { key: 'podmienky', label: 'Podmienky', width: '98px',
+          { key: 'podmienky', label: 'Podmienky', width: '98px', hidden: true,
             tip: 'Podmienky vyslania: A1, hlásenie Zoll, SOKA-BAU, USt-IdNr odberateľa. Ukážte myšou na štítok — povie, čo chýba.',
             render: condCell, sortValue: (r) => (r.closed ? null : r.chk.ok ? 0 : r.chk.blockers.length), sortDir: -1 },
         ],
@@ -489,7 +495,10 @@
       // Pri každom je jedna veta, čo chýba, a otvorí sa ten, ktorý je na rade.
       const job = this.jobSteps(sc);
       const nxt = DanubraJob.next(job, sc);
-      const open = this.step === undefined ? (nxt.key || null) : this.step;
+      // Kroky sú v základe zbalené — sedem riadkov, z ktorých je hneď vidno,
+      // kde zákazka stojí. Krok, ktorý je na rade, otvorí tlačidlo „Ukázať"
+      // v páse nad nimi; rozbalený by obrazovku hneď zaplnil zoznamom podmienok.
+      const open = this.step === undefined ? null : this.step;
       this._openNow = open;
       const pr = DanubraJob.progress(job);
       const ctx = { sc, p, asg, chk, eco, port, complianceHtml, rows, job };
@@ -523,6 +532,8 @@
           </select>
         </div>
 
+        ${this.overviewHtml(sc, ctx)}
+
         <div class="js-now${nxt.state === 'bad' ? ' is-bad' : nxt.key ? '' : ' is-calm'}">
           <div class="js-now-txt">
             <span>${nxt.key ? `Teraz · krok ${nxt.n} zo 7` : `Hotových ${pr.done} zo 7`}</span>
@@ -550,6 +561,145 @@
 
       // Mapa sa kreslí až po vložení HTML — Leaflet potrebuje prvok v strome.
       this.renderMap(sc);
+    },
+
+    // ── Prehľad zákazky ───────────────────────────────────────────────────
+    // „Modul zákazky by som spravil podrobnejšie a prehľadnejšie, aby bolo
+    // všetko medzi sebou prepojené." Nad siedmimi krokmi je preto jedna
+    // karta: hore fakty (kto, kde, dokedy, koľko ľudí, za koľko) a pod nimi
+    // všetko, čo so zákazkou súvisí — a na každú vec sa dá kliknúť. Kroky
+    // pod tým hovoria, čo treba **spraviť**; prehľad hovorí, čo zákazka **je**.
+    overviewHtml(sc, c) {
+      const today = Danubra._dayISO();
+      const p = c.p;
+      const asg = c.asg.filter(a => a.status !== 'cancelled');
+      const lud = c.job.find(x => x.key === 'ludia') || {};
+      const need = lud.need || null;
+      const fact = (label, value, sub, tone) => (value == null || value === '' ? '' : `<div class="so-fact">
+        <span class="so-l">${label}</span><b${tone ? ` class="t-${tone}"` : ''}>${value}</b>${sub ? `<small>${sub}</small>` : ''}</div>`);
+
+      // Termín a koľko z neho ostáva.
+      const D = window.DanubraDataList;
+      const left = sc.date_to && D ? D.daysBetween(today, String(sc.date_to).slice(0, 10)) : null;
+      const toStart = sc.date_from && D ? D.daysBetween(today, String(sc.date_from).slice(0, 10)) : null;
+      const closed = ['completed', 'lost', 'cancelled'].includes(sc.status);
+      const dni = (n) => `${n} ${Shell.plural(n, 'deň', 'dni', 'dní')}`;
+      const kedy = closed ? '' : toStart != null && toStart > 0 ? `začína o ${dni(toStart)}`
+        : left == null ? '' : left < 0 ? `po termíne ${dni(-left)}` : left === 0 ? 'končí dnes' : `ešte ${dni(left)}`;
+      const kedyTone = !closed && left != null && left < 0 ? 'bad' : (!closed && left != null && left <= 14 && !(toStart > 0) ? 'watch' : '');
+
+      // Peniaze: čo je vyfakturované, čo prišlo, čo je po splatnosti.
+      const inv = (this.invoices || []).filter(i => i.subcontract_id === sc.id && !['cancelled', 'void'].includes(i.status));
+      const num = (x) => Number(x) || 0;
+      const issued = inv.filter(i => !['draft', 'draft_pending_approval', 'pending_approval'].includes(i.status));
+      const paid = issued.filter(i => i.status === 'paid');
+      const overdue = issued.filter(i => i.status !== 'paid' && i.due_date && String(i.due_date).slice(0, 10) < today);
+      const sum = (xs) => xs.reduce((n, i) => n + num(i.total), 0);
+      const money = Danubra.can('invoices');
+
+      // Hodiny: koľko je zapísaných a koľko čaká na schválenie.
+      const ts = this.timesheetsOf(sc.id);
+      const hours = ts.reduce((n, t) => n + num(t.hours), 0);
+      const unapproved = ts.filter(t => !t.approved).length;
+
+      const facts = [
+        fact('Odberateľ', p ? Danubra.link('partner', p.id, p.name) : '<span class="so-miss">chýba</span>',
+          p ? UI.esc([p.city, p.country].filter(Boolean).join(', ')) : 'Bez odberateľa sa nedá fakturovať.'),
+        fact('Miesto', UI.esc([sc.site_name, sc.site_city].filter(Boolean).join(', ')) || '<span class="so-miss">nezadané</span>',
+          UI.esc([this.typeLabel(sc.work_type), sc.trade].filter(Boolean).join(' · '))),
+        fact('Termín', sc.date_from ? UI.esc(UI.dateRange(sc.date_from, sc.date_to)) : '<span class="so-miss">nezadaný</span>',
+          UI.esc(kedy), kedyTone),
+        fact('Ľudia', `${UI.heads(asg.length, need, { max: 10 })}<span>${asg.length}${need ? ` <i>z ${need}</i>` : ''}</span>`,
+          need && asg.length < need ? `treba ešte ${need - asg.length}` : (asg.length ? 'obsadené' : 'zatiaľ nikto'),
+          need && asg.length < need ? 'watch' : ''),
+        money ? fact('Sadzba', sc.charge_rate ? `${UI.money(sc.charge_rate)} <i>/ h</i>` : '<span class="so-miss">nezadaná</span>',
+          UI.esc((BILLING.find(b => b[0] === sc.billing_model) || [, sc.billing_model || ''])[1] || '')) : '',
+        money && c.port.workers ? fact('Marža za mesiac', UI.money(c.port.margin),
+          `${UI.pct(c.port.marginPct)} · odhad pri 160 h`, c.port.margin < 0 ? 'bad' : '') : '',
+      ].join('');
+
+      // Prepojené záznamy. Riadok = druh, v ňom odkazy; prázdny druh povie,
+      // kde sa to robí, a dá sa naň kliknúť tiež.
+      const go = (k) => `Sub.openStep('${k}')`;
+      const row = (ico, label, body, onclick, hint) => `<div class="so-row">
+        <span class="so-ico">${Icon(ico, 15)}</span>
+        <span class="so-rl">${label}</span>
+        <div class="so-rb">${body || `<span class="so-none">${hint || 'zatiaľ nič'}</span>`}</div>
+        ${onclick ? `<button type="button" class="so-go" onclick="${onclick}" aria-label="${UI.esc(label)}: otvoriť">${Icon('chevron', 14)}</button>` : ''}
+      </div>`;
+      const more = (n, max) => (n > max ? `<span class="so-more">a ďalších ${n - max}</span>` : '');
+
+      const opp = (this.opportunities || []).find(o => o.subcontract_id === sc.id);
+      const con = (this.contracts || []).find(x => x.id === sc.contract_id);
+      const ids = new Set(asg.map(a => a.id));
+      const orders = (this.workOrders || []).filter(o => o.subcontract_id === sc.id || ids.has(o.assignment_id));
+      const custOrders = orders.filter(o => o.kind === 'customer');
+      const workerOrders = orders.filter(o => o.kind === 'worker');
+      const lodg = this.occupancyOf(sc.id);
+      const ordLabel = (o) => o.order_number || o.their_ref || 'objednávka';
+
+      const links = [
+        row('offers', 'Dopyt', opp ? `<button type="button" class="link-chip" onclick="Danubra.go('opportunities')">${Icon('offers', 13)}<span>${
+          UI.esc(opp.title || opp.company_name || 'Dopyt')}</span></button>${opp.headcount ? `<span class="so-note">${opp.headcount} ${Shell.plural(Number(opp.headcount), 'človek', 'ľudia', 'ľudí')}</span>` : ''}` : '',
+          go('dopyt'), 'zákazka nevznikla z dopytu'),
+        row('note', 'Zmluva s odberateľom', con ? `${Danubra.link('contract', con.id, [con.contract_number, con.title].filter(Boolean).join(' · ') || 'Zmluva')}${
+          con.signed_at ? `<span class="so-note">podpísaná ${UI.esc(UI.date(con.signed_at))}</span>` : '<span class="so-note t-watch">nepodpísaná</span>'}` : '',
+          go('nemec'), 'zmluva o dielo zatiaľ nie je'),
+        row('orders', 'Objednávky', [
+          ...custOrders.slice(0, 2).map(o => Danubra.link('order', o.id, `od odberateľa ${ordLabel(o)}`)),
+          workerOrders.length ? `<span class="so-note">${workerOrders.length} ${Shell.plural(workerOrders.length, 'objednávka', 'objednávky', 'objednávok')} živnostníkom</span>` : '',
+        ].filter(Boolean).join(''), go('zivnostnici'), 'žiadna objednávka'),
+        row('workers', 'Ľudia na stavbe', asg.slice(0, 6).map(a => {
+          const w = this.workerOf(a.worker_id);
+          if (!w) return '';
+          // Človek má hlavičku s iniciálami (rovnaká farba ako v zozname Ľudia).
+          if (!window.Wrk || !Danubra.canOpen('worker', w.id)) return Danubra.link('worker', w.id, w.full_name);
+          return `<button class="link-chip so-person" title="Živnostník: ${UI.esc(w.full_name)}"
+            onclick="event.stopPropagation();Danubra.open('worker','${w.id}')"><i class="mini-av" style="background:${Wrk.avatarColor(w)}">${
+            UI.esc(Wrk.initials(w.full_name))}</i><span>${UI.esc(w.full_name)}</span></button>`;
+        }).join('') + more(asg.length, 6), go('ludia'), 'nikto nie je nasadený'),
+        row('bed', 'Ubytovanie', lodg.slice(0, 3).map(l => (l.accommodation_id
+          ? Danubra.link('accommodation', l.accommodation_id, l.name || l.city || 'Ubytovanie')
+          : `<span class="link-chip is-static"><span>${UI.esc(l.name || l.city || 'Ubytovanie')}</span></span>`)
+          + `<span class="so-note">${Number(l.occupied_now) || 0} / ${Number(l.capacity) || 0}</span>`).join('') + more(lodg.length, 3),
+          go('ubytovanie'), 'ubytovanie nie je zapísané'),
+        row('clock', 'Hodiny', ts.length ? `<b class="so-num">${UI.esc(String(Math.round(hours * 100) / 100).replace('.', ','))} h</b>${
+          unapproved ? `<span class="so-note t-watch">${unapproved} ${Shell.plural(unapproved, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')} na schválenie</span>`
+            : '<span class="so-note">všetko schválené</span>'}` : '', go('peniaze'), 'zatiaľ žiadne hodiny'),
+        row('doc', 'Výkazy (skeny)', (() => {
+          const sk = (this.sheets || []).filter(h => h.subcontract_id === sc.id && h.storage_path)
+            .sort((a, b) => (b.iso_year - a.iso_year) || (b.iso_week - a.iso_week));
+          return sk.length ? UI.scanChips(sk.slice(0, 8)) + more(sk.length, 8) : '';
+        })(), go('peniaze'), 'zatiaľ žiadny nahratý výkaz'),
+        money ? row('invoices', 'Faktúry', inv.length ? `${inv.slice(0, 4).map(i => Danubra.link('invoice', i.id, i.invoice_number || 'návrh')).join('')}${more(inv.length, 4)}
+          <span class="so-note">vyfakturované ${UI.money(sum(issued))} · zaplatené ${UI.money(sum(paid))}</span>${
+          overdue.length ? `<span class="so-note t-bad">po splatnosti ${UI.money(sum(overdue))}</span>` : ''}` : '',
+          go('peniaze'), 'zatiaľ nič nefakturované') : '',
+      ].join('');
+
+      // Prepojené veci sú zbalené do jedného riadku so súhrnom; rozbalenie si
+      // prehliadač pamätá (kto ich chce mať stále na očiach, má ich).
+      let openLinks = false;
+      try { openLinks = localStorage.getItem('danubra_so_links') === '1'; } catch {}
+      const sumar = [
+        con ? 'zmluva' : '',
+        orders.length ? `${orders.length} ${Shell.plural(orders.length, 'objednávka', 'objednávky', 'objednávok')}` : '',
+        asg.length ? `${asg.length} ${Shell.plural(asg.length, 'človek', 'ľudia', 'ľudí')}` : '',
+        lodg.length ? `${lodg.length} ${Shell.plural(lodg.length, 'ubytovanie', 'ubytovania', 'ubytovaní')}` : '',
+        ts.length ? `${String(Math.round(hours * 100) / 100).replace('.', ',')} h` : '',
+        money && inv.length ? `${inv.length} ${Shell.plural(inv.length, 'faktúra', 'faktúry', 'faktúr')}` : '',
+      ].filter(Boolean).join(' · ');
+      return `<section class="so card" aria-label="Prehľad zákazky">
+        <div class="so-facts">${facts}</div>
+        <details class="so-links"${openLinks ? ' open' : ''}
+          ontoggle="try{localStorage.setItem('danubra_so_links',this.open?'1':'0')}catch(e){}">
+          <summary class="so-sum"><span class="so-h">Súvisí so zákazkou</span><span class="so-sumtxt">${UI.esc(sumar || 'zatiaľ nič')}</span>${
+            money && overdue.length ? `<span class="so-note t-bad">po splatnosti ${UI.money(sum(overdue))}</span>` : ''}${
+            unapproved ? `<span class="so-note t-watch">${unapproved} ${Shell.plural(unapproved, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')}</span>` : ''}
+            <span class="so-chev">${Icon('chevron', 15)}</span></summary>
+          ${links}
+        </details>
+      </section>`;
     },
 
     /** Údaje pre sedem krokov jednej zákazky (`lib/staffing/job.js`). */
@@ -724,8 +874,10 @@
             </div>
           </div>`;
         }).join('')}</div>
-          <div class="form-section" id="sub-compliance">Podmienky vyslania</div>
-          ${complianceHtml}
+          <details class="more-block js-cond" id="sub-compliance"${chk.items.length && chk.items.length <= 3 ? ' open' : ''}>
+            <summary>Podmienky vyslania${chk.items.length ? ` — ${chk.items.length} ${Shell.plural(chk.items.length, 'vec', 'veci', 'vecí')} na doriešenie` : ' — splnené'}</summary>
+            ${complianceHtml}
+          </details>
           ${acts(sc.work_type === 'construction' && !sc.zoll_reported_at
               ? b('btn-primary', `Sub.markZoll('${sc.id}')`, 'check', 'Zapísať hlásenie Zoll') : '',
             b('btn-outline', `Sub.anuCheck('${sc.id}')`, 'shield', 'Test rizika ANÜ'))}
@@ -2375,7 +2527,7 @@
         return `<div class="list-row" style="align-items:flex-start;">
           <span class="dot ${p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : ''}"></span>
           <span style="flex:1;font-size:13px;">
-            <strong>${UI.dateRange(p.period_from, p.period_to)}</strong>
+            <strong>${UI.esc(DanubraPeriods.kwLabel(p.period_from, p.period_to) || UI.dateRange(p.period_from, p.period_to))}</strong>
             ${UI.badge(Enums.label('period_status', p.status),
               p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : 'gray')}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
@@ -2401,7 +2553,11 @@
       const looseApproved = loose.filter(t => t.approved);
       const looseHours = loose.reduce((n, t) => n + (Number(t.hours) || 0), 0);
 
-      const next = DanubraPeriods.nextPeriod(periods);
+      // Obdobie podľa odberateľa: predvolene týždeň (KW), alebo 14 dní / mesiac
+      // (danubra_partners.billing_period_days, migrácia 096).
+      const dni = Number((this.partnerOf(sc.partner_id) || {}).billing_period_days) || 7;
+      const next = DanubraPeriods.nextPeriod(periods, Danubra._dayISO ? Danubra._dayISO() : undefined, { days: dni });
+      const nazov = (p) => DanubraPeriods.kwLabel(p.period_from, p.period_to) || UI.dateRange(p.period_from, p.period_to);
       return `
         ${periods.length ? closed
           : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne obdobie.</div>'}
@@ -2412,7 +2568,10 @@
           Kým sa neuzavrú do obdobia, nedá sa z nich vystaviť faktúra.</div>` : ''}
         <button class="btn btn-outline btn-sm" style="margin-top:8px;"
           onclick="Sub.newPeriod('${sc.id}','${next.from}','${next.to}')">
-          ${Icon('plus')} Nové obdobie ${UI.dateRange(next.from, next.to)}</button>`;
+          ${Icon('plus')} Nové obdobie ${UI.esc(nazov({ period_from: next.from, period_to: next.to }))}</button>${
+          UI.tip(dni >= 28 ? 'Odberateľ má mesačnú fakturáciu (nastavuje sa na jeho karte).'
+            : `Fakturujeme po kalendárnych týždňoch (KW) — ${dni === 7 ? 'každý týždeň' : `každých ${dni} dní`}, `
+              + 'podľa rámcovej zmluvy s odberateľom. Dĺžka obdobia sa nastavuje na karte odberateľa.')}`;
     },
 
     async newPeriod(scId, from, to) {
@@ -2444,7 +2603,7 @@
           spätne neprepíše.</div>
 
         <div class="kv">
-          <div><span>Obdobie</span><strong>${UI.dateRange(p.period_from, p.period_to)}</strong></div>
+          <div><span>Obdobie</span><strong>${UI.esc(DanubraPeriods.kwLabel(p.period_from, p.period_to) || UI.dateRange(p.period_from, p.period_to))}</strong></div>
           <div><span>Ľudí</span><strong>${pv.workers}</strong></div>
           <div><span>Hodín spolu</span><strong>${pv.totalHours}</strong></div>
         </div>

@@ -57,12 +57,12 @@ ok(la.text === 'Aktívny' && /posledné prihlásenie dňa 3\. 11\. 2026/.test(la
 ok(P.loginLabel({ state: 'none' }, { email: '' }).text === 'Bez e-mailu', 'bez e-mailu sa pozvať nedá');
 
 console.log('\nTexty pozvánky');
-const wa = P.whatsappText({ name: 'Jana Kováčová', email: 'jana@punds.eu', link: 'https://x.sk/app/?heslo=1#k=abc', appUrl: 'https://x.sk', company: 'Partner und Service' });
-ok(/^Dobrý deň, Jana\./.test(wa) && wa.includes('https://x.sk/app/?heslo=1#k=abc') && wa.includes('https://x.sk/app/ e-mailom jana@punds.eu') && /Vám/.test(wa) && /Partner und Service/.test(wa),
+const wa = P.whatsappText({ name: 'Jana Kováčová', email: 'jana@danubra.eu', link: 'https://x.sk/app/?heslo=1#k=abc', appUrl: 'https://x.sk', company: 'Partner und Service' });
+ok(/^Dobrý deň, Jana\./.test(wa) && wa.includes('https://x.sk/app/?heslo=1#k=abc') && wa.includes('https://x.sk/app/ e-mailom jana@danubra.eu') && /Vám/.test(wa) && /Partner und Service/.test(wa),
   'WhatsApp: oslovenie, odkaz, adresa appky, e-mail, vykanie', wa);
-const mail = P.mailText({ name: 'Jana', email: 'jana@punds.eu', link: 'https://x.sk/app/?heslo=1#k=abc', appUrl: 'https://x.sk', from: 'Štefan Varga' });
+const mail = P.mailText({ name: 'Jana', email: 'jana@danubra.eu', link: 'https://x.sk/app/?heslo=1#k=abc', appUrl: 'https://x.sk', from: 'Štefan Varga' });
 ok(mail.includes('#k=abc') && /S pozdravom\nŠtefan Varga$/.test(mail) && /nastavte si heslo/.test(mail), 'e-mail s odkazom a podpisom');
-const ulozeny = P.mailText({ name: 'Jana', email: 'jana@punds.eu', link: null, appUrl: 'https://x.sk' });
+const ulozeny = P.mailText({ name: 'Jana', email: 'jana@danubra.eu', link: null, appUrl: 'https://x.sk' });
 ok(!ulozeny.includes('#k=') && /neukladá/.test(ulozeny), 'verzia na uloženie do appky je bez odkazu');
 ok(P.mailSubject('Partner und Service') === 'Prístup do firemnej appky — Partner und Service' && P.mailSubject('') === 'Prístup do firemnej appky', 'predmet s názvom firmy z Nastavení');
 ok(/obmedzený čas/.test(P.MSG.note) && /raz/.test(P.MSG.note), 'poznámka: obmedzený čas, dá sa použiť raz');

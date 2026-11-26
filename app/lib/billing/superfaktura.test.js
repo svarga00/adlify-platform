@@ -22,7 +22,7 @@ eq([SF.envOf(), SF.envOf(''), SF.envOf('prod'), SF.envOf('live'), SF.envOf(' PRO
 eq([SF.baseUrl('sandbox'), SF.baseUrl('production')], ['https://sandbox.superfaktura.sk', 'https://moja.superfaktura.sk'], 'adresy');
 eq(SV.authHeader({ email: 'a+b@x.sk', apiKey: 'k&1', companyId: 7 }),
   'SFAPI email=a%2Bb%40x.sk&apikey=k%261&module=DANUBRA%20Hub&company_id=7', 'hlavička SFAPI, hodnoty enkódované');
-eq(SF.maskEmail('stefan@punds.eu'), 's…@punds.eu', 'e-mail účtu sa ukazuje skrátene');
+eq(SF.maskEmail('stefan@danubra.eu'), 's…@danubra.eu', 'e-mail účtu sa ukazuje skrátene');
 
 // ── Jazyk ───────────────────────────────────────────────────────────────────
 eq([SF.sfLang('de'), SF.sfLang('DE'), SF.sfLang('sk'), SF.sfLang('en'), SF.sfLang(''), SF.sfLang('xx', 'slo'), SF.sfLang('deu')],
@@ -135,6 +135,43 @@ console.log('\nBase64 pre vyhľadávanie (bezpečné v adrese)');
   eq(SF.b64('2026042'), 'MjAyNjA0Mg,,', '„=" → „," (číslo faktúry)');
   eq(SF.b64('ä?>'), 'w6Q_Pg,,', '„/" → „_"');
   eq(SF.b64('>>>'), 'Pj4-', '„+" → „-"');
+}
+
+
+// ── Jednotky po nemecky a dodávateľ z appky (MyData) ──────────────────────
+console.log('\njednotky a dodávateľ na doklade');
+{
+  const items = [{ description: 'Weiterberechnung Unterkunft', quantity: 1, unit: 'mes', unit_price: 980 },
+    { description: 'Fahrtkosten', quantity: 120, unit: 'km', unit_price: 0.3 }, { description: 'Montage', quantity: 2, unit_price: 50 }];
+  eq(SF.buildItems({ items, lang: 'deu' }).map(i => i.unit), ['Monat', 'km', 'Stk.'], 'nemecký doklad: mes → Monat, km, bez jednotky → Stk.');
+  eq(SF.buildItems({ items, lang: 'slo' }).map(i => i.unit), ['mes', 'km', 'ks'], 'slovenský doklad: ako bolo napísané');
+  eq(SF.buildItems({ items, lang: 'eng' }).map(i => i.unit), ['month', 'km', 'pcs'], 'anglický doklad');
+
+  eq(SF.splitAddress('Hlavná 12, 949 01 Nitra'), { address: 'Hlavná 12', zip: '949 01', city: 'Nitra' }, 'adresa → ulica, PSČ, mesto');
+  eq(SF.splitAddress('Hlavná 12 94901 Nitra, Slovensko'), { address: 'Hlavná 12', zip: '949 01', city: 'Nitra' }, 'aj bez čiarky a s krajinou');
+  eq(SF.splitAddress('Nitra'), { address: 'Nitra' }, 'bez PSČ celá adresa ako ulica');
+  const SUP = { name: 'Partner und Service s. r. o.', address: 'Hlavná 12, 949 01 Nitra', company_id: '53941870',
+    tax_id: '2122816839', vat_id: 'SK2122816839', register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N', iban: 'SK31 1200', email: 'x@danubra.eu' };
+  const p = SF.buildInvoice({ invoice: { invoice_number: '2026010001', total: 980 }, partner: { name: 'X', invoice_language: 'de' }, supplier: SUP });
+  eq(p.MyData, { company_name: 'Partner und Service s. r. o.', address: 'Hlavná 12', city: 'Nitra', zip: '949 01', country_id: 191,
+    ico: '53941870', dic: '2122816839', ic_dph: 'SK2122816839', business_register: 'OR OS Nitra, odd. Sro, vl. č. 69265/N' },
+  'MyData: naša firma z Fakturačných údajov (prebije profil účtu SuperFaktúry)');
+  eq(p.Invoice.variable, '2026010001', 'variabilný symbol = celé desaťmiestne číslo faktúry');
+  eq(SF.buildInvoice({ invoice: { total: 1 }, partner: { name: 'X' }, supplier: SUP, settings: { send_my_data: false } }).MyData, undefined,
+    'vypnuté v nastaveniach → MyData nejde (SuperFaktúra vezme Moja firma)');
+  eq(SF.buildInvoice({ invoice: { total: 1 }, partner: { name: 'X' }, supplier: { address: 'Hlavná 1' } }).MyData, undefined,
+    'bez názvu firmy MyData nejde (radšej profil SuperFaktúry než prázdny blok)');
+}
+
+// Údaje z návrhu faktúry: vlastný VS, KS, objednávka, forma úhrady.
+{
+  const p = SF.buildInvoice({ invoice: { invoice_number: 'F-2026/7', variable_symbol: '777', constant_symbol: '0308',
+    order_reference: 'B-77', payment_method: 'cash', total: 10 }, partner: { name: 'X' } });
+  eq([p.Invoice.variable, p.Invoice.constant, p.Invoice.order_no, p.Invoice.payment_type],
+    ['777', '0308', 'B-77', 'cash'], 'vlastný VS, KS, objednávka a forma úhrady idú do SuperFaktúry');
+  const bez = SF.buildInvoice({ invoice: { invoice_number: '2026010001', total: 10 }, partner: { name: 'X' } });
+  eq([bez.Invoice.variable, bez.Invoice.constant, bez.Invoice.payment_type], ['2026010001', undefined, 'transfer'],
+    'bez nich: VS z čísla, KS nie, prevodom');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo`);

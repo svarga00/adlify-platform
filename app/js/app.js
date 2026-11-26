@@ -154,8 +154,8 @@ window.Danubra = {
                     ['outreach', 'Oslovovanie', 'eye'],
                     // Prehľad oslovovania pre vedenie: čísla za obdobie, lievik, KW, kolegovia (lib/marketing/report.js).
                     ['vedenie', 'Prehľad pre vedenie', 'trend'],
-                    // Obsah webov punds.sk a punds.eu (texty, kontakty, tím, fotky).
-                    ['website', 'Weby punds', 'site'],
+                    // Obsah webov danubra.sk a danubra.eu (texty, kontakty, tím, fotky).
+                    ['website', 'Weby DANUBRA', 'site'],
                     ['campaigns', 'E-maily firmám', 'mail'],
                     ['marketing', 'Inzercia a výdavky', 'chart'],
                     // Vizitky, obálky, hlavičkový list — PDF na tlač.
@@ -216,8 +216,8 @@ window.Danubra = {
     outreach: 'Firmy po jednom e-mailom: komu čo išlo, kto otvoril, klikol, odpovedal — a komu sa dnes pripomenúť',
     vedenie: 'Oslovovanie firiem v číslach: obdobie a porovnanie, lievik, trend po KW, kolegovia, remeslá, regióny a čo treba riešiť',
     campaigns: 'E-maily firmám po nemecky, cez Vašu schránku, s odhlásením',
-    printwork: 'Vizitky, obálka DL a hlavičkový list v podobe punds — PDF pre tlačiareň',
-    website: 'Weby punds.sk a punds.eu: čo z nich prišlo, kontakty, tím, fotky a všetky texty po jazykoch',
+    printwork: 'Vizitky, obálka DL a hlavičkový list v podobe DANUBRA — PDF pre tlačiareň',
+    website: 'Weby danubra.sk a danubra.eu: čo z nich prišlo, kontakty, tím, fotky a všetky texty po jazykoch',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
     members: 'Kto smie do appky a na čo',
     archiv: 'Archivované záznamy — nič sa nemaže; admin ich tu vie vrátiť späť',
@@ -405,7 +405,7 @@ window.Danubra = {
   navTabLabel: {
     dashboard: 'Prehľad dňa', tasks: 'Úlohy', kalendar: 'Kalendár', flow: 'Ako to ide', navod: 'Návod',
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
-    timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
+    timesheets: 'Hodiny', hoursheet: 'Výkaz na podpis', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
     // „E-maily firmám", nie „E-maily" — to isté slovo má záložka Správ.
     marketing: 'Inzercia a výdavky', leads: 'Nové firmy', outreach: 'Oslovovanie', vedenie: 'Prehľad pre vedenie', campaigns: 'E-maily firmám', printwork: 'Tlačoviny', website: 'Weby',
@@ -521,7 +521,7 @@ window.Danubra = {
    * Názov obrazovky v zozname obrazoviek — rozbalené ľavé menu, vysúvacie
    * podmenu aj mega menu („Všetko"). Jedno meno na všetkých troch miestach:
    * v ľavom menu bolo „Nové firmy" a v mega menu „Marketing", „E-maily"
-   * vs. „E-maily firmám", „Weby" vs. „Weby punds".
+   * vs. „E-maily firmám", „Weby" vs. „Weby DANUBRA".
    */
   itemLabelOf(key) { return this.navSubLabel[key] || this.navTabLabel[key] || this.labelOf(key); },
   /** Nadpis obrazovky Dnes — to isté meno ako jej záložka a riadok v menu. */
@@ -1546,13 +1546,46 @@ window.Danubra = {
     box.classList.toggle('has-more', more);
   },
 
+  /** Ktorá obrazovka je otvorená: cesta + otvorený záznam (zoznam a karta sú dve obrazovky). */
+  _screenKey() {
+    const type = Object.keys(this.entities).find(k => this.entities[k].route === this.route);
+    const mod = type && typeof window !== 'undefined' && window[this.entities[type].handle];
+    return `${this.route}|${(mod && mod.openId) || ''}`;
+  },
+
   renderRoute() {
     const view = document.getElementById('view');
+    // „Vadí mi, ako sa veci obnovujú a skáče to späť alebo úplne inam."
+    // Obrazovka sa po každej zmene kreslí celá nanovo (na chvíľu je v nej len
+    // „Načítavam…"), takže stránka stratila výšku a prehliadač skočil hore.
+    // Keď sa kreslí **tá istá** obrazovka, drží sa jej výška aj miesto, kde
+    // človek bol. Nová obrazovka začína hore.
+    const canScroll = typeof window !== 'undefined' && typeof window.scrollTo === 'function';
+    const screen = this._screenKey();
+    const same = screen === this._lastScreen;
+    this._lastScreen = screen;
+    const keepY = canScroll ? (window.scrollY || 0) : 0;
+    if (canScroll && view && view.style) {
+      if (same) view.style.minHeight = `${view.offsetHeight || 0}px`;
+      else { view.style.minHeight = ''; window.scrollTo(0, 0); }
+    }
+    // Nová obrazovka sa jemne vynorí; obnovenie tej istej sa neanimuje.
+    if (view && view.classList) {
+      view.classList.toggle('view-enter', !same);
+      clearTimeout(this._enterT);
+      if (!same) this._enterT = setTimeout(() => view.classList.remove('view-enter'), 1600);
+    }
+    const settle = () => {
+      if (!canScroll || !view || !view.style) return;
+      view.style.minHeight = '';
+      if (same && this._lastScreen === screen && Math.abs((window.scrollY || 0) - keepY) > 2) window.scrollTo(0, keepY);
+    };
     this.setActions('');
     const fn = this.views[this.route];
     if (this.route !== 'dashboard' && this.route !== 'flow') this._ensureChain();
 
     if (!fn) {
+      settle();
       view.innerHTML = this.header(this.labelOf(this.route), 'Pripravujeme v ďalšom kroku.')
         + UI.empty('wrench', 'Táto sekcia zatiaľ nie je hotová', 'Pribudne v nasledujúcom milestone.');
       return;
@@ -1571,6 +1604,7 @@ window.Danubra = {
       .then(() => {
         if (this.route !== started) return;      // medzitým sa prepla obrazovka
         this._showLoadFailures(view);
+        this._placeActions();
         // Zoznamy dokumentov pri človeku, firme a zákazke (`Docs.slot`).
         if (window.Docs) Docs.fill(view);
         // E-maily pri človeku a firme (`Mail.slot`).
@@ -1578,8 +1612,10 @@ window.Danubra = {
         // Otvorené úlohy pri človeku a zákazke (`Tsk.slot`).
         if (window.Tsk && Tsk.fill) Tsk.fill(view);
         this._masonry(view);
+        settle();
       })
       .catch((e) => {
+        settle();
         if (this.route !== started) return;
         console.error('[danubra] obrazovka spadla', e);
         view.innerHTML = this.header(this.labelOf(this.route), '')
@@ -1675,6 +1711,7 @@ window.Danubra = {
         </div>
       </div>
       ${right || ''}
+      <div id="topbar-actions" class="page-actions no-print">${this._actionsHtml || ''}</div>
     </div>
     ${(trail && trail.length) ? '' : this.tabsHtml(this.route)}`;
   },
@@ -1798,12 +1835,28 @@ window.Danubra = {
     </section>`;
   },
 
+  // Tlačidlá obrazovky stoja pri jej nadpise (`header()` im tam robí miesto
+  // `#topbar-actions`), nie v hornom pruhu medzi hľadaním a zvončekom: hore
+  // je to, čo je všade, pri nadpise to, čo patrí tejto obrazovke. Obrazovka
+  // bez spoločnej hlavičky ich dostane po starom — do horného pruhu a na
+  // mobile pod hlavičku.
+  _actionsHtml: '',
   setActions(html) {
-    const el = document.getElementById('topbar-actions');
-    if (el) el.innerHTML = html || '';
-    // Mobil: rovnaké tlačidlá pod hlavičkou (horný pruh je tam skrytý).
+    this._actionsHtml = html || '';
+    this._placeActions();
+    // Modul často volá `setActions` skôr, než prekreslí obrazovku — miesto
+    // pri nadpise vtedy ešte nie je (alebo je staré).
+    clearTimeout(this._actionsT);
+    this._actionsT = setTimeout(() => this._placeActions(), 0);
+  },
+  _placeActions() {
+    const html = this._actionsHtml || '';
+    const slot = document.querySelector('#view #topbar-actions');
+    const top = document.getElementById('topbar-actions-top');
     const m = document.getElementById('m-actions');
-    if (m) m.innerHTML = html || '';
+    if (slot && slot.innerHTML !== html) slot.innerHTML = html;
+    if (top) top.innerHTML = slot ? '' : html;
+    if (m) m.innerHTML = slot ? '' : html;
   },
 
   // ── Zvonček: čo sa stalo ───────────────────────────────────────────────────
@@ -2531,8 +2584,9 @@ window.Danubra = {
     // záložky, je to odpoveď na „ako na tom sme".
     const top = DanubraDash.pinned(prefs);
 
-    return `${top.map(c => this._dashCard(c.key, x, alerts)).join('')}
-      <div class="dash-tabs no-print">
+    // Najprv to, čo sa robí dnes (úlohy, pozornosť, rýchle akcie), až potom
+    // veľké karty o peniazoch — cash-flow sa číta, úlohy sa vybavujú.
+    return `<div class="dash-tabs no-print">
         <div class="pillbar">
           ${tabs.map(t => `<button class="pill${t.key === active ? ' active' : ''}"
             onclick="Danubra.setDashTab('${t.key}')">${UI.esc(t.label)}<em>${t.count}</em></button>`).join('')}
@@ -2543,7 +2597,8 @@ window.Danubra = {
       ${wide.map(c => this._dashCard(c.key, x, alerts)).join('')}
       ${rest.length ? `<div class="panels">
         ${rest.map(c => this._dashCard(c.key, x, alerts)).join('')}
-      </div>` : ''}`;
+      </div>` : ''}
+      ${top.map(c => this._dashCard(c.key, x, alerts)).join('')}`;
   },
 
   _dashActionsCard() {
@@ -2646,9 +2701,9 @@ window.Danubra = {
             title="Nechať na obrazovke len čísla, ktoré si pýtajú pozornosť">
             ${Icon(f.onlyIssues ? 'check' : 'alert', 14)} Len čo treba riešiť</button>
           <button class="btn btn-outline btn-sm" onclick="Danubra.exportDash('all')"
-            title="Celý prehľad ako tabuľka do Excelu">${Icon('download', 14)} CSV</button>
+            title="Celý prehľad ako tabuľka do Excelu (CSV)" aria-label="Export CSV">${Icon('download', 14)}<span class="dashbar-t"> CSV</span></button>
           <button class="btn btn-outline btn-sm" onclick="Danubra.printDash()"
-            title="Vytlačiť alebo uložiť ako PDF">${Icon('print', 14)} PDF</button>
+            title="Vytlačiť alebo uložiť ako PDF" aria-label="Tlač / PDF">${Icon('print', 14)}<span class="dashbar-t"> PDF</span></button>
           ${Help.btn('dash.export')}
           ${dirty ? `<button class="btn btn-ghost btn-sm" onclick="Danubra.resetDashFilter()"
             title="Späť na tento mesiac a všetky zákazky">${Icon('x', 14)} Zrušiť</button>` : ''}

@@ -688,7 +688,7 @@
       Danubra.renderRoute();
     },
 
-    /** ZML-2026-0001, pridelené transakčne v databáze. */
+    /** Číslo zmluvy z radu „Zmluvy s odberateľmi" (predvolene 2026050001), pridelené v databáze. */
     async nextNumber() {
       const { data, error } = await DB.client.rpc('danubra_next_number', { p_kind: 'contract' });
       if (error) throw error;
@@ -714,7 +714,9 @@
             ${UI.field('signed_at', 'Dodatok podpísaný dňa', { type: 'date',
               tip: 'Ak odberateľ dodatok ešte nepodpísal, nechajte prázdne. Keď príde podpísaný, kliknite pri ňom „Prišiel podpísaný".' })}
             ${UI.field('amendment_number', 'Číslo dodatku', {
-              value: `Dodatok č. ${this.amendmentsOf(contractId).length + 1}` })}
+              placeholder: 'pridelí sa samo z číselného radu',
+              tip: `Prázdne = číslo pridelí databáza z radu „Dodatky zmlúv" (Nastavenia → Číselné rady). `
+                + `K zmluve je to ${this.amendmentsOf(contractId).length + 1}. dodatok. Dodatok, ktorý už má číslo na papieri, prepíšte jeho číslom.` })}
           </div>
           ${UI.field('reason', 'Prečo', { type: 'textarea', rows: 2,
             placeholder: 'napr. odberateľ predĺžil stavbu o štyri mesiace' })}
@@ -781,12 +783,19 @@
         return UI.toast('Nová hodnota je rovnaká ako pôvodná', 'err');
       }
 
+      // Prázdne číslo dodatku pridelí databáza z radu „Dodatky zmlúv" (094).
+      let cisloDodatku = String(d.amendment_number || '').trim();
+      if (!cisloDodatku) {
+        const { data: n, error: ne } = await DB.rpc('next_number', { p_kind: 'amendment' });
+        if (ne || !n) return UI.toast('Nepodarilo sa prideliť číslo dodatku: ' + (ne ? ne.message : 'prázdne'), 'err');
+        cisloDodatku = n;
+      }
       const { error } = await DB.insert('contract_amendments', {
         contract_id: contractId, field: d.field,
         old_value: oldValue, new_value: newValue,
         reason: d.reason || null,
         signed_at: d.signed_at || null,
-        amendment_number: d.amendment_number || null,
+        amendment_number: cisloDodatku,
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
 

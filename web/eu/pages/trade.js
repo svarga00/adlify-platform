@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — detail remesla + dopyt (návrh 2c), trasa 'trade'
+// danubra.eu — detail remesla + dopyt (návrh 2c), trasa 'trade'
 // ============================================================================
 // Remeslo sa hľadá podľa slugu v adrese (professions.js → euBySlug); neznámy
 // slug = 404. Texty každého remesla sú nižšie v TRADES[kľúč][jazyk].
@@ -28,7 +28,7 @@ const T = {
       ['Wer stellt Material, Maschinen und Werkzeug?', 'In der Regel stellen Sie Material und Großgeräte, unsere Fachkräfte bringen ihr Handwerkzeug und ihre persönliche Schutzausrüstung mit. Die genaue Aufteilung halten wir im Angebot fest.']],
     formK: 'Anfrage', formP: 'Unverbindlich. Wir melden uns innerhalb eines Werktages mit passenden Profilen.', direct: 'Direkter Kontakt',
     cta: (one, many) => [`Anfrage für 1 ${one} senden →`, `Anfrage für {n} ${many} senden →`],
-    otherH: 'Weitere Gewerke', titleSfx: 'Fachkräfte aus der Slowakei | punds',
+    otherH: 'Weitere Gewerke', titleSfx: 'Fachkräfte aus der Slowakei | DANUBRA',
   },
   en: {
     home: 'Home', trades: 'Trades', callback: 'Arrange a call-back',
@@ -44,7 +44,7 @@ const T = {
       ['Who provides materials, machines and tools?', 'As a rule you provide materials and heavy equipment; our tradespeople bring their hand tools and personal protective equipment. We set out the exact split in the proposal.']],
     formK: 'Enquiry', formP: 'No obligation. We’ll get back to you within one working day with matching profiles.', direct: 'Direct contact',
     cta: (one, many) => [`Request 1 ${one} →`, `Request {n} ${many} →`],
-    otherH: 'Other trades', titleSfx: 'skilled tradespeople from Slovakia | punds',
+    otherH: 'Other trades', titleSfx: 'skilled tradespeople from Slovakia | DANUBRA',
   },
 };
 

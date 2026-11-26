@@ -1,6 +1,6 @@
 /* ==========================================================================
-   punds web — spoločný základ oboch webov (punds.sk, punds.eu)
-   Farby, písma a komponenty podľa design_handoff_punds_web/README.md.
+   DANUBRA web — spoločný základ oboch webov (danubra.sk, danubra.eu)
+   Farby, písma a komponenty podľa návrhu webu (design handoff, README).
    ========================================================================== */
 @font-face { font-family: 'Outfit'; font-style: normal; font-weight: 400 700; font-display: swap;
   src: url('../fonts/outfit-latin.woff2') format('woff2');
@@ -65,16 +65,15 @@ p { margin: 0; text-wrap: pretty; }
 .crumbs a:hover { color: var(--or); }
 
 /* ── Logo ───────────────────────────────────────────────────────────────── */
-.logo { display: inline-flex; align-items: center; gap: 11px; color: var(--ink); flex: none; }
-.logo:hover { color: var(--ink); }
-.logo-txt { display: flex; flex-direction: column; gap: 6px; }
-.logo-word { font: 700 25px/.8 var(--f-h); letter-spacing: -.045em; }
-.logo-tag { font: 500 7px/1 var(--f-b); letter-spacing: .26em; color: var(--t3); }
-.logo-light, .logo-light:hover { color: #fff; }
-.logo-light .logo-tag { color: var(--steel); }
+/* Celé logo (znak D + písmená ANUBRA) je jedno SVG; šírka podľa pomeru strán. */
+.logo { display: inline-flex; align-items: center; flex: none; line-height: 0; }
+.logo .lg-logo { display: block; width: auto; height: 26px; }
 @keyframes lgDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.lg-draw path { stroke-dasharray: 1; animation: lgDraw 1s cubic-bezier(.6, 0, .2, 1) both; }
-.lg-draw path + path { animation-delay: .6s; }
+@keyframes lgFade { from { opacity: 0; } to { opacity: 1; } }
+.lg-draw .lg-s { stroke-dasharray: 1; animation: lgDraw .9s cubic-bezier(.6, 0, .2, 1) both; }
+.lg-draw .lg-s + .lg-s { animation-delay: .3s; }
+.lg-draw .lg-l { animation: lgFade .6s .5s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .lg-draw .lg-s, .lg-draw .lg-l { animation: none; stroke-dasharray: none; } }
 
 /* ── Tlačidlá a polia ───────────────────────────────────────────────────── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 16px 26px;
@@ -289,8 +288,7 @@ body.menu-open { overflow: hidden; }
   :root { --pad: 18px; --hdr-h: 64px; }
   body { font-size: 15.5px; }
   .hdr-in { padding-top: 10px; padding-bottom: 10px; }
-  .logo-word { font-size: 22px; }
-  .logo .lg-mark { width: 34px; height: auto; }
+  .logo .lg-logo { height: 21px; }
   .h1 { font-size: 40px; line-height: 1.04; }
   .h2 { font-size: 26px; }
   .lead { font-size: 16px; }

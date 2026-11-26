@@ -8,7 +8,7 @@
 //   * e-mail: jedna správa, všetky PDF ako prílohy (otvorí sa na kontrolu
 //     v Správach a odošle sa z firemnej schránky),
 //   * WhatsApp a SMS: jedna správa s krátkym odkazom {web}/b/<token>, kde sú
-//     všetky PDF naraz (netlify/functions/punds-bundle.js). Odkaz platí 30 dní.
+//     všetky PDF naraz (netlify/functions/danubra-bundle.js). Odkaz platí 30 dní.
 //
 // Infolisty a vzor faktúry sa vždy vyrobia nanovo (údaje sa medzitým mohli
 // zmeniť). Objednávka sa vyrobí z uloženej objednávky; zmluva a GDPR sa
@@ -96,7 +96,11 @@
       out.push(c.order
         ? { key: 'objednavka', title: `Objednávka ${c.order.order_number || ''}`.trim(), on: true, make: true, note: 'Vyrobí sa z uloženej objednávky.' }
         : { key: 'objednavka', title: 'Objednávka', on: false, off: true, note: 'Objednávka ešte nie je vystavená.' });
-      out.push({ key: 'vzor_faktury', title: c.worker.self_billing_prefix ? 'Ako fakturujeme za Vás (samofakturácia)' : 'Vzor faktúry — ako nám fakturovať',
+      // Stavby — miesta výkonu (šablóna na Drive): dostane ich pri nástupe.
+      out.push({ key: 'stavby', title: 'Stavby — miesta výkonu', on: true, make: true,
+        note: 'Adresy stavieb, adresa v SR a celé územie Nemeckej a Slovenskej republiky.' });
+      out.push({ key: 'vzor_faktury', title: (c.worker.self_billing || (c.worker.self_billing == null && c.worker.self_billing_prefix))
+        ? 'Ako fakturujeme za Vás (samofakturácia)' : 'Vzor faktúry — ako nám fakturovať',
         on: c.worker.legal_form !== 'employee', make: true, note: 'S jeho sadzbou a našimi údajmi.' });
       // Prázdny Stundennachweis — „toto im musíme posielať prázdne aj s infolistami".
       out.push({ key: 'stundennachweis', title: 'Prázdny Stundennachweis', on: true, make: true,
@@ -182,8 +186,23 @@
           meta: { ...base, kind: 'infolist_lodging', title: 'Infolist k ubytovaniu' } };
       }
       if (key === 'vzor_faktury') {
-        return { html: P().invoiceGuide({ worker: c.worker, assignment: c.a, subcontract: c.sc, supplier: c.supplier }),
+        // Vzor faktúry V1.3: činnosť z jeho objednávky, adresa stavby, prvé 2 KW
+        // nasadenia ako príklad obdobia, splatnosť z Nastavení.
+        return { html: P().invoiceGuide({ worker: c.worker, assignment: c.a, subcontract: c.sc, supplier: c.supplier,
+          order: c.order, terms: Danubra.cfg('subcontract') || {} }),
           meta: { ...base, kind: 'invoice_guide', title: 'Vzor faktúry' } };
+      }
+      if (key === 'stavby') {
+        const cfg = Danubra.cfg('subcontract') || {};
+        const ids = window.Ord && Ord.assignments ? [...new Set(Ord.assignments.filter(x => x.worker_id === c.a.worker_id
+          && ['planned', 'active'].includes(x.status)).map(x => x.subcontract_id).concat([c.a.subcontract_id]))] : [c.a.subcontract_id];
+        const sub = (id) => (window.Ord && Ord.subOf ? Ord.subOf(id) : null) || (id === c.sc.id ? c.sc : null);
+        const miesta = window.DanubraSubcontract ? DanubraSubcontract.miesta({
+          stavby: ids.map(sub).filter(x => x && x.id).map(sc => ({ ...sc,
+            tag: window.Wrk && Wrk.tagStavby ? Wrk.tagStavby(sc, c.worker) : (sc.trade || '') })),
+          miestoSk: cfg.miesto_sk || (c.supplier && c.supplier.address) || '', tagy: true }) : [];
+        return { html: P().stavby({ worker: c.worker, supplier: c.supplier, miesta }),
+          meta: { ...base, kind: 'stavby', title: 'Stavby' } };
       }
       if (key === 'stundennachweis') {
         const HSL = window.DanubraHourSheet;
@@ -198,7 +217,9 @@
       if (key === 'objednavka' && c.order) {
         const o = c.order;
         return { html: P().workOrder({ order: o, supplier: c.supplier, partner: null, worker: c.worker,
-          subcontract: c.sc, ramcova: Ord.ramcovaOf ? Ord.ramcovaOf(o.worker_id) : null }),
+          subcontract: c.sc, ramcova: Ord.ramcovaOf ? Ord.ramcovaOf(o.worker_id) : null,
+          seq: Ord.seqOf ? Ord.seqOf(o) : null,
+          places: (o.places || []).length ? o.places : (Ord.miestaPre ? Ord.miestaPre(o.worker_id, o.subcontract_id) : []) }),
           meta: { ...base, kind: 'objednavka', title: 'Objednávka', number: o.order_number } };
       }
       return null;

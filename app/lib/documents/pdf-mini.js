@@ -13,7 +13,7 @@
 //     ~20 kB) s nemeckými aj slovenskými znakmi (ä ö ü ß, č š ž ľ ť ň …
 //     cez vlastné kódovanie /Differences),
 //   * šírky znakov podľa metrík Helvetica (zalamovanie riadkov sedí),
-//   * obdĺžniky aj zaoblené, kruhy, čiary, znak punds ako krivky,
+//   * obdĺžniky aj zaoblené, kruhy, čiary, znak DANUBRA ako krivky,
 //   * priehľadnosť (vodoznak), klikateľné odkazy, metadáta, jazyk dokumentu,
 //   * obsah strán skomprimovaný (zlib, je v Node).
 //
@@ -137,6 +137,22 @@ function pdfText(s) {
 }
 const K = 0.5523;   // kontrolný bod Bézierovej krivky pre štvrťkruh
 
+// Logo DANUBRA: krivky písmen ANUBRA (M, L, C — absolútne, s opakovaním).
+const LOGO = require('../brand-logo.js');
+let SEGS = null;
+function letterSegs() {
+  if (SEGS) return SEGS;
+  SEGS = [];
+  const re = /([MLC])([^MLC]*)/g;
+  let m;
+  while ((m = re.exec(LOGO.LETTERS))) {
+    const v = m[2].split(/[\s,]+/).filter(Boolean).map(Number);
+    const step = m[1] === 'C' ? 6 : 2;
+    for (let i = 0; i + step <= v.length; i += step) SEGS.push([i && m[1] === 'M' ? 'L' : m[1], ...v.slice(i, i + step)]);
+  }
+  return SEGS;
+}
+
 class Page {
   constructor(doc) { this.doc = doc; this.ops = []; this.links = []; this.usesAlpha = new Set(); }
   get H() { return this.doc.h; }
@@ -176,31 +192,46 @@ class Page {
   }
 
   /**
-   * Znak punds (∩∪) — rovnaké krivky ako logo na webe (web/shared/brand.js),
-   * viewBox 2.25 7.25 43.5 33.5. @param w šírka v bodoch
+   * Znak DANUBRA — písmeno D: oranžová pilulka a modrý oblúk (lib/brand-logo.js,
+   * viewBox 32 32 288 260). @param w šírka v bodoch; x, y = ľavý horný roh
    */
-  mark(x, y, w, { a = '#0E1626', b = '#F07F1A', alpha = 1 } = {}) {
-    const s = w / 43.5;
-    const P = (px, py) => [x + (px - 2.25) * s, y + (py - 7.25) * s];
-    const k = 9 * K;
-    const stroke = (col, pts) => {
-      this._style(null, col, 7.5 * s, alpha);
-      this.ops.push('1 J', '1 j');
-      const [first, ...rest] = pts;
-      this._m(...P(...first));
-      for (const seg of rest) {
-        if (seg.length === 2) this._l(...P(...seg));
-        else this._c(...P(seg[0], seg[1]), ...P(seg[2], seg[3]), ...P(seg[4], seg[5]));
-      }
-      this.ops.push('S', 'Q');
-    };
-    const up = [[6, 34], [6, 20], [6, 20 - k, 15 - k, 11, 15, 11], [15 + k, 11, 24, 20 - k, 24, 20], [24, 28]];
-    const down = [[24, 28 + k, 33 - k, 37, 33, 37], [33 + k, 37, 42, 28 + k, 42, 28], [42, 14]];
-    // Jednofarebný (vodoznak): jedna súvislá čiara — pri priehľadnosti by sa
-    // prekrytie dvoch čiar v strede ukázalo ako tmavší bod.
-    if (a === b) stroke(a, [...up, ...down]);
-    else { stroke(a, up); stroke(b, [[24, 28], ...down]); }
+  mark(x, y, w, { pill = LOGO.COLORS.orange, curve = LOGO.COLORS.blue, alpha = 1 } = {}) {
+    this._markAt(x - 32 * (w / 288), y - 32 * (w / 288), w / 288, pill, curve, alpha);
     return this;
+  }
+
+  /**
+   * Celé logo DANUBRA: znak D + písmená ANUBRA (viewBox 32 32 2044 264).
+   * Znak je písmeno D, preto sa za neho slovo DANUBRA nepíše.
+   * @param h výška v bodoch; x, y = ľavý horný roh; ink = farba písmen
+   */
+  logo(x, y, h, { ink = LOGO.COLORS.navy, pill = LOGO.COLORS.orange, curve = LOGO.COLORS.blue, alpha = 1 } = {}) {
+    const s = h / 264, ox = x - 32 * s, oy = y - 32 * s;
+    this._markAt(ox, oy, s, pill, curve, alpha);
+    const P = (px, py) => [ox + px * s, oy + py * s];
+    this._style(ink, null, 1, alpha);
+    for (const [cmd, ...v] of letterSegs()) {
+      if (cmd === 'M') this._m(...P(v[0], v[1]));
+      else if (cmd === 'L') this._l(...P(v[0], v[1]));
+      else this._c(...P(v[0], v[1]), ...P(v[2], v[3]), ...P(v[4], v[5]));
+    }
+    this.ops.push('f*', 'Q');
+    return this;
+  }
+
+  /** Dve čiary znaku v súradniciach loga: (ox, oy) = bod 0 0, s = mierka. */
+  _markAt(ox, oy, s, pill, curve, alpha) {
+    const P = (px, py) => [ox + px * s, oy + py * s];
+    const line = (col, lw) => { this._style(null, col, lw * s, alpha); this.ops.push('1 J', '1 j'); };
+    line(pill, LOGO.PILL_W);
+    this._m(...P(56.5, 57)); this._l(...P(56.5, 266.5)); this.ops.push('S', 'Q');
+    // Oblúk D: polkruh so stredom 189.5 161.5 a polomerom 102.5 (dve štvrtiny).
+    const r = 102.5, k = r * K, cx = 189.5, cy = 161.5;
+    line(curve, LOGO.CURVE_W);
+    this._m(...P(117, 59)); this._l(...P(cx, cy - r));
+    this._c(...P(cx + k, cy - r), ...P(cx + r, cy - k), ...P(cx + r, cy));
+    this._c(...P(cx + r, cy + k), ...P(cx + k, cy + r), ...P(cx, cy + r));
+    this._l(...P(117, 264)); this.ops.push('S', 'Q');
   }
 
   /** Jeden riadok textu; y = účiara. align: left | right | center (k x). */

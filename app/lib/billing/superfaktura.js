@@ -23,6 +23,10 @@
 (function () {
   const M = (typeof require !== 'undefined' && typeof module !== 'undefined')
     ? require('../money.js') : window.Money;
+  // Preklad merných jednotiek (mes → Monat) je jeden pre SuperFaktúru aj PDF z appky.
+  const IV = (typeof require !== 'undefined' && typeof module !== 'undefined')
+    ? require('./invoice.js') : window.DanubraInvoice;
+  const unitFor = (u, lang) => (IV && IV.unitFor ? IV.unitFor(u, lang) : u);
 
   // ── Prostredie ────────────────────────────────────────────────────────────
   const BASE = {
@@ -33,7 +37,7 @@
   function envOf(v) { return String(v || '').trim().toLowerCase() === 'production' ? 'production' : 'sandbox'; }
   function baseUrl(env) { return BASE[envOf(env)]; }
 
-  /** „stefan@punds.eu" → „s…@punds.eu". E-mail účtu sa celý nevypisuje. */
+  /** „stefan@danubra.eu" → „s…@danubra.eu". E-mail účtu sa celý nevypisuje. */
   function maskEmail(e) {
     const m = String(e || '').match(/^(.)[^@]*(@.+)$/);
     return m ? `${m[1]}…${m[2]}` : '';
@@ -79,12 +83,20 @@
   };
   const txt = (lang) => TXT[lang] || TXT.deu;
 
-  /** Veta k reverse charge. Nemecký odberateľ §13b UStG, iný z EÚ čl. 196 smernice. */
-  const RC_DE = 'Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).';
-  const RC_EU = 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL 2006/112/EG).';
+  /**
+   * Text k reverse charge — presne ako na faktúrach z Pohody (invoice.js):
+   * nemecký odberateľ „Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger
+   * geschuldet.", iný z EÚ čl. 196 smernice, a vždy slovenská veta o prenesení
+   * daňovej povinnosti podľa § 15/§ 16 zákona o DPH. Vlastný text
+   * z Nastavení SuperFaktúry (`reverse_charge_note`) ich nahradí celé.
+   */
+  const RC_DE = (IV && IV.RC_LINE_DE) || 'Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.';
+  const RC_EU = (IV && IV.RC_LINE_EU) || 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL 2006/112/EG).';
+  const RC_SK = (IV && IV.RC_LINE_SK) || '';
   function reverseChargeNote(partner = {}, settings = {}) {
     if (settings && String(settings.reverse_charge_note || '').trim()) return String(settings.reverse_charge_note).trim();
-    return String(partner.country || 'DE').toUpperCase() === 'DE' ? RC_DE : RC_EU;
+    const first = String(partner.country || 'DE').toUpperCase() === 'DE' ? RC_DE : RC_EU;
+    return [first, RC_SK].filter(Boolean).join('\n');
   }
 
   function de(n) { return String(n).replace('.', ','); }
@@ -121,7 +133,8 @@
       return own.map(i => ({
         name: String(i.description || '').slice(0, 250) || t.service,
         quantity: Number(i.quantity) || 0,
-        unit: i.unit || 'ks',
+        // Uložené je, čo človek napísal („mes"); na nemecký doklad ide „Monat".
+        unit: unitFor(i.unit || 'ks', lang),
         unit_price: amount(M.toCents(i.unit_price || 0)),
         tax,
       }));
@@ -158,6 +171,39 @@
       return `${what} — ${m}/${y}`;
     }
     return what;
+  }
+
+  // ── Dodávateľ na doklade (MyData) ─────────────────────────────────────────
+  // SuperFaktúra berie údaje dodávateľa (blok „Lieferant") z profilu účtu
+  // (Nastavenia → Moja firma). Sandbox má profil vygenerovaný náhodne — na
+  // skúšobnej faktúre preto stálo nezmyselné meno a adresa. `MyData`
+  // v /invoices/create ich prebije údajmi z appky (Nastavenia → Fakturačné
+  // údaje), takže doklad má našu firmu bez ohľadu na profil účtu. Vypína sa
+  // nastavením `send_my_data: false`. Logo, telefón, e-mail a web zostávajú
+  // z profilu SuperFaktúry.
+
+  /** „Hlavná 12, 949 01 Nitra" → { address, zip, city }. Bez PSČ len address. */
+  function splitAddress(addr) {
+    const a = String(addr || '').replace(/\s+/g, ' ').trim();
+    if (!a) return {};
+    const m = a.match(/^(.*?)[,\s]+(\d{3} ?\d{2})\s+([^,]+?)(?:\s*,\s*(?:Slovensko|Slovakia|Slowakei|Slovenská republika|SK))?\s*$/i);
+    if (!m || !m[1].trim()) return { address: a };
+    return { address: m[1].replace(/,\s*$/, '').trim(), zip: m[2].replace(/\s/g, '').replace(/^(\d{3})(\d{2})$/, '$1 $2'), city: m[3].trim() };
+  }
+
+  /** MyData z Fakturačných údajov. Bez názvu firmy nič (radšej profil SF než prázdny blok). */
+  function myData(sup = {}) {
+    const name = String(sup.name || '').trim();
+    if (!name) return null;
+    const adr = { ...splitAddress(sup.address), ...(sup.city ? { city: sup.city } : {}), ...(sup.zip ? { zip: sup.zip } : {}) };
+    const country = String(sup.country || 'SK').toUpperCase();
+    return strip({
+      company_name: name,
+      address: adr.address, city: adr.city, zip: adr.zip,
+      country_id: IV && IV.COUNTRY_ID ? IV.COUNTRY_ID[country] : undefined,
+      ico: sup.company_id, dic: sup.tax_id, ic_dph: sup.vat_id,
+      business_register: sup.register,
+    });
   }
 
   // ── Payload pre POST /invoices/create ─────────────────────────────────────
@@ -213,12 +259,15 @@
       name: credit ? t.storno(o.parent ? o.parent.invoice_number : '') : itemName(sub, period, lang),
       type: credit ? 'cancel' : 'regular',
       invoice_currency: inv.currency || 'EUR',
-      variable: digits(inv.invoice_number) || undefined,
+      variable: (IV && IV.variableSymbol ? IV.variableSymbol(inv) : digits(inv.invoice_number)) || undefined,
+      constant: inv.constant_symbol || undefined,
+      order_no: inv.order_reference || undefined,
       created,
       due,
       delivery: day(inv.delivery_date) || created,
-      payment_type: s.payment_type || 'transfer',
-      comment: comments.join(' ') || undefined,
+      payment_type: (inv.payment_method && IV && IV.PAYMENT && IV.PAYMENT[inv.payment_method]
+        ? IV.PAYMENT[inv.payment_method].sf : null) || s.payment_type || 'transfer',
+      comment: comments.join('\n') || undefined,
       internal_comment: o.key ? `HUB-KEY ${o.key}` : undefined,
       vat_transfer: reverse ? 1 : 0,
       issued_by: sup.issued_by || sup.contact_person || undefined,
@@ -247,12 +296,16 @@
     };
     if (o.sfClientId) Client.id = Number(o.sfClientId) || o.sfClientId;
 
-    return {
+    const out = {
       Invoice: strip(Invoice),
       Client: strip(Client),
       InvoiceItem: buildItems({ invoice: inv, subcontract: sub, period, items: o.items, lang }),
       InvoiceSetting: { language: lang, bysquare: 1, payment_info: 1, online_payment: 0 },
     };
+    // Dodávateľ z appky, nie z profilu účtu SuperFaktúry (predvolene zapnuté).
+    const md = s.send_my_data === false ? null : myData(sup);
+    if (md) out.MyData = md;
+    return out;
   }
 
   /** Klient pre POST /clients/create — tie isté údaje ako v doklade. */
@@ -479,8 +532,8 @@
 
   const API = {
     BASE, envOf, baseUrl, maskEmail,
-    LANG, LANGS, sfLang, TXT, txt, reverseChargeNote, RC_DE, RC_EU,
-    isCreditNote, expectedCents, buildItems, itemsCents, buildInvoice, buildClient,
+    LANG, LANGS, sfLang, TXT, txt, reverseChargeNote, RC_DE, RC_EU, RC_SK,
+    isCreditNote, expectedCents, buildItems, itemsCents, buildInvoice, buildClient, splitAddress, myData, unitFor,
     readInvoice, readList, paymentState, reconcile, findInList, findClient,
     flatMessage, clip, chips, idempotencyKey, b64, usageText, usagePct, syncExhausted,
   };

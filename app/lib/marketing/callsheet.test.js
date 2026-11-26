@@ -24,7 +24,7 @@ console.log('Ťahák pre firmu so známym remeslom');
   ok(/Werkvertrag/.test(de) && /nach Stunden/.test(de) && /A1/.test(de) && /§ 48b/.test(de), 'ponuka: Werkvertrag, hodiny, A1, § 48b');
   ok(/15 Minuten/.test(de) && /Profile/.test(de), 'záver: profily alebo 15-minútový hovor');
   ok(/Herrn Müller/.test(s.script[0].de) && s.askFor.name === 'Herr Müller', 'pýtať si konateľa z Impressum (Herrn Müller sprechen)', s.script[0].de);
-  ok(/Partner und Service aus der Slowakei/.test(s.script[0].de) && !/s\. r\. o/.test(s.script[0].de), 'úvod: meno firmy bez s. r. o.');
+  ok(/DANUBRA aus der Slowakei/.test(s.script[0].de) && !/s\. r\. o|Partner und Service/.test(s.script[0].de), 'úvod: značka DANUBRA, nie právny názov');
   // Meno volajúceho môže mať slovenské písmená — kontroluje sa zvyšok vety.
   const deNoName = [...s.script.map(x => x.de.replace('Štefan Varga', '')), ...s.objections.flatMap(o => [o.q, o.a])];
   ok(deNoName.every(t => !SK.test(t)), 'nemecké vety a námietky sú bez slovenčiny', deNoName.find(t => SK.test(t)));

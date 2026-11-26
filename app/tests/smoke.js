@@ -618,8 +618,12 @@ if (Per) {
   t('neschválené hodiny sa nestratia, len sa vyčlenia', pv.unapproved.length === 1);
   t('prázdne obdobie sa neuzatvára',
     Per.review({ timesheets: [], assignments: asg, from: '2026-09-01', to: '2026-09-30' }).ok === false);
-  t('obdobie je celý kalendárny mesiac',
-    Per.nextPeriod([], '2026-09-17').to === '2026-09-30');
+  // Podľa Rahmenvertrag sa fakturuje týždenne po KW (pondelok až nedeľa);
+  // mesiac ostáva ako možnosť pri odberateľovi.
+  t('obdobie je kalendárny týždeň (KW)',
+    Per.nextPeriod([], '2026-09-17').from === '2026-09-14' && Per.nextPeriod([], '2026-09-17').to === '2026-09-20');
+  t('pri mesačnom odberateľovi celý kalendárny mesiac',
+    Per.nextPeriod([], '2026-09-17', { days: 30 }).to === '2026-09-30');
   t('február sa počíta správne', Per.lastOfMonth('2028-02-01') === '2028-02-29');
 }
 // Uzávierka aj otvorenie späť idú cez databázu — v UI by sa nedalo zaručiť,
@@ -1341,21 +1345,28 @@ t('bez čísla sa nepíše nula', sandbox.UI.pct(null) === '—');
     !bad.length);
 }
 
-// Názov firmy sa nezapisuje do kódu. Do rozhrania aj na doklady patrí ten
-// z Nastavení — inak sa raz pošle odberateľovi dokument s cudzím menom
-// a nikto nevie prečo.
+// Právny názov firmy sa nezapisuje do kódu. Do rozhrania aj na doklady patrí
+// ten z Nastavení (fakturačné údaje) — inak sa raz pošle odberateľovi dokument
+// s cudzím menom a nikto nevie prečo. DANUBRA je značka (logo, weby, appka),
+// nie právny názov: tá v kóde byť smie.
 {
+  // Výnimky, každá s dôvodom:
+  //   lib/marketing/pitch.js  text „Über uns" je doslova z webu danubra.eu
+  //                           (stráži pitch.test.js); v Nastaveniach sa dá prepísať.
+  //   lib/mail/mail.js        riadok pod grafickým podpisom e-mailu — podpis
+  //                           sa skladá aj na serveri bez Nastavení.
+  const VYNIMKY = { 'lib/marketing/pitch.js': /about:/, 'lib/mail/mail.js': /const ADDRESS =/ };
   const bad = [];
   for (const f of [...files, 'index.html']) {
     const src = fs.readFileSync(path.join(root, f), 'utf8');
     for (const line of src.split('\n')) {
       const code = line.replace(/^\s*(\/\/|\*|\/\*).*/, '');   // komentáre nerátame
-      if (!/DANUBRA/.test(code)) continue;
-      if (/DANUBRA_CONFIG|danubra_/.test(code)) continue;      // nastavenie a tabuľky
+      if (!/Partner\s+und\s+Service|57553921|Podzámska/i.test(code)) continue;
+      if (VYNIMKY[f] && VYNIMKY[f].test(code)) continue;
       bad.push(`${path.basename(f)}: ${code.trim().slice(0, 60)}`);
     }
   }
-  t(`názov firmy nie je zadrôtovaný v kóde${bad.length ? ' — ' + bad.slice(0, 3).join(' | ') : ''}`,
+  t(`právny názov firmy nie je zadrôtovaný v kóde${bad.length ? ' — ' + bad.slice(0, 3).join(' | ') : ''}`,
     !bad.length);
 }
 

@@ -371,7 +371,7 @@ exports.handler = async (event) => {
       }
     }
     // ── 8. Lehota uchovania záznamov z formulárov webov (GDPR) ──────────
-    // Záznam formulára z punds.sk / punds.eu drží kópiu osobných údajov,
+    // Záznam formulára z danubra.sk / danubra.eu drží kópiu osobných údajov,
     // odtlačok IP a prehliadač. Po lehote (90 dní, migrácia 073) ich
     // databáza anonymizuje — riadok ostáva kvôli štatistike, údaj sám je
     // v Kandidátoch / Dopytoch. Kým migrácia 073 nie je spustená, funkcia

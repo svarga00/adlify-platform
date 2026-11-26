@@ -1,8 +1,8 @@
 // ============================================================================
-// punds web — dva weby, ich jazyky a adresy stránok
+// DANUBRA web — dva weby, ich jazyky a adresy stránok
 // ============================================================================
-//   punds.sk  remeselníci hľadajú prácu  · sk (predvolený), cz, hu, de, en, ro, pl, bg
-//   punds.eu  nemecké firmy hľadajú ľudí  · de (predvolený), en
+//   danubra.sk  remeselníci hľadajú prácu  · sk (predvolený), cz, hu, de, en, ro, pl, bg
+//   danubra.eu  nemecké firmy hľadajú ľudí  · de (predvolený), en
 //
 // Rumunčina, poľština a bulharčina (ro, pl, bg) pribudli neskôr: tím firmy
 // nimi nehovorí, preto web v týchto jazykoch pri ponukách pripomína, že vedúci
@@ -10,15 +10,15 @@
 // Bulharské slová v adrese sú v latinke (rabota, profesii…), nech sa odkaz dá
 // prečítať a nadiktovať aj bez cyriliky.
 //
-// Každý jazyk má vlastnú predponu (punds.sk/sk/…, /cz/…) a vlastné slová
+// Každý jazyk má vlastnú predponu (danubra.sk/sk/…, /cz/…) a vlastné slová
 // v adrese — „/sk/ponuky", „/de/jobs". Na skúšobnej adrese beží web pod
-// predponou webu: adlify-app.netlify.app/punds-sk/sk/ponuky.
+// predponou webu: adlify-app.netlify.app/danubra-sk/sk/ponuky.
 // ============================================================================
 'use strict';
 
 const SITES = {
   sk: {
-    key: 'sk', prefix: '/punds-sk', hosts: ['punds.sk', 'www.punds.sk'], domain: 'punds.sk',
+    key: 'sk', prefix: '/danubra-sk', hosts: ['danubra.sk', 'www.danubra.sk'], domain: 'danubra.sk',
     langs: ['sk', 'cz', 'hu', 'de', 'en', 'ro', 'pl', 'bg'], defaultLang: 'sk',
     routes: {
       home: { sk: '', cz: '', hu: '', de: '', en: '', ro: '', pl: '', bg: '' },
@@ -33,7 +33,7 @@ const SITES = {
     },
   },
   eu: {
-    key: 'eu', prefix: '/punds-eu', hosts: ['punds.eu', 'www.punds.eu'], domain: 'punds.eu',
+    key: 'eu', prefix: '/danubra-eu', hosts: ['danubra.eu', 'www.danubra.eu'], domain: 'danubra.eu',
     langs: ['de', 'en'], defaultLang: 'de',
     routes: {
       home: { de: '', en: '' },

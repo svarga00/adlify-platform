@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — spoločné texty, hlavička a päta
+// danubra.sk — spoločné texty, hlavička a päta
 // ============================================================================
 // Oslovujeme vykaním (Vy) vo všetkých jazykoch, ktoré ho majú (ro „Dvs.",
 // pl „Państwo", bg „Вие").
@@ -19,7 +19,7 @@ const { LANGS, SPOKEN } = require('../shared/sites');
 const PROF = require('../shared/professions');
 const { icon } = require('../shared/icons');
 
-const PHONE = '+421 910 523 858', PHONE2 = '+421 910 523 958', MAIL = 'info@punds.sk';
+const PHONE = '+421 910 523 858', PHONE2 = '+421 910 523 958', MAIL = 'info@danubra.sk';
 const tel = (p) => `tel:${p.replace(/\s+/g, '')}`;
 
 const T = {
@@ -253,13 +253,13 @@ async function header(ctx, page) {
 
 function footer(ctx) {
   const t = T[ctx.lang];
-  const eu = ctx.prod ? 'https://punds.eu/' + (ctx.lang === 'en' ? 'en/' : 'de/') : `/punds-eu/${ctx.lang === 'en' ? 'en' : 'de'}/`;
+  const eu = ctx.prod ? 'https://danubra.eu/' + (ctx.lang === 'en' ? 'en/' : 'de/') : `/danubra-eu/${ctx.lang === 'en' ? 'en' : 'de'}/`;
   return `<footer class="ftr">
   <div class="ftr-in">
     ${logo({ href: ctx.url('home'), light: true, draw: false })}
     <nav class="ftr-links"><a href="${esc(ctx.url('privacy'))}">${esc(t.foot.privacy)}</a><a href="${esc(ctx.url('cookies'))}">${esc(t.foot.cookies)}</a></nav>
-    <span class="ftr-copy">© ${new Date().getFullYear()} Partner und Service s. r. o. · IČO 57553921</span>
-    <a class="ftr-x" href="${esc(eu)}">${esc(t.foot.b2b)} → <span>punds.eu</span></a>
+    <span class="ftr-copy">© ${new Date().getFullYear()} DANUBRA · Partner und Service s. r. o. · IČO 57553921</span>
+    <a class="ftr-x" href="${esc(eu)}">${esc(t.foot.b2b)} → <span>danubra.eu</span></a>
   </div>
 </footer>`;
 }

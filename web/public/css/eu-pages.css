@@ -1,5 +1,5 @@
 /* ==========================================================================
-   punds.eu — stránky webu pre nemecké firmy
+   danubra.eu — stránky webu pre nemecké firmy
    Home (1b), detail remesla (2c), Über uns (3a), Kontakt (3b), Impressum (3c),
    Datenschutz, 404. Hodnoty podľa návrhu pri 1280 px; tablet ≤1199, mobil ≤767.
    ========================================================================== */
@@ -242,7 +242,6 @@
 .eu-band { position: relative; background: var(--ink); color: #fff; border-radius: 32px; padding: 52px; overflow: hidden; display: flex; justify-content: space-between; align-items: center; gap: 40px; }
 .eu-band-mark { position: absolute; right: -50px; bottom: -70px; opacity: .06; pointer-events: none; }
 .eu-band-mark svg { width: 360px; height: auto; }
-.eu-band-mark path + path { stroke: #fff; }
 .eu-band-t { position: relative; display: flex; flex-direction: column; gap: 10px; max-width: 620px; }
 .eu-band-t strong { font: 700 34px/1.1 var(--f-h); letter-spacing: -.035em; }
 .eu-band-t span { font-size: 16.5px; line-height: 1.6; color: var(--dm); }

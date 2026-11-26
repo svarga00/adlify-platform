@@ -1,7 +1,7 @@
 // ============================================================================
-// punds web — ponuky práce z appky (Inzeráty)
+// DANUBRA web — ponuky práce z appky (Inzeráty)
 // ============================================================================
-// Na web ide inzerát, ktorý má v appke zaškrtnuté „Zverejniť na punds.sk"
+// Na web ide inzerát, ktorý má v appke zaškrtnuté „Zverejniť na danubra.sk"
 // (danubra_ads.web_published) a je aktívny. Texty sú po slovensky; preklady
 // do ďalších jazykov sú v `i18n` ({ cz: { title, body, duties… }, … }) — kým
 // preklad nie je, ukáže sa slovenský text. Pre rumunčinu, poľštinu a
@@ -9,13 +9,13 @@
 // má hovoriť po nemecky alebo anglicky, takže anglický text je užitočnejší.
 //
 // Kým nie je zverejnený žiadny inzerát, skúšobná adresa ukazuje ukážkové
-// ponuky (označené „Ukážka"). Na punds.sk/punds.eu sa ukážky nikdy neukážu.
+// ponuky (označené „Ukážka"). Na danubra.sk/danubra.eu sa ukážky nikdy neukážu.
 // ============================================================================
 'use strict';
 
 const PROF = require('./professions');
 
-// Fotky z doterajšieho webu punds.eu. Pred prepnutím domény ich treba
+// Fotky z doterajšieho webu punds.eu (WordPress). Pred prepnutím domény ich treba
 // uložiť k nám (inzerát má vlastnú fotku v `image_url`).
 const IMG = {
   paint: 'https://punds.eu/wp-content/uploads/2026/06/magnific_photorealistic-wide-docum_wPKYKZK7EI-1-960x680.jpeg',
@@ -108,7 +108,7 @@ const COLS = 'id,title,web_title,web_body,trade_key,web_prof,city,country,rate_o
 
 /**
  * Načíta zverejnené inzeráty. Výsledok drží minútu v pamäti funkcie —
- * stránky sa navyše cachujú na CDN (punds-web.js).
+ * stránky sa navyše cachujú na CDN (danubra-web.js).
  */
 function loader(supabase) {
   let cache = null, at = 0;

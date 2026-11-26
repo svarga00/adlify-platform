@@ -1,6 +1,6 @@
 // ============================================================================
-// punds web — lokálny server na skúšanie a testy
-//   node web/dev.js [port]   → http://localhost:8790/punds-sk/sk/
+// DANUBRA web — lokálny server na skúšanie a testy
+//   node web/dev.js [port]   → http://localhost:8790/danubra-sk/sk/
 // Bez databázy: ponuky sú ukážkové (DEMO_ADS), formuláre sa len vypíšu.
 // ============================================================================
 'use strict';
@@ -41,6 +41,6 @@ function start(port = 8790, { ads = async () => DEMO_ADS, api } = {}) {
 }
 
 if (require.main === module) {
-  start(Number(process.argv[2]) || 8790).then(({ url }) => console.log(`punds web: ${url}/punds-sk/sk/  ·  ${url}/punds-eu/de/`));
+  start(Number(process.argv[2]) || 8790).then(({ url }) => console.log(`DANUBRA web: ${url}/danubra-sk/sk/  ·  ${url}/danubra-eu/de/`));
 }
 module.exports = { start };

@@ -202,6 +202,7 @@
           </div>
           <div id="sf-ping-out" class="sf-ping-out" aria-live="polite"></div>
           ${zle ? `<div class="warnbox" style="margin:12px 0;">${Icon('alert', 14)} <strong>Neuložilo sa to.</strong> ${UI.esc(zle.message)}</div>` : ''}
+          ${this.myDataNote(v, sup)}
           <div class="form-section">Ako appka vystavuje doklady${UI.tip('Tieto nastavenia sa použijú pri každom ďalšom vystavení. '
             + 'Už vystavené doklady sa nemenia.')}</div>
           <form id="cfg-superfaktura" onsubmit="event.preventDefault();Cfg.saveSection('superfaktura','cfg-superfaktura')">
@@ -225,13 +226,19 @@
               ${f('send_mode', 'Predvolené odoslanie', { def: 'sf', options: [['sf', 'Cez SuperFaktúru'], ['mail', 'Z našej schránky (Správy)']],
                 tip: 'Pri odoslaní sa dá vybrať vždy. Toto je len to, čo je ponúknuté ako prvé.' })}
               <div class="fld-full">${f('reverse_charge_note', 'Veta k reverse charge na doklade', { placeholder: S().RC_DE,
-                tip: 'Prázdne = nemecká veta „Steuerschuldnerschaft des Leistungsempfängers (§13b UStG)." pre nemeckých '
-                  + 'odberateľov a článok 196 smernice pre ostatných z EÚ. Doklad má sadzbu 0 % a v SuperFaktúre '
-                  + 'označené prenesenie daňovej povinnosti.' })}</div>
+                tip: 'Prázdne = text ako na faktúrach z Pohody: „Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger '
+                  + 'geschuldet." (pri ostatných z EÚ článok 196 smernice) a pod ním slovenská veta „Prenesenie daňovej '
+                  + 'povinnosti. Miestom dodania služby je podľa § 15 resp. § 16 zákona o dani z pridanej hodnoty iný členský '
+                  + 'štát…". Vlastný text ich nahradí oba. Doklad má sadzbu 0 % a v SuperFaktúre označené prenesenie '
+                  + 'daňovej povinnosti.' })}</div>
               ${UI.field('use_own_number', 'Číslo dokladu z appky', { type: 'checkbox', value: val('use_own_number', true),
                 placeholder: 'Do SuperFaktúry posielať naše číslo faktúry',
                 tip: 'Zapnuté: doklad v SuperFaktúre dostane presne číslo z appky (zákonné číslo). Vypnuté: číslo pridelí '
                   + 'SuperFaktúra a appka ho len zapíše — potom sa čísla v appke a v SuperFaktúre rozídu.' })}
+              ${UI.field('send_my_data', 'Údaje dodávateľa posielať z appky', { type: 'checkbox', value: val('send_my_data', true),
+                placeholder: 'Údaje dodávateľa posielať z appky (z Fakturačných údajov)',
+                tip: 'Zapnuté: názov, adresa, IČO, DIČ, IČ DPH a zápis v registri idú na doklad z Nastavenia → Fakturačné údaje, '
+                  + 'bez ohľadu na profil účtu v SuperFaktúre. Vypnuté: SuperFaktúra ich vezme zo svojho Nastavenia → Moja firma.' })}
               ${UI.field('sync_daily', 'Denná synchronizácia', { type: 'checkbox', value: val('sync_daily', true),
                 placeholder: 'Každé ráno načítať úhrady zo SuperFaktúry',
                 tip: 'Ráno appka pozrie vystavené faktúry v SuperFaktúre. Plne uhradenú (a v Banke ešte nespárovanú) '
@@ -242,6 +249,23 @@
             </div>
           </form>
         </div>`;
+    },
+
+    /**
+     * Odkiaľ sa berie dodávateľ na doklade. Sandbox má profil firmy vygenerovaný
+     * náhodne — na skúšobnej faktúre preto stál v bloku „Lieferant" nezmysel.
+     */
+    myDataNote(v = {}, sup = {}) {
+      const on = v.send_my_data !== false;
+      if (!on) {
+        return `<div class="warnbox sf-mydata">${Icon('alert', 14)} V SuperFaktúre skontrolujte Nastavenia → Moja firma — údaje dodávateľa na faktúre sa berú odtiaľ.</div>`;
+      }
+      const chyba = !String(sup.name || '').trim();
+      return `<div class="${chyba ? 'warnbox' : 'regimebox'} sf-mydata">${chyba ? Icon('alert', 14) + ' ' : ''}Dodávateľ na doklade
+        (názov, adresa, IČO, DIČ, IČ DPH, zápis v registri) ide z Fakturačných údajov appky${chyba
+          ? ' — tie však nemajú názov firmy, takže SuperFaktúra zatiaľ použije svoj profil' : ''}.
+        Logo, telefón, e-mail a web berie SuperFaktúra z Nastavenia → Moja firma — skontrolujte ich tam
+        (v sandboxe aj na ostrom účte).</div>`;
     },
 
     statusHtml(st = this.status) {
@@ -489,7 +513,11 @@
           to: p.email || '', sign: true, links: { partner_id: x.partner_id || null },
           subject: credit ? t.subjectCn(x.invoice_number) : t.subject(x.invoice_number),
           body: credit ? t.messageCn : t.message,
-          attachments: [{ storage_path: r.json.storage_path || null, archive_id: r.json.archive_id, name: r.json.file_name, type: 'application/pdf' }]
+          // K PDF faktúry sa priložia skeny podpísaných výkazov jej týždňov
+          // (v okne e-mailu sa dajú odobrať).
+          attachments: [{ storage_path: r.json.storage_path || null, archive_id: r.json.archive_id, name: r.json.file_name, type: 'application/pdf' },
+            ...(Inv.scansOf ? (await Inv.scansOf(x)).map(h => ({ storage_path: h.storage_path,
+              name: `Stundennachweis-KW${h.iso_week}-${h.iso_year}.${String(h.storage_path).split('.').pop()}` })) : [])]
             .filter(a => a.storage_path),
           // Keď e-mail naozaj odíde, faktúra sa označí ako odoslaná.
           onSent: async (to) => {

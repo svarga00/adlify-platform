@@ -1,9 +1,9 @@
 // ============================================================================
-// punds web — príjem formulárov z webov
+// DANUBRA web — príjem formulárov z webov
 // ============================================================================
-//   punds.sk  apply    prihláška na ponuku        → Kandidáti (zdroj Web, inzerát)
+//   danubra.sk  apply    prihláška na ponuku        → Kandidáti (zdroj Web, inzerát)
 //             contact  „Ozvite sa nám"            → Kandidáti (zdroj Web)
-//   punds.eu  enquiry  dopyt nemeckej firmy        → Dopyty (zdroj punds.eu)
+//   danubra.eu  enquiry  dopyt nemeckej firmy        → Dopyty (zdroj danubra.eu)
 //
 // Každé odoslanie sa zapíše do danubra_web_submissions (aj spam), aby sa
 // dalo dohľadať, čo presne prišlo. Ochrana: pasca na roboty (pole
@@ -22,7 +22,7 @@ const { SPOKEN } = require('./shared/sites');
 const FORMS = { sk: ['apply', 'contact'], eu: ['enquiry'] };
 // Jazyk webu → danubra_candidates.language (čeština je v appke „cs").
 const LANG_DB = { sk: 'sk', cz: 'cs', hu: 'hu', de: 'de', en: 'en', ro: 'ro', pl: 'pl', bg: 'bg' };
-const ORIGIN_OK = /^https?:\/\/(([a-z0-9-]+\.)*punds\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost(:\d+)?|127\.0\.0\.1(:\d+)?)$/i;
+const ORIGIN_OK = /^https?:\/\/(([a-z0-9-]+\.)*danubra\.(sk|eu)|adlify-app\.netlify\.app|[a-z0-9-]+--adlify-app\.netlify\.app|localhost(:\d+)?|127\.0\.0\.1(:\d+)?)$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const json = (status, body) => ({ status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, body: JSON.stringify(body) });
@@ -99,7 +99,7 @@ async function mailAfter(notify, o, supabase, logId) {
     const r = await Promise.race([notify(o), new Promise((ok) => setTimeout(() => ok({ skipped: 'časový limit' }), MAIL_WAIT_MS))]);
     const err = r && (r.confirmError || r.teamError || (r.skipped === 'časový limit' ? 'e-mail: časový limit' : null));
     if (logId && r) await supabase.from('danubra_web_submissions').update({ error: err || null }).eq('id', logId);
-  } catch (e) { console.error('[punds-web mail]', e); }
+  } catch (e) { console.error('[danubra-web mail]', e); }
 }
 
 const MODEL = { werkvertrag: 'Werkvertrag', aueg: 'Arbeitnehmerüberlassung', open: 'noch offen' };
@@ -119,7 +119,7 @@ const ipOf = (ip) => String(ip || '').split(',')[0].trim();
 function ipHash(ip, secret = ipSecret()) {
   const a = ipOf(ip);
   if (!a || !secret) return null;
-  return crypto.createHmac('sha256', secret).update(`punds-web:ip:${a}`).digest('hex').slice(0, 32);
+  return crypto.createHmac('sha256', secret).update(`danubra-web:ip:${a}`).digest('hex').slice(0, 32);
 }
 let warnedNoSecret = false;
 /** Limit odoslaní bez databázy (keď sa odtlačok neukladá): len v pamäti tejto inštancie funkcie. */
@@ -159,7 +159,7 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
   } else {
     if (!ipSecret() && !warnedNoSecret) {
       warnedNoSecret = true;
-      console.warn('[punds-web api] chýba IP_HASH_SECRET (ani iné tajomstvo) — IP adresa sa neukladá, limit odoslaní platí len v pamäti funkcie');
+      console.warn('[danubra-web api] chýba IP_HASH_SECRET (ani iné tajomstvo) — IP adresa sa neukladá, limit odoslaní platí len v pamäti funkcie');
     }
     const mem = memCount(req.ip, now().getTime(), WINDOW);
     if (mem.count >= 6) return json(429, { error: 'too many' });
@@ -198,7 +198,7 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
         brief, company_name: d.company, company_country: 'DE',
         contact_name: d.name, contact_phone: d.phone || null, contact_email: d.email,
         city: d.location || null, country: 'DE', trade_key: (tr[0] && tr[0].app[0]) || null,
-        headcount: d.headcount, start_date: startDate(d.start), source: 'punds.eu', status: 'new', consent_at: at,
+        headcount: d.headcount, start_date: startDate(d.start), source: 'danubra.eu', status: 'new', consent_at: at,
       };
       const { data, error } = await supabase.from('danubra_opportunities').insert(row).select('id').single();
       if (error) throw error;
@@ -207,7 +207,7 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
       return json(200, { ok: true });
     }
 
-    // punds.sk — prihláška alebo kontakt → kandidát
+    // danubra.sk — prihláška alebo kontakt → kandidát
     let ad = null;
     if (name === 'apply' && d.job) {
       const { data } = await supabase.from('danubra_ads').select(`${COLS},plan_id`).eq('web_slug', d.job).maybeSingle();
@@ -220,7 +220,7 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
       full_name: d.name, phone: d.phone, email: d.email || null, language: LANG_DB[d.lang] || 'sk',
       languages: d.languages && d.languages.length ? d.languages : null,     // migrácia 084
       profession: (ad && ad.trade_key) || (prof && prof.app[0]) || null,
-      source: 'web', source_detail: `punds.sk · ${what}`.slice(0, 200), status: 'new', type: 'individual',
+      source: 'web', source_detail: `danubra.sk · ${what}`.slice(0, 200), status: 'new', type: 'individual',
       notes: [d.topic && `Téma: ${d.topic}`, d.note, d.profession && !prof && `Profesia: ${d.profession}`].filter(Boolean).join('\n') || null,
       ad_id: ad ? ad.id : null, plan_id: ad ? ad.plan_id : null,
       city: null, received_at: at, consent_at: at,
@@ -232,7 +232,7 @@ async function handle(site, name, req, { supabase, now = () => new Date(), notif
     return json(200, { ok: true });
   } catch (e) {
     await supabase.from('danubra_web_submissions').insert({ ...log, error: String(e.message || e).slice(0, 300) });
-    console.error('[punds-web api]', name, e);
+    console.error('[danubra-web api]', name, e);
     return json(500, { error: 'server' });
   }
 }

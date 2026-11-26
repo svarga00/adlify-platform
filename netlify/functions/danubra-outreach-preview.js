@@ -7,7 +7,7 @@
 //     → { html, text, trade, headline, attachment }
 //
 // Skladá presne to isté ako odoslanie (app/lib/marketing/outreach-pack.js):
-// e-mail v dizajne punds a prezentáciu podľa remesla a regiónu firmy
+// e-mail v dizajne DANUBRA a prezentáciu podľa remesla a regiónu firmy
 // a hľadania, z ktorého prišla. Nič neposiela ani nezapisuje. Sledovací
 // obrázok ani prepis odkazov v náhľade nie sú (tie pridá až odoslanie),
 // odkaz na odhlásenie je ukážkový.

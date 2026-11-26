@@ -1,10 +1,10 @@
 /* ==========================================================================
-   punds.sk — detail ponuky: kalkulačka zárobku, odkazy na zdieľanie
+   danubra.sk — detail ponuky: kalkulačka zárobku, odkazy na zdieľanie
    Spodná lišta a panel s prihláškou idú cez site.js (data-sheet-open).
    ========================================================================== */
 (function () {
   'use strict';
-  var P = window.PUNDS || {};
+  var P = window.DANUBRA || {};
   var LOC = { sk: 'sk-SK', cz: 'cs-CZ', hu: 'hu-HU', de: 'de-DE', en: 'en-GB' }[P.lang] || 'sk-SK';
   var fmt = function (n) { return Number(n).toLocaleString(LOC); };
 

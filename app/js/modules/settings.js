@@ -202,7 +202,8 @@
             'Všeobecná minimálna mzda v Nemecku na hodinu. Platí pri práci, ktorá nie je stavba.'],
           ['withholding_pct', 'Zrážka bez §48b %', 'number', 15, '', null,
             'Koľko % zrazí nemecký odberateľ zo stavebnej faktúry, keď nemáme platnú '
-              + 'Freistellungsbescheinigung §48b. Zo zákona 15 %. Appka to použije pri faktúre z obdobia.'],
+              + 'Freistellungsbescheinigung §48b. Zo zákona 15 %. Na faktúru sa nedáva sama — len keď '
+              + 'v návrhu faktúry zaškrtnete „Zrážka §48b".'],
         ]) +
 
         this.section('Prahy pre rozhodovanie',
@@ -230,9 +231,10 @@
           'framework_de', [
           ['objednavka_dni', 'Objednávka vopred (pracovných dní)', 'number', 5, '', null,
             'Najmenej koľko pracovných dní vopred musí odberateľ ľudí objednať. Vypíše sa do zmluvy.'],
-          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 14, '', null,
-            'Ako často odberateľovi fakturujeme. Len sa vypíše do zmluvy — faktúry podľa toho '
-              + 'nevznikajú samy.'],
+          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 7, '', null,
+            'Ako často odberateľovi fakturujeme — podľa firemnej rámcovej zmluvy každých 7 dní '
+              + '(po kalendárnych týždňoch, KW). Vypíše sa do zmluvy. Obdobie na fakturáciu sa '
+              + 'u konkrétneho odberateľa nastaví na jeho karte (7 alebo 14 dní).'],
           ['splatnost_dni', 'Splatnosť našej faktúry (dní)', 'number', 7, '', null,
             'Toto číslo sa vypíše do zmluvy. Splatnosť na samotnej faktúre sa berie z karty '
               + 'odberateľa (inak 30 dní) — nastavte ju tam rovnako.'],
@@ -257,7 +259,8 @@
           + 'prejaví na každej ďalšej zmluve; tie podpísané zostávajú, ako boli.',
           'subcontract', [
           ['fakturacia_dni', 'Fakturuje každých (dní)', 'number', 14, '', null,
-            'Ako často nám živnostník fakturuje. Vypíše sa do jeho zmluvy.'],
+            'Ako často nám živnostník fakturuje — za 2 kalendárne týždne (KW). Vypíše sa do jeho '
+              + 'zmluvy a podľa toho appka spája týždne do jednej jeho faktúry.'],
           ['splatnost_dni', 'Splatnosť jeho faktúry (dní)', 'number', 14, '', null,
             'Do koľkých dní živnostníkovi platíme. Vypíše sa do zmluvy a dostane ju aj faktúra, '
               + 'ktorú vystavíme za neho.'],
@@ -268,13 +271,27 @@
               + 'za každú takú úhradu mu strhneme aj tento poplatok. Vypíše sa do zmluvy.'],
           ['pokuta_alkohol', 'Pokuta — alkohol na pracovisku €', 'number', 500],
           ['pokuta_fajcenie', 'Pokuta — fajčenie €', 'number', 350],
-          ['pokuta_omeskanie_den', 'Pokuta — omeškanie za deň €', 'number', 250],
-          ['pokuta_nenastupenie', 'Pokuta — nenastúpenie €', 'number', 2500],
+          ['pokuta_omeskanie_den', 'Pokuta — omeškanie za deň €', 'number', 300],
+          ['pokuta_nenastupenie', 'Pokuta — nenastúpenie €', 'number', 3000],
           ['pokuta_mlcanlivost', 'Pokuta — mlčanlivosť €', 'number', 400],
           ['pokuta_konkurencia', 'Pokuta — zákaz konkurencie €', 'number', 10000],
           ['konkurencia_roky', 'Zákaz konkurencie po skončení (rokov)', 'number', 2, '', null,
             'Koľko rokov po skončení spolupráce nesmie živnostník robiť priamo pre našich odberateľov.'],
           ['vypoved_mes', 'Výpovedná lehota (mesiacov)', 'number', 1],
+          ['samofakt_namietka_dni', 'Námietka k faktúre, ktorú vyhotovíme zaňho (dní)', 'number', 5, '', null,
+            'Keď faktúru za živnostníka vyhotovíme my (čl. V. body 10 až 14 zmluvy), do koľkých dní ju môže '
+              + 'namietať. Potom sa berie ako akceptovaná.'],
+          ['miesto_sk', 'Adresa v SR do zoznamu miest (Stavby)', 'text', '', 'napr. ulica, PSČ obec, Slovensko', null,
+            'Adresa na Slovensku, ktorá sa vypíše do zoznamu „Stavby" a do miest výkonu na objednávke '
+              + 'živnostníkovi (spolu s riadkami „celé územie Nemeckej / Slovenskej republiky"). '
+              + 'Prázdne = adresa našej firmy z fakturačných údajov.'],
+          ['cinnosti', 'Zoznam činností do Objednávky', 'textarea',
+            (window.DanubraSubcontract ? DanubraSubcontract.CINNOSTI.map(DanubraSubcontract.cinnostRiadok).join('\n') : ''),
+            'jeden riadok = jedna činnosť, remeslá za lomkou /maliari, …/', null,
+            'Činnosti, z ktorých sa na objednávke živnostníkovi vyberá práve jedna. Sú to názvy voľných živností — '
+              + 'text sa musí zhodovať s jeho živnostenským oprávnením a ten istý text píše na faktúru. '
+              + 'Predvolene zoznam platný od 26.04.2026.'],
+          ['cinnosti_od', 'Zoznam činností platný od', 'date', '2026-04-26'],
         ]) +
 
         this.section('Koľko ľudí vieme nabrať',
@@ -371,7 +388,6 @@
     async settingsView(el) {
       Danubra.setActions('');
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const inv = this.j('invoice_series'), ord = this.j('order_series'), sub = this.j('subcontract_series');
       const sup = this.j('supplier');
 
       el.innerHTML = Danubra.header('Nastavenia', 'Agendy, fakturačné údaje, číselné rady a automatizácie') +
@@ -408,20 +424,42 @@
             'Steuernummer je nemecké daňové číslo našej firmy od nemeckého finančného úradu. '
               + 'Tlačí sa na dokumenty pre nemeckých odberateľov.'],
           ['email', 'E-mail', 'email'],
+          // Faktúry od živnostníkov chodia na osobitnú adresu (vzor faktúry V1.3).
+          ['invoice_inbox', 'E-mail na prijaté faktúry', 'email', '', 'napr. faktury@…', null,
+            'Kam nám živnostníci posielajú svoje faktúry. Vypíše sa na vzor faktúry („Faktúry posielajte '
+              + 'výhradne na …"). Prázdne = hlavný e-mail vyššie.'],
           ['phone', 'Telefón', 'text'],
+          // Rámcové zmluvy a objednávky majú v záhlaví „Štatutárny orgán" a pri
+          // nemeckom odberateľovi aj „Zastúpený / Vertreten durch".
+          ['statutory', 'Štatutárny orgán', 'text', '', 'meno konateľa', null,
+            'Kto je štatutárny orgán firmy (konateľ). Tlačí sa do záhlavia zmlúv a objednávok.'],
+          ['representative', 'Zastúpený (ak iný)', 'text', '', 'prázdne = štatutárny orgán', null,
+            'Kto podpisuje za firmu, ak to nie je sám štatutár (splnomocnený zástupca). Tlačí sa ako '
+              + '„Zastúpený / Vertreten durch" na rámcovej zmluve a objednávke s nemeckým odberateľom.'],
           ['address', 'Adresa', 'text'],
           // Odkiaľ sa ráta „ako ďaleko je to od nás" pri nových firmách (leads.js).
           ['office_coords', 'Poloha kancelárie', 'text', '', 'napr. 47.98544, 18.16195 alebo odkaz z Google Máp', null,
             'Súradnice kancelárie (alebo odkaz z Google Máp). Pri nových firmách sa podľa nich ukazuje, ako ďaleko sú od nás '
               + '(vzdušnou čiarou). Keď pole necháte prázdne, appka ho doplní sama z adresy pri „Obnoviť logá a náhľady" '
               + '(Marketing → Nové firmy). Netlačí sa na dokumenty.'],
-          // Hlavička a päta dokumentov (vzhľad punds). Prázdne = pri Partner
-          // und Service „punds" a web z domény e-mailu.
-          ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. punds'],
-          ['web', 'Web na dokumentoch', 'text', '', 'napr. punds.eu'],
+          // Hlavička a päta dokumentov (vzhľad DANUBRA). Prázdne = pri našej
+          // firme značka DANUBRA a web z domény e-mailu.
+          ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. DANUBRA'],
+          ['web', 'Web na dokumentoch', 'text', '', 'napr. danubra.eu'],
           ['bic', 'BIC / SWIFT', 'text', '', 'napr. TATRSKBX', null,
             'BIC (SWIFT) je medzinárodný kód banky, napr. TATRSKBX = Tatra banka. '
               + 'Tlačí sa na faktúru vedľa IBAN-u.'],
+          ['bank_name', 'Banka', 'text', '', 'napr. Tatra banka, a.s.', null,
+            'Názov banky k IBAN-u. Tlačí sa na faktúru do platobných údajov.'],
+          ['issued_by', 'Faktúru vystavil', 'text', '', 'napr. Štefan Varga', null,
+            'Meno pri „Vystavil / Ausgestellt von" na faktúre, vedľa pečiatky a podpisu. '
+              + 'Ide aj do SuperFaktúry.'],
+          ['constant_symbol', 'Konštantný symbol (predvolený)', 'text', '', 'napr. 0308', null,
+            'Konštantný symbol na nových faktúrach (0308 = platba za služby). V návrhu faktúry sa dá zmeniť.'],
+          ['invoice_footer', 'Text dolu na faktúre', 'textarea', '', 'Prázdne = veta o úroku z omeškania ako na faktúrach z Pohody', null,
+            'Malý text na konci faktúry. Prázdne = „Dovoľujeme si Vás upozorniť, že v prípade nedodržania termínu '
+              + 'splatnosti uvedeného na faktúre, Vám môžeme účtovať úrok z omeškania…" (ako na faktúrach z Pohody). '
+              + 'Pod ním sa vždy tlačí zápis v registri.'],
           ['vat_note', 'Poznámka k DPH', 'text', 'Nie sme platiteľmi DPH.'],
         ]) +
 
@@ -430,19 +468,7 @@
         // SuperFaktúra: stav pripojenia, test spojenia a mapovanie (len admin).
         (window.SFUI ? SFUI.settingsCard(this) : '') +
 
-        `<div class="card card-pad" style="margin-bottom:16px;">
-          <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
-          <div class="regimebox" style="margin:0 0 12px;">
-            Čísla prideľuje databáza transakčne, takže nikdy nevznikne diera ani duplicita.
-            Pri zmene roka sa rad automaticky vynuluje.</div>
-          <div class="kv">
-            <div><span>Objednávky${UI.tip('Číslo poslednej objednávky (OBJ-rok-poradie). Ďalšia dostane '
-              + 'o jedno vyššie — appka ho pridelí sama.')}</span><strong class="mono">OBJ-${ord.year || '—'}-${String(ord.current || 0).padStart(4, '0')}</strong></div>
-            <div><span>Faktúry${UI.tip('Číslo poslednej vydanej faktúry: rok a poradie (napr. 2026091). '
-              + 'Ďalšia dostane o jedno vyššie. Číslice z neho sú zároveň variabilný symbol pri platbe.')}</span><strong class="mono">${inv.year || '—'}${String(inv.current || 0).padStart(3, '0')}</strong></div>
-            <div><span>Zákazky${UI.tip('Číslo poslednej zákazky (ZAK-rok-poradie). Pridelí sa pri jej založení.')}</span><strong class="mono">ZAK-${sub.year || '—'}-${String(sub.current || 0).padStart(4, '0')}</strong></div>
-          </div>
-        </div>` +
+        this.seriesHtml() +
 
         this.section('Automatizácie',
           'Čo smie systém robiť sám. Faktúry za priebežnú službu sa neodosielajú '
@@ -480,6 +506,174 @@
         ]);
       // Stav SuperFaktúry sa dočíta zo servera (bez kľúčov) a dopíše do karty.
       if (window.SFUI && Danubra.isAdmin()) SFUI.paintStatus().catch(() => {});
+      // Skutočné ďalšie čísla (databáza preskočí čísla, ktoré už majú doklad).
+      this.paintSeries().catch(() => {});
+    },
+
+    // ── Číselné rady ──────────────────────────────────────────────────────
+    // Formát každého radu (predpona, rok, kód druhu, oddeľovač, počet číslic)
+    // a ďalšie číslo. Mení len admin cez danubra_set_series (migrácia 094) —
+    // databáza odmietne číslo, ktoré už bolo použité, a zmenu zapíše do
+    // histórie. Náhľad počíta lib/numbering.js rovnako ako databáza.
+    year() { return Number(new Intl.DateTimeFormat('en', { timeZone: 'Europe/Bratislava', year: 'numeric' }).format(new Date())); },
+    seriesOf(kind) { return this.j(kind + '_series'); },
+    seriesFmt(kind) { return DanubraNumbering.formatOf(kind, this.seriesOf(kind)); },
+    /** Ďalšie číslo: z databázy, kým sa nenačíta, z počítadla. */
+    seriesNext(kind) {
+      const db = this._seriesDb && this._seriesDb[kind];
+      if (db && db.next) return db.next;
+      return DanubraNumbering.preview(kind, this.seriesOf(kind), this.year());
+    },
+    /** „rok + kód 01 + 4 číslice" — ako sa číslo skladá, slovami. */
+    seriesWords(f) {
+      const p = [];
+      if (f.per_worker) p.push('predpona z karty živnostníka');
+      else if (f.prefix) p.push(`predpona ${f.prefix}`);
+      if (f.year_style === 'yyyy') p.push('rok 2026'.replace('2026', String(this.year())));
+      else if (f.year_style === 'yy') p.push(`rok ${String(this.year() % 100).padStart(2, '0')}`);
+      if (f.code) p.push(`kód ${f.code}`);
+      p.push(`${f.digits} číslice poradia`.replace(/^([5-7]) číslice/, '$1 číslic'));
+      const sep = f.separator ? ` (oddelené „${f.separator}")` : '';
+      return p.join(' + ') + sep;
+    },
+
+    seriesHtml() {
+      const N = window.DanubraNumbering;
+      if (!N) return '';
+      const admin = Danubra.isAdmin();
+      const top = N.SERIES.filter(s => ['invoice', 'order'].includes(s.kind))
+        .map(s => `${UI.esc(s.next)}: <b class="mono" data-series-next="${s.kind}">${UI.esc(this.seriesNext(s.kind))}</b>`).join(' · ');
+      const rows = N.SERIES.map(s => {
+        const f = this.seriesFmt(s.kind);
+        const next = f.per_worker ? `${N.preview(s.kind, this.seriesOf(s.kind), this.year(), 'NOVAK')}` : this.seriesNext(s.kind);
+        return `<div class="ser-row">
+          <div class="ser-main">
+            <b>${UI.esc(s.label)}</b>${s.note ? UI.tip(s.note) : ''}
+            <span class="muted-sm">${UI.esc(this.seriesWords(f))}</span>
+          </div>
+          <div class="ser-next">
+            <span class="muted-sm">${f.per_worker ? 'napr.' : UI.esc(s.next)}</span>
+            <strong class="mono" data-series-next="${f.per_worker ? '' : s.kind}">${UI.esc(next)}</strong>
+          </div>
+          ${admin ? `<button type="button" class="btn btn-outline btn-sm" onclick="Cfg.seriesForm('${s.kind}')">${Icon('edit', 14)} Upraviť</button>` : ''}
+        </div>`;
+      }).join('');
+      return `<div class="card card-pad" id="cfg-series" style="margin-bottom:16px;">
+          <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
+          <div class="ser-top">${top}</div>
+          <div class="regimebox" style="margin:0 0 12px;">
+            Čísla prideľuje databáza pri vzniku dokladu. Žiadne číslo sa nepoužije druhýkrát — ani keď
+            nastavíte nižšie „Ďalšie číslo" (databáza to odmietne). V januári sa poradie začne znova od 1.
+            Predvolene: rok + dvojmiestny kód druhu dokladu + 4 číslice, takže z čísla je hneď jasné,
+            čo je to za doklad, a celé je variabilný symbol.${admin ? '' : ' Meniť ich smie administrátor.'}</div>
+          <div class="ser-list">${rows}</div>
+        </div>`;
+    },
+
+    async paintSeries() {
+      if (!document.getElementById('cfg-series')) return;
+      const { data, error } = await DB.rpc('series_preview');
+      if (error || !data) return;
+      this._seriesDb = data;
+      document.querySelectorAll('[data-series-next]').forEach(el => {
+        const k = el.getAttribute('data-series-next');
+        if (k && data[k] && data[k].next) el.textContent = data[k].next;
+      });
+    },
+
+    seriesForm(kind) {
+      const N = DanubraNumbering;
+      const s = N.BY_KIND[kind];
+      if (!s || !Danubra.isAdmin()) return;
+      const f = this.seriesFmt(kind);
+      UI.modal(`Číselný rad — ${s.label}`, `
+        <form id="ser-form" oninput="Cfg.seriesLive('${kind}')" onchange="Cfg.seriesLive('${kind}')"
+          onsubmit="event.preventDefault();Cfg.saveSeries('${kind}')">
+          <div class="ser-prev" id="ser-prev" aria-live="polite"></div>
+          <div class="form-grid">
+            ${UI.field('prefix', 'Predpona', { value: f.prefix, placeholder: 'prázdne, napr. FA',
+              tip: 'Písmená bez diakritiky a číslice, najviac 10. Predvolene prázdna — číslo je len z číslic.' })}
+            ${UI.field('year_style', 'Rok v čísle', { value: f.year_style,
+              options: N.YEAR_STYLES.map(([v, l]) => [v, v === 'yyyy' ? String(this.year()) : v === 'yy' ? String(this.year() % 100).padStart(2, '0') : l]),
+              tip: 'S rokom sa poradie v januári začne znova od 1. Bez roka pokračuje stále ďalej.' })}
+            ${UI.field('code', 'Kód druhu dokladu', { value: f.code, placeholder: 'napr. 01',
+              tip: 'Dve číslice za rokom. Každý druh dokladu má vlastný (faktúry 01, objednávky 02…), takže sa čísla nikdy nestretnú. Prázdne = bez kódu.' })}
+            ${UI.field('separator', 'Oddeľovač', { value: f.separator, options: N.SEPARATORS,
+              tip: 'Medzi predponou, rokom, kódom a poradím. Pri faktúrach nechajte žiadny — číslo je potom celé variabilný symbol.' })}
+            ${UI.field('digits', 'Počet číslic poradia', { type: 'number', value: f.digits, step: '1',
+              tip: '3 až 7. Poradie sa doplní nulami zľava (0001). Dlhšie číslo sa nikdy neoreže.' })}
+            ${s.perWorkerOption ? '' : UI.field('next', 'Ďalšie číslo (poradie)', { type: 'number', step: '1',
+              placeholder: String(DanubraNumbering.nextSeq(kind, this.seriesOf(kind), this.year())),
+              tip: 'Prázdne = pokračuje sa ďalej. Pri prechode na ostrú SuperFaktúru sem dajte poradie, ktoré nadviaže na ostrý rad (napr. 137). Nižšie, než už bolo použité, sa nedá.' })}
+          </div>
+          ${s.perWorkerOption ? `
+            <div class="form-grid">
+              ${UI.field('next', 'Ďalšie číslo (poradie)', { type: 'number', step: '1',
+                placeholder: String(DanubraNumbering.nextSeq(kind, this.seriesOf(kind), this.year())),
+                tip: 'Platí pre spoločný rad. Pri rade podľa živnostníka má poradie každý svoje.' })}
+              ${UI.field('per_worker', 'Rad podľa živnostníka', { type: 'checkbox', value: !!f.per_worker,
+                placeholder: 'Predpona a poradie z karty živnostníka (NOVAK-2026-001)',
+                tip: 'Zapnuté: každý živnostník má vlastný rad s predponou z jeho karty (inak OV). Vtedy nechajte predponu prázdnu a nastavte oddeľovač pomlčku a kód prázdny.' })}
+            </div>` : ''}
+          <div class="ser-err" id="ser-err" aria-live="polite"></div>
+          <div class="regimebox">Žiadne číslo sa nepoužije druhýkrát. Už vydané doklady si svoje čísla nechajú —
+            nový formát dostanú len nové. Zmena sa zapíše do histórie.</div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary" id="ser-save">${Icon('check')} Uložiť</button>
+          </div>
+        </form>`);
+      this.seriesLive(kind);
+    },
+
+    /** Formát z okna radu. */
+    seriesInput() {
+      const form = document.getElementById('ser-form');
+      if (!form) return null;
+      const d = UI.formData(form);
+      const fmt = { prefix: String(d.prefix || '').trim(), year_style: d.year_style, code: String(d.code || '').trim(),
+        separator: d.separator || '', digits: Number(d.digits) };
+      const cb = form.querySelector('[name="per_worker"]');
+      if (cb) fmt.per_worker = !!cb.checked;
+      const next = String(d.next || '').trim();
+      return { fmt, next: next === '' ? null : Number(next) };
+    },
+
+    seriesLive(kind) {
+      const N = DanubraNumbering;
+      const s = N.BY_KIND[kind];
+      const x = this.seriesInput();
+      if (!x) return;
+      const all = Object.fromEntries(N.SERIES.map(o => [o.kind, this.seriesFmt(o.kind)]));
+      const errs = N.validate(kind, x.fmt, { next: x.next, all, year: this.year() });
+      const seq = x.next || N.nextSeq(kind, { ...this.seriesOf(kind), ...x.fmt }, this.year());
+      const num = N.format(x.fmt, this.year(), seq, x.fmt.per_worker ? 'NOVAK' : undefined);
+      const prev = document.getElementById('ser-prev');
+      if (prev) {
+        prev.innerHTML = `${UI.esc(s.next)} dostane číslo <b class="mono">${UI.esc(num)}</b>`
+          + (x.fmt.per_worker ? ' <span class="muted-sm">(príklad pre živnostníka s radom NOVAK)</span>' : '')
+          + (['invoice', 'credit_note'].includes(kind) ? ` <span class="muted-sm">· variabilný symbol ${UI.esc(N.vsOf(num))}</span>` : '');
+      }
+      const box = document.getElementById('ser-err');
+      if (box) box.innerHTML = errs.length ? `<div class="warnbox">${Icon('alert', 14)} ${errs.map(UI.esc).join('<br>')}</div>` : '';
+      const btn = document.getElementById('ser-save');
+      if (btn) btn.disabled = errs.length > 0;
+    },
+
+    async saveSeries(kind) {
+      const x = this.seriesInput();
+      if (!x) return;
+      const { data, error } = await DB.rpc('set_series', { p_kind: kind, p_format: x.fmt, p_next: x.next });
+      if (error) {
+        const box = document.getElementById('ser-err');
+        if (box) box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} <strong>Neuložené.</strong> ${UI.esc(error.message)}</div>`;
+        return;
+      }
+      UI.closeModal();
+      UI.toast(`Uložené — ${DanubraNumbering.BY_KIND[kind].next.toLowerCase()} dostane číslo ${data && data.next ? data.next : ''}`, 'ok');
+      this.row = await Danubra.loadCfg(true);
+      this._seriesDb = null;
+      Danubra.renderRoute();
     },
   };
 

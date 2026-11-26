@@ -36,27 +36,27 @@ const ev = (headers = {}, q = {}) => ({ httpMethod: 'POST', headers, queryString
 
 (async () => {
   console.log('Príjem dopytov z webu');
-  ok(originAllowed({ origin: 'https://punds.sk' }) && originAllowed({ origin: 'https://www.punds.eu' })
-    && originAllowed({ referer: 'https://punds.sk/sk/kontakt' }) && originAllowed({ Origin: 'https://adlify-app.netlify.app' }),
+  ok(originAllowed({ origin: 'https://danubra.sk' }) && originAllowed({ origin: 'https://www.danubra.eu' })
+    && originAllowed({ referer: 'https://danubra.sk/sk/kontakt' }) && originAllowed({ Origin: 'https://adlify-app.netlify.app' }),
   'naše stránky (Origin aj Referer) prejdú');
-  ok(!originAllowed({ origin: 'https://evil.com' }) && !originAllowed({ origin: 'https://punds.sk.evil.com' })
-    && !originAllowed({ referer: 'https://evil.com/?punds.sk' }) && !originAllowed({}) && !originAllowed({ origin: 'null' }),
+  ok(!originAllowed({ origin: 'https://evil.com' }) && !originAllowed({ origin: 'https://danubra.sk.evil.com' })
+    && !originAllowed({ referer: 'https://evil.com/?danubra.sk' }) && !originAllowed({}) && !originAllowed({ origin: 'null' }),
   'cudzia stránka ani požiadavka bez pôvodu neprejde');
   ok(originAllowed({ origin: 'https://danubra.sk' }, 'danubra.sk, https://www.danubra.sk/') && originAllowed({ origin: 'https://www.danubra.sk' }, 'danubra.sk, https://www.danubra.sk/'),
     'ďalšie domény z FORMS_ALLOWED_ORIGINS');
 
   warns.length = 0;
-  ok(authorized(ev({ origin: 'https://punds.eu' }), {}) && !authorized(ev({}), {}) && warns.length === 2 && warns.every((w) => /FORMS_SECRET nie je nastavený/.test(w)),
+  ok(authorized(ev({ origin: 'https://danubra.eu' }), {}) && !authorized(ev({}), {}) && warns.length === 2 && warns.every((w) => /FORMS_SECRET nie je nastavený/.test(w)),
     'bez FORMS_SECRET: z našej stránky áno, bez pôvodu nie — a vždy varovanie do logu', warns.join(' | '));
   const env = { FORMS_SECRET: 'tajne-heslo' };
   ok(authorized(ev({ 'x-danubra-secret': 'tajne-heslo' }), env) && authorized(ev({}, { secret: 'tajne-heslo' }), env)
-    && !authorized(ev({ 'x-danubra-secret': 'zle' }), env) && !authorized(ev({ origin: 'https://punds.sk' }), env) && !authorized(ev({ 'x-danubra-secret': '' }), env),
+    && !authorized(ev({ 'x-danubra-secret': 'zle' }), env) && !authorized(ev({ origin: 'https://danubra.sk' }), env) && !authorized(ev({ 'x-danubra-secret': '' }), env),
   's FORMS_SECRET len so správnym tajomstvom (pôvod nestačí)');
 
   delete process.env.FORMS_SECRET;
   const r401 = await f.handler(ev({}));
   ok(r401.statusCode === 401, 'požiadavka bez tajomstva aj bez pôvodu je odmietnutá', r401.statusCode);
-  const r500 = await f.handler(ev({ origin: 'https://punds.sk' }));
+  const r500 = await f.handler(ev({ origin: 'https://danubra.sk' }));
   ok(r500.statusCode === 500 && !r500.body.includes(SECRET_DETAIL) && !/danubra_|relation|column/.test(r500.body) && /nepodarilo/.test(JSON.parse(r500.body).error),
     'chyba databázy sa navonok neukáže — len všeobecná veta', r500.body);
 

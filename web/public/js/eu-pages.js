@@ -1,5 +1,5 @@
 /* ==========================================================================
-   punds.eu — správanie stránok webu pre firmy
+   danubra.eu — správanie stránok webu pre firmy
    Počítadlo osôb (− / +) v dopyte a text tlačidla podľa počtu
    („Anfrage für 3 Schweißer senden →"). Čipy a prepínač sú čisté CSS.
    ========================================================================== */

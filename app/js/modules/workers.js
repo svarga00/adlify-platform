@@ -420,9 +420,22 @@
       const statusIdx = (k) => { const i = STATUS.findIndex(s => s[0] === k); return i < 0 ? 99 : i; };
       const LANG = { sk: 'Slovenčina', hu: 'Maďarčina', cs: 'Čeština', ua: 'Ukrajinčina', pl: 'Poľština', ro: 'Rumunčina', de: 'Nemčina' };
       const TONE = { ok: 'platí', warn: 'pozor', bad: 'chýba', scan: 'bez skenu', idle: 'netreba teraz', na: 'netreba' };
-      const papersCell = (r) => `<span class="pl-docs${r.off ? ' is-off' : ''}">${r.papers.map(p =>
+      // Papiere v zozname: šesť malých dielikov a jedna veta. Šesť červených
+      // štítkov v každom riadku znamenalo, že červená už nič nehovorila —
+      // červený je teraz len ten, kto bez papiera už stojí na stavbe.
+      const paperSum = (r) => {
+        if (r.off) return '';
+        const need = r.papers.filter(p => !['na', 'idle'].includes(p.tone));
+        const miss = need.filter(p => p.tone === 'bad' || p.tone === 'scan');
+        const warn = need.filter(p => p.tone === 'warn');
+        if (!miss.length && !warn.length) return `<span class="pl-sum is-ok">${Icon('check', 12)}v poriadku</span>`;
+        if (!miss.length) return `<span class="pl-sum is-warn">pozor: ${UI.esc(warn.map(p => p.short).join(', '))}</span>`;
+        const txt = miss.length <= 2 ? `chýba ${miss.map(p => p.short).join(', ')}` : `chýba ${miss.length} zo ${need.length}`;
+        return `<span class="pl-sum${r.hot ? ' is-hot' : ''}">${UI.esc(txt)}</span>`;
+      };
+      const papersCell = (r) => `<span class="pl-docs${r.off ? ' is-off' : ''}"><span class="pl-segs">${r.papers.map(p =>
         `<span class="pl-doc is-${p.tone}" title="${UI.esc(`${p.label}: ${p.text}`)}"
-          aria-label="${UI.esc(`${p.label}: ${TONE[p.tone]}`)}">${UI.esc(p.short)}</span>`).join('')}</span>`;
+          aria-label="${UI.esc(`${p.label}: ${TONE[p.tone]}`)}">${UI.esc(p.short)}</span>`).join('')}</span>${paperSum(r)}</span>`;
       const who = (r) => `<span class="pl-who">${this.avatar(r.w, 34)}<span class="dl-title"><b>${UI.esc(r.name)}</b>${
         r.phone ? `<small>${UI.esc(r.phone)}</small>` : ''}</span></span>`;
       const docOpts = [
@@ -441,7 +454,7 @@
         noun: ['človek', 'ľudia', 'ľudí'],
         rows,
         rowClick: (r) => Wrk.detail(r.id),
-        rowClass: (r) => (r.hot ? 'is-hot' : r.bad && !r.off ? 'is-warn' : r.off ? 'is-muted' : ''),
+        rowClass: (r) => (r.hot ? 'is-hot' : r.off ? 'is-muted' : ''),
         rowLabel: (r) => `Človek ${r.name}`,
         rowActions: [{ ico: 'chevron', label: 'Otvoriť kartu človeka', run: (r) => Wrk.detail(r.id) }],
         columns: [
@@ -660,11 +673,13 @@
     /** Zoznam troch vecí s tlačidlami. Rovnaký na profile aj v okne „Ďalej". */
     stepsHtml(w) {
       const st = this.stepsOf(w);
-      return `<ol class="ps-list">${st.items.map(i => {
+      // Číslované 1–3: sú to tri veci tohto človeka. Čísla krokov reťazca
+      // (4, 5, 5) tu vyzerali ako chyba v počítaní.
+      return `<ol class="ps-list">${st.items.map((i, idx) => {
         const cls = i.done ? (i.warn ? 'ps-warn' : 'ps-done')
           : (st.next && st.next.key === i.key ? 'ps-next' : 'ps-todo');
         return `<li class="ps-item ${cls}">
-          <span class="ps-n">${i.done && !i.warn ? Icon('check', 18) : i.n}</span>
+          <span class="ps-n">${i.done && !i.warn ? Icon('check', 18) : idx + 1}</span>
           <div class="ps-main">
             <div class="ps-title">${UI.esc(i.title)}${
               cls === 'ps-next' ? '<span class="ps-now">teraz toto</span>' : ''}</div>
@@ -689,6 +704,7 @@
             ${UI.badge('všetko hotové', 'green')}
           </summary>
           ${this.stepsHtml(w)}
+          ${this.morePapersHtml(w)}
         </details>`;
       }
       return `<div class="card card-pad ps">
@@ -698,6 +714,23 @@
           ${UI.badge(`${st.left === 1 ? 'chýba 1 vec' : `chýbajú ${st.left} veci`}`, 'amber')}
         </div>
         ${this.stepsHtml(w)}
+        ${this.morePapersHtml(w)}
+      </div>`;
+    },
+
+    /**
+     * Ďalšie papiere podľa šablón na Drive: „Stavby" (miesta výkonu, dostane
+     * ho pri nástupe), Zoznam činností do Objednávky a Ukončenie Zmluvy
+     * o dielo a Objednávky (čl. X bod 6 a) až i)).
+     */
+    morePapersHtml(w) {
+      const b = (onclick, ico, label, tip) => `<button class="btn btn-ghost btn-sm" onclick="${onclick}"
+        title="${UI.esc(tip)}">${Icon(ico, 14)} ${label}</button>`;
+      const maZmluvu = this.docsOf(w.id).some(d => d.kind === 'contract');
+      return `<div class="ps-more"><span class="muted-sm">Ďalšie papiere:</span>
+        ${b(`Wrk.paperStavby('${w.id}')`, 'pin', 'Stavby', 'Zoznam miest výkonu (stavby, adresa v SR, celé územie DE a SK) — dostane ho pri nástupe.')}
+        ${b(`Wrk.paperCinnosti()`, 'doc', 'Zoznam činností', 'Zoznam činností do Objednávky — z neho sa vyberá činnosť na objednávku.')}
+        ${maZmluvu ? b(`Wrk.ukoncenieForm('${w.id}')`, 'x', 'Ukončenie zmluvy', 'List: ukončenie rámcovej zmluvy o dielo a objednávky podľa čl. X bod 6.') : ''}
       </div>`;
     },
 
@@ -772,9 +805,18 @@
         DB.list('promises', { filters: { subject_type: 'worker', subject_id: workerId },
           order: { column: 'created_at', ascending: false }, limit: 200 }),
       ]);
+      // Obdobia, v ktorých má hodiny — podľa nich je vidieť, čo je už
+      // vyfakturované odberateľovi a čo si môže vyfakturovať on.
+      const perIds = [...new Set((t.data || []).map(x => x.period_id).filter(Boolean))];
+      const per = perIds.length ? await DB.list('periods', { filters: { id: perIds }, limit: 1000 }) : { data: [] };
+      // Skeny podpísaných výkazov zákaziek, na ktorých robil — odkaz pri týždni.
+      const asgIds = new Set((t.data || []).map(x => x.assignment_id).filter(Boolean));
+      const subIds = [...new Set((this.assignments || []).filter(x => asgIds.has(x.id)).map(x => x.subcontract_id).filter(Boolean))];
+      const hs = subIds.length ? await DB.list('hour_sheets', { select: 'id,subcontract_id,iso_year,iso_week,storage_path,signed_at',
+        filters: { subcontract_id: subIds }, limit: 2000 }) : { data: [] };
       this.acc = {
         workerId, bills: b.data || [], advances: a.data || [],
-        timesheets: t.data || [], promises: p.data || [], loaded: true,
+        timesheets: t.data || [], periods: per.data || [], sheets: (hs && hs.data) || [], promises: p.data || [], loaded: true,
       };
       // Podpísané odkazy na skeny — všetky naraz. Pri piatich dokladoch by
       // to inak bolo päť kôl po sieti a náhľady by nabiehali jeden po druhom.
@@ -1151,32 +1193,109 @@
       </div>`;
     },
 
+    /**
+     * Hodiny po týždňoch a čo je s nimi: schválené, vyfakturované odberateľovi,
+     * a či ich už má vo faktúre on. „Pri živnostníkovi bude evidované, že
+     * hodiny sú schválené aj vyfakturované a koľko si môže vyfakturovať."
+     */
+    hoursWeeks(w) {
+      const P = window.DanubraPeriods;
+      const periods = new Map((this.acc.periods || []).map(p => [p.id, p]));
+      const billed = new Map();          // period_id → jeho faktúra
+      for (const b of this.acc.bills || []) {
+        if (b.status === 'discarded') continue;
+        for (const pid of [b.period_id, ...(b.period_ids || [])]) if (pid) billed.set(pid, b);
+      }
+      const groups = new Map();
+      for (const t of this.acc.timesheets || []) {
+        const d = String(t.work_date || '').slice(0, 10);
+        if (!d) continue;
+        const p = t.period_id ? periods.get(t.period_id) : null;
+        const kw = P ? P.isoWeek(d) : null;
+        const key = p ? `p:${p.id}` : `w:${kw ? `${kw.year}-${kw.week}` : d.slice(0, 7)}`;
+        const asg = (this.assignments || []).find(x => x.id === t.assignment_id);
+        if (!groups.has(key)) {
+          groups.set(key, { key, period: p || null, subId: (p && p.subcontract_id) || (asg && asg.subcontract_id) || null, kws: new Set(), from: p ? String(p.period_from).slice(0, 10) : (P ? P.mondayOf(d) : d),
+            to: p ? String(p.period_to).slice(0, 10) : (P ? P.sundayOf(d) : d), hours: 0, approved: 0, open: 0 });
+        }
+        const g = groups.get(key);
+        const h = Number(t.hours) || 0;
+        if (kw) g.kws.add(`${kw.year}-${kw.week}`);
+        g.hours += h;
+        if (t.approved) g.approved += h; else g.open += h;
+      }
+      const rate = Number(w.hourly_cost) || 0;
+      const r2 = (n) => Math.round(n * 100) / 100;
+      return [...groups.values()].map((g) => {
+        const st = g.period ? g.period.status : 'none';
+        const bill = g.period ? billed.get(g.period.id) || null : null;
+        // Fakturovať si môže to, čo je schválené a uzavreté, a ešte to vo faktúre nemá.
+        const can = !bill && ['closed', 'invoiced'].includes(st) ? r2(g.approved) : 0;
+        const scans = (this.acc.sheets || []).filter(h => h.storage_path && h.subcontract_id === g.subId && g.kws.has(`${h.iso_year}-${h.iso_week}`));
+        return { ...g, scans, hours: r2(g.hours), approved: r2(g.approved), open: r2(g.open), st, bill, can,
+          canCents: Math.round(can * rate * 100),
+          label: P ? (P.kwLabel(g.from, g.to) || UI.dateRange(g.from, g.to)) : UI.dateRange(g.from, g.to) };
+      }).sort((x, y) => String(y.from).localeCompare(String(x.from)));
+    },
+
     hoursCard(w, a) {
-      const rows = this.acc.timesheets.slice(0, 8);
-      return `<div class="card card-pad">
+      const weeks = this.hoursWeeks(w);
+      const sum = (f) => Math.round(weeks.reduce((n, g) => n + f(g), 0) * 100) / 100;
+      const h = (n) => `${String(n).replace('.', ',')} h`;
+      const approved = sum(g => g.approved);
+      const invoiced = sum(g => (g.st === 'invoiced' ? g.approved : 0));
+      const can = sum(g => g.can);
+      const canCents = weeks.reduce((n, g) => n + g.canCents, 0);
+      const selfOk = !!w.self_billing && !w.vat_payer;
+      const stav = (g) => (g.open ? UI.badge('čaká na schválenie', 'amber')
+        : g.st === 'invoiced' ? UI.badge('vyfakturované odberateľovi', 'green')
+        : g.st === 'closed' ? UI.badge('uzavreté, čaká na faktúru', 'blue')
+        : UI.badge('schválené', 'blue'));
+      const jeho = (g) => (g.bill
+        ? `<span class="hw-his">${Danubra.link('bill', g.bill.id, g.bill.bill_number || 'jeho faktúra')}</span>`
+        : g.can ? `<span class="hw-his is-can">môže fakturovať ${h(g.can)}${g.canCents ? ` · ${Money.format(g.canCents)}` : ''}</span>`
+        : '<span class="hw-his is-wait">zatiaľ nie</span>');
+      const rows = weeks.slice(0, 8);
+      return `<div class="card card-pad hw">
         <div class="card-head">
-          <div class="card-title">Odpracované hodiny${Help.btn('card.worker.hours', { size: 13 })}</div>
-          <button class="btn btn-ghost btn-sm" onclick="Danubra.go('timesheets')">Všetky</button>
+          <div class="card-title">Hodiny a fakturácia${Help.btn('card.worker.hours', { size: 13 })}</div>
+          <button class="btn btn-ghost btn-sm" onclick="Tms.filters.worker_id='${w.id}';Danubra.go('timesheets')">Všetky hodiny</button>
         </div>
-        <div class="kv" style="margin:0 0 10px;">
+        <div class="kv" style="margin:0 0 12px;">
           <div><span>Tento mesiac</span><strong>${a.thisMonth.hours} h · ${Money.format(a.thisMonth.cents)}</strong></div>
-          <div><span>Celkom</span><strong>${a.hours} h · ${Money.format(a.earned)}</strong></div>
+          <div><span>Schválené spolu</span><strong>${h(approved)}</strong></div>
+          <div><span>Vyfakturované odberateľovi</span><strong>${h(invoiced)}</strong></div>
+          <div><span>Môže si vyfakturovať</span><strong${can ? ' style="color:var(--brand-dark);"' : ''}>${h(can)}${canCents ? ` · ${Money.format(canCents)}` : ''}</strong></div>
         </div>
-        ${rows.length ? rows.map(t => `
-          <div class="list-row">
-            <span class="dot ${t.period_id ? 'green' : ''}"></span>
-            <span style="flex:1;font-size:13px;">
-              <strong>${t.hours} h</strong>
-              <span style="color:var(--ink-mute);"> · ${UI.date(t.work_date)}</span>
-              <span style="color:var(--ink-mute);display:block;font-size:12px;">
-                ${UI.esc(Tms.actMeta(t.activity_type)[1])}${
-                  t.period_id ? ' · už zúčtované' : ' · ešte nezúčtované'}</span>
-            </span>
-          </div>`).join('')
-          : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne hodiny.</div>'}
-        ${this.acc.timesheets.length > 8 ? `<div style="color:var(--ink-mute);font-size:12.5px;padding:8px 2px 0;">
-          a ďalších ${this.acc.timesheets.length - 8}</div>` : ''}
+        ${rows.length ? `<div class="hw-list">
+          <div class="hw-row hw-head"><span>Týždeň</span><span>Hodiny</span><span>Stav · jeho faktúra</span></div>
+          ${rows.map(g => `<div class="hw-row">
+            <span class="hw-kw">${UI.esc(g.label)}${g.scans.length ? `<span class="hw-scan">${UI.scanChips(g.scans)}</span>` : ''}</span>
+            <span class="hw-h"><b>${h(g.hours)}</b>${g.open ? `<small>${h(g.open)} neschválených</small>` : ''}</span>
+            <span>${stav(g)}</span>
+            ${jeho(g)}
+          </div>`).join('')}
+        </div>` : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne hodiny.</div>'}
+        ${weeks.length > 8 ? `<div style="color:var(--ink-mute);font-size:12.5px;padding:8px 2px 0;">a ďalších ${weeks.length - 8} týždňov</div>` : ''}
+        <div class="hw-foot">
+          ${can && selfOk && Danubra.can('costs') ? `<button class="btn btn-primary btn-sm" onclick="Wrk.selfBill()">${Icon('receipt', 14)} Vystaviť faktúru za neho</button>` : ''}
+          <span class="muted-sm">${selfOk
+            ? 'Faktúry zaňho vystavujeme my — návrh vznikne zo schválených hodín uzavretých týždňov, vystaví ho admin a živnostník ho potvrdí.'
+            : w.vat_payer ? 'Je platiteľ DPH — faktúru si vystavuje sám (verzia B vzoru).'
+            : 'Faktúru si vystavuje sám podľa vzoru. Ak ju máme vystavovať my, zapnite to v Upraviť → „Faktúry zaňho vystavujeme my".'}</span>
+        </div>
       </div>`;
+    },
+
+    /** Pripraviť faktúru za živnostníka — okno je v Prijatých faktúrach (samofakturácia). */
+    async selfBill() {
+      if (Danubra.routeAvailable && !Danubra.routeAvailable('costs')) {
+        return UI.toast('Prijaté faktúry nemáte sprístupnené — požiadajte administrátora', 'err');
+      }
+      if (window.Cost) { Cost.tab = 'bills'; if (!Cost.loaded) await Cost.load(); }
+      Danubra.go('costs');
+      // Okno sa otvorí až po prekreslení obrazovky, inak by ho prepínanie zavrelo.
+      setTimeout(() => { if (window.Cost) Cost.selfForm(); }, 350);
     },
 
     /**
@@ -1375,6 +1494,14 @@
             ${UI.field('scopes_csv', 'Odbory zo živnosti (čiarkou)', {
               value: (w.trade_licence_scopes || []).join(', '),
               placeholder: 'suché stavby, obklady' })}
+            ${UI.field('trade_register', 'Zápis v živnostenskom registri', { value: w.trade_register,
+              placeholder: 'Okresný úrad Komárno, č. ŽR 410-12345',
+              tip: 'Okresný úrad a číslo živnostenského registra z výpisu zo ŽR. Povinný údaj na jeho faktúre (vzor faktúry, bod 4).' })}
+            ${UI.field('bank_bic', 'SWIFT (BIC) banky', { value: w.bank_bic, placeholder: 'napr. TATRSKBX',
+              tip: 'Medzinárodný kód jeho banky. Patrí na jeho faktúru vedľa IBAN-u (vzor faktúry, bod 6).' })}
+            ${UI.field('activity', 'Činnosť do objednávky', { value: w.activity || '',
+              options: [['', '—'], ...DanubraSubcontract.cinnosti(Danubra.cfg('subcontract') || {}).map(c => [c.text, c.text])],
+              tip: 'Ktorú činnosť zo Zoznamu činností má v živnostenskom oprávnení. Predvyplní sa do objednávky a do vzoru faktúry.' })}
           </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: w.whatsapp, placeholder: 'Má WhatsApp' })}
@@ -1388,8 +1515,9 @@
           <div class="form-grid">
             ${UI.field('self_billing_prefix', 'Číselný rad jeho faktúr (keď ich vystavujeme my)', {
               value: w.self_billing_prefix || '', placeholder: 'napr. NOVAK — faktúry budú NOVAK-2026-001',
-              hint: '„Faktúry zaňho vystavujeme my" pridá do rámcovej zmluvy dohodu o vyhotovovaní faktúr '
-                + 'odberateľom (článok V.). Platí až od podpisu takej zmluvy. Pre platiteľa DPH sa nepoužíva.' })}
+              hint: 'Predvolene si živnostník vystavuje faktúru sám podľa vzoru faktúry. Rámcová zmluva '
+                + '(čl. V. body 10 až 14) nám dovoľuje vyhotoviť ju v jeho mene — zapnite to, keď sa s ním na tom dohodnete. '
+                + 'Pre platiteľa DPH sa nepoužíva.' })}
           </div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
@@ -1424,7 +1552,15 @@
       payload.trade_licence_scopes = (d.scopes_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       delete payload.skills_csv;
       delete payload.scopes_csv;
-      const res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
+      for (const k of ['trade_register', 'bank_bic', 'activity']) if (payload[k] === '') payload[k] = null;
+      let res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
+      // Kým nie je spustená migrácia 096, tieto stĺpce v databáze nie sú.
+      const NOVE = ['trade_register', 'bank_bic', 'activity'];
+      if (res.error && NOVE.some(k => String(res.error.message || '').includes(k))) {
+        for (const k of NOVE) delete payload[k];
+        res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
+        if (!res.error) UI.toast('Zápis v ŽR, SWIFT a činnosť sa neuložili — chýba migrácia 096.', 'warn');
+      }
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
       await this.load(); Danubra.renderRoute();
@@ -1475,7 +1611,7 @@
      * Otvorí zmluvu na vytlačenie. Sumy a lehoty sa berú z Nastavení, takže
      * zdvihnutie pokuty nie je zásah do kódu.
      */
-    zmluva(workerId) {
+    async zmluva(workerId, { vzor = false } = {}) {
       const w = this.items.find(x => x.id === workerId);
       if (!w) return UI.toast('Nenájdené', 'err');
       if (!Danubra.supplierReady('Rámcová zmluva o dielo')) return;
@@ -1490,16 +1626,26 @@
         ? this.docsOf(workerId).filter(d => d.kind === 'contract')
           .sort((a, b) => String(b.valid_from || '').localeCompare(String(a.valid_from || '')))[0]
         : null;
+      // Okno sa otvára hneď po kliknutí — po čakaní na číslo by ho prehliadač zablokoval.
+      const okno = window.open('', '_blank');
+      let cislo;
+      try {
+        // Dokumenty k vzorovým dátam nemíňajú čísla z ostrého radu.
+        cislo = (doklad && doklad.reference) || (vzor ? 'VZOR' : await this.cisloNavrh(workerId));
+      } catch (e) {
+        if (okno) okno.close();
+        return UI.toast('Číslo zmluvy sa nepodarilo prideliť: ' + e.message, 'err');
+      }
       const zmluva = DanubraSubcontract.build({
         worker: w, supplier, rules: Danubra.cfg('subcontract'),
         signedAt: (doklad && doklad.valid_from) || undefined,
         validTo: (doklad && doklad.valid_to) || undefined,
-        number: (doklad && doklad.reference) || this.cisloNavrh(workerId),
+        number: cislo,
       });
       const chyba = DanubraSubcontract.missing({ worker: w, supplier });
 
       const html = DanubraPapers.ramcovaZmluva({ zmluva, chyba });
-      Docs.show(window.open('', '_blank'), html, { kind: 'ramcova', title: 'Rámcová zmluva',
+      Docs.show(okno, html, { kind: 'ramcova', title: 'Rámcová zmluva',
         number: zmluva && zmluva.number, who: w.full_name, lang: 'sk', worker_id: w.id });
 
       if (chyba.length) {
@@ -1631,24 +1777,109 @@
       return Sub.siteSheet(asg.id, okno);
     },
 
+    // ── Stavby, Zoznam činností, Ukončenie zmluvy (šablóny na Drive) ──────
+    /** Remeslo stavby do zoznamu „/maliari/" — zo zákazky, inak jeho profesia. */
+    tagStavby(sc, w) {
+      const t = (sc && sc.trade) || (w && w.profession) || '';
+      return t ? (this.professionLabel(t) || t) : '';
+    },
+
+    /** Dokument „Stavby" k dnešnému dňu z jeho nasadení. */
+    async paperStavby(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      if (!Danubra.supplierReady('Stavby')) return;
+      const okno = Ord.loaded ? null : window.open('', '_blank');
+      if (!Ord.loaded) await Ord.load();
+      const ids = [...new Set(Ord.assignments.filter(a => a.worker_id === workerId
+        && ['planned', 'active'].includes(a.status)).map(a => a.subcontract_id))];
+      const supplier = Danubra.supplier();
+      const cfg = Danubra.cfg('subcontract') || {};
+      const miesta = DanubraSubcontract.miesta({
+        stavby: ids.map(id => Ord.subOf(id)).filter(x => x && x.id).map(sc => ({ ...sc, tag: this.tagStavby(sc, w) })),
+        miestoSk: cfg.miesto_sk || supplier.address || '', tagy: true,
+      });
+      const html = DanubraPapers.stavby({ worker: w, supplier, miesta });
+      Docs.show(okno || window.open('', '_blank'), html, { kind: 'stavby', title: 'Stavby',
+        who: w.full_name, lang: 'sk', worker_id: w.id });
+    },
+
+    /** Zoznam činností do Objednávky (z Nastavení). */
+    paperCinnosti() {
+      if (!Danubra.supplierReady('Zoznam činností')) return;
+      const cfg = Danubra.cfg('subcontract') || {};
+      const html = DanubraPapers.zoznamCinnosti({ supplier: Danubra.supplier(),
+        cinnosti: DanubraSubcontract.cinnosti(cfg), platnyOd: cfg.cinnosti_od || DanubraSubcontract.CINNOSTI_OD });
+      Docs.show(window.open('', '_blank'), html, { kind: 'cinnosti', title: 'Zoznam činností', lang: 'sk' });
+    },
+
     /**
-     * Navrhnuté číslo zmluvy pre človeka. Drží sa, kým sa zmluva nezapíše —
-     * vytlačená a zapísaná zmluva tak majú to isté číslo, a dvom ľuďom
-     * v jednom sedení sa nenavrhne to isté.
+     * Ukončenie Zmluvy o dielo a Objednávky. Vyberie sa dôvod — písmeno
+     * a) až i) z čl. X bod 6 rámcovej zmluvy (predvolene g) „nemá dostatok
+     * práce") — a dátum. List ukončuje rámcovú zmluvu aj jeho objednávky.
+     */
+    async ukoncenieForm(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      if (!Ord.loaded) await Ord.load();
+      const zmluva = this.docsOf(workerId).filter(d => d.kind === 'contract')
+        .sort((a, b) => String(b.valid_from || '').localeCompare(String(a.valid_from || '')))[0] || {};
+      const obj = Ord.rows.filter(o => o.kind === 'worker' && o.worker_id === workerId && o.status !== 'cancelled');
+      const dnes = Danubra._dayISO();
+      UI.modal(`Ukončenie zmluvy — ${w.full_name}`, `
+        <form id="ukon-form" onsubmit="event.preventDefault();Wrk.ukoncenie('${workerId}')">
+          <div class="regimebox">List podľa firemnej šablóny: „k dnešnému dňu ukončujeme vašu Rámcovú zmluvu
+            o dielo … aj Objednávku č. …, na základe Článku X, bod 6…". Pošlite ho e-mailom — zmluva to dovoľuje
+            (čl. X bod 2).${UI.tip('Pri dôvodoch b) a c) (nenastúpil, prerušil prácu) môže prísť do úvahy aj zmluvná '
+              + 'pokuta podľa čl. VIII (3 000 € za nenastúpenie, 300 € za deň omeškania), ktorú možno započítať s jeho faktúrou.')}</div>
+          <div class="form-grid">
+            ${UI.field('cislo', 'Číslo rámcovej zmluvy', { value: zmluva.reference || '', required: true })}
+            ${UI.field('datum', 'Ku dňu', { type: 'date', value: dnes, required: true })}
+          </div>
+          ${UI.field('dovod', 'Dôvod (čl. X bod 6)', { value: 'g',
+            options: DanubraSubcontract.DOVODY.map(d => [d.p, `${d.p}) ${d.kratko}`]) })}
+          ${UI.field('objednavky', 'Objednávky (č.)', { value: obj.map(o => Ord.seqOf(o)).filter(Boolean).join(', '),
+            hint: 'Čísla jeho objednávok, ktoré sa ukončujú spolu so zmluvou. Prázdne = len zmluva.' })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('doc', 14)} Vytvoriť list</button>
+          </div>
+        </form>`);
+    },
+
+    ukoncenie(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      const f = UI.formData(document.getElementById('ukon-form'));
+      if (!w || !Danubra.supplierReady('Ukončenie zmluvy')) return;
+      const html = DanubraPapers.ukoncenie({ worker: w, supplier: Danubra.supplier(),
+        zmluva: { number: f.cislo }, dovod: f.dovod, datum: f.datum, dnes: Danubra._dayISO(),
+        objednavky: String(f.objednavky || '').split(/[,\s]+/).map(x => x.replace(/^č\.?/i, '').trim()).filter(Boolean) });
+      UI.closeModal();
+      Docs.show(window.open('', '_blank'), html, { kind: 'ukoncenie', title: 'Ukončenie zmluvy',
+        number: f.cislo, who: w.full_name, lang: 'sk', worker_id: w.id });
+    },
+
+    /**
+     * Číslo zmluvy pre človeka z číselného radu „Zmluvy so živnostníkmi"
+     * (Nastavenia → Číselné rady, predvolene 2026100001). Pridelí ho databáza
+     * pri prvej tlači; drží sa, kým sa zmluva nezapíše — vytlačená a zapísaná
+     * zmluva tak majú to isté číslo a dvom ľuďom sa nepridelí to isté.
      */
     _cislaNavrh: {},
-    cisloNavrh(workerId) {
+    async cisloNavrh(workerId) {
       if (this._cislaNavrh[workerId]) return this._cislaNavrh[workerId];
-      const refs = [
-        ...this.docs.filter(d => d.kind === 'contract').map(d => d.reference),
-        ...Object.values(this._cislaNavrh),
-      ];
-      this._cislaNavrh[workerId] = DanubraSubcontract.nextNumber(refs);
-      return this._cislaNavrh[workerId];
+      const { data, error } = await DB.rpc('next_number', { p_kind: 'worker_contract' });
+      if (error || !data) throw new Error(error ? error.message : 'databáza nevrátila číslo');
+      this._cislaNavrh[workerId] = data;
+      return data;
     },
 
     /** Zapíše podpísanú zmluvu ako doklad — rovnako ako A1 alebo súhlas. */
-    zmluvaForm(workerId) {
+    async zmluvaForm(workerId) {
+      let cislo = '';
+      try { cislo = await this.cisloNavrh(workerId); } catch (e) {
+        UI.toast('Číslo zmluvy sa nepodarilo prideliť — dopíšte ho ručne: ' + e.message, 'warn');
+      }
       const dnes = new Date().toISOString().slice(0, 10);
       const koniec = DanubraSubcontract.koniecRoka(dnes);
       UI.modal('Zapísať podpísanú zmluvu', `
@@ -1659,8 +1890,8 @@
           ${this.scanFieldHtml('zml-form', workerId, { expectedKind: 'contract',
             fill: ['reference', 'valid_from', 'valid_to'] })}
           <div class="form-grid">
-            ${UI.field('reference', 'Číslo zmluvy', { value: this.cisloNavrh(workerId),
-              hint: 'Ďalšie voľné číslo — rovnaké ako na vytlačenej zmluve. Dá sa prepísať.' })}
+            ${UI.field('reference', 'Číslo zmluvy', { value: cislo,
+              hint: 'Číslo z číselného radu — rovnaké ako na vytlačenej zmluve. Pri staršej zmluve ho prepíšte jej číslom.' })}
             ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
             ${UI.field('valid_to', 'Platí do', { type: 'date', value: koniec })}
           </div>

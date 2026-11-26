@@ -84,6 +84,37 @@ window.UI = {
       Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
   },
 
+  /** Otvorí súbor z úložiska dokladov (sken výkazu) v novom okne — podpísaným odkazom na pár minút. */
+  async openStored(path) {
+    if (!path || !window.DB) return;
+    const urls = await DB.signedDocUrls([path]);
+    const url = urls.get(path);
+    if (!url) return this.toast('Súbor sa nepodarilo otvoriť.', 'err');
+    window.open(url, '_blank', 'noopener');
+  },
+  /** Odkaz na sken podpísaného výkazu: „KW 47 · sken". `sheets` = riadky hour_sheets so `storage_path`. */
+  scanChips(sheets) {
+    return (sheets || []).filter(h => h && h.storage_path).map(h => `<button type="button" class="link-chip" data-path="${this.esc(h.storage_path)}"
+      title="Sken podpísaného výkazu — otvorí sa v novom okne" onclick="event.stopPropagation();UI.openStored(this.dataset.path)">${
+      window.Icon ? Icon('doc', 13) : ''}<span>KW ${Number(h.iso_week) || '?'}${h.signed_at ? ' · podpísaný' : ''}</span></button>`).join('');
+  },
+
+  /**
+   * Hlavičky: koľko ľudí je z koľkých. Plná hlavička = človek je, prázdna =
+   * ešte treba. „2 z 4" sa číta; dve plné a dve prázdne hlavičky sa vidia.
+   * Text s číslom ostáva vedľa — hlavičky sú obrázok k nemu (`aria-hidden`).
+   */
+  heads(have, need, { max = 8 } = {}) {
+    const h = Math.max(0, Number(have) || 0);
+    const n = Math.max(h, Number(need) || 0);
+    if (!n) return '';
+    const head = (cls) => `<svg class="head ${cls}" viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="4.7" r="3.1"/><path d="M2.2 15c0-3.3 2.6-5.6 5.8-5.6s5.8 2.3 5.8 5.6z"/></svg>`;
+    const shown = Math.min(n, max);
+    const full = Math.min(h, shown);
+    return `<span class="heads" aria-hidden="true">${head('is-on').repeat(full)}${head('is-off').repeat(shown - full)}${
+      n > shown ? `<i>+${n - shown}</i>` : ''}</span>`;
+  },
+
   badge(label, kind) {
     const map = {
       green: 'background:var(--green-50);color:var(--green);',
@@ -106,20 +137,34 @@ window.UI = {
   },
 
   loading() {
-    return `<div class="empty"><div class="empty-ico">${window.Icon ? Icon('clock', 30) : ''}</div><div>Načítavam…</div></div>`;
+    return `<div class="empty is-loading"><div class="empty-ico">${window.Icon ? Icon('clock', 30) : ''}</div><div>Načítavam…</div></div>`;
   },
 
   // ── Modal ─────────────────────────────────────────────────────────────────
   /** `logo` = hotové HTML loga firmy (CompanyLogo.html) pred nadpisom okna. */
   modal(title, bodyHtml, { wide = false, logo = '' } = {}) {
+    this._reopening = true;
     this.closeModal();
+    this._reopening = false;
+    if (document.querySelectorAll) document.querySelectorAll('.modal-ghost').forEach(n => n.remove());
     const el = document.createElement('div');
     el.className = 'modal-backdrop';
     el.id = 'ui-modal';
+    // Záznam otvorený zo zoznamu: „2 z 5" a šípky na predošlý / ďalší
+    // (`DataList.navState`). Platí pre panel so záznamom, nie pre formulár,
+    // ktorý sa z neho otvorí — ten má iný nadpis.
+    const nav = window.DataList && DataList.navState ? DataList.navState() : null;
+    if (nav && nav.title == null) nav.setTitle(String(title));
+    const pager = nav && (nav.title == null || nav.title === String(title)) ? `<div class="modal-nav no-print" role="group" aria-label="Záznamy v zozname">
+        <button type="button" class="modal-nav-b" onclick="DataList.step(-1)" ${nav.i <= 0 ? 'disabled' : ''} aria-label="Predošlý záznam" title="Predošlý">${window.Icon ? Icon('back', 15) : '‹'}</button>
+        <span class="modal-nav-n"><b>${nav.i + 1}</b> z ${nav.n}</span>
+        <button type="button" class="modal-nav-b is-next" onclick="DataList.step(1)" ${nav.i >= nav.n - 1 ? 'disabled' : ''} aria-label="Ďalší záznam" title="Ďalší">${window.Icon ? Icon('chevron', 15) : '›'}</button>
+      </div>` : '';
     el.innerHTML = `
       <div class="modal-card${wide ? ' modal-wide' : ''}">
         <div class="modal-head">
           ${logo || ''}<h3>${this.esc(title)}</h3>
+          ${pager}
           <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">${window.Icon ? Icon("x", 17) : ""}</button>
         </div>
         <div class="modal-body">${bodyHtml}</div>
@@ -142,7 +187,27 @@ window.UI = {
     return el;
   },
   closeModal() {
-    document.getElementById('ui-modal')?.remove();
+    // Zavretie človekom ukončí aj prechádzanie zoznamu po jednom.
+    if (!this._reopening && window.DataList && DataList.endNav) DataList.endNav();
+    const el = document.getElementById('ui-modal');
+    // Plynulé zavretie: okno zmizne hneď (kód po zavretí s ním už nepočíta),
+    // na jeho mieste sa na okamih zasunie prázdna silueta a stmavenie zhasne.
+    if (el && !this._reopening && typeof el.querySelector === 'function' && typeof requestAnimationFrame === 'function') {
+      try {
+        const card = el.querySelector('.modal-card');
+        const r = card && card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+        if (r && r.width) {
+          document.querySelectorAll('.modal-ghost').forEach(n => n.remove());
+          const g = document.createElement('div');
+          g.className = 'modal-ghost'; g.setAttribute('aria-hidden', 'true');
+          const cs = getComputedStyle(card);
+          g.innerHTML = `<i style="left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:${cs.borderRadius}"></i>`;
+          document.body.appendChild(g);
+          setTimeout(() => g.remove(), 220);
+        }
+      } catch (e) { /* bez animácie */ }
+    }
+    el?.remove();
     if (!document.getElementById('ui-ask')) document.body.style.overflow = '';
   },
 

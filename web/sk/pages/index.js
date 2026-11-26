@@ -1,4 +1,4 @@
-// punds.sk — stránky podľa kľúča trasy (web/shared/sites.js → SITES.sk.routes)
+// danubra.sk — stránky podľa kľúča trasy (web/shared/sites.js → SITES.sk.routes)
 'use strict';
 module.exports = {
   home: require('./home'),

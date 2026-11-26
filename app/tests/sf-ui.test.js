@@ -25,7 +25,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -111,19 +111,19 @@ console.log('SuperFaktúra — rozhranie');
       Danubra.loadCfg = async () => DATA.settings[0];
       const STATUS = { ok: true, environment: env, sandbox: env !== 'production',
         base: env === 'production' ? 'https://moja.superfaktura.sk' : 'https://sandbox.superfaktura.sk',
-        configured: true, email_set: true, key_set: true, company_set: false, account: 's…@punds.eu', usage };
+        configured: true, email_set: true, key_set: true, company_set: false, account: 's…@danubra.eu', usage };
       window.fetch = async (u, o = {}) => {
         const b = o.body ? JSON.parse(o.body) : {};
         __T.calls.push(b);
         const R = (code, j) => new Response(JSON.stringify(j), { status: code, headers: { 'Content-Type': 'application/json' } });
         if (b.action === 'status') return R(200, STATUS);
-        if (b.action === 'ping') return R(200, { ok: true, environment: env, company: 'Partner und Service s. r. o.', account: 's…@punds.eu' });
+        if (b.action === 'ping') return R(200, { ok: true, environment: env, company: 'Partner und Service s. r. o.', account: 's…@danubra.eu' });
         if (b.action === 'sync') return R(200, { ok: true, checked: 2, paid: 1, partial: 0, mismatch: 0, errors: [], requests: 1, skipped_recent: 3 });
         if (b.action === 'issue') return R(200, { ok: true, sf_invoice_id: 901, check: 'ok' });
         if (b.action === 'cancel') return R(200, { ok: true, credit_note_id: 'cn1', invoice_number: '2026099' });
         return R(400, { error: 'Neznáma akcia.', hint: 'x' });
       };
-      Danubra.user = { id: 'uid-0', email: 'stefan@punds.eu' };
+      Danubra.user = { id: 'uid-0', email: 'stefan@danubra.eu' };
       Danubra.me = { id: 'u0', user_id: 'uid-0', role, active: true, full_name: 'Štefan' };
       Danubra.members = [{ id: 'u0', user_id: 'uid-0', role, active: true }, { id: 'ux', user_id: 'uid-x', role: 'admin', active: true }];
       Danubra.cfgRow = DATA.settings[0];
@@ -143,7 +143,7 @@ console.log('SuperFaktúra — rozhranie');
       const card = await txt(page, '#sf-card');
       ok(/SuperFaktúra/.test(card) && /SANDBOX/.test(card), 'v Nastaveniach je karta SuperFaktúra s odznakom SANDBOX', card.slice(0, 200));
       ok(/Skúšobný účet \(sandbox\)/.test(card) && /sandbox\.superfaktura\.sk/.test(card), 'stav: prostredie a adresa');
-      ok(/API kľúč nastavené/i.test(card) && /s…@punds\.eu/i.test(card) && !/stefan@/.test(card), 'kľúč len „nastavené", e-mail skrátene', card.slice(0, 400));
+      ok(/API kľúč nastavené/i.test(card) && /s…@danubra\.eu/i.test(card) && !/stefan@/.test(card), 'kľúč len „nastavené", e-mail skrátene', card.slice(0, 400));
       const lang = await page.$eval('#cfg-superfaktura [name=default_language]', el => el.value);
       const own = await page.$eval('#cfg-superfaktura [name=use_own_number]', el => el.checked);
       ok(lang === 'deu' && own, 'predvolene: doklad po nemecky (deu), číslo z appky');

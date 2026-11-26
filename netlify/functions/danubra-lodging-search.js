@@ -12,7 +12,7 @@
 const N = require('../../app/lib/lodging/nearby.js');
 const R = require('../../app/lib/route.js');
 
-const UA = 'DANUBRA-Hub/1.0 (info@punds.eu)';
+const UA = 'DANUBRA-Hub/1.0 (info@danubra.eu)';
 const H = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json',

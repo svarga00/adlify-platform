@@ -1,8 +1,8 @@
 // ============================================================================
-// DANUBRA — inzerát na web punds.sk
+// DANUBRA — inzerát na web danubra.sk
 // ============================================================================
-// Inzerát v appke je aj ponukou na punds.sk, keď má zaškrtnuté „Zverejniť
-// na punds.sk". Tu sú pravidlá, ako sa z formulára stanú polia pre web
+// Inzerát v appke je aj ponukou na danubra.sk, keď má zaškrtnuté „Zverejniť
+// na danubra.sk". Tu sú pravidlá, ako sa z formulára stanú polia pre web
 // (danubra_ads.web_*), aby ich Inzeráty aj testy brali rovnako.
 //
 // Profesie sú tie isté ako na webe (web/shared/professions.js — kľúče
@@ -18,7 +18,7 @@
   const FROM_TRADE = { elektrikar: 'elektrikar', zvarac: 'zvarac', zamocnik: 'zamocnik', trockenbau: 'sadrokarton', maliar: 'maliar',
     omietkar: 'zateplovac', montaznik: 'okna', pomocnik: 'pomocnik' };
   // Jazyky webu okrem slovenčiny — rovnaké ako web/shared/sites.js → SITES.sk.langs
-  // a netlify/functions/punds-translate.js → NAMES.
+  // a netlify/functions/danubra-translate.js → NAMES.
   const LANGS = [['cz', 'Čeština'], ['hu', 'Maďarčina'], ['de', 'Nemčina'], ['en', 'Angličtina'], ['ro', 'Rumunčina'], ['pl', 'Poľština'], ['bg', 'Bulharčina']];
 
   const lines = (t) => String(t || '').split('\n').map((s) => s.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);

@@ -109,8 +109,13 @@ console.log('QR kodér');
   eq(lines[3], 'SCT', 'typ prevodu SCT');
   eq(lines[6], 'SK3112000000198742637541', 'IBAN je bez medzier');
   eq(lines[7], 'EUR150.00', 'suma vo formáte EUR150.00');
-  eq(lines[9], '2026001', 'variabilný symbol ako referencia');
-  ok(lines.length >= 12, 'reťazec má predpísaný počet riadkov');
+  eq(lines[9], '', 'holé číslo nejde do štruktúrovanej referencie (tá je len RF)');
+  eq(lines[10], 'Faktura 2026001', 'číslo faktúry je v správe pre príjemcu');
+  eq(lines.length, 11, 'bez prázdneho riadku navyše');
+  const bezPozn = QR.sepaPayload({ name: 'X', iban: 'SK31', amount: 1, reference: '2026010001' }).split('\n');
+  eq([bezPozn[9], bezPozn[10]], ['', '2026010001'], 'bez poznámky ide do správy aspoň číslo');
+  const rf = QR.sepaPayload({ name: 'X', iban: 'SK31', amount: 1, reference: 'RF18 5390 0754 7034', note: 'Rechnung 1' }).split('\n');
+  eq([rf[9], rf[10]], ['RF18539007547034', ''], 'RF referencia ide do štruktúrovanej, správa ostane prázdna');
 }
 
 // ── SVG výstup ──────────────────────────────────────────────────────────────
@@ -128,6 +133,28 @@ console.log('QR kodér');
   const r = QR.encode(p, 'M');
   ok(r.version >= 5, `dlhý reťazec použije vyššiu verziu (${r.version})`);
   ok(r.modules.length === r.size, 'matica je štvorcová');
+}
+
+// ── Formátové info na správnych miestach (ISO 18004, 7.9) ─────────────────
+// Kópie boli zapísané naprieč (riadok a stĺpec prehodené) a žiadna aplikácia kód
+// neprečítala, hoci všetky ostatné testy prechádzali. m[riadok][stĺpec].
+{
+  for (const [text, ec] of [['HELLO', 'M'], ['https://danubra.sk/', 'L'], ['x'.repeat(200), 'Q']]) {
+    const { modules: m, size: n } = QR.encode(text, ec);
+    const b = (x) => (x ? 1 : 0);
+    const prva = [];
+    for (let i = 0; i <= 5; i++) prva[i] = b(m[i][8]);
+    prva[6] = b(m[7][8]); prva[7] = b(m[8][8]); prva[8] = b(m[8][7]);
+    for (let i = 9; i <= 14; i++) prva[i] = b(m[8][14 - i]);
+    const druha = [];
+    for (let i = 0; i <= 7; i++) druha[i] = b(m[8][n - 1 - i]);
+    for (let i = 8; i <= 14; i++) druha[i] = b(m[n - 15 + i][8]);
+    const cislo = (arr) => arr.reduce((acc, bit, i) => acc | (bit << i), 0);
+    const masky = [0, 1, 2, 3, 4, 5, 6, 7].map(k => QR.formatBits(ec, k));
+    ok(masky.includes(cislo(prva)), `${ec}: prvá kópia formátu je platné slovo pre úroveň ${ec}`);
+    eq(cislo(druha), cislo(prva), `${ec}: druhá kópia formátu sa zhoduje s prvou`);
+    eq(b(m[n - 8][8]), 1, `${ec}: tmavý modul`);
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -211,11 +211,15 @@
   function applyFormat(m, n, ec, mask) {
     const bits = formatBits(ec, mask);
     const bit = (i) => ((bits >> i) & 1) === 1;
-    for (let i = 0; i <= 5; i++) m[8][i] = bit(i);
-    m[8][7] = bit(6); m[8][8] = bit(7); m[7][8] = bit(8);
-    for (let i = 9; i <= 14; i++) m[14 - i][8] = bit(i);
-    for (let i = 0; i <= 7; i++) m[n - 1 - i][8] = bit(i);
-    for (let i = 8; i <= 14; i++) m[8][n - 15 + i] = bit(i);
+    // m[riadok][stĺpec]. Prvá kópia: stĺpec 8 zhora (bity 0–8), potom
+    // riadok 8 sprava doľava (9–14). Druhá: riadok 8 sprava (0–7) a stĺpec 8
+    // zdola (8–14). Predtým boli obe kópie zapísané naprieč (riadok a stĺpec prehodené)
+    // a žiadna aplikácia kód neprečítala.
+    for (let i = 0; i <= 5; i++) m[i][8] = bit(i);
+    m[7][8] = bit(6); m[8][8] = bit(7); m[8][7] = bit(8);
+    for (let i = 9; i <= 14; i++) m[8][14 - i] = bit(i);
+    for (let i = 0; i <= 7; i++) m[8][n - 1 - i] = bit(i);
+    for (let i = 8; i <= 14; i++) m[n - 15 + i][8] = bit(i);
     m[n - 8][8] = true;
   }
 
@@ -311,16 +315,21 @@
    */
   function sepaPayload({ name, iban, amount, currency = 'EUR', reference, note, bic }) {
     const amt = `${currency}${Number(amount || 0).toFixed(2)}`;
+    // EPC069-12: vyplnená smie byť len jedna z dvoch referencií a štruktúrovaná
+    // je len RF referencia (ISO 11649). Číslo faktúry („2026010001") preto ide
+    // do správy pre príjemcu — banky QR s oboma alebo s holým číslom odmietali.
+    const ref = String(reference || '').replace(/\s/g, '');
+    const rf = /^RF\d{2}[0-9A-Z]{1,21}$/i.test(ref) ? ref.toUpperCase() : '';
+    const text = String(note || (rf ? '' : ref) || '').slice(0, 140);
     return [
       'BCD', '002', '1', 'SCT',
       bic || '',
       String(name || '').slice(0, 70),
       String(iban || '').replace(/\s/g, ''),
       amt,
-      '',                                  // účel (nepovinné)
-      String(reference || '').slice(0, 35), // štruktúrovaná referencia
-      String(note || '').slice(0, 140),     // nešktrukturovaná poznámka
-      '',
+      '',            // účel (nepovinné)
+      rf,            // štruktúrovaná referencia — len RF
+      rf ? '' : text, // správa pre príjemcu
     ].join('\n');
   }
 

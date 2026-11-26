@@ -29,7 +29,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -62,8 +62,8 @@ const shot = (page, name) => (process.env.SHOT_DIR
   ? page.screenshot({ path: path.join(process.env.SHOT_DIR, name) }).catch(() => null) : Promise.resolve());
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
-const JWT = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'auth-j', email: 'jana@punds.eu', role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })}.podpis`;
-const USER = { id: 'auth-j', aud: 'authenticated', role: 'authenticated', email: 'jana@punds.eu', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-11-01T00:00:00Z' };
+const JWT = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'auth-j', email: 'jana@danubra.eu', role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })}.podpis`;
+const USER = { id: 'auth-j', aud: 'authenticated', role: 'authenticated', email: 'jana@danubra.eu', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-11-01T00:00:00Z' };
 const SESSION = { access_token: JWT, refresh_token: 'rt-1', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user: USER };
 
 /** Podvrhnutý Supabase: Auth podľa `mode`, REST vždy prázdny. Zapisuje, čo prišlo. */
@@ -106,14 +106,14 @@ async function fakeSupabase(page, st) {
       await page.goto(`${base}/app/`, { waitUntil: 'load' });
       await page.waitForSelector('#login-screen:not([hidden])');
       ok(await page.isVisible('#login-forgot') && /Zabudli ste heslo\?/.test(await page.textContent('#login-forgot')), 'na prihlasovacej stránke je „Zabudli ste heslo?"');
-      await page.fill('#login-email', 'jana@punds.eu');
+      await page.fill('#login-email', 'jana@danubra.eu');
       await page.click('#login-forgot');
       ok(await page.isVisible('#forgot-form') && !(await page.isVisible('#login-form')), 'otvorí sa formulár na e-mail');
-      ok((await page.inputValue('#forgot-email')) === 'jana@punds.eu', 'e-mail z prihlásenia sa prenesie');
+      ok((await page.inputValue('#forgot-email')) === 'jana@danubra.eu', 'e-mail z prihlásenia sa prenesie');
       await page.click('#forgot-btn');
       await page.waitForSelector('#forgot-msg:not([hidden])');
       const rec = st.calls.find(c => c.path === '/auth/v1/recover');
-      ok(rec && rec.body.email === 'jana@punds.eu' && rec.query.redirect_to === `${base}/app/?heslo=1`, 'resetPasswordForEmail s návratom na /app/?heslo=1', JSON.stringify(rec));
+      ok(rec && rec.body.email === 'jana@danubra.eu' && rec.query.redirect_to === `${base}/app/?heslo=1`, 'resetPasswordForEmail s návratom na /app/?heslo=1', JSON.stringify(rec));
       const msg = await page.textContent('#forgot-msg');
       ok(/Ak je e-mail v appke, poslali sme odkaz na nastavenie hesla\./.test(msg), 'vždy tá istá veta (nič neprezradí)', msg);
       await shot(page, 'zabudnute-390.png');
@@ -194,7 +194,7 @@ async function fakeSupabase(page, st) {
       await fakeSupabase(page, st);
       await page.goto(`${base}/app/?heslo=1#access_token=${JWT}&refresh_token=rt-1&expires_in=3600&expires_at=${SESSION.expires_at}&token_type=bearer&type=recovery`, { waitUntil: 'load' });
       await page.waitForSelector('#heslo-form', { timeout: 8000 });
-      ok(/jana@punds\.eu/.test(await page.textContent('#heslo-screen')), 'supabase-js prečíta prihlásenie z adresy — formulár ukáže e-mail');
+      ok(/jana@danubra\.eu/.test(await page.textContent('#heslo-screen')), 'supabase-js prečíta prihlásenie z adresy — formulár ukáže e-mail');
       await page.evaluate(() => { window.__po = 0; Heslo.after = () => { window.__po++; }; });
       await page.fill('#heslo-1', 'zelena-lavka-pri-Morave'); await page.fill('#heslo-2', 'zelena-lavka-pri-Morave');
       await page.click('#heslo-btn');
@@ -217,8 +217,8 @@ async function fakeSupabase(page, st) {
         const vis = (id) => { const e = document.getElementById(id); return !!e && !e.hidden && e.getBoundingClientRect().height > 0; };
         const txt = (id) => (document.getElementById(id) || {}).textContent || '';
         const res = {};
-        Danubra.user = { id: 'u-mt', email: 'm.turocziova@punds.sk' };
-        Danubra.members = [{ id: 'm1', user_id: 'u-admin', role: 'admin', active: true }, { id: 'm2', user_id: null, email: 'm.turocziova@punds.sk', role: 'admin', active: true }];
+        Danubra.user = { id: 'u-mt', email: 'm.turocziova@danubra.sk' };
+        Danubra.members = [{ id: 'm1', user_id: 'u-admin', role: 'admin', active: true }, { id: 'm2', user_id: null, email: 'm.turocziova@danubra.sk', role: 'admin', active: true }];
         Danubra.me = null;
         Danubra._render();
         res.bez = { screen: vis('noaccess-screen'), app: vis('app'), login: vis('login-screen'), title: txt('noaccess-title'), text: txt('noaccess-text') };
@@ -239,7 +239,7 @@ async function fakeSupabase(page, st) {
       });
       ok(r.bez.screen && !r.bez.app && !r.bez.login, 'neprepojený účet: celá obrazovka so správou namiesto prázdnej appky', JSON.stringify(r.bez));
       ok(r.bez.title === 'Váš účet ešte nie je priradený k tímu.'
-        && r.bez.text === 'Požiadajte administrátora, aby Vás pridal v Nastavenia → Používatelia (rovnaký e-mail: m.turocziova@punds.sk).',
+        && r.bez.text === 'Požiadajte administrátora, aby Vás pridal v Nastavenia → Používatelia (rovnaký e-mail: m.turocziova@danubra.sk).',
       'text: „Váš účet ešte nie je priradený k tímu…" s e-mailom', `${r.bez.title} ${r.bez.text}`);
       ok(r.vypnuty.screen && /prístup do appky je vypnutý/.test(r.vypnuty.title), 'vypnutý človek: „Váš prístup do appky je vypnutý."');
       ok(!r.prazdna.screen, 'prázdna appka (nikto nie je založený) pustí prihláseného');
@@ -264,11 +264,11 @@ async function fakeSupabase(page, st) {
         const LINK = `${location.origin}/app/?heslo=1#k=abc0123456789def`;
         const DATA = {
           members: [
-            { id: 'm1', user_id: 'u-admin', email: 'stefan@punds.eu', full_name: 'Štefan Varga', role: 'admin', active: true, created_at: '2026-01-01' },
-            { id: 'm2', user_id: 'auth-j', email: 'jana@punds.eu', full_name: 'Jana Kováčová', role: 'custom', modules: ['tasks', 'marketing'], active: true, created_at: '2026-02-01' },
-            { id: 'm3', user_id: null, email: 'peter@punds.eu', full_name: 'Peter Horák', role: 'custom', modules: ['tasks'], active: true, created_at: '2026-03-01' },
+            { id: 'm1', user_id: 'u-admin', email: 'stefan@danubra.eu', full_name: 'Štefan Varga', role: 'admin', active: true, created_at: '2026-01-01' },
+            { id: 'm2', user_id: 'auth-j', email: 'jana@danubra.eu', full_name: 'Jana Kováčová', role: 'custom', modules: ['tasks', 'marketing'], active: true, created_at: '2026-02-01' },
+            { id: 'm3', user_id: null, email: 'peter@danubra.eu', full_name: 'Peter Horák', role: 'custom', modules: ['tasks'], active: true, created_at: '2026-03-01' },
           ],
-          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', active: true }],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', active: true }],
           settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
         };
         const zapisy = [];
@@ -288,17 +288,17 @@ async function fakeSupabase(page, st) {
             ] });
           }
           if (body && (body.action === 'invite' || body.action === 'reset')) {
-            return res({ ok: true, link: LINK, email: body.member_id === 'm-new' ? 'eva@punds.eu' : 'peter@punds.eu', created: true, linked: true,
+            return res({ ok: true, link: LINK, email: body.member_id === 'm-new' ? 'eva@danubra.eu' : 'peter@danubra.eu', created: true, linked: true,
               expires_hint: 'Odkaz platí obmedzený čas (podľa nastavenia Supabase: predvolene 1 h, najviac 24 h) a dá sa použiť raz.', app_url: `${location.origin}/app/` });
           }
-          if (body && body.action === 'send') return res({ ok: true, sent_to: 'peter@punds.eu', mailbox: 'info@punds.eu' });
+          if (body && body.action === 'send') return res({ ok: true, sent_to: 'peter@danubra.eu', mailbox: 'info@danubra.eu' });
           return res({});
         };
         const schranka = [];
         Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => { schranka.push(t); } }, configurable: true });
         window.__v = volania; window.__clip = schranka; window.__zapisy = zapisy;
         UI.confirm = async () => true;
-        Danubra.user = { id: 'u-admin', email: 'stefan@punds.eu' };
+        Danubra.user = { id: 'u-admin', email: 'stefan@danubra.eu' };
         Danubra.me = DATA.members[0]; Danubra.members = DATA.members;
         Danubra.cfgRow = DATA.settings[0];
         document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
@@ -335,9 +335,9 @@ async function fakeSupabase(page, st) {
       const LINK = `${base}/app/?heslo=1#k=abc0123456789def`;
       ok(m.title === 'Pozvánka pre Peter Horák' && m.link === LINK, 'okno s odkazom', JSON.stringify([m.title, m.link]));
       const wa = decodeURIComponent((m.wa || '').replace('https://wa.me/?text=', ''));
-      ok(m.wa.startsWith('https://wa.me/?text=') && wa.includes(LINK) && wa.includes(`${base}/app/ e-mailom peter@punds.eu`) && /^Dobrý deň, Peter\./.test(wa),
+      ok(m.wa.startsWith('https://wa.me/?text=') && wa.includes(LINK) && wa.includes(`${base}/app/ e-mailom peter@danubra.eu`) && /^Dobrý deň, Peter\./.test(wa),
         'WhatsApp: krátka správa s odkazom a adresou appky', wa);
-      ok(/^mailto:peter%40punds\.eu\?subject=/.test(m.mailto) && decodeURIComponent(m.mailto).includes(LINK), 'mailto s odkazom', m.mailto.slice(0, 80));
+      ok(/^mailto:peter%40danubra\.eu\?subject=/.test(m.mailto) && decodeURIComponent(m.mailto).includes(LINK), 'mailto s odkazom', m.mailto.slice(0, 80));
       ok(m.mail, 'Poslať e-mailom zo schránky firmy');
       ok(/Odkaz platí obmedzený čas/.test(m.text) && /dá sa použiť raz/.test(m.text), 'poznámka o platnosti odkazu');
       if (process.env.SHOT_DIR) await page.waitForTimeout(3500);
@@ -349,7 +349,7 @@ async function fakeSupabase(page, st) {
       await page.waitForFunction(() => /E-mail odišiel/.test(document.getElementById('mem-inv-msg').textContent));
       const send = await page.evaluate(() => (window.__v.filter(v => v[1] && v[1].action === 'send').pop() || [])[1]);
       ok(send && send.member_id === 'm3' && send.link === LINK && send.mailbox_id === undefined, 'Poslať e-mailom: server dostane človeka a ten istý odkaz', JSON.stringify(send));
-      ok(/E-mail odišiel na peter@punds\.eu zo schránky info@punds\.eu/.test(await page.textContent('#mem-inv-msg')), 'potvrdenie, kam a odkiaľ odišiel');
+      ok(/E-mail odišiel na peter@danubra\.eu zo schránky info@danubra\.eu/.test(await page.textContent('#mem-inv-msg')), 'potvrdenie, kam a odkiaľ odišiel');
 
       // Uložiť a pozvať
       const nov = await page.evaluate(async () => {
@@ -357,7 +357,7 @@ async function fakeSupabase(page, st) {
         Mem.form();
         const f = document.getElementById('mem-form');
         const res = { box: f.querySelector('.regimebox').textContent.replace(/\s+/g, ' '), btn: !!document.getElementById('mem-save-invite') };
-        f.full_name.value = 'Eva Malá'; f.email.value = 'eva@punds.eu';
+        f.full_name.value = 'Eva Malá'; f.email.value = 'eva@danubra.eu';
         await Mem.save('', true);
         for (let i = 0; i < 40 && !document.getElementById('mem-invite'); i++) await new Promise(r => setTimeout(r, 50));
         res.modal = !!document.getElementById('mem-invite');
@@ -366,7 +366,7 @@ async function fakeSupabase(page, st) {
         return res;
       });
       ok(nov.btn && !/Supabase/.test(nov.box) && /Pozvať do appky/.test(nov.box), 'pridanie človeka: bez „Supabase → Authentication", s „Uložiť a pozvať"', nov.box);
-      ok(nov.modal && nov.ins && nov.ins.email === 'eva@punds.eu' && nov.inv && nov.inv.member_id === 'm-new', 'Uložiť a pozvať: uloží, pozve nového a ukáže okno s odkazom', JSON.stringify([nov.ins, nov.inv]));
+      ok(nov.modal && nov.ins && nov.ins.email === 'eva@danubra.eu' && nov.inv && nov.inv.member_id === 'm-new', 'Uložiť a pozvať: uloží, pozve nového a ukáže okno s odkazom', JSON.stringify([nov.ins, nov.inv]));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.join('; '));
       await page.close();
     }

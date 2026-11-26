@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.sk — Cookies
+// danubra.sk — Cookies
 // ============================================================================
 // Web nepoužíva analytické, reklamné ani sledovacie cookies (site.js nič do
 // prehliadača neukladá, mapy a WhatsApp sú len odkazy). Ak by sa to zmenilo,
@@ -12,7 +12,7 @@ const { legalPage } = require('./privacy');
 
 const T = {
   sk: (L) => ({
-    title: 'Cookies | punds', desc: 'Web punds.sk nepoužíva analytické, reklamné ani sledovacie cookies. Ukladáme len to, čo je technicky nevyhnutné na fungovanie stránky.',
+    title: 'Cookies | DANUBRA', desc: 'Web danubra.sk nepoužíva analytické, reklamné ani sledovacie cookies. Ukladáme len to, čo je technicky nevyhnutné na fungovanie stránky.',
     home: 'Domov', crumb: 'Cookies', h1: 'Cookies', updated: 'Posledná aktualizácia: október 2026', read: 'Čítanie na 2 minúty', toc: 'Obsah', ask: 'Otázky:', back: 'Ochrana osobných údajov',
     s: [
       ['Čo sú cookies', 'Cookies sú malé súbory, ktoré si web môže uložiť vo Vašom prehliadači – napríklad aby si zapamätal nastavenia alebo aby mohol merať návštevnosť.'],
@@ -24,7 +24,7 @@ const T = {
     ],
   }),
   cz: (L) => ({
-    title: 'Cookies | punds', desc: 'Web punds.sk nepoužívá analytické, reklamní ani sledovací cookies. Ukládáme jen to, co je technicky nezbytné pro fungování stránky.',
+    title: 'Cookies | DANUBRA', desc: 'Web danubra.sk nepoužívá analytické, reklamní ani sledovací cookies. Ukládáme jen to, co je technicky nezbytné pro fungování stránky.',
     home: 'Domů', crumb: 'Cookies', h1: 'Cookies', updated: 'Poslední aktualizace: říjen 2026', read: 'Čtení na 2 minuty', toc: 'Obsah', ask: 'Dotazy:', back: 'Ochrana osobních údajů',
     s: [
       ['Co jsou cookies', 'Cookies jsou malé soubory, které si web může uložit ve Vašem prohlížeči – například aby si zapamatoval nastavení nebo aby mohl měřit návštěvnost.'],
@@ -36,7 +36,7 @@ const T = {
     ],
   }),
   hu: (L) => ({
-    title: 'Cookie-k | punds', desc: 'A punds.sk nem használ elemző, hirdetési vagy követő cookie-kat. Csak azt tároljuk, ami az oldal működéséhez technikailag feltétlenül szükséges.',
+    title: 'Cookie-k | DANUBRA', desc: 'A danubra.sk nem használ elemző, hirdetési vagy követő cookie-kat. Csak azt tároljuk, ami az oldal működéséhez technikailag feltétlenül szükséges.',
     home: 'Kezdőlap', crumb: 'Cookie-k', h1: 'Cookie-k', updated: 'Utolsó frissítés: 2026. október', read: '2 perc olvasás', toc: 'Tartalom', ask: 'Kérdések:', back: 'Adatvédelem',
     s: [
       ['Mik azok a cookie-k', 'A cookie-k kis fájlok, amelyeket egy weboldal a böngészőjében tárolhat – például a beállítások megjegyzésére vagy a látogatottság mérésére.'],
@@ -48,7 +48,7 @@ const T = {
     ],
   }),
   de: (L) => ({
-    title: 'Cookies | punds', desc: 'punds.sk verwendet keine Analyse-, Werbe- oder Tracking-Cookies. Gespeichert wird nur, was für den Betrieb der Seite technisch notwendig ist.',
+    title: 'Cookies | DANUBRA', desc: 'danubra.sk verwendet keine Analyse-, Werbe- oder Tracking-Cookies. Gespeichert wird nur, was für den Betrieb der Seite technisch notwendig ist.',
     home: 'Start', crumb: 'Cookies', h1: 'Cookies', updated: 'Zuletzt aktualisiert: Oktober 2026', read: '2 Minuten Lesezeit', toc: 'Inhalt', ask: 'Fragen:', back: 'Datenschutz',
     s: [
       ['Was sind Cookies?', 'Cookies sind kleine Dateien, die eine Website in Ihrem Browser speichern kann – zum Beispiel, um Einstellungen zu merken oder Besuche zu messen.'],
@@ -60,7 +60,7 @@ const T = {
     ],
   }),
   en: (L) => ({
-    title: 'Cookies | punds', desc: 'punds.sk does not use analytics, advertising or tracking cookies. We only store what is technically necessary for the site to work.',
+    title: 'Cookies | DANUBRA', desc: 'danubra.sk does not use analytics, advertising or tracking cookies. We only store what is technically necessary for the site to work.',
     home: 'Home', crumb: 'Cookies', h1: 'Cookies', updated: 'Last updated: October 2026', read: '2-minute read', toc: 'Contents', ask: 'Questions:', back: 'Privacy policy',
     s: [
       ['What are cookies?', 'Cookies are small files a website can store in your browser – for example to remember settings or to measure visits.'],
@@ -72,7 +72,7 @@ const T = {
     ],
   }),
   ro: (L) => ({
-    title: 'Cookies | punds', desc: 'Site-ul punds.sk nu folosește cookie-uri de analiză, publicitate sau urmărire. Stocăm doar ce este tehnic necesar pentru funcționarea paginii.',
+    title: 'Cookies | DANUBRA', desc: 'Site-ul danubra.sk nu folosește cookie-uri de analiză, publicitate sau urmărire. Stocăm doar ce este tehnic necesar pentru funcționarea paginii.',
     home: 'Acasă', crumb: 'Cookies', h1: 'Cookies', updated: 'Ultima actualizare: octombrie 2026', read: 'Lectură de 2 minute', toc: 'Cuprins', ask: 'Întrebări:', back: 'Protecția datelor',
     s: [
       ['Ce sunt cookie-urile', 'Cookie-urile sunt fișiere mici pe care un site le poate salva în browserul Dvs. – de exemplu pentru a reține setările sau pentru a măsura traficul.'],
@@ -84,7 +84,7 @@ const T = {
     ],
   }),
   pl: (L) => ({
-    title: 'Cookies | punds', desc: 'Strona punds.sk nie używa plików cookie analitycznych, reklamowych ani śledzących. Zapisujemy tylko to, co jest technicznie niezbędne do działania strony.',
+    title: 'Cookies | DANUBRA', desc: 'Strona danubra.sk nie używa plików cookie analitycznych, reklamowych ani śledzących. Zapisujemy tylko to, co jest technicznie niezbędne do działania strony.',
     home: 'Start', crumb: 'Cookies', h1: 'Cookies', updated: 'Ostatnia aktualizacja: październik 2026', read: '2 minuty czytania', toc: 'Spis treści', ask: 'Pytania:', back: 'Ochrona danych osobowych',
     s: [
       ['Czym są pliki cookie', 'Pliki cookie to małe pliki, które strona może zapisać w Państwa przeglądarce – np. aby zapamiętać ustawienia lub mierzyć odwiedziny.'],
@@ -96,7 +96,7 @@ const T = {
     ],
   }),
   bg: (L) => ({
-    title: 'Бисквитки | punds', desc: 'Сайтът punds.sk не използва аналитични, рекламни или проследяващи бисквитки. Съхраняваме само това, което е технически необходимо за работата на страницата.',
+    title: 'Бисквитки | DANUBRA', desc: 'Сайтът danubra.sk не използва аналитични, рекламни или проследяващи бисквитки. Съхраняваме само това, което е технически необходимо за работата на страницата.',
     home: 'Начало', crumb: 'Бисквитки', h1: 'Бисквитки', updated: 'Последна актуализация: октомври 2026', read: '2 минути четене', toc: 'Съдържание', ask: 'Въпроси:', back: 'Лични данни',
     s: [
       ['Какво са бисквитките', 'Бисквитките са малки файлове, които сайтът може да запази в браузъра Ви – например за да запомни настройки или да измерва посещаемостта.'],

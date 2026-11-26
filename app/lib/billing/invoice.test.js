@@ -179,14 +179,21 @@ console.log('Vydaná faktúra');
     subcontract: SUB, period: PERIOD }).reasons
     .some(r => r.rule === 'invoice_no_number'), 'bez čísla to nejde');
 
-  // Stavba bez Freistellungu, ale zrážka nula — na to treba upozorniť.
+  // Zrážku neuplatňujeme automaticky — stavba bez nej je bežný stav, nie varovanie.
   const noWh = I.reviewBeforeApproval({
     invoice: { ...INV, withholding_pct: 0 }, partner: PARTNER,
     subcontract: SUB, period: PERIOD,
   });
   eq(noWh.ok, true, 'nulová zrážka neblokuje');
-  ok(noWh.warnings.some(w => w.rule === 'invoice_missing_withholding'),
-    'ale upozorní, že odberateľ pravdepodobne zrazí aj tak');
+  ok(!noWh.warnings.some(w => /withholding/.test(w.rule)),
+    'a ani nevaruje — zrážka je len na zaškrtnutie');
+
+  // Zaškrtávatko „Zrážka §48b": vypnuté = nula, zapnuté = 15 % z celej sumy.
+  eq(I.withholdingPatch(8736, false), { withholding_pct: 0, withholding_amount: 0, amount_net: 8736 },
+    'nezaškrtnutá zrážka: celá suma');
+  eq(I.withholdingPatch(8736, true, 15), { withholding_pct: 15, withholding_amount: 1310.4, amount_net: 7425.6 },
+    'zaškrtnutá: 15 % a suma po zrážke');
+  eq(I.withholdingPatch('2726.00', true).withholding_pct, 15, 'bez percenta zo zákona 15 %');
 
   ok(I.reviewBeforeApproval({ invoice: INV, partner: { ...PARTNER, email: null },
     subcontract: SUB, period: PERIOD }).warnings
@@ -208,8 +215,11 @@ console.log('Vydaná faktúra');
 
   // Reverse charge = nulová sadzba a povinná veta po nemecky.
   eq(p.InvoiceItem[0].tax, 0, 'reverse charge má nulovú sadzbu');
-  ok(p.Invoice.comment.includes('Steuerschuldnerschaft des Leistungsempfängers'),
-    'povinná veta §13b');
+  ok(p.Invoice.comment.includes('Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.'),
+    'povinná veta §13b presne ako na faktúre z Pohody');
+  ok(p.Invoice.comment.includes('Miestom dodania služby je podľa § 15 resp. § 16 zákona o dani z pridanej hodnoty iný členský štát.'),
+    'aj slovenská veta o prenesení daňovej povinnosti');
+  eq(I.reverseChargeLines('AT')[0], I.RC_LINE_EU, 'iný štát EÚ: článok 196 smernice');
   ok(p.Invoice.comment.includes('§48b'), 'a poznámka o zrážke');
   ok(p.Invoice.comment.includes('1.310,40'), 'v nemeckom zápise čísla');
   ok(p.Invoice.comment.includes('7.425,60'), 'aj s tým, koľko príde na účet');
@@ -399,6 +409,45 @@ console.log('\nVOĽNÁ FAKTÚRA, POLOŽKY, ÚPRAVA NÁVRHU');
   ok(r.reasons.some(x => x.rule === 'invoice_items_mismatch'), 'položky, ktoré nesedia so sumou, schválenie zastavia');
   const r2 = I.reviewBeforeApproval({ invoice: f.invoice, partner: { id: 'p1', ust_idnr: 'DE1' }, items: f.items });
   ok(!r2.reasons.some(x => x.rule === 'invoice_items_mismatch'), 'keď sedia, nie');
+}
+
+
+// ── Merné jednotky podľa jazyka dokladu ───────────────────────────────────
+// Skúšobná faktúra v sandboxe: „Weiterberechnung Unterkunft … | 1 | mes | 980,00 €".
+console.log('\nmerné jednotky podľa jazyka dokladu');
+{
+  const DE = { mes: 'Monat', mesiac: 'Monat', hod: 'Std.', h: 'Std.', hodina: 'Std.', ks: 'Stk.', 'deň': 'Tag', den: 'Tag',
+    noc: 'Nacht', km: 'km', 'paušál': 'Pauschale', pausal: 'Pauschale', 'týždeň': 'Woche', osoba: 'Person', 'os./deň': 'Personentag' };
+  for (const [sk, de] of Object.entries(DE)) eq(I.unitFor(sk, 'de'), de, `SK „${sk}" → DE „${de}"`);
+  const EN = { mes: 'month', hod: 'hrs', ks: 'pcs', 'deň': 'day', noc: 'night', km: 'km', 'paušál': 'lump sum', 'týždeň': 'week', osoba: 'person' };
+  for (const [sk, en] of Object.entries(EN)) eq(I.unitFor(sk, 'eng'), en, `SK „${sk}" → EN „${en}"`);
+  eq(I.unitFor('mes', 'deu'), 'Monat', 'kód SuperFaktúry „deu" = nemčina');
+  eq(I.unitFor('MES.', 'de'), 'Monat', 'veľké písmená a bodka na konci nevadia');
+  eq(I.unitFor('mes', 'sk'), 'mes', 'slovenský doklad: jednotka, ako bola napísaná');
+  eq(I.unitFor('Std.', 'de'), 'Std.', 'už nemecká zostane');
+  eq(I.unitFor('Std.', 'slo'), 'h', 'nemecká na slovenskom doklade → „h" (dobropis kopíruje položky)');
+  eq(I.unitFor('m2', 'de'), 'm2', 'neznáma jednotka zostane, ako bola');
+  eq(I.unitFor('mes', 'hun'), 'mes', 'iný jazyk dokladu: bez prekladu');
+  eq(I.unitFor('', 'de'), '', 'prázdna zostane prázdna');
+  eq(I.unitFor(null, 'de'), '', 'chýbajúca nezhodí');
+}
+
+// Variabilný symbol: zapísaný, inak číslice z čísla faktúry.
+{
+  eq(I.variableSymbol({ invoice_number: '2026010001' }), '2026010001', 'VS z čísla faktúry');
+  eq(I.variableSymbol({ invoice_number: 'VZOR-2026-0007' }), '20260007', 'len číslice');
+  eq(I.variableSymbol({ invoice_number: '2026010001', variable_symbol: '260100153' }), '260100153', 'zapísaný VS má prednosť');
+  const zly = I.reviewBeforeApproval({ invoice: { invoice_number: '1', total: 10, partner_id: 'p', variable_symbol: '12345678901' },
+    partner: { id: 'p', ust_idnr: 'DE1', email: 'a@b.de' } });
+  ok(zly.reasons.some(r => r.rule === 'invoice_vs'), 'VS dlhší ako 10 číslic zablokuje schválenie');
+  const dlhe = I.reviewBeforeApproval({ invoice: { invoice_number: 'R-2026-01-000001', total: 10, partner_id: 'p' },
+    partner: { id: 'p', ust_idnr: 'DE1', email: 'a@b.de' } });
+  ok(dlhe.reasons.some(r => r.rule === 'invoice_vs'), 'aj keď by ho z čísla vyšlo viac ako 10');
+  const ks = I.reviewBeforeApproval({ invoice: { invoice_number: '1', total: 10, partner_id: 'p', constant_symbol: '03081' },
+    partner: { id: 'p', ust_idnr: 'DE1', email: 'a@b.de' } });
+  ok(ks.reasons.some(r => r.rule === 'invoice_ks'), 'KS najviac 4 číslice');
+  eq([I.paymentLabel('transfer', 'de'), I.paymentLabel('offset', 'sk'), I.paymentLabel(null, 'sk')],
+    ['Überweisung', 'Zápočtom', 'Prevodom'], 'forma úhrady na doklade');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo`);

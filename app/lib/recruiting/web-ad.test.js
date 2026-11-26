@@ -1,4 +1,4 @@
-// Testy: inzerát → ponuka na punds.sk.   node app/lib/recruiting/web-ad.test.js
+// Testy: inzerát → ponuka na danubra.sk.   node app/lib/recruiting/web-ad.test.js
 const W = require('./web-ad.js');
 let passed = 0, failed = 0;
 const ok = (c, n, d) => { if (c) { passed++; console.log(`  ✓ ${n}`); } else { failed++; console.log(`  ✗ ${n}${d ? ` — ${d}` : ''}`); } };

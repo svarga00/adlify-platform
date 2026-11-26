@@ -42,7 +42,7 @@ function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!fs.existsSync(base)) return null;
   for (const dir of fs.readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell']) {
       const p = path.join(base, dir, rel);
       if (fs.existsSync(p)) return p;
     }
@@ -1028,6 +1028,10 @@ console.log('Prehliadač');
         Guide.segments = Guide.buildSegments('trockenbau', 'ad1');
         res.kratkySegmentov = Guide.segments.length;
         res.kratkyPolia = Guide.segments[0].chips.map(c => c.segment);
+        // Hovor je jedna obrazovka: čo povedať, na čo sa opýtať, overenie remesla.
+        Guide.mode = 'quick'; Guide.segIndex = 0; Guide.answers = new Map(); Guide.notes = new Map();
+        Guide.render();
+        res.hovor = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
 
         // Plný pohovor má častí viac.
         Guide.mode = 'full';
@@ -1062,9 +1066,14 @@ console.log('Prehliadač');
         return res;
       });
 
-      ok(out.start.includes('Krátky hovor') && out.start.includes('Plný pohovor'),
-        'pred hovorom sa dá vybrať krátky alebo plný');
-      ok(out.start.includes('Do troch minút'), 'a je napísané, čím sa líšia');
+      ok(!out.start.includes('Plný pohovor') && out.start.includes('Začať hovor'),
+        'pred hovorom sa nič nevyberá — hovor je jeden', out.start.slice(0, 200));
+      ok(/Povedzte mu/.test(out.hovor) && /Opýtajte sa/.test(out.hovor) && /Ukončiť hovor/.test(out.hovor),
+        'hovor je jedna obrazovka: povedzte mu, opýtajte sa, ukončiť', out.hovor.slice(0, 200));
+      ok(/Robí sa na živnosť/.test(out.hovor) && /Faktúru vystavujete/.test(out.hovor) && /A1 ako živnostník/.test(out.hovor),
+        'ponuka sedí so zmluvami: živnosť, vlastná faktúra, A1 ako živnostník');
+      ok(/Máte živnosť\?/.test(out.hovor) && !/turnus/i.test(out.hovor) && !/Podrobný pohovor|Plný pohovor/.test(out.hovor),
+        'otázky sú jadro podľa konceptu a pohovor je len jeden');
 
       ok(out.kratkySegmentov === 1, 'krátky hovor je jedna obrazovka',
         `${out.kratkySegmentov}`);
@@ -1075,8 +1084,8 @@ console.log('Prehliadač');
       ok(out.plnySegmentov > out.kratkySegmentov,
         'plný pohovor má častí viac', `${out.plnySegmentov} vs ${out.kratkySegmentov}`);
 
-      ok(out.zaver.includes('Pokračovať plným pohovorom'),
-        'zo záveru krátkeho hovoru sa dá prejsť na plný');
+      ok(out.zaver.includes('Čo nasleduje') && out.zaver.includes('rámcovú zmluvu o dielo'),
+        'záver povie, čo nasleduje: preveriť, doklady, zmluva a objednávka');
       ok(!out.zaver.includes('Zavolať neskôr'),
         'pri vysokom skóre sa nehovorí „zavolať neskôr"', out.zaver.slice(0, 200));
       ok(out.sVlajkou.includes('Nepokračovať'),
@@ -2966,7 +2975,7 @@ console.log('Prehliadač');
         const sekcie = [...view.querySelectorAll('.dl-sec')].map(t);
         const skupiny = {};
         let kde = '';
-        for (const e of view.querySelectorAll('.dl-table > .dl-sec, .dl-table > .dl-row')) {
+        for (const e of view.querySelectorAll('.dl-table .dl-sec, .dl-table .dl-row')) {
           if (e.classList.contains('dl-sec')) { kde = t(e); skupiny[kde] = []; continue; }
           (skupiny[kde] = skupiny[kde] || []).push(e.getAttribute('data-dl-row'));
         }
@@ -3570,9 +3579,16 @@ console.log('Prehliadač');
         Sub.openId = 'sc1';
         await Danubra.views.subcontracts.call(Danubra, view);
 
+        // Kroky sú v základe zbalené; ten, čo je na rade, otvorí „Ukázať" v páse.
+        const zbalene = view.querySelectorAll('.js-step.is-open').length;
+        const ukazat = ((view.querySelector('.js-now .btn') || { getAttribute: () => '' }).getAttribute('onclick') || '');
+        Sub.step = 'papiere';
+        await Danubra.views.subcontracts.call(Danubra, view);
+        Sub.step = undefined;
+
         const txt = (e) => e.textContent.replace(/\s+/g, ' ').trim();
         return {
-          zoznam,
+          zoznam, zbalene, ukazat,
           teraz: txt(view.querySelector('.js-now') || { textContent: '' }),
           kroky: [...view.querySelectorAll('.js-step .js-main b')].map(txt),
           stavy: [...view.querySelectorAll('.js-step')]
@@ -3596,8 +3612,10 @@ console.log('Prehliadač');
         'kroky zákazky sa volajú rovnako ako kroky na Dnes a v Ako to ide', out.kroky.join(' | '));
       ok(out.stavy.filter(s => s === 'ok').length >= 2,
         'čo je hotové, je zelené', out.stavy.join(','));
+      ok(out.zbalene === 0 && /Sub\.openStep\('papiere'\)/.test(out.ukazat),
+        'kroky sú zbalené a „Ukázať" otvorí ten, ktorý je na rade (papiere — ľudia sú na stavbe bez nich)', `${out.zbalene} ${out.ukazat}`);
       ok(out.otvorene.length === 1 && out.otvorene[0] === 'js-papiere',
-        'otvorený je ten krok, ktorý je na rade (papiere — ľudia sú na stavbe bez nich)', out.otvorene.join(','));
+        'po otvorení je rozbalený práve ten krok', out.otvorene.join(','));
       ok(out.tlacidla > 0, 'a je v ňom tlačidlo, ktorým sa to dá spraviť', String(out.tlacidla));
       ok(out.sekTaby === 0, 'záložky detailu už nie sú');
 
@@ -4566,7 +4584,8 @@ console.log('Prehliadač');
         const zapisy = [];
         DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
         DB.count = async () => 0;
-        DB.rpc = async () => ({ data: null, error: null });
+        // Číslo zmluvy so živnostníkom prideľuje databáza (094, rad worker_contract).
+        DB.rpc = async (fn, a) => ({ data: fn === 'next_number' && a && a.p_kind === 'worker_contract' ? '2026100007' : null, error: null });
         DB.update = async (t, id, patch) => { zapisy.push({ t, id, patch }); return { error: null }; };
         DB.signedDocUrls = async () => new Map();
         Danubra.user = { id: 'test', email: 'test@firma.sk' };
@@ -4638,6 +4657,7 @@ console.log('Prehliadač');
       ok(out.otvoreneSkor === 0, 'a papier dovtedy neotvorí');
       ok(/Cyril Demeter/.test(out.zmluva) && /53941870/.test(out.zmluva) && /Brekov 81/.test(out.zmluva),
         'po uložení sa zmluva otvorí s menom, IČO aj adresou');
+      ok(/2026100007/.test(out.zmluva), 'zmluva má číslo z číselného radu (2026100007)');
       ok(out.zapisy.some(z => z.t === 'workers' && z.id === 'w1' && z.patch.company_id === '53941870'),
         'a údaje sa uložia k človeku');
       ok(out.znova, 'nabudúce sa už nepýta');
@@ -4863,8 +4883,30 @@ console.log('Prehliadač');
         res.sprava = Cost.selfMessage(Cost.bills[0]);
         res.znova = Cost.selfCandidates().length;
         UI.closeModal();
+        // Živnostník fakturuje za 2 KW: dva uzavreté týždne jednej zákazky = jeden návrh.
+        Cost.load = async () => {}; Cost.loaded = true;
+        Cost.workers = [{ id: 'w1', full_name: 'Ján Novák', self_billing: true, phone: '+421 900 111 222' }];
+        Cost.subcontracts = [{ id: 's1', title: 'Lixenried' }];
+        Cost.bills = [];
+        Cost.periods = [{ id: 'k1', subcontract_id: 's1', status: 'closed', period_from: '2026-11-02', period_to: '2026-11-08' },
+          { id: 'k2', subcontract_id: 's1', status: 'closed', period_from: '2026-11-09', period_to: '2026-11-15' },
+          { id: 'k3', subcontract_id: 's1', status: 'closed', period_from: '2026-11-16', period_to: '2026-11-22' }];
+        Cost.timesheets = [{ worker_id: 'w1', period_id: 'k1', approved: true, hours: 10 },
+          { worker_id: 'w1', period_id: 'k2', approved: true, hours: 9.5 }, { worker_id: 'w1', period_id: 'k3', approved: true, hours: 8 }];
+        res.kw = Cost.selfCandidates().map(c => `${c.periods.map(p => p.id).join('+')}:${c.hours}:${c.complete}`);
+        const pred = res.rpc.length;
+        try {
+          Cost.selfForm();
+          res.kwForm = document.querySelector('.modal-card').innerText;
+          await Cost.selfDrafts();
+        } catch (e) { res.kwErr = String(e && e.message); }
+        res.kwRpc = res.rpc.slice(pred).map(r => `${r.n}:${(r.a.p_periods || [r.a.p_period]).join('+')}`);
+        UI.closeModal();
         return res;
       });
+      ok(out.kw.join() === 'k3:8:false,k1+k2:19.5:true', 'dva týždne sa spoja do jednej faktúry (2 KW), tretí čaká', `${out.kw.join()} ${out.kwErr || ''}`);
+      ok(out.kwRpc.join() === 'self_bill_draft:k3,self_bill_draft_kw:k1+k2', 'viac týždňov ide cez self_bill_draft_kw', out.kwRpc.join());
+      ok(/KW 45–46/.test(out.kwForm) && /zatiaľ menej ako 2 týždne/.test(out.kwForm), 'v okne sú týždne ako KW', out.kwForm.slice(0, 300));
       ok(out.kandidati.join() === 'w1:p1:19.5',
         'navrhne sa len živnostník s dohodou, neplatiteľ DPH, z uzavretého obdobia', out.kandidati.join());
       ok(out.rpc.some(r => r.n === 'self_bill_draft' && r.a.p_worker === 'w1' && r.a.p_period === 'p1'),
@@ -5128,7 +5170,7 @@ console.log('Prehliadač');
         await Inv.openDocV2(id);
         window.open = stare;
         res.pdf = { rechnung: /Rechnung/.test(html), adresa: /Hauptstr\. 1/.test(html), riadok: /Montáž zábradlia/.test(html),
-          rc: /§13b UStG/.test(html), bezDopravy: !/Doprava/.test(html) };
+          rc: /Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet\./.test(html), bezDopravy: !/Doprava/.test(html) };
 
         // Schválená sa neupravuje.
         Inv.items[0].status = 'approved'; Inv.items[0].approved_at = 'x';
@@ -5173,7 +5215,7 @@ console.log('Prehliadač');
         'Vrátiť do návrhu sa najprv opýta, potom ide dva kroky späť (schválenie sa zruší)', JSON.stringify(out.spat));
       ok(JSON.stringify(out.poSplatnosti) === JSON.stringify(['a', 'b']),
         'po splatnosti sa sama označí odoslaná aj vystavená, zaplatená a stornovaná nie', JSON.stringify(out.poSplatnosti));
-      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za celý mesiac naraz',
+      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za týždeň (KW) naraz',
         'Vystaviť faktúru: zo zákazky, voľná Nemcovi, za mesiac — bez starej ubytovacej agendy a bez faktúry za živnostníka', out.volby.join(' | '));
       ok(out.odkaz && /Faktúry za živnostníkov sa vystavujú v Prijatých faktúrach/.test(out.odkaz.text)
         && out.odkaz.klik === 'Inv.selfBill()',
@@ -5258,8 +5300,8 @@ console.log('Prehliadač');
         res.zip = zip ? { name: zip.name, size: zip.size, head: [...new Uint8Array(await zip.slice(0, 4).arrayBuffer())] } : null;
         return res;
       });
-      ok(/Mesačná fakturácia/.test(out.akcie) && /Upomienky/.test(out.akcie) && /Pre účtovníčku/.test(out.akcie),
-        'vo Vydaných sú tlačidlá Mesačná fakturácia, Upomienky, Pre účtovníčku', out.akcie.slice(0, 200));
+      ok(/Fakturácia naraz \(KW\)/.test(out.akcie) && /Upomienky/.test(out.akcie) && /Pre účtovníčku/.test(out.akcie),
+        'vo Vydaných sú tlačidlá Fakturácia naraz (KW), Upomienky, Pre účtovníčku', out.akcie.slice(0, 200));
       ok(/Upomienky/.test(out.detail) && /Pripomienka platby/.test(out.detail), 'faktúra po splatnosti ponúkne pripomienku platby', out.detail.slice(-300));
       ok(out.upomienka.de && out.upomienka.cislo && out.upomienka.suma && out.upomienka.adr, 'upomienka je po nemecky, s číslom, sumou a adresou', JSON.stringify(out.upomienka));
       ok(JSON.stringify(out.zapis) === '[[1,true]]', 'a zapíše sa — stupeň 1 s novou lehotou', JSON.stringify(out.zapis));
@@ -5303,7 +5345,7 @@ console.log('Prehliadač');
           if (url.includes('interpreter')) return new Response(JSON.stringify({ elements: [
             { type: 'node', id: 1, lat: 48.4, lon: 9.9, tags: { craft: 'builder', name: 'Müller Bau GmbH', 'addr:city': 'Neu-Ulm', email: 'info@mueller-bau.de' } },
             { type: 'node', id: 2, lat: 48.4, lon: 9.9, tags: { craft: 'tiler', name: 'Fliesen Huber', 'addr:city': 'Ulm' } }] }));
-          if (url.includes('danubra-email-status')) return new Response(JSON.stringify({ smtp: true, from: 'P&S <info@punds.eu>' }));
+          if (url.includes('danubra-email-status')) return new Response(JSON.stringify({ smtp: true, from: 'P&S <info@danubra.eu>' }));
           return new Response('{}');
         };
         Danubra.user = { id: 'test', email: 'test@firma.sk' };
@@ -5387,7 +5429,7 @@ console.log('Prehliadač');
 
         Danubra.route = 'campaigns'; Camp.loaded = false; Lead.loaded = true;
         await Danubra.renderRoute();
-        res.smtp = document.querySelector('#view').textContent.includes('info@punds.eu');
+        res.smtp = document.querySelector('#view').textContent.includes('info@danubra.eu');
         await Camp.form();
         await Camp.preview();
         res.pocet = document.getElementById('cf-count').textContent.replace(/\s+/g, ' ');
@@ -5504,18 +5546,18 @@ console.log('Prehliadač');
         const dnes = new Date().toISOString();
         const DATA = {
           mailboxes: [
-            { id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga\nP&S', last_sync_at: dnes, active: true },
-            { id: 'b2', name: 'Fakturácia', email: 'fakturacia@punds.eu', signature: 'Účtovné oddelenie', last_sync_at: dnes, active: true }],
+            { id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', signature: 'Štefan Varga\nP&S', last_sync_at: dnes, active: true },
+            { id: 'b2', name: 'Fakturácia', email: 'fakturacia@danubra.eu', signature: 'Účtovné oddelenie', last_sync_at: dnes, active: true }],
           mail_messages: [
             { id: 'm1', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'hans@gu-ulm.de', from_name: 'Hans Gruber',
-              to_list: [{ address: 'info@punds.eu' }], cc_list: [], subject: 'Angebot Wohnpark', sent_at: dnes, snippet: 'Guten Tag, wir brauchen…',
+              to_list: [{ address: 'info@danubra.eu' }], cc_list: [], subject: 'Angebot Wohnpark', sent_at: dnes, snippet: 'Guten Tag, wir brauchen…',
               seen: false, attachments: [{ name: 'plan.pdf', size: 20480, storage_path: 'mail/b1/INBOX/7-0-plan.pdf' }], partner_id: 'p1',
               message_id: '<abc@gu-ulm.de>', text_body: 'Guten Tag,\nwir brauchen 4 Fliesenleger.',
               html_body: '<p onclick="x()">Guten Tag</p><script>alert(1)</script><img src="https://track.example/p.gif">' },
-            { id: 'm2', mailbox_id: 'b1', folder: 'Sent', direction: 'out', from_email: 'info@punds.eu', to_list: [{ address: 'bau@gu-ulm.de' }],
+            { id: 'm2', mailbox_id: 'b1', folder: 'Sent', direction: 'out', from_email: 'info@danubra.eu', to_list: [{ address: 'bau@gu-ulm.de' }],
               cc_list: [], subject: 'Ponuka', sent_at: dnes, snippet: 'Dobrý deň', seen: true, attachments: [], partner_id: 'p1' }],
-          members: [{ id: 'u1', user_id: 'uid-1', email: 'jana@punds.eu', full_name: 'Jana', role: 'coordinator', active: true },
-            { id: 'u0', user_id: 'uid-0', email: 'stefan@punds.eu', full_name: 'Štefan', role: 'admin', active: true }],
+          members: [{ id: 'u1', user_id: 'uid-1', email: 'jana@danubra.eu', full_name: 'Jana', role: 'coordinator', active: true },
+            { id: 'u0', user_id: 'uid-0', email: 'stefan@danubra.eu', full_name: 'Štefan', role: 'admin', active: true }],
           mailbox_access: [{ mailbox_id: 'b1', user_id: 'uid-1', active: true }],
           workers: [], partners: [{ id: 'p1', name: 'GU Ulm GmbH', email: 'bau@gu-ulm.de' }], leads: [],
           settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
@@ -5537,7 +5579,7 @@ console.log('Prehliadač');
           if (url.includes('danubra-mail-account')) return new Response(JSON.stringify({ ok: true, id: 'b3', imap: { ok: true }, smtp: { ok: true } }));
           return new Response('{}');
         };
-        Danubra.user = { id: 'uid-0', email: 'stefan@punds.eu' };
+        Danubra.user = { id: 'uid-0', email: 'stefan@danubra.eu' };
         Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
         Danubra.cfgRow = DATA.settings[0];
         document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
@@ -5596,7 +5638,7 @@ console.log('Prehliadač');
         res.imap1 = g.imap_host.value + ':' + g.imap_port.value + ' ' + g.smtp_host.value;
         g.preset.value = 'forpsi'; g.preset.dispatchEvent(new Event('change'));
         res.imap2 = g.imap_host.value;
-        g.email.value = 'zakazky@punds.eu'; g.password.value = 'tajne-heslo'; g.signature.value = 'Tím zákaziek';
+        g.email.value = 'zakazky@danubra.eu'; g.password.value = 'tajne-heslo'; g.signature.value = 'Tím zákaziek';
         g.querySelector('input[name=acc][value="uid-1"]').checked = true;
         await Mbx.save();
         const ul = volania.filter(x => x.body && x.body.action === 'save').map(x => x.body);
@@ -5619,7 +5661,7 @@ console.log('Prehliadač');
 
         // Nastavenia → Používatelia: zoznam (DataList) s filtrom roly a prístupu.
         ['clenovia', 'spravy'].forEach(k => { try { localStorage.removeItem('danubra_dl_' + k); } catch (e) { /* nič */ } });
-        DATA.members.push({ id: 'u2', user_id: 'uid-2', email: 'old@punds.eu', full_name: 'Lucia Stará', role: 'coordinator', active: false });
+        DATA.members.push({ id: 'u2', user_id: 'uid-2', email: 'old@danubra.eu', full_name: 'Lucia Stará', role: 'coordinator', active: false });
         Danubra.route = 'members'; Mem.loaded = false;
         await Danubra.renderRoute();
         const mena = () => [...v.querySelectorAll('#dl-clenovia .dl-row .dl-title b')].map(b => b.textContent.trim());
@@ -5674,7 +5716,7 @@ console.log('Prehliadač');
       ok(JSON.stringify(out.mbx) === '["Info","Fakturácia"]' && out.vidi, 'Schránky ukážu schránky a kto ich vidí', JSON.stringify(out.mbx));
       ok(out.hesla, 'zašifrované heslo sa do prehliadača nedostane');
       ok(out.imap1 === 'imap.websupport.sk:993 smtp.websupport.sk' && out.imap2 === 'imap.forpsi.com', 'servery Websupportu a Forpsi sa doplnia samy', `${out.imap1} / ${out.imap2}`);
-      ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@punds.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
+      ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@danubra.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
         'uloženie pošle heslo len serveru, s prístupmi a podpisom', JSON.stringify(out.ulozenie));
       ok(out.zaSync, 'po uložení sa e-maily hneď začnú sťahovať');
       ok(out.hladaj.riadky === 1 && out.hladaj.pole, 'hľadanie v e-mailoch: slová zvlášť, bez ohľadu na veľkosť písmen, pole sa neprekreslí', JSON.stringify(out.hladaj));
@@ -5704,12 +5746,12 @@ console.log('Prehliadač');
             { id: 'l2', name: 'Schmidt Ausbau', city: 'Augsburg', email: 'off@schmidt.de', status: 'new', source: 'manual' },
             { id: 'l3', name: 'Weber Bau', city: 'Ulm', email: 'info@weber.de', status: 'contacted', source: 'manual' }],
           email_optout: [{ email: 'off@schmidt.de' }],
-          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
           outreach: [{ id: 'o3', lead_id: 'l3', step: 1, lang: 'de', status: 'sent', to_email: 'info@weber.de', subject: 'Fachkräfte für Weber Bau?',
-            sent_at: '2026-01-05T09:00:00Z', message_id: '<x@punds.eu>', opened_at: '2026-01-05T10:00:00Z', open_count: 2,
+            sent_at: '2026-01-05T09:00:00Z', message_id: '<x@danubra.eu>', opened_at: '2026-01-05T10:00:00Z', open_count: 2,
             auto_opened_at: '2026-01-05T09:00:03Z', auto_open_count: 1, clicked_at: '2026-01-05T10:01:00Z', click_count: 1,
             next_followup_at: '2026-01-12T09:00:00Z' }],
-          outreach_events: [{ id: 'e1', outreach_id: 'o3', lead_id: 'l3', type: 'click', url: 'https://punds.eu/referenzen', at: '2026-01-05T10:01:00Z', automated: false },
+          outreach_events: [{ id: 'e1', outreach_id: 'o3', lead_id: 'l3', type: 'click', url: 'https://danubra.eu/referenzen', at: '2026-01-05T10:01:00Z', automated: false },
             { id: 'e2', outreach_id: 'o3', lead_id: 'l3', type: 'open', at: '2026-01-05T09:00:03Z', automated: true, auto_reason: 'Apple Mail (ochrana súkromia) predčítal obrázky' }],
           message_templates: [],
           settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Podzámska 4A, Nové Zámky', vat_id: 'SK2122334455', company_id: '57553921' },
@@ -5794,7 +5836,7 @@ console.log('Prehliadač');
       });
       ok(out.stlpec, 'zoznam firiem: stĺpec Oslovenie ukáže otvoril a klikol');
       ok(/neoslovená/.test(out.neoslovena) && out.akcia, 'neoslovená firma a v riadku tlačidlo Osloviť', out.neoslovena);
-      ok(/Prvý e-mail/.test(out.os) && /Otvoril 2×/.test(out.os) && /možno automaticky/.test(out.os) && /Klikol na punds\.eu\/referenzen/.test(out.os)
+      ok(/Prvý e-mail/.test(out.os) && /Otvoril 2×/.test(out.os) && /možno automaticky/.test(out.os) && /Klikol na danubra\.eu\/referenzen/.test(out.os)
         && /Ďalšie pripomenutie/.test(out.os) && /Pripomenúť sa/.test(out.os), 'detail firmy: časová os s otvorením, klikom a pripomenutím', out.os.slice(0, 400));
       ok(out.predmet === 'Trockenbauer für Ihre Baustellen in Ulm' && /Sehr geehrte Damen und Herren,/.test(out.text) && /in Ulm im Bereich Trockenbau/.test(out.text),
         'okno Osloviť: šablóna po nemecky s údajmi firmy', `${out.predmet} | ${out.text}`);
@@ -5835,7 +5877,7 @@ console.log('Prehliadač');
           leads: [{ id: 'l1', name: 'Englhardt Malerei GmbH', city: 'Ingolstadt', email: 'info@englhardt.de', trade: 'maliarstvo, omietky, zatepľovanie',
             contact_person: 'Herr Thomas Englhardt', status: 'new', source: 'outscraper', seed_search_id: 's1' }],
           email_optout: [], outreach: [], outreach_events: [],
-          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
+          mailboxes: [{ id: 'b1', name: 'Info', email: 'info@danubra.eu', display_name: 'Partner und Service', signature: 'Štefan Varga', active: true }],
           // Nemecká šablóna vypnutá, anglická zapnutá — presne stav, v ktorom sa predtým vybrala angličtina.
           message_templates: [
             { id: 't1', key: 'outreach_intro', title: 'Oslovenie — prvý e-mail (DE)', language: 'de', channel: 'outreach', active: false, subject: 'Alt DE', body: 'Alt DE {remeslo}' },

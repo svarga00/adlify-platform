@@ -1,5 +1,5 @@
 /* ==========================================================================
-   punds.sk — zoznam ponúk: filter bez načítania stránky, adresa, mapa
+   danubra.sk — zoznam ponúk: filter bez načítania stránky, adresa, mapa
    Dáta: <script type="application/json" id="jobs-data"> (web/sk/pages/jobs.js).
    Karty a riadky mapy vykreslí server; tu sa len skrývajú a radia.
    Počet pri možnosti filtra = ponuky, ktoré spĺňajú všetky OSTATNÉ filtre.

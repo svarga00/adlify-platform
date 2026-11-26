@@ -48,8 +48,8 @@ console.log('\nJEDEN REŤAZEC');
   ok(P.STEPS.every(s => s.items.length <= 5), 'a žiadny nemá viac než päť odrážok');
 
   const spolu = P.candidateProgress(IND, []).total;
-  eq(spolu, 17, 'jednotlivec má sedemnásť odrážok (predtým ich bolo 42)');
-  eq(P.candidateProgress(CREW, []).total, 18, 'partia jednu navyše');
+  eq(spolu, 13, 'jednotlivec potrebuje trinásť vecí (predtým ich bolo 42, potom 17)');
+  eq(P.candidateProgress(CREW, []).total, 13, 'partia rovnako — otázka o partii je nepovinná');
   eq(P.FLAGS.items.length, 5, 'päť červených vlajok');
   eq(P.AFTER.items.length, 3, 'a tri telefonáty v prvom týždni');
 }
@@ -62,7 +62,7 @@ console.log('\nSLOVO „OVERENIE" JE PREČ');
   ok(!/overen/i.test(titulky), 'žiadny krok sa nevolá „overenie"');
   const krok = P.STEPS.find(s => s.key === 'proof');
   eq(krok.title, 'Preveriť', 'druhý krok je „Preveriť"');
-  ok(/overenie/.test(krok.why), 'a sám povie, že toto bolo predtým „overenie"');
+  ok(krok.min === 1 && /Stačí jedna vec/.test(krok.lead), 'a stačí v ňom jedna vec — nie je to skúška');
 }
 
 console.log('\nODVODENÉ ODRÁŽKY SA NEZAŠKRTÁVAJÚ RUČNE');
@@ -110,14 +110,19 @@ console.log('\nSTARÉ ZAŠKRTNUTIA PLATIA ĎALEJ');
 console.log('\nODRÁŽKY PRE PARTIU');
 {
   const proof = P.STEPS.find(s => s.key === 'proof');
-  eq(P.applicableItems(proof, 'individual').length, 4, 'jednotlivec má štyri');
-  eq(P.applicableItems(proof, 'crew').length, 5, 'partia päť');
+  eq(P.applicableItems(proof, 'individual').length, 3, 'jednotlivec má tri možnosti (videohovor je vyradený)');
+  eq(P.applicableItems(proof, 'crew').length, 4, 'partia štyri');
+  ok(!P.applicableItems(proof, 'crew').some(i => i.index === 3), 'vyradená položka sa neukazuje, ale drží poradie');
   eq(P.applicableItems(proof, 'crew').map(i => i.index).slice(-1), [4],
     'otázka o partii je posledná');
   ok(!P.applicableItems(proof, 'individual').some(i => i.index === 4),
     'jednotlivcovi sa nezobrazí');
-  eq(P.stepProgress(proof, allOf('proof', 'individual'), 'crew', CREW).complete, false,
-    'partii nestačí to, čo stačí jednotlivcovi');
+  eq(P.stepProgress(proof, allOf('proof', 'individual'), 'crew', CREW).complete, true,
+    'partii stačí to isté — otázka o partii je nepovinná');
+  eq(P.stepProgress(proof, [chk('proof', 1)], 'individual', IND).complete, true,
+    'stačí jedna vec: zavolané referencii');
+  eq(P.stepProgress(proof, [chk('proof', 3)], 'individual', IND).complete, false,
+    'vyradený videohovor sám nestačí');
   eq(P.stepProgress(proof, allOf('proof', 'individual'), 'individual', IND).complete, true,
     'jednotlivcovi tie isté odpovede stačia');
 }
@@ -138,7 +143,7 @@ console.log('\nPOSTUP');
   const checks = [chk('proof', 0), chk('proof', 1)];
   const p = P.candidateProgress(IND, checks);
   eq(p.currentStep.key, 'call', 'rozrobený neskorší krok neposunie ten prvý');
-  eq(p.steps[1].done, 2, 'ale vie, koľko z neho je hotové');
+  eq([p.steps[1].done, p.steps[1].checked, p.steps[1].complete], [1, 2, true], 'krok „Preveriť" je hotový už pri jednej veci a vie, koľko je zaškrtnutých');
 }
 {
   const p = P.candidateProgress(HOTOVY, VSETKO);
@@ -147,11 +152,12 @@ console.log('\nPOSTUP');
   eq(p.currentStep, null, 'nie je ďalší krok');
 }
 {
-  const checks = allOf('proof', 'individual');
-  checks[2].checked = false;
+  const checks = allOf('deal', 'individual');
+  checks[checks.length - 1].checked = false;
   const p = P.candidateProgress(IND, checks);
-  eq(p.steps[1].done, 3, 'odškrtnutá odrážka sa odráta');
-  ok(!p.steps[1].complete, 'krok už nie je hotový');
+  eq(p.steps[2].done, 1, 'odškrtnutá odrážka sa odráta');
+  ok(!p.steps[2].complete, 'krok už nie je hotový');
+  ok(!P.applicableItems(P.STEPS[2], 'individual').some(i => /Turnus/.test(i.text)), 'turnus 3+1 v dohode už nie je');
 }
 
 console.log('\nČO SPRAVIŤ TERAZ');
@@ -168,10 +174,14 @@ console.log('\nČO SPRAVIŤ TERAZ');
   ok(!n.hot, 'a to už nehorí na minúty');
 }
 {
-  const n = P.candidateProgress(IND, [chk('flags', 0), chk('flags', 2)]).next;
-  eq(n.key, 'flags', 'dve červené vlajky majú prednosť pred postupom');
-  ok(n.hot, 'a horia');
-  ok(/vlajky/.test(n.what), 'a je povedané, prečo');
+  // Varovania nábor nezastavujú: dve sa len ukážu, tri sa pripomenú navrchu.
+  const dve = P.candidateProgress(IND, [chk('flags', 0), chk('flags', 1)]).next;
+  eq(dve.key, 'call', 'dve varovania postup nezastavia');
+  const n = P.candidateProgress(IND, [chk('flags', 0), chk('flags', 1), chk('flags', 4)]).next;
+  eq(n.key, 'flags', 'tri varovania sa pripomenú navrchu');
+  ok(!n.hot, 'ale nehoria — rozhodnutie je na človeku');
+  ok(/varovania/.test(n.what), 'a je povedané, prečo');
+  eq(P.candidateProgress(IND, [chk('flags', 2)]).flagCount, 0, 'vyradené varovanie (videohovor) sa neráta');
 }
 {
   const n = P.candidateProgress(IND, [chk('flags', 0)]).next;
@@ -198,7 +208,7 @@ console.log('\nPRVÝ TÝŽDEŇ');
 {
   const p = P.candidateProgress(IND, []);
   ok(!p.afterPlacement.show, 'pred nasadením sa prvý týždeň neukazuje');
-  eq(p.total, 17, 'a do postupu náboru sa nepočíta');
+  eq(p.total, 13, 'a do postupu náboru sa nepočíta');
 
   const nasadeny = P.candidateProgress({ ...IND, status: 'placed' }, [chk('first_week', 0)]);
   ok(nasadeny.afterPlacement.show, 'po nasadení sa ukáže');
@@ -213,8 +223,8 @@ console.log('\nČERVENÉ VLAJKY');
   const p = P.candidateProgress(IND, checks);
   eq(p.flagCount, 2, 'dve vlajky');
   eq(p.flags.map(f => f.index), [0, 4], 'vie, ktoré to sú');
-  eq(p.steps[1].done, 4, 'vlajky nezasahujú do postupu krokov');
-  eq(p.total, 17, 'ani do celkového počtu odrážok');
+  eq(p.steps[1].done, 1, 'vlajky nezasahujú do postupu krokov');
+  eq(p.total, 13, 'ani do celkového počtu odrážok');
 }
 {
   eq(P.candidateProgress(IND, []).flagCount, 0, 'bez vlajok je počet nula');

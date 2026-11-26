@@ -1,9 +1,9 @@
 // ============================================================================
-// punds web — profesie
+// DANUBRA web — profesie
 // ============================================================================
 // Jeden zoznam pre oba weby. `app` = kľúče remesiel v appke (danubra_trades),
 // ktoré pod profesiu patria — inzerát z appky sa podľa nich zaradí.
-// `eu` = remeslo, ktoré ponúkame nemeckým firmám na punds.eu (elektrikárov
+// `eu` = remeslo, ktoré ponúkame nemeckým firmám na danubra.eu (elektrikárov
 // a vzduchotechnikov len naberáme, firmám ich zatiaľ neponúkame).
 // ============================================================================
 'use strict';

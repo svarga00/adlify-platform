@@ -1,5 +1,5 @@
 // ============================================================================
-// punds.eu — Impressum (návrh 3c) · povinné podľa § 5 DDG
+// danubra.eu — Impressum (návrh 3c) · povinné podľa § 5 DDG
 // ============================================================================
 // Meno konateľa zatiaľ nepoznáme: kým je MD prázdne (ani v appke), ukáže sa
 // „[Name folgt]" — aj naostro, nech je vidieť, že údaj chýba. Doplniť MD nižšie
@@ -16,12 +16,12 @@ const MD = '';
 
 const T = {
   de: {
-    title: 'Impressum | punds', desc: 'Impressum von punds.eu – Partner und Service s. r. o., Nové Zámky, Slowakei. Angaben gemäß § 5 DDG.',
+    title: 'Impressum | DANUBRA', desc: 'Impressum von danubra.eu – Partner und Service s. r. o., Nové Zámky, Slowakei. Angaben gemäß § 5 DDG.',
     home: 'Startseite', h1: 'Impressum', sub: 'Angaben gemäß § 5 DDG',
     warn: 'Entwurf: Felder in eckigen Klammern vor Veröffentlichung ergänzen und den Text rechtlich prüfen lassen.',
     ph: '[Name folgt]',
     provider: 'Anbieter', contact: 'Kontakt', rep: 'Vertretung', register: 'Register', tax: 'Steuern', resp: 'Verantwortlich für den Inhalt',
-    country: 'Slowakische Republik', phone: 'Telefon', mail: 'E-Mail', web: 'Web',
+    country: 'Slowakische Republik', brand: 'DANUBRA ist eine Marke der Partner und Service s. r. o.', phone: 'Telefon', mail: 'E-Mail', web: 'Web',
     md: 'Vertreten durch den Geschäftsführer', reg: 'Handelsregister: Obchodný register Okresného súdu Nitra', regNo: 'Abteilung: Sro, Einlage-Nr.: 69265/N', ico: 'IČO (Reg.-Nr.): 57553921',
     vat: 'USt-IdNr.: SK2122816839', stnr: 'Steuernummer (DE): 214/633/08265',
     respP: 'nach § 18 Abs. 2 MStV', respA: 'Anschrift wie oben',
@@ -37,12 +37,12 @@ const T = {
     ],
   },
   en: {
-    title: 'Imprint | punds', desc: 'Imprint (legal notice) of punds.eu – Partner und Service s. r. o., Nové Zámky, Slovakia. Information pursuant to § 5 DDG.',
+    title: 'Imprint | DANUBRA', desc: 'Imprint (legal notice) of danubra.eu – Partner und Service s. r. o., Nové Zámky, Slovakia. Information pursuant to § 5 DDG.',
     home: 'Home', h1: 'Imprint', sub: 'Information pursuant to § 5 of the German Digital Services Act (DDG)',
     warn: 'Draft: complete the fields in square brackets and have the text legally reviewed before publication.',
     ph: '[name to follow]',
     provider: 'Provider', contact: 'Contact', rep: 'Represented by', register: 'Register', tax: 'Tax', resp: 'Responsible for content',
-    country: 'Slovak Republic', phone: 'Phone', mail: 'Email', web: 'Web',
+    country: 'Slovak Republic', brand: 'DANUBRA is a brand of Partner und Service s. r. o.', phone: 'Phone', mail: 'Email', web: 'Web',
     md: 'Managing director', reg: 'Commercial Register: Obchodný register Okresného súdu Nitra (District Court Nitra)', regNo: 'Section: Sro, file no.: 69265/N', ico: 'Company ID (IČO): 57553921',
     vat: 'VAT ID: SK2122816839', stnr: 'German tax number: 214/633/08265',
     respP: 'pursuant to § 18 (2) MStV', respA: 'Address as above',
@@ -68,8 +68,8 @@ async function render(ctx) {
   // bolo potichu neúplné), ale ukáže jasný zástupný text aj naostro.
   const who = md ? esc(md) : ph;
   const cards = [
-    [t.provider, ['<b>Partner und Service s. r. o.</b>', 'Podzámska 9468/4A', '940 71 Nové Zámky', esc(t.country)]],
-    [t.contact, [`<b>${esc(t.phone)}: <a href="${tel(PHONE)}">${esc(PHONE)}</a></b>`, `${esc(t.mail)}: <a href="mailto:${MAIL}">${MAIL}</a>`, `${esc(t.web)}: punds.eu`]],
+    [t.provider, ['<b>Partner und Service s. r. o.</b>', 'Podzámska 9468/4A', '940 71 Nové Zámky', esc(t.country), `<small>${esc(t.brand)}</small>`]],
+    [t.contact, [`<b>${esc(t.phone)}: <a href="${tel(PHONE)}">${esc(PHONE)}</a></b>`, `${esc(t.mail)}: <a href="mailto:${MAIL}">${MAIL}</a>`, `${esc(t.web)}: danubra.eu`]],
     who && [t.rep, [`<b>${esc(t.md)}: ${who}</b>`]],
     [t.register, [`<b>${esc(t.reg)}</b>`, esc(t.regNo), esc(t.ico)]],
     [t.tax, [`<b>${esc(t.vat)}</b>`, esc(t.stnr)]],

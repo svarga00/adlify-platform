@@ -7,7 +7,7 @@
 // Balík = všetky papiere na nástup v jednej správe:
 //   * e-mail: jedna správa, všetky PDF ako prílohy,
 //   * WhatsApp a SMS: jedna správa s jedným krátkym odkazom {web}/b/<token>,
-//     za ktorým sú všetky PDF naraz (netlify/functions/punds-bundle.js).
+//     za ktorým sú všetky PDF naraz (netlify/functions/danubra-bundle.js).
 //
 // Správa nie je len „v prílohe posielame". Človek ju číta v telefóne v nedeľu
 // večer, takže v nej je to podstatné aj bez otvorenia PDF: kedy a kam, kde sa
@@ -26,6 +26,7 @@
     { key: 'infolist',     title: 'Infolist na stavbu',    kind: 'infolist' },
     { key: 'ubytovanie',   title: 'Infolist k ubytovaniu', kind: 'infolist_lodging' },
     { key: 'objednavka',   title: 'Objednávka',            kind: 'objednavka' },
+    { key: 'stavby',       title: 'Stavby',                kind: 'stavby' },
     { key: 'vzor_faktury', title: 'Vzor faktúry',          kind: 'invoice_guide' },
     { key: 'zmluva',       title: 'Rámcová zmluva',        kind: 'ramcova' },
     { key: 'gdpr',         title: 'Súhlas GDPR',           kind: 'gdpr' },
@@ -107,7 +108,8 @@
     const byt = lodging ? [txt(lodging.name), txt(lodging.address), txt(lodging.city)]
       .filter(Boolean).join(', ') : '';
     const tel = txt(s.phone);
-    const firma = txt(s.brand) || txt(s.name);
+    // Podpis značkou: z Nastavení, pri našej firme DANUBRA, inak názov firmy.
+    const firma = txt(s.brand).replace(/^punds$/i, 'DANUBRA') || (/^(partner\s+und\s+service|danubra)\b/i.test(txt(s.name)) ? 'DANUBRA' : txt(s.name));
     const odkaz = txt(link);
     const papiere = order(items).map(it => txt(it.title) || (itemOf(it.key || it.kind) || {}).title)
       .filter(Boolean);

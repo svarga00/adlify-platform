@@ -202,11 +202,44 @@ console.log('Dokumenty');
   ok(/Variabilný symbol/.test(slovenska), 'aj platobné údaje');
   ok(slovenska.includes('1\u00a0000,00'),
     'a slovenský doklad má slovenský tvar čísel — s nezlomiteľnou medzerou');
-  ok(/Verwendungszweck/.test(so), 'a po nemecky je to Verwendungszweck');
+  ok(/Variables Symbol/.test(so), 'a po nemecky je to Variables Symbol (ako na faktúre z Pohody)');
   // Dá sa prebiť — odberateľ v Rakúsku môže chcieť nemecký doklad aj tak.
   ok(/Rechnung/.test(P.invoice({
     invoice: { invoice_number: 'x', total: 1, currency: 'EUR' },
     items: [], client: sk, supplier, lang: 'de' })), 'jazyk sa dá určiť ručne');
+
+  // 4. Merné jednotky v jazyku dokladu. Uložené sú, ako ich človek napísal
+  //    („mes", „h") — na nemecký doklad ide „Monat", „Std." (ten istý preklad
+  //    ako do SuperFaktúry). Slovenský doklad ich nechá.
+  const jedn = [{ description: 'Weiterberechnung Unterkunft', quantity: 1, unit: 'mes', unit_price: 980, total: 980 },
+    { description: 'Montage', quantity: 2, unit: 'ks', unit_price: 10, total: 20 }];
+  const deJ = P.invoice({ invoice: { invoice_number: '2026010001', total: 1000, currency: 'EUR' }, items: jedn, client: de, supplier });
+  ok(/>Monat</.test(deJ) && />Stk\.</.test(deJ) && !/>mes</.test(deJ), 'nemecký doklad: mes → Monat, ks → Stk.');
+  ok(/>Std\.</.test(so), 'hodiny „h" → „Std."');
+  const skJ = P.invoice({ invoice: { invoice_number: '2026010002', total: 1000, currency: 'EUR' }, items: jedn, client: sk, supplier });
+  ok(/>mes</.test(skJ) && />ks</.test(skJ), 'slovenský doklad: jednotky, ako boli napísané');
+  ok(/2026010001/.test(deJ.slice(deJ.indexOf('Variables Symbol'))), 'Variables Symbol = celé číslo faktúry 2026010001');
+
+  // 5. Údaje ako na faktúre z Pohody: rekapitulácia DPH, vlastný VS a KS,
+  //    banka a BIC, kto vystavil, malé texty (úrok z omeškania, register).
+  const plna = P.invoice({
+    invoice: { invoice_number: '260100152', variable_symbol: '260100152', constant_symbol: '0308',
+      order_reference: 'B-77', total: 2726, currency: 'EUR' },
+    items: jedn, client: de,
+    supplier: { ...supplier, bank_name: 'Tatra banka, a.s.', bic: 'TATRSKBX', issued_by: 'Štefan Varga',
+      register: 'OR OS Nitra, Oddiel: S.r.o., Vložka číslo: 69265/N' },
+  });
+  ok(/Zusammenfassung in EUR/.test(plna) && /19 %/.test(plna) && /23 %/.test(plna), 'rekapitulácia DPH so sadzbami 0, 5, 19, 23 %');
+  ok(/Konstantes Symbol/.test(plna) && /0308/.test(plna), 'konštantný symbol');
+  ok(/Bestellung Nr\./.test(plna) && /B-77/.test(plna), 'číslo objednávky');
+  ok(/TATRSKBX/.test(plna) && /Tatra banka/.test(plna), 'banka a BIC');
+  ok(/Ausgestellt von/.test(plna) && /Štefan Varga/.test(plna), 'kto vystavil');
+  ok(plna.includes('úrok z omeškania v dohodnutej, resp. zákonnej výške a zmluvnú pokutu (ak bola dohodnutá).'),
+    'veta o úroku z omeškania doslova ako v Pohode');
+  ok(/Vložka číslo: 69265\/N/.test(plna), 'zápis v registri');
+  const vlastnyVs = P.invoice({ invoice: { invoice_number: 'F-2026-7', variable_symbol: '777', total: 1, currency: 'EUR' },
+    items: [], client: de, supplier });
+  ok(/>777</.test(vlastnyVs), 'vlastný VS z návrhu má prednosť pred číslom faktúry');
 
   // Rozpad sumy je vlastná funkcia, lebo ju potrebuje aj QR kód.
   eq(P.payable({ total: 5280, amount_net: 4488, withholding_amount: 792 }),
@@ -318,7 +351,7 @@ console.log('Infolist k ubytovaniu');
 {
   const tyka = /(?<!\p{L})(tvoj\p{L}*|máš|si vezmi|zavolaj|nerieš|ukáž|nepodpisuj|budeš|dovoláš|ťa|ti|od teba|nemáš|vystavíš|pošli|musíš|môžeš)(?!\p{L})/iu;
   const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  const SUP = { name: 'Partner und Service s. r. o.', phone: '+421 910 523 858', email: 'info@punds.eu' };
+  const SUP = { name: 'Partner und Service s. r. o.', phone: '+421 910 523 858', email: 'info@danubra.eu' };
   const LOD = { name: 'Pension Lerche', address: 'Lerchenstr. 8', city: 'Stuttgart',
     keys_note: 'Kľúče u správcu, zvonček Hausmeister.', house_rules: 'Fajčí sa len na balkóne.',
     date_from: '2026-10-11', date_to: '2026-12-18' };
@@ -340,7 +373,7 @@ console.log('Infolist k ubytovaniu');
   ok(/Fajčí sa len na balkóne/.test(t), 'domáci poriadok z ubytovania');
   ok(/Nočný pokoj/.test(t) && /hostia/.test(t) && /Škodu uhrádza ten, kto ju spôsobil/.test(t),
     'krátke pravidlá: pokoj, hostia, škody');
-  ok(/\+421 910 523 858/.test(t) && /info@punds\.eu/.test(t), 'komu volať: najprv nám');
+  ok(/\+421 910 523 858/.test(t) && /info@danubra\.eu/.test(t), 'komu volať: najprv nám');
   ok(/Majiteľ — len keď sa nám nedovoláte/.test(t) && /\+49 711 123456/.test(t),
     'majiteľ len ako záloha a tak je aj označený');
   ok(!tyka.test(t), 'vyká', (t.match(tyka) || [])[0]);
@@ -373,49 +406,71 @@ console.log('Vzor faktúry');
   const text = (x) => x.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const SUP = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, 940 71 Nové Zámky',
     company_id: '57553921', tax_id: '2122816839', vat_id: 'SK2122816839', iban: 'SK6711000000002948311291',
-    email: 'info@punds.eu', phone: '+421 910 523 858' };
+    email: 'info@danubra.eu', phone: '+421 910 523 858' };
   const W = { full_name: 'Ján Novák', business_address: 'Hlavná 1', business_zip: '940 01',
     business_city: 'Nové Zámky', company_id: '12345678', tax_id: '1020304050',
     bank_iban: 'SK3112000000198742637541', hourly_cost: 18.5 };
-  const h = P.invoiceGuide({ worker: W, assignment: {}, subcontract: { title: 'Wohnpark', site_city: 'Stuttgart' },
-    supplier: SUP, month: '2026-10' });
+  const SC = { title: 'Wohnpark', site_address: 'Kalkstraße 7', site_postal_code: '89143', site_city: 'Blaubeuren-Seissen' };
+  const h = P.invoiceGuide({ worker: { ...W, trade_register: 'Okresný úrad Nové Zámky, č. ŽR 440-12345', bank_bic: 'TATRSKBX' },
+    assignment: {}, subcontract: SC, supplier: { ...SUP, invoice_inbox: 'faktury@firma.example' },
+    order: { activity: 'Výroba a hutnícke spracovanie kovov, výroba a opracovanie jednoduchých kovových výrobkov' },
+    period: { from: '2026-09-21', to: '2026-10-04' } });
   const t = text(h);
-  ok(/Vzor faktúry/.test(t) && /Ako nám fakturovať/.test(t), 'dokument sa volá podľa toho, načo je');
-  ok(/Odberateľ — my/.test(t) && /Partner und Service/.test(t) && /IČO: 57553921/.test(t) && /DIČ: 2122816839/.test(t),
+  ok(/Vzor faktúry/.test(t) && /Pokyny pre živnostníkov/.test(t), 'dokument sa volá podľa toho, načo je');
+  ok(/Verzia A · neplatiteľ DPH/.test(t), 'neplatiteľ DPH dostane verziu A');
+  ok(/Odberateľ — my/.test(t) && /Partner und Service/.test(t) && /IČO 57553921/.test(t) && /DIČ 2122816839/.test(t),
     'odberateľ sme my, s IČO a DIČ');
-  ok(/Dodávateľ — Vy/.test(t) && /Hlavná 1, 940 01 Nové Zámky/.test(t) && /IČO: 12345678/.test(t),
+  ok(/Dodacia adresa odberateľa/.test(t), 'aj dodacia adresa odberateľa (V1.3 bod 5)');
+  ok(/Dodávateľ — Vy/.test(t) && /Hlavná 1, 940 01 Nové Zámky/.test(t) && /IČO 12345678/.test(t),
     'dodávateľ je on, s adresou podnikania');
-  ok(!/doplňte/.test(t.replace(/Svoje skontrolujte a doplňte/, '')), 'keď je všetko vyplnené, nič „doplňte"', t.slice(0, 800));
-  ok(/Práce na stavbe Wohnpark, Stuttgart za obdobie október 2026/.test(t), 'predmet a obdobie po slovensky');
-  ok(/Odpracované hodiny podľa podpísaného výkazu/.test(t), 'riadok s hodinami podľa výkazu');
-  ok(/18,50 €/.test(t), 'sadzba s desatinnou čiarkou a dvoma miestami');
-  ok(/160 h × 18,50 € = 2 960,00 €/.test(t), 'príklad 160 hodín', t.match(/Príklad[^.]*/)?.[0]);
-  ok(/14 dní od doručenia/.test(t), 'splatnosť podľa rámcovej zmluvy');
-  ok(/SK3112000000198742637541/.test(t), 'jeho IBAN');
-  ok(/„Nie som platiteľ DPH\."/.test(t) && /Ak ste platiteľom DPH, zavolajte nám na \+421 910 523 858 skôr, než faktúru vystavíte/.test(t),
-    'veta o DPH a čo robiť, keď je platiteľ');
-  ok(/Čo musí byť na faktúre/.test(t) && /Kam ju poslať/.test(t) && /info@punds\.eu/.test(t), 'čo na nej má byť a kam ju poslať');
+  ok(/Zapísaný v Živnostenskom registri: Okresný úrad Nové Zámky, č\. ŽR 440-12345/.test(t), 'zápis v ŽR (bod 4)');
+  ok(/SWIFT \(BIC\): TATRSKBX/.test(t) && /bezhotovostne/.test(t) && /Variabilný symbol = číslo faktúry/.test(t), 'platobné údaje so SWIFT (bod 6)');
+  ok(/Výroba a hutnícke spracovanie kovov/.test(t) && /činnosť podľa platnej objednávky/.test(t), 'položka = činnosť z objednávky (bod 7)');
+  ok(/KW 39 \(21\.09\.–27\.09\.2026\)/.test(t) && /KW 40 \(28\.09\.–04\.10\.2026\)/.test(t), 'obdobie po KW s dátumami (bod 8)', t.match(/Obdobie.{0,120}/)?.[0]);
+  ok(/Kalkstraße 7, 89143 Blaubeuren-Seissen, Nemecko/.test(t) && /dve stavby v jednom období = dve faktúry/.test(t), 'adresa stavby a pravidlo dve stavby = dve faktúry (bod 9)');
+  ok(/Sprostredkovanie ubytovania/.test(t) && /Záloha/.test(t), 'riadky na ubytovanie a zálohu (body 11 a 12)');
+  ok(t.includes('Dodávateľ nie je platiteľom DPH.') && t.includes('nie sú predmetom DPH na Slovensku v zmysle §16 ods. 1 zák. 222/2004. Artikel 194 und 199 MwStSystRL i.V.m §13b Absatz 2 UstG'),
+    'povinný pevný text o DPH doslovne (bod 14)');
+  ok(/14 dní od doručenia/.test(t), 'splatnosť 14 dní od doručenia (rozhodnutie majiteľa, ako v rámcovej zmluve)');
+  ok(!/od vystavenia/.test(t), 'nie „od vystavenia"');
+  ok(/výhradne na faktury@firma\.example/.test(t) && /ako PDF, nie fotku/.test(t) && /jedna faktúra = jeden e-mail/.test(t),
+    'kam posielať — e-mail na faktúry z Nastavení');
+  ok(/2026001|\d{4}001/.test(t) && /rok \+ trojmiestne poradové číslo bez lomky/.test(t), 'číslo faktúry 2026001');
+  ok(/Najčastejšie chyby/.test(t) && /Pred odoslaním skontrolujte/.test(t), 'najčastejšie chyby a kontrolný zoznam');
   ok(/Stundennachweis/.test(t) && /Priložte podpísaný výkaz hodín/.test(t), 'priložiť podpísaný výkaz');
+  ok(!/faktury@punds/.test(h), 'adresa na faktúry nie je zapísaná v kóde');
+  ok(/info@danubra\.eu/.test(text(P.invoiceGuide({ worker: W, supplier: SUP }))), 'bez e-mailu na faktúry sa použije hlavný e-mail');
   ok(!tyka.test(t), 'vyká', (t.match(tyka) || [])[0]);
 
+  // Verzia B — platiteľ DPH: prenesenie daňovej povinnosti, rozpis DPH, odpočty až pod ním.
+  const b = text(P.invoiceGuide({ worker: { ...W, vat_payer: true, vat_id: 'SK1020304050' }, supplier: SUP,
+    subcontract: SC, assignment: { worker_rate: 29.5 }, deductions: { ubytovanie: 701, zaloha: 100, ubytovanieMesiac: 'október' } }));
+  ok(/Verzia B · platiteľ DPH/.test(b), 'platiteľ DPH dostane verziu B');
+  ok(b.includes('Prenesenie daňovej povinnosti – Steuerschuldnerschaft des Leistungsempfängers.') && /§13b Absatz 2 UstG/.test(b),
+    'pevný text pre platiteľa (bod 15)');
+  ok(/Rozpis DPH/.test(b) && /Prenesenie daňovej povinnosti 2 787,75 € — 2 787,75 €/.test(b), 'rozpis DPH bez dane (—)', b.match(/Rozpis DPH.{0,160}/)?.[0]);
+  ok(/94,5 h × 29,50 €\/h \(cena bez DPH\) = 2 787,75 €/.test(b), 'hodiny × sadzba bez DPH (bod 10)');
+  ok(/Rozpis DPH.*Započítanie: ubytovanie október [^−]*−701,00 €.*Odpočet uhradenej zálohy [^−]*−100,00 €/.test(b), 'ubytovanie a záloha až pod rozpisom DPH');
+  ok(/Celkom k úhrade 1 986,75 €/.test(b), 'celkom k úhrade ako vo vzore V1.3');
+  ok(/IČ DPH: SK2122816839/.test(b) && /IČ DPH: SK1020304050/.test(b), 'obe IČ DPH');
+
   // Peniaze: sadzba nasadenia má prednosť a nič sa nesčítava v desatinných číslach.
-  const t2 = text(P.invoiceGuide({ worker: W, assignment: { worker_rate: '19,99' }, supplier: SUP }));
-  ok(/160 h × 19,99 € = 3 198,40 €/.test(t2), 'sadzba z nasadenia, v centoch (nie 3 198,3999…)', t2.match(/Príklad[^.]*/)?.[0]);
-  ok(/obdobie podľa výkazu/.test(t2), 'bez mesiaca „obdobie podľa výkazu"');
+  const t2 = text(P.invoiceGuide({ worker: W, assignment: { worker_rate: '19,99', date_from: '2026-11-16' }, supplier: SUP }));
+  ok(/94,5 h × 19,99 €\/h = 1 889,06 €/.test(t2), 'sadzba z nasadenia, v centoch', t2.match(/napr\. 94[^€]*€[^€]*€/)?.[0]);
+  ok(/KW 47 \(16\.11\.–22\.11\.2026\)/.test(t2) && /KW 48 \(23\.11\.–29\.11\.2026\)/.test(t2), 'bez obdobia prvé dva týždne nasadenia ako príklad');
   eq(P.toCents('18,5'), 1850, 'sadzba „18,5" sú 1850 centov');
   eq(P.toCents(0.1 + 0.2), 30, 'a desatinný šum zmizne');
   eq(P.toCents('abc'), null, 'nezmysel nie je sadzba');
-  eq(P.centsText(123456789), '1 234 567,89 €', 'tisíce oddelené pevnou medzerou');
+  eq(P.centsText(123456789), '1\u00a0234\u00a0567,89\u00a0€', 'tisíce oddelené pevnou medzerou');
   eq(P.monthLabel('2026-01-15'), 'január 2026', 'mesiac po slovensky');
+  eq(P.kwRiadky('2026-12-28', '2027-01-10'), ['KW 53 (28.12.–03.01.2027)', 'KW 1 (04.01.–10.01.2027)'], 'KW cez prelom roka');
+  eq(P.kwRiadky('2026-11-18', '2026-11-22'), ['KW 47 (18.11.–22.11.2026)'], 'týždeň sa oreže na obdobie');
 
   // Chýbajúce údaje sú „doplňte", nie prázdne miesto.
   const holy = P.invoiceGuide({ worker: { full_name: 'Ján Novák' }, supplier: SUP });
   const th = text(holy);
-  ok((th.match(/doplňte/g) || []).length >= 5, 'chýbajúca adresa, IČO, DIČ, IBAN aj sadzba sú „doplňte"');
-  ok(/Sadzba za hodinu nie je zapísaná/.test(th) && !/Príklad/.test(th), 'bez sadzby sa príklad nevymýšľa');
+  ok((th.match(/doplňte/g) || []).length >= 6, 'chýbajúca adresa, IČO, DIČ, IBAN, SWIFT aj ŽR sú „doplňte"');
   ok(!/undefined|null|NaN/.test(th), 'žiadne „undefined" ani NaN');
-  ok(/Ak ste platiteľom DPH/.test(text(P.invoiceGuide({ worker: { ...W, vat_id: 'SK1020304050' }, supplier: SUP }))),
-    'kto má IČ DPH, ten vetu o volaní vidí tiež');
 
   // Samofakturácia: faktúru vystavujeme my, on ju len potvrdí.
   const sf = text(P.invoiceGuide({ worker: { ...W, self_billing_prefix: 'JN' }, supplier: SUP,
@@ -449,20 +504,40 @@ console.log('Vzor faktúry');
     'strany sú objednávateľ a zhotoviteľ');
   ok(!/>Odberateľ</.test(w),
     'nie odberateľ — to by bolo obrátené a doklad by tvrdil opak toho, čo dokazuje');
-  ok(/samostatne zárobkovo činná osoba/.test(w), 'a je napísané, že je živnostník');
-  ok(/Montáž priečok/.test(w), 'dielo je na doklade');
-  ok(/organizuje sám/.test(w), 'aj to, že si prácu organizuje sám');
-  ok(/vystaví Zhotoviteľ faktúru/.test(w), 'a že nám za dielo fakturuje');
-  ok(/nie hodiny/.test(w), 'a že sa objednáva dielo, nie hodiny');
-  ok(/prijímam objednávku/.test(w), 'má podpisový riadok pre zhotoviteľa');
-  // Hodinová sadzba na objednávke diela je slabšie miesto — nech je to povedané.
-  ok(/pevná cena alebo cena za\s+jednotku/.test(w),
-    'pri hodinovej sadzbe sa upozorní, že pevná cena je silnejší doklad');
+  ok(/Montáž priečok/.test(w), 'popis diela je na doklade');
+  // Podľa šablóny „Objednávka č. N" na Drive: žiadne vnútorné rady na papieri
+  // pre živnostníka — „organizuje si sám" odporovalo čl. IV. rámcovej zmluvy.
+  ok(!/organizuje sám/.test(w) && !/nie hodiny/.test(w) && !/silnejší doklad/.test(w),
+    'bez vnútorných poznámok (organizuje sám, dielo nie hodiny, pevná cena je silnejší doklad)');
+  ok(/podľa projektovej dokumentácie, ktorá sa nachádza v mieste realizácie zákazky/.test(w),
+    'pevná veta o projektovej dokumentácii');
+  ok(/Odplata za vykonávanie činností podľa bodu 1:/.test(w) && /22,- €\/ hod\./.test(w), 'odplata ako v šablóne: 22,- €/ hod.');
+  ok(/Deň začatia vykonávania činností:/.test(w) && /Deň skončenia vykonávania činností:/.test(w), 'deň začatia a skončenia');
+  ok(/Iné špecifické podmienky vykonávania činnosti:/.test(w), 'riadok pre iné špecifické podmienky je vždy');
+  ok(/Vyberte činnosť zo Zoznamu činností/.test(w), 'bez vybranej činnosti to papier napíše');
+  ok(/>Zhotoviteľ</.test(w) && /class="sigs"/.test(w), 'má podpisový riadok pre zhotoviteľa');
   const pevna = P.workOrder({
     order: { kind: 'worker', title: 'x', price_model: 'fixed', fixed_price: 5000 },
     supplier, worker: { full_name: 'Ján Novák' }, subcontract: sc });
-  ok(!/pevná cena alebo cena za\s+jednotku/.test(pevna),
-    'pri pevnej cene to upozornenie netreba');
+  ok(/pevná cena/.test(pevna), 'pevná cena sa vypíše ako pevná');
+
+  // Číslovanie „č. N" v rade živnostníka, koniec 31.12. a činnosť zo zoznamu.
+  const n2 = P.workOrder({
+    order: { kind: 'worker', order_number: '2026020011', seq_no: 2, activity: 'Prípravné práce k realizácii stavby',
+      date_from: '2026-04-27', price_model: 'hourly', rate: 20 },
+    supplier, worker: { full_name: 'Jozef Mrkvička', company_id: '12345678' },
+    ramcova: { number: '2026-001', signedAt: '2026-04-26' },
+    places: ['Hafenstrasse 1, 64526 Hamburg, Nemecko', 'celé územie Nemeckej republiky', 'celé územie Slovenskej republiky'] });
+  const n2t = n2.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  ok(/Objednávka č\. 2/.test(n2t), 'nadpis Objednávka č. 2 (poradie u živnostníka)', n2t.slice(0, 200));
+  ok(/Evidenčné číslo:? 2026020011/.test(n2t), 'evidenčné číslo z radu ostáva ako údaj');
+  ok(/Prípravné práce k realizácii stavby/.test(n2t), 'činnosť zo zoznamu');
+  ok(/Deň skončenia vykonávania činností: 31\. 12\. 2026/.test(n2t), 'bez konca je deň skončenia 31.12. toho roka');
+  ok(/20,- €\/ hod\./.test(n2t), 'odplata 20,- €/ hod.');
+  ok(/uzavretej dňa 26\. 04\. 2026 objednáva u zhotoviteľa nasledovný rozsah činností:/.test(n2t), 'väzbová veta ako v šablóne');
+  ok(/celé územie Slovenskej republiky/.test(n2t), 'miesta výkonu aj celé územie SR');
+  eq(P.workOrder({ order: { kind: 'worker', seq_no: 1 }, supplier, worker: {} }, ).includes('č. <span class="num">1</span>'), true,
+    'č. 1 z order.seq_no');
 
   // Odberateľovi ide nemecké potvrdenie a hore jeho číslo.
   const c = P.workOrder({
@@ -483,7 +558,7 @@ console.log('Vzor faktúry');
   // Chýbajúce dielo sa nevynechá potichu ani na jednom.
   const bez = P.workOrder({ order: { kind: 'worker', title: 'x' },
     supplier, worker: { full_name: 'A' }, subcontract: {} });
-  ok(/nie je popísané/.test(bez), 'bez popisu diela to doklad napíše');
+  ok(/Vyberte činnosť/.test(bez), 'bez činnosti to doklad napíše');
   ok(/todo/.test(bez), 'a je to zvýraznené');
 }
 
@@ -575,11 +650,11 @@ console.log('Objednávka živnostníkovi');
   const viac = P.workOrder({ order: OBJ, supplier: SUPPLIER, worker: CLOVEK,
     ramcova: { number: '2026-093' },
     places: ['Multscherstraße 11, 89077 Ulm', 'celé územie Nemeckej republiky', ''] });
-  ok(/Miesta výkonu/.test(viac), 'ďalšie miesta výkonu sa vypíšu');
+  ok(/Miesto vykonania činností/.test(viac), 'miesta výkonu sa vypíšu');
   ok(/89077 Ulm/.test(viac) && /celé územie Nemeckej republiky/.test(viac),
     'aj konkrétna adresa, aj plošná formulácia');
   ok(!/<li><\/li>/.test(viac), 'a prázdne miesto sa nevypíše');
-  ok(!/Miesta výkonu/.test(s), 'bez nich sa ten riadok nekreslí');
+  ok(/doplňte miesta výkonu/.test(s), 'bez nich to papier napíše (miesto je povinná náležitosť)');
 
   // Papier sa podpisuje — nesmie tvrdiť, že podpis netreba.
   ok(/Platné po podpise/.test(s), 'pätička hovorí, že platí po podpise');
@@ -611,8 +686,7 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
     ust_idnr: 'DE 164 536 345', registration_no: 'HRB 10147' };
   const OBJ = {
     number: '1', scope_sk: 'Stavebné práce: Zatepľovanie', scope_de: 'Bauarbeiten: Wärmedämmung',
-    rate: 31, hours_week: '50 – 60 hodín / týždeň / osoba',
-    hours_week_de: '50 – 60 Stunden / Woche / Person',
+    rate: 31, hours_week_min: 45, hours_week_max: 55, headcount: 4,
     date_from: '2026-10-19', date_to: '2026-11-30', extendable: true,
     places: ['Clemens-Attenkofer-Straße 10, 94315 Straubing, Nemecko'],
     places_de: ['Clemens-Attenkofer-Straße 10, 94315 Straubing, Deutschland'],
@@ -646,7 +720,25 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
 
   // Sumy: slovenský doklad píše 31,00 €, nemecký ten istý tvar — ale obe
   // čísla musia byť rovnaké.
-  ok(/31,00/.test(sk) && /31,00/.test(de), 'sadzba je v oboch stĺpcoch rovnaká');
+  ok(/31- € \/ hodina/.test(sk) && /31,- € \/ Stunde/.test(de), 'sadzba je v oboch stĺpcoch rovnaká (31- € ako v šablóne)');
+  ok(/45-55 hodín \/ týždeň \/ osoba/.test(sk) && /45-55 Stunden \/ Woche \/ Person/.test(de), 'rozsah hodín od–do na týždeň a osobu');
+  ok(/Počet pracovníkov: <strong>4/.test(sk) && /Anzahl der Mitarbeiter: <strong>4/.test(de), 'počet pracovníkov (Rahmenvertrag II bod 4)');
+  ok(/Objednávka č\. 1 \/ Bestellung Nr\. 1/.test(h), 'nadpis Objednávka č. 1 / Bestellung Nr. 1 (číslo u odberateľa)');
+  ok(/V Nové Zámky, dňa 15\. 10\. 2026 \/ In Straubing, am 15\. 10\. 2026/.test(h), 'dve miesta podpisu — naše a odberateľa');
+  ok(/6\./.test(h) && /Osobitné dojednania a špecifické podmienky realizácie/.test(h), 'bod 6 je vždy');
+  // Šablóna nemá číslo rámcovej zmluvy — stačí dátum jej uzavretia.
+  const lenDatum = P.bestellung({ order: OBJ, supplier: FIRMA, client: KLIENT, ramcova: { signedAt: '2026-04-28' } });
+  ok(!/neodvoláva na rámcovú zmluvu/.test(lenDatum) && /uzatvorenej dňa 28\. 04\. 2026/.test(lenDatum)
+    && /am 28\. 04\. 2026\s+abgeschlossenen Rahmenwerkvertrages/.test(lenDatum), 'odkaz na rámcovú zmluvu len dátumom (bez čísla)');
+  ok(/SWIFT:/.test(P.bestellung({ order: OBJ, supplier: { ...FIRMA, bic: 'TATRSKBX', bank_name: 'Tatra banka' }, client: KLIENT, ramcova: { signedAt: '2026-04-28' } })),
+    'naša banka so SWIFT v záhlaví');
+  const st = P.bestellung({ order: OBJ, supplier: { ...FIRMA, statutory: 'Konateľ A' },
+    client: { ...KLIENT, statutory_body: 'Geschäftsführer B', representative: 'Prokurist C', invoice_email: 'rechnung@kunde.example' },
+    ramcova: { signedAt: '2026-04-28' } });
+  ok(/Štatutárny orgán \/ Statutarisches Organ:<\/span> Geschäftsführer B/.test(st) && /Zastúpený \/ Vertreten durch:<\/span> Prokurist C/.test(st),
+    'štatutárny orgán a zástupca odberateľa zvlášť');
+  ok(/Zastúpený \/ Vertreten durch:<\/span> Konateľ A/.test(st), 'nás zastupuje štatutár, keď nie je iný zástupca');
+  ok(/Faktúry\/Rechnungen: rechnung@kunde\.example/.test(st), 'e-mail odberateľa na faktúry');
 
   // Chýbajúce údaje sa na papier napíšu, nie zamlčia.
   const prazdna = P.bestellung({ order: { number: '2' }, supplier: FIRMA, client: KLIENT,
@@ -687,7 +779,7 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(/nie je platiteľom DPH/.test(t), 'neplatiteľ DPH');
   ok(/OV-2026-001/.test(t) && /2026001/.test(t) && /SK3112000000198742637541/.test(t), 'číslo, VS, IBAN');
   ok(/160/.test(t) && /4\s?000,00/.test(t), 'hodiny a suma');
-  ok(!html.includes('<svg viewBox="0 0 100 100"'), 'bez nášho loga — doklad je jeho');
+  ok(!html.includes('M56.5 57V266.5') && !html.includes('aria-label="DANUBRA"'), 'bez nášho loga — doklad je jeho');
   const navrh = P.selfInvoice({ bill: { amount: 10, lines: [] }, worker: { full_name: 'X' } });
   ok(/NÁVRH/.test(navrh), 'návrh bez čísla je označený');
 }
@@ -714,35 +806,49 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({
     worker: { full_name: 'Peter Malý', legal_form: 'sro', company_name: 'Malý Stav s.r.o.' }, supplier: { name: 'X' } }) });
   const t = z.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  ok(/Zhotoviteľ Malý Stav s\.r\.o\. konajúca: Peter Malý, konateľ/.test(t), 'pri s.r.o. je zhotoviteľom firma a konateľ', t.slice(0, 400));
+  ok(/Zhotoviteľ Malý Stav s\.r\.o\. .*Štatutárny orgán: Peter Malý, konateľ/.test(t), 'pri s.r.o. je zhotoviteľom firma a konateľ ako štatutárny orgán', t.slice(0, 400));
 }
 
-// ── Vzhľad punds: značka v hlavičke, päta s údajmi firmy ───────────────────
+// ── Vzhľad DANUBRA: značka v hlavičke, päta s údajmi firmy ─────────────────
 {
-  const PUNDS = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A 940 71 Nové Zámky',
+  const NASA = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A 940 71 Nové Zámky',
     company_id: '57553921', tax_id: '2122816839', vat_id: 'SK2122816839', iban: 'SK6711000000002948311291',
-    email: 'info@punds.eu', phone: '+421 910 523 858', tax_number_de: '214/633/08265',
+    email: 'info@danubra.eu', phone: '+421 910 523 858', tax_number_de: '214/633/08265',
     register: 'Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N' };
-  const b = P.brand(PUNDS);
-  ok(b.brand === 'punds' && b.sub === 'Partner und Service', 'Partner und Service má v hlavičke značku punds', JSON.stringify(b));
+  const b = P.brand(NASA);
+  ok(b.brand === 'DANUBRA' && b.sub === '', 'naša firma má v hlavičke značku DANUBRA, pod ňou žiadny podnadpis', JSON.stringify(b));
+  ok(P.brand({ name: 'DANUBRA s. r. o.' }).brand === 'DANUBRA', 'aj firma s názvom DANUBRA má značku DANUBRA');
+  ok(P.brand({ name: 'Iná firma s. r. o.', brand: 'IF' }).sub === 'Iná firma', 'iná firma so značkou má pod ňou celý názov');
   ok(P.brand({ name: 'Iná firma s. r. o.' }).brand === '', 'iná firma má v hlavičke celý názov');
-  ok(P.brand({ ...PUNDS, brand: 'PuS' }).brand === 'PuS', 'značka sa dá zmeniť v Nastaveniach');
-  ok(P.web(PUNDS) === 'punds.eu' && P.web({ email: 'jano@gmail.com' }) === '', 'web je z domény e-mailu, nie z Gmailu');
+  ok(P.brand({ ...NASA, brand: 'PuS' }).brand === 'PuS', 'značka sa dá zmeniť v Nastaveniach');
+  ok(P.brand({ ...NASA, brand: 'punds' }).brand === 'DANUBRA', 'stará značka z Nastavení sa píše ako DANUBRA');
+  ok(P.web(NASA) === 'danubra.eu' && P.web({ email: 'jano@gmail.com' }) === '', 'web je z domény e-mailu, nie z Gmailu');
+  ok(P.web({ email: 'info@punds.eu' }) === 'danubra.eu' && P.web({ web: 'https://www.punds.sk/' }) === 'www.danubra.sk', 'stará doména punds sa na dokumentoch píše ako danubra');
 
   const f = P.invoice({ invoice: { invoice_number: '2026001', total: 100, issue_date: '2026-10-24', due_date: '2026-11-07' },
-    items: [], client: { name: 'GU Ulm GmbH', country: 'DE' }, supplier: PUNDS });
+    items: [], client: { name: 'GU Ulm GmbH', country: 'DE' }, supplier: NASA });
   const t = f.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  ok(/class="brand-word">punds</.test(f), 'na faktúre je značka punds');
+  ok(/<svg[^>]*class="brand-logo"[^>]*aria-label="DANUBRA"/.test(f) && !/class="brand-sub"/.test(f), 'na faktúre je logo DANUBRA bez podnadpisu');
+  ok(!/class="brand-word">DANUBRA</.test(f) && !/<\/svg>\s*(<[^>]+>\s*)*DANUBRA/.test(f), 'za znakom D nie je slovo DANUBRA (nečíta sa DDANUBRA)');
+  const head = (f.match(/<div class="head">[\s\S]*?<div class="doc-title">/) || [''])[0];
+  ok(head.includes('M56.5 57V266.5') && head.includes('stroke="#F07E22"') && head.includes('stroke="#1E4FD8"') && head.includes('fill="#0A1B3D"'),
+    'logo: oranžová pilulka, modrý oblúk a tmavomodré písmená ANUBRA');
+  ok(!f.includes('M6 34 V20'), 'starý znak (vlna) sa už nekreslí');
+  const ina = P.invoice({ invoice: { invoice_number: '1', total: 10 }, items: [], client: { name: 'GU', country: 'DE' }, supplier: { name: 'Iná firma s. r. o.', brand: 'IF' } });
+  ok(/class="brand-word">IF</.test(ina) && !/class="brand-logo"/.test(ina), 'iná firma so značkou: jej značka textom, bez nášho loga');
+  const bez = P.invoice({ invoice: { invoice_number: '1', total: 10 }, items: [], client: { name: 'GU', country: 'DE' }, supplier: {} });
+  ok(/class="brand-mark"/.test(bez) && !/class="brand-logo"/.test(bez), 'bez firmy v Nastaveniach zostane len znak D');
+  ok(/Partner und Service s\. r\. o\./.test(t), 'právny názov firmy na faktúre ostáva');
   ok(/Nr\. 2026001/.test(t) && /Rechnungsdatum 24\. ?10\. ?2026/.test(t), 'číslo a dátum sú v hlavičke', t.slice(0, 300));
   const pata = (f.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0].replace(/<[^>]+>/g, ' ');
-  ok(/IČO 57553921/.test(pata) && /USt-IdNr\. SK2122816839/.test(pata) && /IBAN SK67/.test(pata) && /punds\.eu/.test(pata),
+  ok(/IČO 57553921/.test(pata) && /USt-IdNr\. SK2122816839/.test(pata) && /IBAN SK67/.test(pata) && /danubra\.eu/.test(pata),
     'päta má IČO, USt-IdNr., IBAN a web', pata);
   ok(/Steuernummer 214\/633\/08265/.test(pata), 'na nemeckom doklade aj Steuernummer');
-  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: { full_name: 'Ján Novák' }, supplier: PUNDS }) });
+  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: { full_name: 'Ján Novák' }, supplier: NASA }) });
   const pz = (z.match(/<div class="runfoot"[\s\S]*?<\/div><\/div>/) || [''])[0];
   ok(/DIČ 2122816839/.test(pz) && /IČ DPH SK2122816839/.test(pz) && /69265\/N/.test(pz), 'slovenská päta má DIČ, IČ DPH a zápis v OR', pz);
   ok(/class="cl">Článok I\.</.test(z) && /cols boxed/.test(z), 'články zmluvy majú oranžové číslo a strany sú v rámikoch');
-  const self = P.selfInvoice({ bill: { bill_number: 'ZF-1', amount: 10, lines: [] }, worker: { full_name: 'Ján Novák', company_id: '111' }, company: PUNDS });
+  const self = P.selfInvoice({ bill: { bill_number: 'ZF-1', amount: 10, lines: [] }, worker: { full_name: 'Ján Novák', company_id: '111' }, company: NASA });
   ok(/runfoot plain/.test(self) && !/class="brand-word"/.test(self), 'faktúra za živnostníka je jeho — bez našej značky');
 }
 
@@ -784,6 +890,78 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(/06:00 – 17:00/.test(ft) && /45 min/.test(ft), 'čas od–do a pauza');
   ok(/K\. Vogel/.test(ft) && /im Original unterschrieben/.test(ft) && /Abschrift/.test(ft), 'prepis podpísaného originálu');
   eq((fh.match(/<tr class="hn-p">/g) || []).length, 1, 'prepis má len riadky z papiera');
+}
+
+// ── Nové dokumenty podľa šablón na Drive ────────────────────────────────────
+console.log('Ukončenie zmluvy, Stavby, Zoznam činností, Rahmenvertrag');
+{
+  const S = require('./subcontract.js');
+  const F = require('./framework-de.js');
+  const strip = (h) => h.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+  const SUP = { name: 'Firma s. r. o.', address: 'Hlavná 1, 940 01 Nové Zámky', company_id: '1', phone: '+421 900 000 000', email: 'info@firma.example' };
+  const W = { full_name: 'Jozef Mrkvička', address: 'Miestna 123, 956 21 Miestne' };
+
+  // Ukončenie: doslovne „k dnešnému dňu … na základe Článku X, bod 6g."
+  const u = strip(P.ukoncenie({ worker: W, supplier: SUP, zmluva: { number: '2026-007' }, objednavky: [1], dnes: '2026-11-25' }));
+  ok(/Dobrý deň,/.test(u) && /k dnešnému dňu ukončujeme vašu Rámcovú zmluvu o dielo 2026-007 aj Objednávku č\. 1,/.test(u),
+    'veta zo šablóny s číslom zmluvy a objednávky', u.slice(0, 400));
+  ok(/na základe Článku X, bod 6g\./.test(u), 'predvolený dôvod je 6g');
+  ok(/písm\. g\): „nemá dostatok práce určený pre zhotoviteľa"/.test(u), 'a jeho znenie zo zmluvy');
+  ok(/s pozdravom/.test(u) && /Firma s\. r\. o\./.test(u), 'podpis firmy z Nastavení');
+  const ub = strip(P.ukoncenie({ worker: W, supplier: SUP, zmluva: { number: '2026-007' }, objednavky: [1, 2], dovod: 'b',
+    datum: '2026-11-30', dnes: '2026-11-25' }));
+  ok(/ku dňu 30\. 11\. 2026 ukončujeme/.test(ub) && /aj Objednávky č\. 1, č\. 2/.test(ub) && /bod 6b\./.test(ub) && /nenastúpi/.test(ub),
+    'iný dátum, viac objednávok a iný dôvod (b)');
+  ok(/Doplňte: číslo rámcovej zmluvy/.test(strip(P.ukoncenie({ worker: W, supplier: SUP, dnes: '2026-11-25' }))), 'bez čísla zmluvy to papier napíše');
+  // Písmeno v liste musí existovať v zmluve: čl. X bod 6 má a) až i).
+  const x6 = S.build({}).clanky.find(c => c.rim === 'X.').body[S.BOD_ODSTUPENIE - 1];
+  ok(S.DOVODY.every((d, i) => x6.list[i] === d.text), 'každý dôvod v liste je doslovne v čl. X bod 6 zmluvy');
+
+  // Stavby
+  const miesta = S.miesta({ stavby: [
+    { site_address: 'Multscherstraße 11', site_postal_code: '89077', site_city: 'Ulm', tag: 'maliari' },
+    { site_address: 'Bucher Weg 8b', site_postal_code: '39164', site_city: 'Wanzleben', tag: 'zvaraci' },
+    { site_address: 'Multscherstraße 11', site_postal_code: '89077', site_city: 'Ulm', tag: 'maliari' },
+  ], miestoSk: 'Hlavná 45, 946 57 Svätý Peter', tagy: true });
+  eq(miesta, ['Multscherstraße 11, 89077 Ulm, Nemecko /maliari/', 'Bucher Weg 8b, 39164 Wanzleben, Nemecko /zvaraci/',
+    'Hlavná 45, 946 57 Svätý Peter, Slovensko', 'celé územie Nemeckej republiky', 'celé územie Slovenskej republiky'],
+    'Stavby: adresy s remeslom bez duplicít, adresa v SR a celé územie oboch štátov');
+  const st = strip(P.stavby({ worker: W, supplier: SUP, miesta, datum: '2026-09-15' }));
+  ok(/Aktualizácia:? 15\.09\.26/.test(st) && /\/maliari\//.test(st) && /celé územie Slovenskej republiky/.test(st), 'dokument Stavby');
+  ok(/nie je nasadený/.test(strip(P.stavby({ worker: W, supplier: SUP, miesta: [] }))), 'bez stavieb to papier povie');
+  eq(S.miesta({}), S.CELE_UZEMIE, 'celé územie oboch štátov je tam vždy (A1)');
+
+  // Zoznam činností
+  const zc = strip(P.zoznamCinnosti({ supplier: SUP, cinnosti: S.CINNOSTI, platnyOd: S.CINNOSTI_OD }));
+  ok(/Platný od 26\.04\.2026/.test(zc) && /Dokončovacie stavebné práce pri realizácii exteriérov a interiérov/.test(zc)
+    && /\/zvárači, zámočníci\//.test(zc), 'zoznam činností so štyrmi položkami a remeslami');
+
+  // Rahmenvertrag podľa šablóny: bez čísla, odrážky, dve miesta podpisu, banka a SWIFT.
+  const z = F.build({ supplier: { ...SUP, bank_name: 'Tatra banka', iban: 'SK00 1', bic: 'TATRSKBX', statutory: 'Konateľ A',
+    vat_id: 'SK1', tax_number_de: '214/1' }, client: { name: 'Kunde GmbH', city: 'Ulm', address: 'Weg 1, 89077 Ulm',
+    statutory_body: 'GF B', ust_idnr: 'DE1' }, signedAt: '2026-10-06' });
+  const rv = P.rahmenvertrag({ zmluva: z });
+  const rvt = strip(rv);
+  ok(!/class="num"/.test(rv), 'Rahmenvertrag bez čísla zmluvy (šablóna ho nemá)');
+  ok(/Bankové spojenie \/ Bankverbindung: Tatra banka/.test(rvt) && /SWIFT: TATRSKBX/.test(rvt), 'banka a SWIFT v záhlaví');
+  ok(/Štatutárny orgán \/ Statutarisches Organ: GF B/.test(rvt) && /Zastúpený \/ Vertreten durch: GF B/.test(rvt), 'štatutár a zástupca odberateľa');
+  ok(/V Nové Zámky, dňa 06\. 10\. 2026 \/ In Ulm, am 06\. 10\. 2026/.test(rvt), 'dve miesta podpisu');
+  ok(/potrebný počet pracovníkov/.test(rvt) && /Anzahl an Mitarbeitern/.test(rvt), 'odrážky v čl. II bod 4');
+  ok(/fakturovať v 7-dňových intervaloch/.test(rvt), 'fakturácia v 7-dňových intervaloch');
+
+  // Angebot a vlastný Werkvertrag: týždenne, splatnosť 7 dní (ako Rahmenvertrag).
+  const an = strip(P.quote({ quote: { quote_number: 'A1', charge_rate: 30, headcount: 2 }, client: { name: 'K' }, supplier: SUP }));
+  ok(!/monatlich/.test(an) && /wöchentlich/.test(an) && /Zahlungsziel 7 Kalendertage/.test(an), 'Angebot: týždenne, nie mesačne', an.match(/Abrechnung[^.]*\./)?.[0]);
+  const wv = strip(P.werkvertrag({ contract: { contract_number: 'W1', title: 'x' }, client: { name: 'K' }, supplier: SUP }));
+  ok(/Zahlungsziel: 7 Tage/.test(wv) && !/30 Tage/.test(wv) && /wöchentlich/.test(wv), 'Werkvertrag: predvolene 7 dní a týždenne');
+  ok(/Zahlungsziel: 14 Tage/.test(strip(P.werkvertrag({ contract: { title: 'x', payment_terms_days: 14 }, client: {}, supplier: SUP }))),
+    'splatnosť zo zmluvy má prednosť');
+
+  // Faktúra za živnostníka: text o §16 / §13b a KW.
+  const sf = strip(P.selfInvoice({ bill: { bill_number: 'X-1', amount: 10, lines: [] }, worker: { full_name: 'J' }, company: SUP,
+    period: { period_from: '2026-11-09', period_to: '2026-11-22' } }));
+  ok(/§16 ods\. 1 zák\. 222\/2004/.test(sf) && /§13b Absatz 2 UstG/.test(sf), 'samofaktúra má text o mieste dodania');
+  ok(/KW 46 \(09\.11\.–15\.11\.2026\)/.test(sf) && /KW 47 \(16\.11\.–22\.11\.2026\)/.test(sf), 'samofaktúra po KW');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);

@@ -2037,7 +2037,7 @@
             : { label: 'Nový e-mail', ico: 'plus', onclick: 'Camp.form()' } })
         + (st.smtp ? `<div class="regimebox">${Icon('check', 14)} Posiela sa z adresy <b>${UI.esc(st.from || '')}</b>.${UI.tip('Z tejto schránky odchádza každý e-mail. Odpovede firiem prídu e-mailom do tejto schránky, v appke sa samy neukážu — stav firmy (Odpísala, Má záujem) potom zmeňte v Nových firmách.')}</div>`
           : `<div class="warnbox">${Icon('alert', 14)} <span>Posielanie ešte nie je zapnuté. V Netlify (Site configuration → Environment variables) treba doplniť
-              <b>SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS</b> a <b>SMTP_FROM</b> (napr. „Partner und Service &lt;info@punds.eu&gt;"). Kým to nie je,
+              <b>SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS</b> a <b>SMTP_FROM</b> (napr. „DANUBRA &lt;info@danubra.eu&gt;"). Kým to nie je,
               e-maily sa dajú pripraviť, ale neodídu.</span>${UI.tip('SMTP = prihlasovacie údaje k e-mailovej schránke (server, port, meno, heslo, adresa odosielateľa). Zadáva ich ten, kto spravuje Netlify — zámerne nie sú v appke, aby sa heslo nedostalo do prehliadača.')}</div>`)
         // Zoznam je spoločný komponent (`DataList`): dovtedy tu boli karty bez
         // filtrov — pri desiatkach e-mailov sa nedalo nájsť, čo ešte čaká.

@@ -1,5 +1,5 @@
 // ============================================================================
-// punds web — preklad ponuky do jazykov webu (netlify/functions/punds-translate)
+// DANUBRA web — preklad ponuky do jazykov webu (netlify/functions/danubra-translate)
 //   node web/tests/translate.test.js
 // Jazyky prekladu musia sedieť s jazykmi webu (shared/sites.js) a s appkou
 // (app/lib/recruiting/web-ad.js). Volanie Claude je podvrhnuté (fetch),
@@ -12,7 +12,7 @@ const path = require('path');
 let passed = 0, failed = 0;
 const ok = (c, name, detail) => { if (c) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? ` — ${String(detail).slice(0, 300)}` : ''}`); } };
 
-const FN = path.join(__dirname, '..', '..', 'netlify', 'functions', 'punds-translate.js');
+const FN = path.join(__dirname, '..', '..', 'netlify', 'functions', 'danubra-translate.js');
 const stub = (req, exports) => { const p = require.resolve(req, { paths: [path.dirname(FN)] }); require.cache[p] = { id: p, filename: p, loaded: true, exports }; };
 stub('@supabase/supabase-js', { createClient: () => ({}) });
 stub('../../app/lib/server-guard.js', () => ({ check: async () => ({ ok: true }) }));

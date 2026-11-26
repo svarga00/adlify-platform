@@ -255,12 +255,15 @@
         + 'našu faktúru; bez neho ju jeho účtovné oddelenie často neprepustí a platba '
         + 'sa posunie o mesiac. K jeho objednávke sa dá vystaviť naše potvrdenie '
         + '(Auftragsbestätigung) po nemecky.',
-        '**Živnostníkovi** — jedna na nasadenie. Nasadenie, ktoré už objednávku má, '
-        + 'sa pri zakladaní neponúkne znova.',
+        '**Živnostníkovi** — „Objednávka č. N" podľa firemnej šablóny: jedna činnosť '
+        + 'zo Zoznamu činností, odplata za hodinu, deň začatia a skončenia (spravidla '
+        + '31.12.), miesta výkonu vrátane adresy v SR a celého územia Nemeckej a Slovenskej '
+        + 'republiky. Nasadenie, ktoré už objednávku má, sa pri zakladaní neponúkne znova.',
       ],
       how: [
-        'Číslo sa prideľuje z radu OBJ-RRRR-NNNN až pri založení a transakčne, takže '
-        + 'v ňom nikdy nevznikne diera ani duplicita.',
+        'Na papieri je **poradové číslo u toho živnostníka** (č. 1, č. 2 …) a pri '
+        + 'Bestellung **u toho odberateľa** (Nr. 1, Nr. 2 …) — ako na šablónach. Evidenčné '
+        + 'číslo z číselného radu sa prideľuje pri založení a transakčne.',
         'Objednávka je buď od odberateľa, alebo živnostníkovi — nikdy oboje. Drží to '
         + 'kontrola v databáze, nie formulár.',
       ],
@@ -270,8 +273,8 @@
         + 'ten človek na stavbe urobiť, odpoveď „bol tam a robil, čo bolo treba" je '
         + 'presne tá, po ktorej sa z Werkvertrag stane prenájom pracovnej sily '
         + '(Arbeitnehmerüberlassung) a na ten treba povolenie.',
-        'Preto je na doklade aj napísané, že si prácu organizuje sám a že nám za dielo '
-        + 'fakturuje — to sú znaky, podľa ktorých sa dielo odlišuje.',
+        'Preto je na doklade presne vymedzená činnosť (text voľnej živnosti, ktorú má '
+        + 'v živnostenskom liste) a miesto výkonu. Ten istý text činnosti píše na faktúru.',
       ],
       watch: [
         'Objednávka bez popísaného diela je označená. Je to jediné pole, ktoré pri '
@@ -338,7 +341,7 @@
         '„Idem volať" pred hovorom: koho si pýtať, nemecké vety na prečítanie (remeslo a región firmy, Werkvertrag, A1 a § 48b), časté námietky a stopky. „Hovor skončil" otvorí záznam s dĺžkou a dotazníkom „Čo sme sa dozvedeli" — klikaním (správna osoba, subdodávatelia, remeslá, koľko ľudí a odkedy, stavby, záujem 1–5, čo poslať); appka z neho poskladá text v bodoch a navrhne výsledok. Hovor sa nenahráva — bez súhlasu druhej strany je to trestné.',
         'Ďalší krok: na jeho deň je úloha v Úlohách (zdroj „kontakt s firmou"); kým nepríde, appka nepripomína e-mailom. Termín z textu („o 2–3 týždne", „nach Ostern") navrhne AI alebo pravidlá appky — pri rozsahu berie skorší termín. Nič sa neuloží samo, kliknite „Použiť" a skontrolujte.',
         'Záznam o kontakte sa po uložení nemení — „Opraviť záznam" pridá opravu pod pôvodný s dátumom a menom.',
-        'K prvému e-mailu sa prikladá krátka prezentácia punds po nemecky pre remeslo a región firmy (~15 kB); k pripomenutiu nie. Náhľad e-mailu ukáže, ako ho uvidí firma v Outlooku či Gmaili. Ceny a referencie v prezentácii: prázdne ceny = „Konditionen nennen wir Ihnen im Angebot", prázdne referencie = sekcia sa neukáže.',
+        'K prvému e-mailu sa prikladá krátka prezentácia DANUBRA po nemecky pre remeslo a región firmy (~15 kB); k pripomenutiu nie. Náhľad e-mailu ukáže, ako ho uvidí firma v Outlooku či Gmaili. Ceny a referencie v prezentácii: prázdne ceny = „Konditionen nennen wir Ihnen im Angebot", prázdne referencie = sekcia sa neukáže.',
         'Záložka „Firmy a kontakty": firmy, s ktorými sa niečo dialo — kategória, posledný kontakt, ďalší krok (červené = dnes alebo skôr). Export „Firmy s kontaktmi" a „Všetky kontakty" je CSV pre Excel.',
         'Záložka „Odkazy od kolegov": firmy, ktoré kolegovia zadali vo verejnom formulári bez prihlásenia (názov, web alebo profil, vzťah, čo sme spolu robili, kontakt). Administrátor tu má link pre kolegov, hotovú správu, WhatsApp, vypnutie zberu a nový link (starý prestane platiť). Kľúč je v odkaze za znakom #, takže sa nedostane do záznamov servera.',
         'Pri každej firme s webom appka sama stiahne úvodnú stránku a Impressum (e-mail, telefón, adresa, konateľ) — zadarmo, bez AI. Profily (LinkedIn, Facebook) a Mapy sa nesťahujú; „Nájsť web" otvorí len hľadanie Google, web vložíte sami.',
@@ -436,7 +439,7 @@
         'Appka volá SuperFaktúru len cez server. API kľúč je v Netlify, nikdy nie v prehliadači ani v histórii faktúry.',
         'Odznak **SANDBOX** znamená skúšobný účet — doklady nie sú ostré. **PRODUKCIA** je ostrý účet. Prepína sa jedine premennou SF_ENV=production v Netlify, a to až po odsúhlasení majiteľom.',
         'Číslo faktúry je vždy to z appky (zákonné číslo z Číselných radov). Do SuperFaktúry ide ako číslo dokladu; variabilný symbol sú jeho číslice.',
-        'Nemeckému odberateľovi ide doklad bez DPH s prenesením daňovej povinnosti a vetou „Steuerschuldnerschaft des Leistungsempfängers (§13b UStG)." Odberateľovi z inej krajiny EÚ veta podľa článku 196 smernice o DPH.',
+        'Nemeckému odberateľovi ide doklad bez DPH s prenesením daňovej povinnosti a textom ako na faktúrach z Pohody: „Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet." a slovenská veta o prenesení daňovej povinnosti podľa § 15 resp. § 16 zákona o DPH. Odberateľovi z inej krajiny EÚ namiesto nemeckej vety článok 196 smernice o DPH.',
         '**Dnes použité: … z 1000** — SuperFaktúra povoľuje účtu 1000 požiadaviek denne. Appka ich nikdy nepošle viac než 950, synchronizácia a PDF smú najviac 300 a zvyšok je rezerva na vystavovanie a odosielanie. Počítadlo sa vynuluje o polnoci (slovenský čas).',
       ],
       how: [
@@ -488,7 +491,7 @@
     },
     'card.mailboxes.web': {
       title: 'E-maily z webov',
-      lead: 'Čo sa pošle, keď niekto vyplní formulár na punds.sk alebo punds.eu.',
+      lead: 'Čo sa pošle, keď niekto vyplní formulár na danubra.sk alebo danubra.eu.',
       what: [
         'Uchádzač dostane potvrdenie vo svojom jazyku (SK, CZ, HU, DE, EN, RO, PL, BG) — s ponukou, na ktorú sa prihlásil, a ďalšími krokmi.',
         'Nemecká firma dostane potvrdenie dopytu po nemecky alebo anglicky so súhrnom (remeslo, počet, miesto, začiatok).',
@@ -503,18 +506,18 @@
       links: [['candidates', 'Kandidáti'], ['opportunities', 'Dopyty']],
     },
     'screen.website': {
-      title: 'Weby punds',
-      lead: 'Odtiaľto sa spravujú weby punds.sk a punds.eu — bez programátora.',
+      title: 'Weby DANUBRA',
+      lead: 'Odtiaľto sa spravujú weby danubra.sk a danubra.eu — bez programátora.',
       what: [
         'Prehľad: koľko prišlo prihlášok, správ a dopytov za 30 dní a koľko ponúk je zverejnených.',
         'Kontakty a firma: telefóny, e-maily, WhatsApp a konateľ do Impressum.',
         'Tím: ľudia na stránkach O nás a Über uns — meno, funkcia v každom jazyku, fotka.',
         'Fotky: výmena fotiek z doterajšieho WordPressu za vlastné.',
-        'Texty: každý text každej stránky v každom jazyku; zmeny v slovenčine (punds.sk) alebo nemčine (punds.eu) sa dajú preložiť do ostatných jazykov.',
-        'punds.sk je v 8 jazykoch (SK, CZ, HU, DE, EN, RO, PL, BG). Po rumunsky, poľsky a bulharsky web na úvode, v postupe a pri ponuke pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky — tím hovorí SK, CZ, HU, DE, EN. Uchádzač vo formulári zaškrtne, ktorými jazykmi hovorí; vidno to v detaile kandidáta.',
+        'Texty: každý text každej stránky v každom jazyku; zmeny v slovenčine (danubra.sk) alebo nemčine (danubra.eu) sa dajú preložiť do ostatných jazykov.',
+        'danubra.sk je v 8 jazykoch (SK, CZ, HU, DE, EN, RO, PL, BG). Po rumunsky, poľsky a bulharsky web na úvode, v postupe a pri ponuke pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky — tím hovorí SK, CZ, HU, DE, EN. Uchádzač vo formulári zaškrtne, ktorými jazykmi hovorí; vidno to v detaile kandidáta.',
       ],
       how: [
-        'Ponuky práce sa spravujú v Inzerátoch — „Zverejniť na punds.sk".',
+        'Ponuky práce sa spravujú v Inzerátoch — „Zverejniť na danubra.sk".',
         'Zmeny sú na webe do 5 minút. Prázdne pole = pôvodný text.',
         'Nič sa nemaže: človek sa dá skryť, text vrátiť na pôvodný.',
       ],
@@ -523,7 +526,7 @@
     },
     'screen.printwork': {
       title: 'Tlačoviny',
-      lead: 'Vizitky, obálka DL a hlavičkový list v podobe punds — pripravené pre tlačiareň.',
+      lead: 'Vizitky, obálka DL a hlavičkový list v podobe DANUBRA — pripravené pre tlačiareň.',
       what: [
         'Vizitka 85 × 55 mm v dvoch variantoch (tmavá a biela s oranžovým rubom), PDF so spadávkou 3 mm.',
         'Obálka DL 220 × 110 mm, adresát v mieste okienka.',
@@ -658,7 +661,7 @@
       lead: 'Od súhlasu GDPR po infolist na stavbu. Všetko cez **Papiere** — údaje sa doplnia z jeho karty.',
       steps: [
         '**Súhlas GDPR** — podpíše ho ako prvý. Podpísaný zapíšte na jeho karte.',
-        '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Ak za neho budeme vystavovať faktúry, najprv na jeho karte zaškrtnite **„Faktúry zaňho vystavujeme my"** — zmluva potom obsahuje aj túto dohodu.',
+        '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Predvolene si faktúru vystavuje sám podľa vzoru faktúry; zmluva (čl. V body 10 až 14) nám však dovoľuje vyhotoviť ju v jeho mene — vtedy na jeho karte zaškrtnite **„Faktúry zaňho vystavujeme my"**.',
         '**Objednávka živnostníkovi** — na konkrétnu zákazku: čo má urobiť, kde, odkedy a za koľko.',
         '**Infolist na stavbu** — kam prísť, kedy, za kým, ubytovanie, čo si priniesť. Pošlite mu ho deň-dva pred nástupom.',
       ],
@@ -1340,10 +1343,10 @@
       title: 'Krok 1 — Zavolať',
       lead: 'Ozval sa a čaká. Zavolať mu treba do desiatich minút od ozvania.',
       what: [
-        'Prvý hovor s človekom, ktorý sa ozval na inzerát. Appka ho vedie po '
-        + 'častiach a zapisuje, čo zaznelo — neznámkuje sa, odškrtáva sa.',
-        'Krátky hovor má štyri veci (remeslo, papiere, kedy, peniaze) a trvá tri '
-        + 'minúty. Plný pohovor má šesť častí a dvadsať minút.',
+        'Prvý hovor s človekom, ktorý sa ozval na inzerát. Je na jednej obrazovke: '
+        + 'čo mu povedať, na čo sa opýtať a overenie remesla. Neznámkuje sa, odpovede sa odklikávajú.',
+        'Pohovor je len jeden. Ponuka v ňom sedí so zmluvami: živnosť a zmluva o dielo, '
+        + 'hodinová sadzba, vlastná faktúra za 2 týždne, ubytovanie odpočítané z faktúry, A1 ako živnostník.',
       ],
       how: [
         'Že sa zavolalo, sa nikde neodklikáva — appka to vie z hovoru. Preto je '
@@ -1357,29 +1360,28 @@
     },
     'cand.step.proof': {
       title: 'Krok 2 — Preveriť',
-      lead: 'To, čo povedal do telefónu, si overte u niekoho iného. Toto bolo „overenie".',
+      lead: 'Stačí jedna vec, ktorá potvrdí, čo povedal do telefónu.',
       what: [
-        'Štyri veci: fotky jeho vlastnej práce, telefonát tomu, pre koho robil '
-        + 'naposledy, živnosť nájdená v registri, videohovor na nemčinu.',
-        'Pri partii k tomu pribudne, kto je kontaktná osoba a ako dlho spolu robia.',
+        'Tri možnosti, stačí jedna: fotky jeho vlastnej práce, telefonát tomu, pre koho '
+        + 'robil naposledy, alebo živnosť nájdená v registri.',
+        'Pri partii je navyše nepovinná otázka, kto je kontaktná osoba a ako dlho spolu robia.',
       ],
       how: [
-        'Na referenciu stačí jedna otázka: „Vzali by ste ho znova?" Zaváhanie je '
-        + 'odpoveď. Nemčina nemusí byť dobrá — musí stačiť na pokyny bez prekladateľa.',
+        'Na referenciu stačí jedna otázka: „Vzali by ste ho znova?" Krok je hotový, '
+        + 'len čo je zaškrtnutá jedna vec — ostatné sú navyše.',
       ],
       why: [
-        'Do telefónu povie každý všetko. Bez tohto kroku ide na nemeckú stavbu '
-        + 'človek, ktorého prax nikto nevidel — a prvý, komu to praskne, je náš '
-        + 'odberateľ. To je celá odpoveď na otázku, načo je preverovanie.',
+        'Do telefónu sa dá povedať čokoľvek. Päť minút preverenia ušetrí zlý prvý '
+        + 'týždeň na stavbe. Nie je to skúška — rozhodnutie je na Vás.',
       ],
       links: [['candidates', 'Kandidáti'], ['trades', 'Remeslá a otázky']],
     },
     'cand.step.deal': {
       title: 'Krok 3 — Dohodnúť',
-      lead: 'Sadzba, turnus a dátum nástupu — písomne, nie po telefóne.',
+      lead: 'Sadzba, fakturácia a dátum nástupu — písomne, stačí správa.',
       what: [
-        'Tri veci: sadzba a spôsob fakturácie, turnus 3+1 s približne 50 hodinami '
-        + 'týždenne, a písomné „Súhlasím, nastupujem dňa X".',
+        'Dve veci: sadzba a fakturácia za 2 týždne poslané písomne, a písomné '
+        + '„Súhlasím, nastupujem dňa X".',
       ],
       how: [
         'Stačí správa vo WhatsApp — dôležitý je dátum a číslo, nie forma. Podstatné '
@@ -1427,18 +1429,18 @@
     },
     'cand.step.flags': {
       title: 'Červené vlajky',
-      lead: 'Päť vecí, pri ktorých sa treba zastaviť, aj keď inak všetko sedí.',
+      lead: 'Štyri veci, pri ktorých sa oplatí spozornieť, aj keď inak všetko sedí.',
       what: [
-        'Záloha alebo cesta vopred, žiadna fotka a žiadna referencia, vyhýbanie sa '
-        + 'videohovoru, menené odpovede o živnosti, „kedy budú peniaze" ako prvá otázka.',
+        'Záloha alebo cesta vopred, žiadna fotka a žiadna referencia, menené odpovede '
+        + 'o živnosti, „kedy budú peniaze" ako prvá otázka.',
       ],
       how: [
         'Zaškrtnutie nie je pokrok — je to varovanie, a preto sa do postupu náboru '
-        + 'nepočíta. Pri dvoch a viac appka postup zastaví a pýta sa na rozhodnutie.',
+        + 'nepočíta. Nábor nezastaví; pri troch a viac ich appka len pripomenie navrchu.',
       ],
       why: [
-        'Jedna vlajka sa dá prejsť. Dve znamenajú, že riziko je vyššie než prínos — '
-        + 'a človek, ktorý mení odpovede o živnosti, ich zmení aj na stavbe.',
+        'Varovanie je informácia, nie zákaz. Rozhodnutie, či s človekom pokračovať, '
+        + 'je vždy na Vás.',
       ],
       links: [['candidates', 'Kandidáti']],
     },
@@ -1485,16 +1487,25 @@
     },
     'card.settings.numbers': {
       title: 'Číselné rady',
-      lead: 'Odkiaľ sa berú čísla faktúr, objednávok a zmlúv.',
-      what: ['Každý rad má rok a poradové číslo. Pri zmene roka sa vynuluje.'],
+      lead: 'Odkiaľ sa berú čísla faktúr, objednávok, ponúk, zmlúv, dodatkov, zákaziek, dobropisov a zmlúv so živnostníkmi.',
+      what: [
+        'Predvolene má každé číslo tvar **rok + dvojmiestny kód druhu dokladu + 4 číslice**: faktúra 2026010001, '
+        + 'objednávka 2026020001, ponuka …04…, zmluva …05…, dodatok …06…, zákazka …07…, dobropis …08…, '
+        + 'faktúra za živnostníka …09…, zmluva so živnostníkom …10…. Z čísla je hneď jasné, čo je to za doklad.',
+        'Celé číslo faktúry je zároveň variabilný symbol (10 číslic — viac banka neberie).',
+        'V januári sa poradie začne znova od 0001.',
+      ],
       how: [
-        'Čísla prideľuje databáza transakčne. Nikdy preto nevznikne diera ani '
-        + 'duplicita, ani keď dvaja ľudia vystavia faktúru v tej istej sekunde.',
+        'Čísla prideľuje databáza transakčne, keď doklad vzniká. Dve faktúry v tej istej sekunde nikdy nedostanú to isté číslo.',
+        'Administrátor môže pri každom rade kliknúť **Upraviť** a zmeniť predponu, rok, kód, oddeľovač, počet číslic '
+        + 'a **Ďalšie číslo**. Okno hneď ukazuje, aké číslo dostane ďalší doklad.',
+        'Pri prechode na ostrú SuperFaktúru nastavte pri faktúrach „Ďalšie číslo" tak, aby nadviazalo na ostrý rad '
+        + '(napr. 137 → 2026010137).',
       ],
       why: [
-        'Diera v číselnom rade je pre daňovú kontrolu otázka, na ktorú treba '
-        + 'odpovedať. Preto sa číslo prideľuje až pri vzniku dokladu a nikdy '
-        + 'sa nepreskakuje.',
+        'Číslo sa nikdy nepoužije druhýkrát. Nižšie „Ďalšie číslo", než aké už bolo použité, databáza odmietne, '
+        + 'a číslo, ktoré už má iný doklad, preskočí. Každá zmena sa zapíše do histórie.',
+        'Už vydané doklady si svoje čísla nechajú (aj vzorové VZOR-…) — nový formát dostanú len nové.',
       ],
       links: [['settings', 'Nastavenia']],
     },
@@ -1745,8 +1756,11 @@
     },
     'flow.nemec': {
       title: '3 · Zmluva s Nemcom',
-      lead: 'Zmluva o dielo s odberateľom a k nej jeho objednávka — dvojjazyčne.',
+      lead: 'Zmluva o dielo s odberateľom (Rahmenvertrag SK_DE) a k nej objednávky '
+        + '(Bestellung Nr. N) — dvojjazyčne, doslovne podľa firemnej šablóny.',
       what: [
+        'Fakturujeme **týždenne po kalendárnych týždňoch (KW)** so splatnosťou 7 dní '
+        + '(Rahmenvertrag čl. III bod 2). Odberateľovi so 14/14 sa to nastaví na jeho karte.',
         'Dvojjazyčne zámerne: on podpisuje po nemecky, my čítame po slovensky '
         + 'a pri spore je jasné, na čom sme sa dohodli.',
         'Je to **dielo, nie hodiny**. Hodinová sadzba je len spôsob výpočtu ceny — '
@@ -1788,12 +1802,19 @@
     'flow.zivnostnici': {
       title: '5 · Zmluvy a objednávky živnostníkom',
       lead: 'Rámcová zmluva o dielo podľa §536 Obchodného zákonníka (zvyčajne do konca '
-        + 'roka) a k nej objednávka na každú stavbu.',
+        + 'roka) a k nej Objednávka č. N — so samostatne zárobkovo činnými osobami, '
+        + 'nie so zamestnancami.',
       what: [
         'Rámcová znamená, že sa podpíše raz a potom sa na ňu viažu jednotlivé '
-        + 'objednávky. Neuzatvára sa znova pri každej stavbe.',
-        'Objednávka dopĺňa to, čo je pri každej stavbe iné: čo sa robí, kde, '
-        + 'odkedy dokedy a za koľko. Vystavuje sa zo zákazky.',
+        + 'objednávky. Neuzatvára sa znova pri každej stavbe. Text je doslovne podľa '
+        + 'firemnej šablóny (pokuty 300 € za deň omeškania a 3 000 € za nenastúpenie).',
+        'Objednávka určuje činnosť zo Zoznamu činností, odplatu za hodinu, termín '
+        + '(spravidla do 31.12.) a miesta výkonu. Vystavuje sa zo zákazky.',
+        'Živnostník nám fakturuje **za 2 kalendárne týždne** podľa vzoru faktúry '
+        + '(splatnosť 14 dní od doručenia). Zmluva nám dovoľuje vyhotoviť faktúru aj '
+        + 'v jeho mene (samofakturácia) — zapína sa na jeho karte.',
+        'Keď spolupráca končí, ide mu list „Ukončenie zmluvy" s dôvodom podľa čl. X '
+        + 'bod 6 (a) až i), najčastejšie 6g — nie je dostatok práce).',
       ],
       how: [
         'Zmluva sa končí spravidla 31. decembra. Appka upozorní skôr, než sa to '
@@ -1803,7 +1824,8 @@
       ],
       why: [
         'Bez zmluvy a objednávky to nie je subdodávka, ale zamestnávanie. Pri '
-        + 'kontrole to nesie firma, nie živnostník.',
+        + 'kontrole to nesie firma, nie živnostník. Živnostník má vlastné A1 ako SZČO '
+        + 'a vlastnú Freistellung.',
       ],
       links: [['workers', 'Živnostníci'], ['orders', 'Objednávky']],
     },

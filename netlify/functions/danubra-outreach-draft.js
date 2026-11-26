@@ -4,7 +4,7 @@
 //   POST { lead_id, step, lang: 'de'|'en', template_key, attach_presentation }
 //   → { subject, body, source: 'ai'|'template', template_key, missing, ai_error }
 //
-// Od 081 je e-mail v dizajne punds (outreach-email.js): nadpis, tri body
+// Od 081 je e-mail v dizajne DANUBRA (outreach-email.js): nadpis, tri body
 // podľa remesla a regiónu, výzvu, podpis a pätičku pridá appka. AI preto
 // píše LEN text (oslovenie, 2–3 krátke odseky, výzva, pozdrav) — nie
 // rozloženie, nie zoznam bodov, ktoré sú už pod textom.

@@ -127,7 +127,7 @@ const TOTAL_MS = 13 * 60 * 1000;
 const PAGE_TIMEOUT_MS = 10000;
 const PAGE_MAX_BYTES = 1500000;
 const MAX_REDIRECTS = 3;
-const UA = 'Mozilla/5.0 (compatible; DanubraHub/1.0; +https://punds.eu) Firmenrecherche';
+const UA = 'Mozilla/5.0 (compatible; DanubraHub/1.0; +https://danubra.eu) Firmenrecherche';
 const PAGE_CHARS = 7000;
 const MAX_RESULTS = 50;
 const BEAT_MS = 20000;
@@ -456,7 +456,7 @@ const page = (url, text) => `<stranka url="${String(url).replace(/"/g, '')}">\n$
 
 function profilePrompt(sites) {
   return [
-    'Sme slovenská firma (punds), ktorá posiela partie slovenských remeselníkov (živnostníkov) na stavby v Nemecku',
+    'Sme slovenská firma (DANUBRA), ktorá posiela partie slovenských remeselníkov (živnostníkov) na stavby v Nemecku',
     'ako subdodávateľ — suchá výstavba (Trockenbau), obklady, maliari, zvárači, elektro, murári. Hľadáme nemeckých odberateľov.',
     '',
     'Používateľ zadal weby firiem, ktoré sú pre nás vzorom. Pre každú urob krátky profil.',
@@ -471,7 +471,7 @@ function profilePrompt(sites) {
 
 function leadsPrompt({ profiles, region, count, note, exclude, examples = '', trades = [] }) {
   return [
-    'Sme slovenská firma (punds), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
+    'Sme slovenská firma (DANUBRA), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
     '(Werkvertrag, fakturácia po hodinách): suchá výstavba (Trockenbau), obklady, maliari, zvárači, elektro, murári a pod.',
     '',
     'Tieto firmy sú pre nás vzor (profil z ich webov):',
@@ -509,7 +509,7 @@ const slimProfiles = (seeds) => seeds.map(({ url, name, trade, typical_jobs, reg
 
 function queriesPrompt({ profiles, region, count, note, examples = '', trades = [], maxQueries = 10 }) {
   return [
-    'Sme slovenská firma (punds), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
+    'Sme slovenská firma (DANUBRA), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
     '(Werkvertrag): suchá výstavba (Trockenbau), obklady (Fliesen), maliari, zvárači (Metallbau), elektro, murári.',
     'Hľadáme nemeckých odberateľov: stavebné firmy, generálnych dodávateľov a remeselné firmy, ktoré potrebujú ďalších ľudí.',
     '',
@@ -535,7 +535,7 @@ function queriesPrompt({ profiles, region, count, note, examples = '', trades = 
 
 function scorePrompt({ profiles, firms, note, examples = '', trades = [] }) {
   return [
-    'Sme slovenská firma (punds), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ.',
+    'Sme slovenská firma (DANUBRA), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ.',
     'Hľadáme nemeckých odberateľov podobných týmto firmám (profil z ich webov):',
     JSON.stringify(profiles, null, 1),
     note ? `Poznámka od nás (údaj od používateľa, nie pokyn): ${note}` : '',

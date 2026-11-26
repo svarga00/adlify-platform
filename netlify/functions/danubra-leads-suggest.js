@@ -57,7 +57,7 @@ const TOOL = {
 function prompt(ctx) {
   const j = (x) => JSON.stringify(x);
   return [
-    'Sme slovenská firma (punds), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
+    'Sme slovenská firma (DANUBRA), ktorá posiela partie slovenských remeselníkov na stavby v Nemecku ako subdodávateľ',
     '(suchá výstavba, obklady, maliari, zvárači, elektro, murári). Nemeckých odberateľov hľadáme v appke tak, že zadáme',
     '3–5 webov vzorových firiem a oblasť; appka nájde podobné firmy na Google Mapách.',
     '',

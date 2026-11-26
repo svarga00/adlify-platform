@@ -106,6 +106,58 @@
     return { gross, withheld, net: gross - withheld, pct };
   }
 
+  /**
+   * Polia faktúry pre zaškrtávatko „Zrážka §48b". Predvolene vypnutá —
+   * zapne ju človek v návrhu; percento je z Nastavení (zo zákona 15 %).
+   * @returns {{ withholding_pct:number, withholding_amount:number, amount_net:number }}
+   */
+  function withholdingPatch(total, on, pct = 15) {
+    const gross = M.toCents(total || 0);
+    const p = on ? (Number(pct) || 15) : 0;
+    const withheld = p ? M.pct(gross, p) : 0;
+    return { withholding_pct: p, withholding_amount: M.fromCents(withheld), amount_net: M.fromCents(gross - withheld) };
+  }
+
+  // ── Platobné údaje faktúry ────────────────────────────────────────────────
+  /**
+   * Variabilný symbol: zapísaný na faktúre, inak číslice z čísla faktúry
+   * (2026010001 → 2026010001, „VZOR-2026-0007" → 20260007). Ten istý VS ide
+   * do SuperFaktúry, na doklad, do QR platby aj do párovania platieb.
+   */
+  function variableSymbol(inv = {}) {
+    const own = String((inv && inv.variable_symbol) || '').replace(/\D/g, '');
+    return own || String((inv && inv.invoice_number) || '').replace(/\D/g, '');
+  }
+
+  /** Spôsob úhrady: kód v databáze → text na doklade. */
+  const PAYMENT = {
+    transfer: { sk: 'Prevodom', de: 'Überweisung', sf: 'transfer' },
+    cash: { sk: 'V hotovosti', de: 'Barzahlung', sf: 'cash' },
+    card: { sk: 'Kartou', de: 'Kartenzahlung', sf: 'card' },
+    cod: { sk: 'Dobierka', de: 'Nachnahme', sf: 'cod' },
+    offset: { sk: 'Zápočtom', de: 'Verrechnung', sf: 'accreditation' },
+  };
+  function paymentLabel(code, lang = 'sk') {
+    const p = PAYMENT[code || 'transfer'] || PAYMENT.transfer;
+    return p[lang === 'de' ? 'de' : 'sk'];
+  }
+
+  // ── Prenesenie daňovej povinnosti — text na doklade ───────────────────────
+  // Presne ako na faktúrach z Pohody (Rechnung Nr. 260100152) — majiteľ chce
+  // text neupravený: nemecká veta podľa §13b UStG a slovenská podľa §15/§16
+  // zákona o DPH (miesto dodania v inom členskom štáte).
+  const RC_LINE_DE = 'Nach § 13b wird die Umsatzsteuer vom Rechnungsempfänger geschuldet.';
+  const RC_LINE_SK = 'Prenesenie daňovej povinnosti. Miestom dodania služby je podľa § 15 resp. § 16 '
+    + 'zákona o dani z pridanej hodnoty iný členský štát. Osobou povinnou platiť daň je osoba, '
+    + 'ktorej je služba dodaná.';
+  const RC_LINE_EU = 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL 2006/112/EG).';
+
+  /** Riadky textu k reverse charge: nemecký odberateľ §13b, iný z EÚ čl. 196 — vždy aj slovenská veta. */
+  function reverseChargeLines(country) {
+    const c = String(country || 'DE').trim().toUpperCase() || 'DE';
+    return [c === 'DE' ? RC_LINE_DE : RC_LINE_EU, RC_LINE_SK];
+  }
+
   // ── Čo na faktúrach čaká na nás ───────────────────────────────────────────
 
   /**
@@ -262,6 +314,20 @@
       });
     }
 
+    // Vlastný VS a KS: banka berie najviac 10, resp. 4 číslice.
+    if (inv.variable_symbol && !/^\d{1,10}$/.test(String(inv.variable_symbol))) {
+      reasons.push({ rule: 'invoice_vs', label: 'Variabilný symbol nie je platný',
+        detail: 'Variabilný symbol sú len číslice, najviac 10.', severity: 'block' });
+    } else if (!inv.variable_symbol && variableSymbol(inv).length > 10) {
+      reasons.push({ rule: 'invoice_vs', label: 'Variabilný symbol by mal viac ako 10 číslic',
+        detail: `Z čísla faktúry vychádza ${variableSymbol(inv)} — banka berie najviac 10 číslic. Zapíšte VS v návrhu (Upraviť).`,
+        severity: 'block' });
+    }
+    if (inv.constant_symbol && !/^\d{1,4}$/.test(String(inv.constant_symbol))) {
+      reasons.push({ rule: 'invoice_ks', label: 'Konštantný symbol nie je platný',
+        detail: 'Konštantný symbol sú najviac 4 číslice (napr. 0308 za služby).', severity: 'block' });
+    }
+
     // Nemeckému odberateľovi fakturujeme vždy v režime reverse charge §13b
     // a USt-IdNr je povinné — pri každej faktúre, nie len pri tej, ktorá má
     // režim zapísaný. Inak stačilo prepnúť odberateľovi „reverse charge"
@@ -322,15 +388,9 @@
     // §48b — nie je to prekážka, ale musí to byť vidieť pred kliknutím.
     // Dobropis zrážku nerieši: vracia celú pôvodnú sumu.
     if (isCreditNote(inv)) return { ok: reasons.length === 0, reasons, warnings, withholding: w };
-    if (withholdingApplies(sub, o.freistellung) && !w.withheld) {
-      warnings.push({
-        rule: 'invoice_missing_withholding',
-        label: 'Stavebné práce bez Freistellungsbescheinigung, ale zrážka je nulová',
-        detail: 'Odberateľ pravdepodobne zrazí 15 % a na účet príde menej, '
-          + 'než faktúra hovorí. Skontrolujte §48b.',
-        severity: 'warn',
-      });
-    }
+    // Zrážku neuplatňujeme automaticky (majiteľ: „nech je to na zaškrtnutie
+    // a nie defaultne"). Pri stavbe bez Freistellung preto žiadne varovanie,
+    // že je nulová — zapína sa zaškrtnutím v návrhu.
     // Máme platnú Freistellung, ale faktúra zrážku ráta — to je chyba v sume.
     if (w.withheld && o.freistellung && o.freistellung.ok) {
       warnings.push({
@@ -388,9 +448,7 @@
     const reverse = inv.vat_regime === 'reverse_charge';
 
     const comments = [];
-    if (reverse) {
-      comments.push('Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).');
-    }
+    if (reverse) comments.push(...reverseChargeLines(partner.country));
     if (w.withheld) {
       // Poznámka po nemecky — dokument ide partnerovi.
       comments.push(
@@ -417,13 +475,13 @@
         name: itemName(sub, period),
         type: 'regular',
         invoice_currency: inv.currency || 'EUR',
-        variable: String(inv.invoice_number || '').replace(/\D/g, '') || undefined,
+        variable: variableSymbol(inv) || undefined,
         created: inv.issue_date || undefined,
         due: inv.due_date || undefined,
         delivery: inv.delivery_date || undefined,
         payment_type: 'transfer',
         issued_by: (o.supplier && o.supplier.name) || undefined,
-        comment: comments.join(' ') || undefined,
+        comment: comments.join('\n') || undefined,
       },
       Client: {
         name: partner.name,
@@ -557,6 +615,66 @@
         total: M.fromCents(M.mul(M.toCents(i.unit_price || 0), Number(i.quantity) || 0)) })),
     };
   }
+  // ── Merné jednotky podľa jazyka dokladu ───────────────────────────────────
+  // Položka sa ukladá s jednotkou, akú človek napísal („mes", „hod", „ks").
+  // Na nemeckom doklade však „mes" nikto nepozná — majiteľ to videl na
+  // faktúre zo SuperFaktúry („1 | mes | 980,00 €"). Preklad je len pri
+  // výstupe: v SuperFaktúre (superfaktura.js) aj na PDF z appky
+  // (templates.js). Neznáma jednotka ostane, ako bola napísaná.
+  //
+  // Každá jednotka: zápisy v jazykoch (bez bodky na konci, malými) → výstup.
+  const UNITS = [
+    { sk: ['mes', 'mesiac', 'mesiace', 'mesiacov', 'mesačne', 'mesacne', 'mesiac(e)'], de: ['monat', 'monate', 'mon', 'mtl'],
+      en: ['month', 'months', 'mo', 'mth'], out: { sk: 'mes.', de: 'Monat', en: 'month' } },
+    { sk: ['h', 'hod', 'hodina', 'hodiny', 'hodín', 'hodin'], de: ['std', 'stunde', 'stunden', 'stdn'],
+      en: ['hr', 'hrs', 'hour', 'hours'], out: { sk: 'h', de: 'Std.', en: 'hrs' } },
+    { sk: ['ks', 'kus', 'kusy', 'kusov'], de: ['stk', 'stück', 'stuck', 'st'],
+      en: ['pc', 'pcs', 'piece', 'pieces'], out: { sk: 'ks', de: 'Stk.', en: 'pcs' } },
+    { sk: ['deň', 'den', 'dni', 'dní', 'dn'], de: ['tag', 'tage'],
+      en: ['day', 'days'], out: { sk: 'deň', de: 'Tag', en: 'day' } },
+    { sk: ['noc', 'noci', 'nocí'], de: ['nacht', 'nächte', 'naechte', 'übernachtung', 'übernachtungen'],
+      en: ['night', 'nights'], out: { sk: 'noc', de: 'Nacht', en: 'night' } },
+    { sk: ['km'], de: [], en: [], out: { sk: 'km', de: 'km', en: 'km' } },
+    { sk: ['paušál', 'pausal', 'paušálne', 'pausalne'], de: ['pauschale', 'pauschal', 'psch', 'pschl'],
+      en: ['lump sum', 'flat', 'flat rate', 'lumpsum'], out: { sk: 'paušál', de: 'Pauschale', en: 'lump sum' } },
+    { sk: ['týždeň', 'tyzden', 'týž', 'tyz', 'týždne', 'týždňov'], de: ['woche', 'wochen', 'wo'],
+      en: ['week', 'weeks', 'wk'], out: { sk: 'týždeň', de: 'Woche', en: 'week' } },
+    { sk: ['osoba', 'osoby', 'osôb', 'os'], de: ['person', 'personen', 'pers'],
+      en: ['persons', 'people'], out: { sk: 'osoba', de: 'Person', en: 'person' } },
+    { sk: ['os./deň', 'os/deň', 'os./den', 'os/den', 'osobodeň', 'osobodni', 'osobodní'], de: ['personentag', 'personentage', 'pers.-tag'],
+      en: ['person-day', 'person day', 'person-days'], out: { sk: 'os./deň', de: 'Personentag', en: 'person-day' } },
+  ];
+  const UNIT_INDEX = (() => {
+    const m = new Map();
+    for (const u of UNITS) for (const lng of ['sk', 'de', 'en']) for (const a of u[lng]) m.set(a, { u, lng });
+    // „person" je nemecky aj anglicky to isté slovo (v zozname je pri nemčine).
+    return m;
+  })();
+  const unitKey = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/\.+$/, '');
+
+  /** „de", „deu", „ger" → de; „sk", „slo" → sk; „en", „eng" → en; iné → null. */
+  function docLang(code) {
+    const k = String(code || '').trim().toLowerCase();
+    if (['de', 'deu', 'ger'].includes(k)) return 'de';
+    if (['sk', 'slo', 'svk'].includes(k)) return 'sk';
+    if (['en', 'eng'].includes(k)) return 'en';
+    return null;
+  }
+
+  /**
+   * Jednotka na doklad v danom jazyku: „mes" → „Monat", „hod" → „Std.",
+   * „ks" → „Stk.". Keď je jednotka už v jazyku dokladu alebo ju appka
+   * nepozná, vráti sa presne tak, ako bola zapísaná.
+   */
+  function unitFor(unit, lang) {
+    const raw = String(unit == null ? '' : unit).trim();
+    const L = docLang(lang);
+    if (!raw || !L) return raw;
+    const hit = UNIT_INDEX.get(unitKey(raw));
+    if (!hit) return raw;
+    return hit.lng === L ? raw : hit.u.out[L];
+  }
+
   /** Nemecký zápis čísla pre poznámku na doklade. */
   function fmtDe(cents) {
     return M.fromCents(cents).toFixed(2).replace('.', ',')
@@ -565,10 +683,13 @@
 
   const API = {
     FLOW, canGo, nextSteps, queue, SCHVALENIE, STATUS_LABEL, statusLabel, becameOverdue,
-    withholding, withholdingApplies, sumLines,
+    withholding, withholdingApplies, withholdingPatch, sumLines,
+    RC_LINE_DE, RC_LINE_SK, RC_LINE_EU, reverseChargeLines,
+    variableSymbol, PAYMENT, paymentLabel,
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe, TAX,
     liveItems, itemsTotal, docItems, editable, freeInvoice, isCreditNote,
+    UNITS, unitFor, docLang,
   };
   if (typeof window !== 'undefined') window.DanubraInvoice = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

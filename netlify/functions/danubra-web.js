@@ -1,12 +1,12 @@
 // ============================================================================
-// punds web — weby punds.sk a punds.eu
+// DANUBRA web — weby danubra.sk a danubra.eu
 // ============================================================================
-// Skúšobne beží pod appkou: /punds-sk/* a /punds-eu/* (presmerovanie
-// v netlify.toml). Naostro sa punds.sk a punds.eu pridajú k tomuto webu
-// v Netlify ako ďalšie domény a edge funkcia punds-host ich sem pošle.
+// Skúšobne beží pod appkou: /danubra-sk/* a /danubra-eu/* (presmerovanie
+// v netlify.toml). Naostro sa danubra.sk a danubra.eu pridajú k tomuto webu
+// v Netlify ako ďalšie domény a edge funkcia danubra-host ich sem pošle.
 //
 // Ponuky čítame z appky (danubra_ads, len zverejnené na web). Prihlášky
-// a dopyty zapisuje ./punds-web-api.js do Kandidátov a Dopytov.
+// a dopyty zapisuje web/api.js do Kandidátov a Dopytov.
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IP_HASH_SECRET (kľúč k odtlačku
 // IP adresy v zázname formulára — pozri web/api.js)
@@ -29,18 +29,18 @@ const notify = notifier(supabase, { content: contentRows });
 
 exports.handler = async (event) => {
   const h = event.headers || {};
-  // Pôvodná adresa (/punds-sk/…): pri prepise z netlify.toml je v event.path,
+  // Pôvodná adresa (/danubra-sk/…): pri prepise z netlify.toml je v event.path,
   // v rawUrl môže byť adresa funkcie — vezme sa tá, ktorá patrí webu.
   let raw = '';
   try { if (event.rawUrl) raw = new URL(event.rawUrl).pathname; } catch (e) { /* bez rawUrl */ }
   const cand = [event.path, raw, h['x-nf-original-path']].filter(Boolean);
-  let path = cand.find((p) => /^\/punds-(sk|eu)(\/|$)/.test(p)) || cand.find((p) => !p.startsWith('/.netlify/')) || '/';
+  let path = cand.find((p) => /^\/danubra-(sk|eu)(\/|$)/.test(p)) || cand.find((p) => !p.startsWith('/.netlify/')) || '/';
   // Host rozhoduje, či ide o ostrý web (bez noindex, bez ukážkových ponúk)
   // a stránka sa potom drží v CDN. Hlavičku, ktorú si môže poslať ktokoľvek
-  // (x-punds-host — edge funkcia ju nenastavuje), preto neberieme: inak by
-  // stačila jedna požiadavka, aby CDN podávala na punds.sk stránku s noindex.
+  // (x-danubra-host — edge funkcia ju nenastavuje), preto neberieme: inak by
+  // stačila jedna požiadavka, aby CDN podávala na danubra.sk stránku s noindex.
   // Skutočný Host je vždy jedna z domén tohto webu na Netlify.
-  const PROD_HOSTS = ['punds.sk', 'www.punds.sk', 'punds.eu', 'www.punds.eu'];
+  const PROD_HOSTS = ['danubra.sk', 'www.danubra.sk', 'danubra.eu', 'www.danubra.eu'];
   const bare = (x) => String(x || '').toLowerCase().split(':')[0];
   const origHost = [h.host, h['x-forwarded-host']].find((x) => PROD_HOSTS.includes(bare(x))) || h.host || h['x-forwarded-host'] || '';
   const res = await handle({

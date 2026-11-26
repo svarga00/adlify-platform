@@ -1,5 +1,5 @@
 // ============================================================================
-// DANUBRA — Weby punds.sk a punds.eu: správa obsahu (Marketing → Weby)
+// DANUBRA — Weby danubra.sk a danubra.eu: správa obsahu (Marketing → Weby)
 // ============================================================================
 // „Z kade sa bude administrovať stránky?" — odtiaľto:
 //   Prehľad   čo z webov prišlo (prihlášky, správy, dopyty), zverejnené ponuky
@@ -7,10 +7,10 @@
 //   Tím       mená, funkcie po jazykoch, fotky (O nás / Über uns)
 //   Fotky     výmena fotiek z WordPressu za vlastné
 //   Texty     každý text každej stránky v každom jazyku + preklad
-// Ponuky práce sa spravujú v Inzerátoch (Zverejniť na punds.sk).
+// Ponuky práce sa spravujú v Inzerátoch (Zverejniť na danubra.sk).
 //
 // Uloženie: danubra_web_content (kľúč → hodnota). Web si ho načíta do minúty,
-// stránky drží CDN ďalších 5 minút. Popis textov dáva web (/punds-sk/api/schema).
+// stránky drží CDN ďalších 5 minút. Popis textov dáva web (/danubra-sk/api/schema).
 // ============================================================================
 (function () {
   const PAGE_SK = {
@@ -24,11 +24,11 @@
   };
   const TRADE = { zvarac: 'Schweißen', zamocnik: 'Metallbau', sadrokarton: 'Trockenbau', maliar: 'Maler', zateplovac: 'WDVS',
     okna: 'Fenster & Türen', nabytok: 'Möbelmontage', pomocnik: 'Bauhelfer' };
-  // Jazyky webov (punds.sk má všetky, punds.eu de+en) — poradie ako web/shared/sites.js.
+  // Jazyky webov (danubra.sk má všetky, danubra.eu de+en) — poradie ako web/shared/sites.js.
   const LANG = { sk: 'Slovensky', cz: 'Česky', hu: 'Maďarsky', de: 'Nemecky', en: 'Anglicky', ro: 'Rumunsky', pl: 'Poľsky', bg: 'Bulharsky' };
   const SITE_LANGS = { sk: ['sk', 'cz', 'hu', 'de', 'en', 'ro', 'pl', 'bg'], eu: ['de', 'en'] };
   const SRC = { sk: 'sk', eu: 'de' };                   // jazyk, z ktorého sa prekladá
-  const webUrl = (site, lang) => `${location.origin}/punds-${site}/${lang || SRC[site]}/`;
+  const webUrl = (site, lang) => `${location.origin}/danubra-${site}/${lang || SRC[site]}/`;
   const val = (rows, key, def) => (rows[key] != null ? rows[key] : def);
 
   const Web = {
@@ -47,7 +47,7 @@
       const row = await Danubra.loadCfg();
       this.cfg = row.web || {};
       if (!this.schema) {
-        try { this.schema = await (await fetch('/punds-sk/api/schema', { cache: 'no-store' })).json(); }
+        try { this.schema = await (await fetch('/danubra-sk/api/schema', { cache: 'no-store' })).json(); }
         catch (e) { this.schema = null; }
       }
       this.loaded = true;
@@ -65,11 +65,11 @@
 
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      Danubra.setActions(`<a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${webUrl('sk')}">${Icon('site', 14)} punds.sk</a>
-        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${webUrl('eu')}">${Icon('site', 14)} punds.eu</a>`);
+      Danubra.setActions(`<a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${webUrl('sk')}">${Icon('site', 14)} danubra.sk</a>
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${webUrl('eu')}">${Icon('site', 14)} danubra.eu</a>`);
       const tabs = [['overview', 'Prehľad', 'chart'], ['contacts', 'Kontakty a firma', 'phone'], ['team', 'Tím', 'workers'],
         ['photos', 'Fotky', 'upload'], ['texts', 'Texty', 'edit']];
-      el.innerHTML = Danubra.header(Danubra.labelOf('website'), `Obsah webov punds.sk a punds.eu — zmeny sú na webe do 5 minút${UI.tip('Po uložení si web zmenu načíta do minúty. Hotové stránky však ešte až 5 minút drží CDN (kópie webu na rýchlych serveroch). Ak zmenu nevidíte, počkajte 5 minút a stránku obnovte.')}`)
+      el.innerHTML = Danubra.header(Danubra.labelOf('website'), `Obsah webov danubra.sk a danubra.eu — zmeny sú na webe do 5 minút${UI.tip('Po uložení si web zmenu načíta do minúty. Hotové stránky však ešte až 5 minút drží CDN (kópie webu na rýchlych serveroch). Ak zmenu nevidíte, počkajte 5 minút a stránku obnovte.')}`)
         + `<div class="sec-tabs" role="tablist">${tabs.map(([k, l, i]) => `<button role="tab" class="sec-tab${this.tab === k ? ' on' : ''}" onclick="Web.setTab('${k}')">${Icon(i, 14)} ${l}</button>`).join('')}</div>
         <div id="web-body" style="margin-top:14px;">${this[`${this.tab}Html`]()}</div>`;
       if (this.tab === 'texts') this.paintTexts();
@@ -89,13 +89,13 @@
       return `<div class="web-tiles">
           ${tile(apply, 'prihlášok na ponuky', '#/candidates', 'user')}
           ${tile(contact, 'správ z kontaktného formulára', '#/candidates', 'mail')}
-          ${tile(enquiry, 'dopytov od firiem (punds.eu)', '#/opportunities', 'clients')}
-          ${tile(this.published, 'ponúk zverejnených na punds.sk', '#/ads', 'marketing')}
+          ${tile(enquiry, 'dopytov od firiem (danubra.eu)', '#/opportunities', 'clients')}
+          ${tile(this.published, 'ponúk zverejnených na danubra.sk', '#/ads', 'marketing')}
         </div>
         <p class="card-note">Za posledných 30 dní.${UI.tip('Počty formulárov odoslaných z webov za posledných 30 dní, bez spamu a bez neúspešných pokusov. Kliknutím na dlaždicu otvoríte, kam formuláre prišli (Uchádzači, Dopyty, Inzeráty).')} ${spam ? `Odfiltrovaný spam: ${spam}.${UI.tip('Formuláre, ktoré vyplnil robot (vyplnil skryté pole, ktoré človek nevidí). Appka ich odloží bokom, do Uchádzačov ani Dopytov sa nedostanú.')} ` : ''}${Object.keys(byLang).length ? `Podľa jazyka: ${Object.entries(byLang).map(([l, n]) => `${l.toUpperCase()} ${n}`).join(' · ')}.` : ''}</p>
         ${mailErr ? `<div class="warnbox">${Icon('alert', 14)} ${mailErr}× sa nepodarilo poslať automatický e-mail — skontrolujte schránku v Nastavenia → Schránky.</div>` : ''}
         <div class="cards" style="margin-top:12px;">
-          ${['sk', 'eu'].map((s) => `<div class="card card-pad"><div class="card-head"><div class="card-title">${s === 'sk' ? 'punds.sk — remeselníci' : 'punds.eu — firmy v Nemecku'}${Help.btn('screen.website', { size: 13 })}</div><span style="display:inline-flex;align-items:center;flex:none;">${UI.badge('skúšobná adresa', 'amber')}${UI.tip('Web zatiaľ beží len na skúšobnej adrese tejto appky. Na doménach punds.sk a punds.eu je stále starý web, kým sa domény neprepnú — dovtedy ho zákazníci nevidia.')}</span></div>
+          ${['sk', 'eu'].map((s) => `<div class="card card-pad"><div class="card-head"><div class="card-title">${s === 'sk' ? 'danubra.sk — remeselníci' : 'danubra.eu — firmy v Nemecku'}${Help.btn('screen.website', { size: 13 })}</div><span style="display:inline-flex;align-items:center;flex:none;">${UI.badge('skúšobná adresa', 'amber')}${UI.tip('Web zatiaľ beží len na skúšobnej adrese tejto appky. Na doménach danubra.sk a danubra.eu je stále starý web, kým sa domény neprepnú — dovtedy ho zákazníci nevidia.')}</span></div>
             <p class="card-note" style="margin:0 0 10px;">${s === 'sk' ? `Jazyky ${SITE_LANGS.sk.map((l) => l.toUpperCase()).join(', ')}. Ponuky sú z Inzerátov. Po rumunsky, poľsky a bulharsky web pripomína, že vedúci partie musí hovoriť po nemecky alebo anglicky.` : 'Jazyky DE, EN. Dopyty idú do Dopytov.'}</p>
             <div class="js-acts">${SITE_LANGS[s].map((l) => `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${webUrl(s, l)}">${l.toUpperCase()}</a>`).join('')}${UI.tip('Otvorí web v danom jazyku v novom okne — presne tak, ako ho vidia návštevníci.')}</div></div>`).join('')}
           <div class="card card-pad"><div class="card-head"><div class="card-title">Automatické e-maily${Help.btn('card.mailboxes.web', { size: 13 })}</div>${!(this.cfg.mailbox_sk || this.cfg.mailbox_eu) ? UI.badge('vypnuté', 'gray') : this.cfg.confirm ? UI.badge('zapnuté', 'green') : UI.badge('len upozornenie Vám', 'amber')}</div>
@@ -110,7 +110,7 @@
       const c = val(this.rows, 'contacts', {}), co = val(this.rows, 'company', {});
       const v = (s, k) => (c[s] && c[s][k]) || '';
       return `<div class="card card-pad"><form id="web-contacts" onsubmit="event.preventDefault();Web.saveContacts()">
-        <div class="form-section">punds.sk${UI.tip('Číslo alebo e-mail sa vymení na celom webe punds.sk naraz: v hlavičke, v päte, na stránke Kontakt aj v tlačidlách na zavolanie. Potvrdzovacie e-maily uchádzačom majú vlastné číslo v Nastavenia → Schránky.')}</div>
+        <div class="form-section">danubra.sk${UI.tip('Číslo alebo e-mail sa vymení na celom webe danubra.sk naraz: v hlavičke, v päte, na stránke Kontakt aj v tlačidlách na zavolanie. Potvrdzovacie e-maily uchádzačom majú vlastné číslo v Nastavenia → Schránky.')}</div>
         <div class="form-grid">
           ${UI.field('sk_phone1', 'Telefón (hlavný)', { value: v('sk', 'phone1'), placeholder: D.sk.phone1,
             tip: 'Nahradí na webe všade číslo, ktoré je sivo v poli. Píšte s predvoľbou, napr. +421 910 123 456 — inak tlačidlo na zavolanie z mobilu nebude fungovať.' })}
@@ -120,14 +120,14 @@
           ${UI.field('whatsapp', 'WhatsApp', { value: c.whatsapp || '', placeholder: D.whatsapp,
             tip: 'Číslo, na ktoré sa otvorí WhatsApp po kliknutí na tlačidlo WhatsApp na webe. Na tom čísle musí byť WhatsApp; píšte ho s predvoľbou, napr. +421.' })}
         </div>
-        <div class="form-section">punds.eu${UI.tip('Rovnako ako pri punds.sk: číslo alebo e-mail sa vymení všade na nemeckom webe pre firmy, aj v Impressum.')}</div>
+        <div class="form-section">danubra.eu${UI.tip('Rovnako ako pri danubra.sk: číslo alebo e-mail sa vymení všade na nemeckom webe pre firmy, aj v Impressum.')}</div>
         <div class="form-grid">
           ${UI.field('eu_phone', 'Telefón', { value: v('eu', 'phone'), placeholder: D.eu.phone })}
           ${UI.field('eu_email', 'E-mail', { type: 'email', value: v('eu', 'email'), placeholder: D.eu.email })}
         </div>
         <div class="form-section">Firma</div>
         ${UI.field('md', 'Konateľ (Impressum, Geschäftsführer)', { value: co.md || '', placeholder: 'Meno a priezvisko',
-          tip: 'Ukáže sa v Impressum na punds.eu — to je v Nemecku povinná stránka s údajmi o firme. Píšte meno presne ako v obchodnom registri.' })}
+          tip: 'Ukáže sa v Impressum na danubra.eu — to je v Nemecku povinná stránka s údajmi o firme. Píšte meno presne ako v obchodnom registri.' })}
         <p class="card-note">Prázdne pole = pôvodná hodnota (sivá). Otváracie hodiny a ostatné vety sú v záložke Texty.</p>
         <div class="modal-actions"><button type="submit" class="btn btn-primary">Uložiť</button></div>
       </form></div>`;
@@ -144,13 +144,13 @@
     team() { return Array.isArray(this.rows.team) ? this.rows.team : []; },
     teamHtml() {
       const t = this.team();
-      return `<div class="js-acts" style="margin-bottom:12px;align-items:center;"><button class="btn btn-primary btn-sm" onclick="Web.member()">${Icon('plus', 14)} Pridať človeka</button>${UI.tip('Ľudia z tohto zoznamu sa ukážu na stránke O nás (punds.sk) a Über uns (punds.eu): fotka, meno, funkcia a jazyky. „Skrytý" = je tu uložený, ale na webe nie je.')}</div>
+      return `<div class="js-acts" style="margin-bottom:12px;align-items:center;"><button class="btn btn-primary btn-sm" onclick="Web.member()">${Icon('plus', 14)} Pridať človeka</button>${UI.tip('Ľudia z tohto zoznamu sa ukážu na stránke O nás (danubra.sk) a Über uns (danubra.eu): fotka, meno, funkcia a jazyky. „Skrytý" = je tu uložený, ale na webe nie je.')}</div>
         ${t.length ? `<div class="cards">${t.map((m) => `<div class="card card-pad web-member${m.active === false ? ' is-off' : ''}">
           <div class="web-member-ph">${m.photo ? `<img src="${UI.esc(m.photo)}" alt="">` : Icon('user', 28)}</div>
           <div><div class="acc-name">${UI.esc(m.name)}</div><div class="acc-loc">${UI.esc((m.role && m.role.sk) || '')}${m.langs ? ` · ${UI.esc(m.langs)}` : ''}</div>
-            <div class="acc-loc">${(m.sites || ['sk', 'eu']).map((s) => `punds.${s}`).join(', ')}${m.active === false ? ' · skrytý' : ''}</div></div>
+            <div class="acc-loc">${(m.sites || ['sk', 'eu']).map((s) => `danubra.${s}`).join(', ')}${m.active === false ? ' · skrytý' : ''}</div></div>
           <div class="js-acts"><button class="btn btn-outline btn-sm" onclick="Web.member('${m.id}')">${Icon('edit', 14)} Upraviť</button></div></div>`).join('')}</div>`
-          : UI.empty('workers', 'Zatiaľ nikto', 'Ľudia sa ukážu na stránkach O nás (punds.sk) a Über uns (punds.eu). Kým tu nikto nie je, na webe je táto časť skrytá.')}`;
+          : UI.empty('workers', 'Zatiaľ nikto', 'Ľudia sa ukážu na stránkach O nás (danubra.sk) a Über uns (danubra.eu). Kým tu nikto nie je, na webe je táto časť skrytá.')}`;
     },
     member(id) {
       const m = (id && this.team().find((x) => x.id === id)) || { id: `t${Date.now().toString(36)}`, role: {}, sites: ['sk', 'eu'], active: true };
@@ -166,8 +166,8 @@
         <div class="btn-row"><button type="button" class="btn btn-outline btn-sm" id="web-m-tr" onclick="Web.translateRole()">${Icon('repeat', 14)} Preložiť zo slovenčiny</button>${UI.tip(`Preloží umelá inteligencia (Claude) do ${SITE_LANGS.sk.filter((l) => l !== 'sk').map((l) => l.toUpperCase()).join(', ')} a prepíše tieto polia. Preklad skontrolujte — uloží sa až tlačidlom Uložiť.`)}</div>
         <div class="form-section">Kde sa ukáže${UI.tip('Zaškrtnite web, na ktorom má človek byť. Keď nezaškrtnete ani jeden, ukáže sa na oboch.')}</div>
         <div class="form-grid">
-          ${UI.field('site_sk', 'punds.sk (O nás)', { type: 'checkbox', value: (m.sites || []).includes('sk') })}
-          ${UI.field('site_eu', 'punds.eu (Über uns)', { type: 'checkbox', value: (m.sites || []).includes('eu') })}
+          ${UI.field('site_sk', 'danubra.sk (O nás)', { type: 'checkbox', value: (m.sites || []).includes('sk') })}
+          ${UI.field('site_eu', 'danubra.eu (Über uns)', { type: 'checkbox', value: (m.sites || []).includes('eu') })}
           ${UI.field('sort', 'Poradie', { type: 'number', value: m.sort || 0,
             tip: 'Menšie číslo = vyššie (skôr) na stránke. Napr. konateľ 1, ostatní 2, 3, 4…' })}
           ${UI.field('active', 'Zobrazovať na webe', { type: 'checkbox', value: m.active !== false,
@@ -201,7 +201,7 @@
       const imgs = (this.schema && this.schema.images) || [];
       const map = val(this.rows, 'images', {});
       if (!imgs.length) return UI.empty('upload', 'Zoznam fotiek sa nenačítal', 'Skúste obnoviť stránku.');
-      return `<p class="card-note" style="margin:0 0 12px;">Fotky sú zatiaľ z doterajšieho webu punds.eu (WordPress). Pred prepnutím domény ich nahraďte vlastnými —
+      return `<p class="card-note" style="margin:0 0 12px;">Fotky sú zatiaľ z doterajšieho webu (WordPress). Pred prepnutím domény ich nahraďte vlastnými —
         inak po vypnutí WordPressu zmiznú. Fotka konkrétnej ponuky sa nahráva v Inzerátoch.${UI.tip('Nahradiť = nahráte vlastnú fotku (JPG, PNG alebo WebP do 5 MB) a web ju ukáže všade namiesto tejto — kde všade, hovorí popis pod fotkou. Pôvodná = vráti späť fotku z WordPressu. Na webe do 5 minút.')}</p>
         <div class="web-photos">${imgs.map((im, i) => {
           const cur = map[im.url] || im.url;
@@ -221,6 +221,8 @@
       if (file.size > 5 * 1024 * 1024) { UI.toast('Fotka môže mať najviac 5 MB', 'err'); return null; }
       const ext = (file.name.match(/\.(jpe?g|png|webp)$/i) || ['.jpg'])[0].toLowerCase();
       const path = `${folder}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}${ext}`;
+      // Úložisko v Supabase sa volá stále 'punds-web' (migrácia 059) — meno sa nemení,
+      // inak by sa stratili fotky, ktoré na webe už sú.
       const { error } = await DB.client.storage.from('punds-web').upload(path, file, { contentType: file.type, upsert: false });
       if (error) { UI.toast('Fotka sa nenahrala: ' + error.message, 'err'); return null; }
       return DB.client.storage.from('punds-web').getPublicUrl(path).data.publicUrl;
@@ -250,7 +252,7 @@
       if (!g.langs.includes(x.lang)) x.lang = g.langs[0];
       return `<div class="card card-pad">
         <div class="form-grid">
-          ${UI.field('site', 'Web', { value: x.site, options: [['sk', 'punds.sk'], ['eu', 'punds.eu']], onchange: "Web.setTx('site', this.value)" })}
+          ${UI.field('site', 'Web', { value: x.site, options: [['sk', 'danubra.sk'], ['eu', 'danubra.eu']], onchange: "Web.setTx('site', this.value)" })}
           ${UI.field('page', 'Stránka', { value: x.page, options: this.pagesOf(x.site), onchange: "Web.setTx('page', this.value)",
             tip: 'Ktorú stránku webu upravujete. „Spoločné" sú texty, ktoré sú na každej stránke: menu, päta a hlásenia formulárov.' })}
           ${UI.field('lang', 'Jazyk', { value: x.lang, options: g.langs.map((l) => [l, LANG[l] || l]), onchange: "Web.setTx('lang', this.value)",
@@ -310,13 +312,13 @@
       if (await this.save(this.overKey(), all)) UI.toast(`Preložené do: ${Object.keys(r).map((l) => l.toUpperCase()).join(', ')} — skontrolujte`, 'ok');
     },
 
-    /** Preklad cez Claude (punds-translate, režim texty). */
+    /** Preklad cez Claude (danubra-translate, režim texty). */
     async translate(texts, from, langs, btn) {
       const label = btn ? btn.innerHTML : '';
       if (btn) { btn.disabled = true; btn.textContent = 'Prekladám…'; }
       try {
         const { data: s } = await DB.client.auth.getSession();
-        const res = await fetch('/.netlify/functions/punds-translate', { method: 'POST',
+        const res = await fetch('/.netlify/functions/danubra-translate', { method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(s && s.session && s.session.access_token) || ''}` },
           body: JSON.stringify({ texts, from, langs }) });
         const j = await res.json().catch(() => ({}));

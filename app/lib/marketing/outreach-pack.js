@@ -9,7 +9,7 @@
 //   context      firma + hľadanie, z ktorého prišla + Nastavenia
 //   contactOf    kto firmu oslovuje (vizitka schránky, inak člen appky)
 //   presentation PDF prispôsobené remeslu a regiónu
-//   email        celé HTML + text v dizajne punds (s odhlásením)
+//   email        celé HTML + text v dizajne DANUBRA (s odhlásením)
 //
 // Testy: node app/tests/outreach-layout.test.js
 // ============================================================================
@@ -52,7 +52,7 @@ function presentation({ lead, search, marketing, supplier, contact, pitch = null
 }
 
 /**
- * E-mail v dizajne punds.
+ * E-mail v dizajne DANUBRA.
  * @param {Object} o { lead, search, marketing, supplier, mb (schránka), body (text z okna, aj s „-- podpis"),
  *                     subject, lang, step, unsubscribeUrl, assets, attachment: { name, pages } | null, pitch }
  */

@@ -74,7 +74,7 @@ console.log('\nČasová os');
       { id: 'c2', lead_id: 'l1', kind: 'call', summary: 'oprava: o 3 týždne', happened_at: '2026-10-29T10:00:00Z', corrects_id: 'c1', created_at: '2026-10-30T08:00:00Z' },
       { id: 'c3', lead_id: 'l1', kind: 'note', summary: 'archív', happened_at: '2026-10-30T08:00:00Z', archived_at: '2026-10-30T09:00:00Z' },
     ],
-    outreach: [{ id: 'o1', lead_id: 'l1', step: 1, status: 'sent', sent_at: '2026-10-20T08:00:00Z', subject: 'Fachkräfte', to_email: 'a@b.de', attachments: [{ name: 'punds-trockenbau.pdf' }] }],
+    outreach: [{ id: 'o1', lead_id: 'l1', step: 1, status: 'sent', sent_at: '2026-10-20T08:00:00Z', subject: 'Fachkräfte', to_email: 'a@b.de', attachments: [{ name: 'danubra-trockenbau.pdf' }] }],
     events: [{ id: 'e1', outreach_id: 'o1', type: 'open', at: '2026-10-20T09:00:00Z' }, { id: 'e2', outreach_id: 'o1', type: 'open', at: '2026-10-21T09:00:00Z' },
       { id: 'e3', outreach_id: 'o1', type: 'open', at: '2026-10-20T08:00:03Z', automated: true, auto_reason: 'Apple' }, { id: 'e4', outreach_id: 'o1', type: 'reply', at: '2026-10-22T09:00:00Z' }],
   });
@@ -82,7 +82,7 @@ console.log('\nČasová os');
   ok(tl[0].type === 'contact' && tl[0].corrections.length === 1 && /3 týždne/.test(tl[0].corrections[0].summary), 'najnovšie hore, oprava pod pôvodným');
   ok(/Zavolať neskôr/.test(tl[0].title) && /s Hans/.test(tl[0].sub) && /od nás Jana/.test(tl[0].sub) && tl[0].next.date === '2026-11-13', 'kto, s kým, výsledok a ďalší krok');
   ok(tl.some(x => /Otvoril e-mail · 2×/.test(x.title)) && tl.some(x => /možno automaticky/.test(x.title)), 'otvorenia zoskupené, automat zvlášť');
-  ok(tl.some(x => x.type === 'mail' && /punds-trockenbau\.pdf/.test(x.sub)), 'pri e-maile je vidieť prílohu');
+  ok(tl.some(x => x.type === 'mail' && /danubra-trockenbau\.pdf/.test(x.sub)), 'pri e-maile je vidieť prílohu');
   ok(C.relTime('2026-10-30T08:30:00Z', NOW) === 'pred 30 min' && /^včera/.test(C.relTime('2026-10-29T08:00:00Z', NOW)), 'relatívny čas');
 }
 

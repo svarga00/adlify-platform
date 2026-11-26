@@ -144,8 +144,17 @@
   const filterDefs = (cfg) => (cfg.filters || []).filter(d => d.type !== 'search');
   function split(cfg) {
     const defs = filterDefs(cfg);
-    const max = cfg.maxPrimary == null ? 4 : cfg.maxPrimary;
-    const primary = defs.filter(d => !d.more).slice(0, max);
+    // Dva najpoužívanejšie filtre sú v lište, ostatné pod „Filtre“ — lišta
+    // s piatimi výbermi sa čítala ako ovládací panel, nie ako zoznam.
+    // Prepínač („Len s problémom") v lište ostáva — je to jeden klik.
+    let primary;
+    if (cfg.maxPrimary == null) {
+      const first = defs.filter(d => !d.more).slice(0, 4);
+      const dd = first.filter(d => d.type !== 'toggle').slice(0, 2);
+      primary = first.filter(d => d.type === 'toggle' || dd.includes(d));
+    } else {
+      primary = defs.filter(d => !d.more).slice(0, cfg.maxPrimary);
+    }
     return { defs, primary, more: defs.filter(d => !primary.includes(d)) };
   }
 
@@ -180,6 +189,7 @@
   // ── HTML ──────────────────────────────────────────────────────────────────
   function html(cfg) {
     bind();
+    queueFit();
     const inst = instance(cfg);
     const v = compute(inst);
     const s = searchDef(cfg);
@@ -218,7 +228,7 @@
     const bar = primary.map(d => (d.type === 'toggle' ? toggleHtml(inst, d) : dropdownHtml(inst, d))).join('');
     const moreBtn = defs.length ? `<button type="button" class="dl-more-btn${inst.panel ? ' on' : ''}${more.length ? '' : ' dl-only-m'}"
         data-dl-a="panel" aria-expanded="${inst.panel}" aria-controls="dl-${inst.id}-panel">
-        ${ico('filter', 14)}<span class="dl-only-d">Ďalšie filtre</span><span class="dl-only-m">Filtre</span>
+        ${ico('filter', 14)}<span>Filtre</span>
         ${moreOn ? `<em class="dl-only-d">${moreOn}</em>` : ''}${allOn ? `<em class="dl-only-m">${allOn}</em>` : ''}
       </button>` : '';
     return bar + moreBtn;
@@ -424,7 +434,7 @@
     const hasDef = filterDefs(cfg).some(x => L().isActive(x, d.f[x.key]));
     const notDef = hasDef && !L().isDefault(state, cfg);
     return `<div class="dl-chips">
-        ${chips.length ? `<span class="dl-chips-l">Filtre:</span>` : `<span class="dl-chips-l">Bez filtrov — vidíte všetko.</span>`}
+        ${chips.length ? `<span class="dl-chips-l">Filtre:</span>` : ''}
         ${chips.map(c => `<span class="dl-chip"><span>${esc(c.label)}${c.text ? `: <b>${esc(c.text)}</b>` : ''}</span>
           <button type="button" data-dl-a="clr" data-k="${esc(c.key)}" aria-label="Zrušiť filter ${esc(c.label)}"
             title="Zrušiť tento filter">${ico('x', 12)}</button></span>`).join('')}
@@ -555,8 +565,12 @@
     const body = groups.map(gr => (g ? `<div class="dl-sec dl-sec-${esc(gr.tone || 'gray')}" role="row">
         <span role="cell" class="dl-sec-in"><i></i><span>${esc(gr.label)}</span> <span class="dl-sec-n">${gr.rows.length}</span></span></div>` : '')
       + gr.rows.map(r => rowHtml(inst, r)).join('')).join('');
+    // Hlavička je vo vlastnom ráme (`.dl-hx`), ktorý sa lepí pod horný pruh;
+    // do boku sa posúvajú riadky (`.dl-bx`) a hlavička ide s nimi (`onScroll`).
+    // Keby bola hlavička v tom istom posúvanom ráme ako riadky, prilepiť
+    // k stránke by sa nedala.
     return `${styleHtml(inst)}<div class="dl-table card" role="table" aria-label="${esc(cfg.label || 'Zoznam')}"
-        aria-rowcount="${v.rows.length}">${headHtml(inst)}${body}${footHtml(inst, v)}</div>`;
+        aria-rowcount="${v.rows.length}"><div class="dl-hx" role="rowgroup">${headHtml(inst)}</div><div class="dl-bx" role="rowgroup">${body}${footHtml(inst, v)}</div></div>`;
   }
 
   /**
@@ -595,6 +609,7 @@
     part('panel', () => panelHtml(inst));
     part('cols', () => colsPanelHtml(inst));
     part('sub', () => subHtml(inst));
+    queueFit();
     part('body', () => bodyHtml(inst, v));
     const q = searchDef(inst.cfg);
     const input = root.querySelector('[data-dl-a="q"]');
@@ -623,8 +638,46 @@
 
   function openRow(inst, rowEl) {
     const row = inst.byId && inst.byId.get(rowEl.getAttribute('data-dl-row'));
-    if (row && typeof inst.cfg.rowClick === 'function') inst.cfg.rowClick(row);
+    if (row && typeof inst.cfg.rowClick === 'function') { startNav(inst, row); inst.cfg.rowClick(row); }
   }
+
+  // ── Jeden po druhom ───────────────────────────────────────────────────────
+  // „Vedieť ich riešiť jednu po druhej." Keď sa zo zoznamu otvorí záznam,
+  // zoznam si pamätá, ktoré riadky sú práve vidieť a kde v nich človek je.
+  // Panel so záznamom potom ukáže „2 z 5" a šípky (kreslí ich `UI.modal`,
+  // číta `DataList.nav`) — ďalší záznam sa otvorí bez návratu do zoznamu.
+  let nav = null;
+  function startNav(inst, row) {
+    const rows = compute(inst).rows;
+    const ids = rows.map(r => String(r.id));
+    const i = ids.indexOf(String(row.id));
+    nav = i < 0 || ids.length < 2 ? null : { id: inst.id, ids, i, title: null };
+  }
+  /** Otvorí prvý viditeľný riadok zoznamu (tlačidlo „Riešiť po jednej"). */
+  function openFirst(id) {
+    const inst = reg[cssId(id)];
+    if (!inst || typeof inst.cfg.rowClick !== 'function') return false;
+    const rows = compute(inst).rows;
+    if (!rows.length) return false;
+    startNav(inst, rows[0]);
+    inst.cfg.rowClick(rows[0]);
+    return true;
+  }
+  function stepNav(d) {
+    if (!nav) return;
+    const inst = reg[nav.id];
+    if (!inst) { nav = null; return; }
+    const rows = compute(inst).rows;
+    const byId = new Map(rows.map(r => [String(r.id), r]));
+    // Riadky, ktoré medzitým zo zoznamu vypadli (faktúra sa zaplatila), sa preskočia.
+    let i = nav.i + d;
+    while (i >= 0 && i < nav.ids.length && !byId.has(nav.ids[i])) i += d;
+    if (i < 0 || i >= nav.ids.length) return;
+    nav.i = i; nav.title = null;
+    inst.cfg.rowClick(byId.get(nav.ids[i]));
+  }
+  function endNav() { nav = null; }
+  function navState() { return nav ? { i: nav.i, n: nav.ids.length, title: nav.title, setTitle(t) { if (nav) nav.title = t; } } : null; }
 
   function act(inst, el) {
     const s = inst.state, a = el.getAttribute('data-dl-a');
@@ -887,9 +940,45 @@
   }
 
   /** Tieň pri prvom stĺpci, keď je tabuľka posunutá do boku. */
+  // ── Hlavička tabuľky stojí ────────────────────────────────────────────────
+  // „Ak je niekde tabuľka, prvý riadok by mohol byť pevný." Hlavička sa pri
+  // posúvaní stránky prilepí pod horný pruh (`--dl-top` = jeho výška).
+  let fitQueued = false;
+  function fitAll() {
+    fitQueued = false;
+    if (typeof document === 'undefined' || !document.querySelectorAll) return;
+    const bar = [document.querySelector('.topbar'), document.querySelector('.mobile-head')]
+      .find(el => el && el.offsetParent !== null);
+    document.documentElement.style.setProperty('--dl-top', `${bar ? bar.offsetHeight : 0}px`);
+    document.querySelectorAll('.dl-table > .dl-bx').forEach(syncHead);
+    markStuck();
+  }
+  function queueFit() {
+    if (fitQueued || typeof requestAnimationFrame !== 'function') return;
+    fitQueued = true;
+    requestAnimationFrame(fitAll);
+  }
+  /** Hlavička ide do boku spolu s riadkami. */
+  function syncHead(bx) {
+    const t = bx.parentElement;
+    const hx = t && t.querySelector(':scope > .dl-hx');
+    if (hx && hx.scrollLeft !== bx.scrollLeft) hx.scrollLeft = bx.scrollLeft;
+    if (t) t.classList.toggle('is-scrolled', bx.scrollLeft > 2);
+  }
+  /** Prilepená hlavička má rovné rohy a tieň — vidno, že pod ňou niečo beží. */
+  function markStuck() {
+    if (typeof document === 'undefined' || !document.querySelectorAll) return;
+    const top = parseFloat(document.documentElement.style.getPropertyValue('--dl-top')) || 0;
+    document.querySelectorAll('.dl-table > .dl-hx').forEach((h) => {
+      const r = h.parentElement.getBoundingClientRect();
+      h.classList.toggle('is-stuck', r.top < top - 1 && r.bottom > top + 40);
+    });
+  }
+
   function onScroll(e) {
     const t = e.target;
-    if (t && t.classList && t.classList.contains('dl-table')) t.classList.toggle('is-scrolled', t.scrollLeft > 2);
+    if (t && t.classList && t.classList.contains('dl-bx')) syncHead(t);
+    else if (t === document || t === document.documentElement || t === document.body) markStuck();
   }
 
   function bind() {
@@ -910,6 +999,7 @@
     document.addEventListener('pointercancel', onPointerUp);
     document.addEventListener('dblclick', onDblClick);
     document.addEventListener('scroll', onScroll, true);
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', queueFit);
   }
 
   // ── Verejné API ───────────────────────────────────────────────────────────
@@ -941,7 +1031,7 @@
     const inst = reg[cssId(id)];
     return inst ? JSON.parse(JSON.stringify(inst.state)) : null;
   }
-  const API = { html, render, refresh, set, reset, visible, state, quickRanges, _reg: reg };
+  const API = { html, render, refresh, set, reset, visible, state, quickRanges, openFirst, step: stepNav, endNav, navState, _reg: reg };
   window.DataList = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

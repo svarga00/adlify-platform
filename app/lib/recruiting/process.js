@@ -54,37 +54,41 @@
       key: 'proof',
       n: 2,
       title: 'Preveriť',
-      lead: 'To, čo povedal do telefónu, si overte u niekoho iného.',
-      why: 'Toto je krok, ktorý sa predtým volal „overenie". Je tu preto, že do telefónu '
-        + 'povie každý všetko. Bez neho ide na nemeckú stavbu človek, ktorého prax nikto '
-        + 'nevidel — a prvý, komu to praskne, je náš odberateľ.',
+      // „To preverovanie tiež menej komplikovane a striktne." Stačí **jedna**
+      // vec, ktorá potvrdí, čo povedal do telefónu (`min: 1`) — referencia,
+      // jeho fotky alebo živnosť v registri. Videohovor kvôli nemčine sa už
+      // nerobí (pýtame sa na ňu v hovore); položka ostáva v zozname len kvôli
+      // poradiu starých zaškrtnutí.
+      lead: 'Stačí jedna vec, ktorá potvrdí, čo povedal do telefónu.',
+      why: 'Do telefónu sa dá povedať čokoľvek. Jeden telefonát tomu, pre koho robil, '
+        + 'alebo pár jeho fotiek zaberie päť minút a ušetrí zlý prvý týždeň na stavbe.',
+      min: 1,
       items: [
-        { text: 'Fotky hotovej práce — nie z internetu, jeho vlastné',
+        { text: 'Fotky vlastnej práce',
           old: [['k3', 0]] },
         { text: 'Zavolané tomu, pre koho robil naposledy',
           old: [['k3', 1]],
-          hint: 'Jedna otázka stačí: „Vzali by ste ho znova?" Zaváhanie je odpoveď.' },
+          hint: 'Jedna otázka stačí: „Vzali by ste ho znova?"' },
         { text: 'Živnosť nájdená v registri (zrsr.sk, rzp.cz)',
           old: [['k3', 2]] },
         { text: 'Videohovor — ako hovorí po nemecky (Michaela)',
-          old: [['k3', 4]],
-          hint: 'Nemusí byť dobrý. Musí rozumieť pokynom bez prekladateľa.' },
+          old: [['k3', 4]], retired: true },
         { text: 'Partia: kto je kontaktná osoba a ako dlho spolu robia',
-          crewOnly: true, old: [['k2', 14]], oldStep: [] },
+          crewOnly: true, optional: true, old: [['k2', 14]], oldStep: [] },
       ],
     },
     {
       key: 'deal',
       n: 3,
       title: 'Dohodnúť',
-      lead: 'Sadzba, turnus a nástup — písomne, nie po telefóne.',
-      why: 'Čo nie je napísané, to si o mesiac na stavbe pamätá každý inak. '
-        + 'A spor o hodinovku sa vždy rieši vtedy, keď už tam ten človek je.',
+      lead: 'Sadzba, fakturácia a deň nástupu — písomne, stačí správa.',
+      why: 'Čo nie je napísané, to si o mesiac na stavbe pamätá každý inak.',
       items: [
-        { text: 'Sadzba a ako sa fakturuje — poslané písomne',
-          old: [['k4', 0]] },
+        { text: 'Sadzba a fakturácia za 2 týždne — poslané písomne',
+          old: [['k4', 0]],
+          hint: 'Stačí správa vo WhatsApp: sadzba za hodinu, faktúra každé 2 týždne, splatnosť od doručenia.' },
         { text: 'Turnus 3+1 a približne 50 hodín týždenne potvrdené',
-          old: [['k4', 1]] },
+          old: [['k4', 1]], retired: true },
         { text: 'Písomné „Súhlasím, nastupujem dňa X"',
           old: [['k4', 6]],
           hint: 'Stačí správa vo WhatsApp. Dôležitý je dátum, nie forma.' },
@@ -105,7 +109,7 @@
         { text: 'A1 podané alebo vybavené',
           old: [['k5', 1]],
           hint: 'Podané stačí. Potvrdenie chodí týždne a stavba nepočká.' },
-        { text: 'Zmluva o dielo alebo rámcová zmluva podpísaná',
+        { text: 'Rámcová zmluva o dielo a objednávka podpísané',
           old: [['k5', 2]] },
       ],
     },
@@ -147,11 +151,11 @@
   const FLAGS = {
     key: 'flags',
     title: 'Červené vlajky',
-    hint: 'Zaškrtnutie nie je pokrok, ale varovanie. Dve a viac znamenajú zastaviť sa.',
+    hint: 'Zaškrtnutie nie je pokrok, ale varovanie. Rozhodnutie je na Vás.',
     items: [
       'Pýta zálohu alebo preplatenie cesty vopred',
       'Žiadna fotka práce, žiadna referencia',
-      'Vyhýba sa videohovoru (nemčina)',
+      { text: 'Vyhýba sa videohovoru (nemčina)', retired: true },
       'Mení odpovede — živnosť raz má, raz nemá',
       '„Kedy budú peniaze?" ako prvá otázka',
     ],
@@ -163,6 +167,9 @@
   /** Platí položka pre tohto kandidáta? Otázky pre partie u jednotlivca nie. */
   function itemApplies(item, type) {
     if (typeof item === 'string') return true;
+    // Vyradená položka ostáva v poli len kvôli poradiu (zaškrtnutia sú uložené
+    // podľa indexu) — nikomu sa už neukazuje.
+    if (item.retired) return false;
     if (item.crewOnly) return type === 'crew';
     return true;
   }
@@ -175,6 +182,7 @@
         text: itemText(item),
         hint: (item && item.hint) || null,
         auto: (item && item.auto) || null,
+        optional: !!(item && item.optional),
         applies: itemApplies(item, type),
       }))
       .filter(x => x.applies);
@@ -224,12 +232,17 @@
    */
   function stepProgress(step, checks, type, candidate) {
     const items = applicableItems(step, type);
-    const done = items.filter(i => itemDone(step, i.index, candidate, checks)).length;
+    const hotove = items.filter(i => itemDone(step, i.index, candidate, checks)).length;
+    // Krok s `min` je hotový, keď je splnených aspoň toľko vecí („stačí
+    // jedna"). Nepovinné položky sa do potrebného počtu nerátajú.
+    const povinne = items.filter(i => !i.optional).length;
+    const total = step.min ? Math.min(step.min, povinne) : povinne;
+    const done = Math.min(hotove, total);
     return {
       key: step.key, n: step.n, title: step.title, lead: step.lead, why: step.why,
-      done, total: items.length,
-      complete: items.length > 0 && done === items.length,
-      percent: items.length ? Math.round((done / items.length) * 100) : 0,
+      done, total, min: step.min || null, checked: hotove,
+      complete: total > 0 && done >= total,
+      percent: total ? Math.round((done / total) * 100) : 0,
     };
   }
 
@@ -249,8 +262,8 @@
 
     const set = checkedSet(checks);
     const flags = FLAGS.items
-      .map((text, index) => ({ index, text, raised: set.has(`flags:${index}`) }))
-      .filter(f => f.raised);
+      .map((it, index) => ({ index, text: itemText(it), retired: !!(it && it.retired), raised: set.has(`flags:${index}`) }))
+      .filter(f => f.raised && !f.retired);
 
     const afterItems = AFTER.items
       .map((text, index) => ({ index, text, done: set.has(`${AFTER.key}:${index}`)
@@ -276,18 +289,19 @@
   /**
    * Jedna vec, ktorá sa má spraviť teraz. Nie zoznam.
    *
-   * Dve a viac červených vlajok majú prednosť pred postupom: pokračovať
-   * v nábore človeka, pri ktorom zazneli dve varovania, je drahšie než
-   * zastaviť sa a rozhodnúť.
+   * Varovania nábor nezastavujú. Tri a viac sa pripomenú navrchu, aby ich
+   * človek videl pohromade — rozhodnutie je na ňom.
    */
   function nextThing(candidate, steps, flags) {
     const c = candidate || {};
     if (c.outcome === 'rejected') {
       return { key: 'closed', title: 'Zamietnutý', what: 'Dôvod je zapísaný. Nič netreba.' };
     }
-    if ((flags || []).length >= 2) {
-      return { key: 'flags', title: 'Zastavte sa',
-        what: `${flags.length} červené vlajky. Rozhodnite, či vôbec pokračovať.`, hot: true };
+    // Varovania nábor nezastavujú — tri a viac sa len pripomenú navrchu,
+    // rozhodnutie je na človeku.
+    if ((flags || []).length >= 3) {
+      return { key: 'flags', title: 'Zvážte, či pokračovať',
+        what: `Pri tomto človeku sú ${flags.length} varovania. Pozrite si ich a rozhodnite.` };
     }
     const step = (steps || []).find(s => !s.complete);
     if (!step) {

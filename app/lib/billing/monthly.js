@@ -37,7 +37,45 @@
   }
 
   /**
-   * Plán na mesiac. Pre každú zákazku jeden riadok:
+   * Týždeň (KW) z „2026-W47" alebo z dátumu: { from: pondelok, to: nedeľa, week, year }.
+   * Nemeckému odberateľovi sa podľa Rahmenvertrag fakturuje týždenne.
+   */
+  function weekRange(w) {
+    const s = String(w || '').trim();
+    const m = s.match(/^(\d{4})-W(\d{1,2})$/i);
+    let monday;
+    if (m) {
+      const jan4 = `${m[1]}-01-04`;
+      monday = P().addDays(P().mondayOf(jan4), (Number(m[2]) - 1) * 7);
+    } else {
+      monday = P().mondayOf(day(s) || new Date().toISOString().slice(0, 10));
+    }
+    const k = P().isoWeek(monday);
+    return { from: monday, to: P().addDays(monday, 6), week: k.week, year: k.year };
+  }
+
+  /** Predchádzajúci týždeň — fakturuje sa po skončení KW. Vráti „2026-W47". */
+  function previousWeek(today) {
+    const d = day(today) || new Date().toISOString().slice(0, 10);
+    const r = weekRange(P().addDays(P().mondayOf(d), -7));
+    return `${r.year}-W${String(r.week).padStart(2, '0')}`;
+  }
+
+  /**
+   * Hranice obdobia zákazky pre zvolený týždeň podľa dĺžky obdobia odberateľa
+   * (`billing_period_days`): 7 = ten KW, 14 = ten KW a predchádzajúci,
+   * mesačný odberateľ sa v týždennom behu preskočí.
+   */
+  function rangeForWeek(week, days) {
+    const r = weekRange(week);
+    const n = Math.round(Number(days) || 7);
+    if (n >= 28) return { skip: 'Odberateľ má mesačnú fakturáciu — fakturuje sa v mesačnom behu.' };
+    const weeks = Math.max(1, Math.round(n / 7));
+    return { from: P().addDays(r.from, -7 * (weeks - 1)), to: r.to };
+  }
+
+  /**
+   * Plán na obdobie (mesiac, alebo týždeň cez `rangeOf`). Pre každú zákazku jeden riadok:
    *   action: 'create'  — obdobie neexistuje, hodiny sú → založiť, uzavrieť, faktúra
    *           'close'   — obdobie je otvorené → uzavrieť, faktúra
    *           'invoice' — obdobie je uzavreté bez faktúry → faktúra
@@ -54,7 +92,15 @@
     }
     const fakturovane = new Set((o.invoices || []).filter(i => i && i.status !== 'cancelled' && i.period_id).map(i => i.period_id));
 
+    const spolocne = { from, to };
     return subs.map((sc) => {
+      // Každá zákazka môže mať iné hranice (odberateľ 7 / 14 dní / mesiac).
+      const vlastne = typeof o.rangeOf === 'function' ? o.rangeOf(sc) : null;
+      if (vlastne && vlastne.skip) {
+        return { subcontract: sc, from: spolocne.from, to: spolocne.to, preview: null, hours: 0, cents: 0,
+          unapproved: 0, action: 'skip', why: vlastne.skip };
+      }
+      const { from, to } = vlastne && vlastne.from ? vlastne : spolocne;
       const asg = asgBySub.get(sc.id) || [];
       const ids = new Set(asg.map(a => a.id));
       const ts = (o.timesheets || []).filter(t => ids.has(t.assignment_id));
@@ -72,17 +118,17 @@
             hours: Number(presne.hours_construction || 0) + Number(presne.hours_workshop || 0) + Number(presne.hours_travel || 0),
             why: 'Obdobie je uzavreté, chýba faktúra.' };
         }
-        if (!pv.totalHours) return { ...riadok, action: 'skip', period: presne, why: pv.unapproved.length ? 'Hodiny čakajú na schválenie.' : 'V mesiaci nie sú žiadne hodiny.' };
+        if (!pv.totalHours) return { ...riadok, action: 'skip', period: presne, why: pv.unapproved.length ? 'Hodiny čakajú na schválenie.' : 'V období nie sú žiadne hodiny.' };
         return { ...riadok, action: 'close', period: presne, why: 'Obdobie je otvorené — uzavrie sa a vznikne faktúra.' };
       }
-      if (ine.length) return { ...riadok, action: 'skip', why: 'Zákazka má v tomto mesiaci iné obdobie — rieši sa v nej ručne.' };
-      if (!pv.totalHours) return { ...riadok, action: 'skip', why: pv.unapproved.length ? 'Hodiny čakajú na schválenie.' : 'V mesiaci nie sú žiadne hodiny.' };
-      return { ...riadok, action: 'create', why: 'Založí sa obdobie za mesiac, uzavrie a vznikne faktúra.' };
+      if (ine.length) return { ...riadok, action: 'skip', why: 'Zákazka má v tomto čase iné obdobie — rieši sa v nej ručne.' };
+      if (!pv.totalHours) return { ...riadok, action: 'skip', why: pv.unapproved.length ? 'Hodiny čakajú na schválenie.' : 'V období nie sú žiadne hodiny.' };
+      return { ...riadok, action: 'create', why: 'Založí sa obdobie, uzavrie a vznikne faktúra.' };
     }).sort((a, b) => ['create', 'close', 'invoice', 'skip', 'done'].indexOf(a.action)
       - ['create', 'close', 'invoice', 'skip', 'done'].indexOf(b.action) || (b.cents - a.cents));
   }
 
-  const API = { plan, monthRange, previousMonth };
+  const API = { plan, monthRange, previousMonth, weekRange, previousWeek, rangeForWeek };
   if (typeof window !== 'undefined') window.DanubraMonthly = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
