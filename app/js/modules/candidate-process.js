@@ -139,7 +139,7 @@
               <span style="display:block;font-size:12px;color:var(--ink-mute);">
                 ${UI.esc(step.lead)}</span>
               <span style="display:block;font-size:11.5px;color:var(--ink-mute);">
-                ${sp.done} z ${sp.total}${notes.length ? ` · ${notes.length} ${notes.length === 1 ? 'poznámka' : 'poznámok'}` : ''}</span>
+                ${sp.min ? (sp.complete ? `hotovo — zaškrtnuté ${sp.checked}` : `stačí ${sp.min === 1 ? 'jedna vec' : `${sp.min} veci`} z ${items.filter(i => !i.optional).length}`) : `${sp.done} z ${sp.total}`}${notes.length ? ` · ${notes.length} ${notes.length === 1 ? 'poznámka' : 'poznámok'}` : ''}</span>
             </span>
             <span style="color:var(--ink-mute);display:flex;transform:rotate(${isOpen ? '90' : '0'}deg);">
               ${Icon('chevron', 15)}</span>
@@ -187,7 +187,7 @@
           <input type="checkbox" ${done ? 'checked' : ''}
             onchange="CandProc.toggle('${stepKey}',${it.index},this.checked)">
           <span style="flex:1;font-size:13.5px;${done ? 'color:var(--ink-mute);' : ''}">
-            ${UI.esc(it.text)}
+            ${UI.esc(it.text)}${it.optional ? ' <em style="font-style:normal;font-size:11.5px;color:var(--ink-mute);">· nepovinné</em>' : ''}
             ${it.hint ? `<span style="display:block;font-size:11.5px;color:var(--ink-mute);">
               ${UI.esc(it.hint)}</span>` : ''}
             ${done && c?.checked_at ? `<span style="display:block;font-size:11.5px;color:var(--ink-mute);">
@@ -254,7 +254,9 @@
 
     flagsHtml(cand) {
       const isOpen = this.open === 'flags';
-      const raised = P.FLAGS.items.filter((_, i) => this.isChecked('flags', i)).length;
+      // Vyradené varovania (napr. videohovor) sa už neukazujú ani nerátajú.
+      const vlajky = P.FLAGS.items.map((it, index) => ({ index, text: P.itemText(it), retired: !!(it && it.retired) })).filter(f => !f.retired);
+      const raised = vlajky.filter(f => this.isChecked('flags', f.index)).length;
       return `
         <div class="acc${raised ? ' acc-warn' : ''}">
           <button type="button" class="acc-head" onclick="CandProc.toggleStep('flags')">
@@ -269,8 +271,7 @@
           </button>
           ${isOpen ? `<div class="acc-body">
             <div style="font-size:12px;color:var(--ink-mute);margin-bottom:10px;">${UI.esc(P.FLAGS.hint)}</div>
-            ${P.FLAGS.items.map((text, index) =>
-              this.itemHtml(cand, 'flags', { index, text })).join('')}
+            ${vlajky.map(f => this.itemHtml(cand, 'flags', { index: f.index, text: f.text })).join('')}
             ${this.notesBlock('flags', this.notesOf('flags'))}
           </div>` : ''}
         </div>`;

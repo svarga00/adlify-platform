@@ -1360,29 +1360,28 @@
     },
     'cand.step.proof': {
       title: 'Krok 2 — Preveriť',
-      lead: 'To, čo povedal do telefónu, si overte u niekoho iného. Toto bolo „overenie".',
+      lead: 'Stačí jedna vec, ktorá potvrdí, čo povedal do telefónu.',
       what: [
-        'Štyri veci: fotky jeho vlastnej práce, telefonát tomu, pre koho robil '
-        + 'naposledy, živnosť nájdená v registri, videohovor na nemčinu.',
-        'Pri partii k tomu pribudne, kto je kontaktná osoba a ako dlho spolu robia.',
+        'Tri možnosti, stačí jedna: fotky jeho vlastnej práce, telefonát tomu, pre koho '
+        + 'robil naposledy, alebo živnosť nájdená v registri.',
+        'Pri partii je navyše nepovinná otázka, kto je kontaktná osoba a ako dlho spolu robia.',
       ],
       how: [
-        'Na referenciu stačí jedna otázka: „Vzali by ste ho znova?" Zaváhanie je '
-        + 'odpoveď. Nemčina nemusí byť dobrá — musí stačiť na pokyny bez prekladateľa.',
+        'Na referenciu stačí jedna otázka: „Vzali by ste ho znova?" Krok je hotový, '
+        + 'len čo je zaškrtnutá jedna vec — ostatné sú navyše.',
       ],
       why: [
-        'Do telefónu povie každý všetko. Bez tohto kroku ide na nemeckú stavbu '
-        + 'človek, ktorého prax nikto nevidel — a prvý, komu to praskne, je náš '
-        + 'odberateľ. To je celá odpoveď na otázku, načo je preverovanie.',
+        'Do telefónu sa dá povedať čokoľvek. Päť minút preverenia ušetrí zlý prvý '
+        + 'týždeň na stavbe. Nie je to skúška — rozhodnutie je na Vás.',
       ],
       links: [['candidates', 'Kandidáti'], ['trades', 'Remeslá a otázky']],
     },
     'cand.step.deal': {
       title: 'Krok 3 — Dohodnúť',
-      lead: 'Sadzba, turnus a dátum nástupu — písomne, nie po telefóne.',
+      lead: 'Sadzba, fakturácia a dátum nástupu — písomne, stačí správa.',
       what: [
-        'Tri veci: sadzba a spôsob fakturácie, turnus 3+1 s približne 50 hodinami '
-        + 'týždenne, a písomné „Súhlasím, nastupujem dňa X".',
+        'Dve veci: sadzba a fakturácia za 2 týždne poslané písomne, a písomné '
+        + '„Súhlasím, nastupujem dňa X".',
       ],
       how: [
         'Stačí správa vo WhatsApp — dôležitý je dátum a číslo, nie forma. Podstatné '
@@ -1430,18 +1429,18 @@
     },
     'cand.step.flags': {
       title: 'Červené vlajky',
-      lead: 'Päť vecí, pri ktorých sa treba zastaviť, aj keď inak všetko sedí.',
+      lead: 'Štyri veci, pri ktorých sa oplatí spozornieť, aj keď inak všetko sedí.',
       what: [
-        'Záloha alebo cesta vopred, žiadna fotka a žiadna referencia, vyhýbanie sa '
-        + 'videohovoru, menené odpovede o živnosti, „kedy budú peniaze" ako prvá otázka.',
+        'Záloha alebo cesta vopred, žiadna fotka a žiadna referencia, menené odpovede '
+        + 'o živnosti, „kedy budú peniaze" ako prvá otázka.',
       ],
       how: [
         'Zaškrtnutie nie je pokrok — je to varovanie, a preto sa do postupu náboru '
-        + 'nepočíta. Pri dvoch a viac appka postup zastaví a pýta sa na rozhodnutie.',
+        + 'nepočíta. Nábor nezastaví; pri troch a viac ich appka len pripomenie navrchu.',
       ],
       why: [
-        'Jedna vlajka sa dá prejsť. Dve znamenajú, že riziko je vyššie než prínos — '
-        + 'a človek, ktorý mení odpovede o živnosti, ich zmení aj na stavbe.',
+        'Varovanie je informácia, nie zákaz. Rozhodnutie, či s človekom pokračovať, '
+        + 'je vždy na Vás.',
       ],
       links: [['candidates', 'Kandidáti']],
     },
